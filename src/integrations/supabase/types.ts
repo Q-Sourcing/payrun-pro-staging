@@ -14,7 +14,247 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      benefits: {
+        Row: {
+          applicable_countries: string[] | null
+          benefit_type: Database["public"]["Enums"]["benefit_type"]
+          cost: number
+          cost_type: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          applicable_countries?: string[] | null
+          benefit_type?: Database["public"]["Enums"]["benefit_type"]
+          cost: number
+          cost_type?: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          applicable_countries?: string[] | null
+          benefit_type?: Database["public"]["Enums"]["benefit_type"]
+          cost?: number
+          cost_type?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      employees: {
+        Row: {
+          country: string
+          created_at: string
+          email: string
+          id: string
+          name: string
+          pay_group_id: string | null
+          pay_rate: number
+          pay_type: Database["public"]["Enums"]["pay_type"]
+          phone: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          country: string
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          pay_group_id?: string | null
+          pay_rate: number
+          pay_type?: Database["public"]["Enums"]["pay_type"]
+          phone?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          pay_group_id?: string | null
+          pay_rate?: number
+          pay_type?: Database["public"]["Enums"]["pay_type"]
+          phone?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employees_pay_group_id_fkey"
+            columns: ["pay_group_id"]
+            isOneToOne: false
+            referencedRelation: "pay_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pay_groups: {
+        Row: {
+          country: string
+          created_at: string
+          default_tax_percentage: number
+          description: string | null
+          id: string
+          name: string
+          pay_frequency: Database["public"]["Enums"]["pay_frequency"]
+          updated_at: string
+        }
+        Insert: {
+          country: string
+          created_at?: string
+          default_tax_percentage?: number
+          description?: string | null
+          id?: string
+          name: string
+          pay_frequency?: Database["public"]["Enums"]["pay_frequency"]
+          updated_at?: string
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          default_tax_percentage?: number
+          description?: string | null
+          id?: string
+          name?: string
+          pay_frequency?: Database["public"]["Enums"]["pay_frequency"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      pay_items: {
+        Row: {
+          benefit_deductions: number
+          created_at: string
+          employee_id: string
+          gross_pay: number
+          hours_worked: number | null
+          id: string
+          net_pay: number
+          notes: string | null
+          pay_run_id: string
+          pieces_completed: number | null
+          tax_deduction: number
+          total_deductions: number
+          updated_at: string
+        }
+        Insert: {
+          benefit_deductions?: number
+          created_at?: string
+          employee_id: string
+          gross_pay?: number
+          hours_worked?: number | null
+          id?: string
+          net_pay?: number
+          notes?: string | null
+          pay_run_id: string
+          pieces_completed?: number | null
+          tax_deduction?: number
+          total_deductions?: number
+          updated_at?: string
+        }
+        Update: {
+          benefit_deductions?: number
+          created_at?: string
+          employee_id?: string
+          gross_pay?: number
+          hours_worked?: number | null
+          id?: string
+          net_pay?: number
+          notes?: string | null
+          pay_run_id?: string
+          pieces_completed?: number | null
+          tax_deduction?: number
+          total_deductions?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pay_items_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pay_items_pay_run_id_fkey"
+            columns: ["pay_run_id"]
+            isOneToOne: false
+            referencedRelation: "pay_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pay_runs: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          pay_group_id: string
+          pay_period_end: string
+          pay_period_start: string
+          pay_run_date: string
+          status: Database["public"]["Enums"]["pay_run_status"]
+          total_deductions: number | null
+          total_gross_pay: number | null
+          total_net_pay: number | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          pay_group_id: string
+          pay_period_end: string
+          pay_period_start: string
+          pay_run_date?: string
+          status?: Database["public"]["Enums"]["pay_run_status"]
+          total_deductions?: number | null
+          total_gross_pay?: number | null
+          total_net_pay?: number | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          pay_group_id?: string
+          pay_period_end?: string
+          pay_period_start?: string
+          pay_run_date?: string
+          status?: Database["public"]["Enums"]["pay_run_status"]
+          total_deductions?: number | null
+          total_gross_pay?: number | null
+          total_net_pay?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pay_runs_pay_group_id_fkey"
+            columns: ["pay_group_id"]
+            isOneToOne: false
+            referencedRelation: "pay_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +263,15 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      benefit_type:
+        | "health_insurance"
+        | "retirement"
+        | "dental"
+        | "vision"
+        | "other"
+      pay_frequency: "weekly" | "bi_weekly" | "monthly" | "custom"
+      pay_run_status: "draft" | "pending_approval" | "approved" | "processed"
+      pay_type: "hourly" | "salary" | "piece_rate"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +398,17 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      benefit_type: [
+        "health_insurance",
+        "retirement",
+        "dental",
+        "vision",
+        "other",
+      ],
+      pay_frequency: ["weekly", "bi_weekly", "monthly", "custom"],
+      pay_run_status: ["draft", "pending_approval", "approved", "processed"],
+      pay_type: ["hourly", "salary", "piece_rate"],
+    },
   },
 } as const
