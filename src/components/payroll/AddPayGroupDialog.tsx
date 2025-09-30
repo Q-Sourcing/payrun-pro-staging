@@ -7,6 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { ALL_COUNTRIES, getCountryByName } from "@/lib/constants/countries";
+import { getCountryDeductions } from "@/lib/constants/deductions";
 
 interface AddPayGroupDialogProps {
   open: boolean;
@@ -25,10 +27,11 @@ const AddPayGroupDialog = ({ open, onOpenChange, onPayGroupAdded }: AddPayGroupD
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const countries = [
-    "United States", "United Kingdom", "Canada", "Australia", 
-    "Germany", "France", "Netherlands", "Sweden", "Other"
-  ];
+  // Get selected country details and suggested tax rate
+  const selectedCountry = formData.country ? getCountryByName(formData.country) : null;
+  const countryDeductions = selectedCountry ? getCountryDeductions(selectedCountry.code) : [];
+  const suggestedTaxRate = countryDeductions.find(d => d.name === "PAYE")?.percentage || 
+                          (countryDeductions.find(d => d.name === "PAYE")?.brackets?.[1]?.rate || 0);
 
   const frequencies = [
     { value: "weekly", label: "Weekly" },
@@ -125,19 +128,48 @@ const AddPayGroupDialog = ({ open, onOpenChange, onPayGroupAdded }: AddPayGroupD
               <Label htmlFor="country">Country *</Label>
               <Select
                 value={formData.country}
-                onValueChange={(value) => setFormData({ ...formData, country: value })}
+                onValueChange={(value) => {
+                  const country = getCountryByName(value);
+                  const deductions = country ? getCountryDeductions(country.code) : [];
+                  const payeTax = deductions.find(d => d.name === "PAYE");
+                  const suggestedRate = payeTax?.percentage || (payeTax?.brackets?.[1]?.rate || 0);
+                  
+                  setFormData({ 
+                    ...formData, 
+                    country: value,
+                    default_tax_percentage: suggestedRate ? suggestedRate.toString() : ""
+                  });
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select country" />
                 </SelectTrigger>
                 <SelectContent>
-                  {countries.map((country) => (
-                    <SelectItem key={country} value={country}>
-                      {country}
+                  <div className="px-2 py-1 text-xs font-medium text-muted-foreground">East African Countries</div>
+                  {ALL_COUNTRIES.filter(c => c.isEastAfrican).map((country) => (
+                    <SelectItem key={country.code} value={country.name}>
+                      <div className="flex items-center justify-between w-full">
+                        <span>{country.name}</span>
+                        <span className="text-xs text-muted-foreground ml-2">{country.currencySymbol}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                  <div className="px-2 py-1 text-xs font-medium text-muted-foreground border-t mt-1 pt-2">Other Countries</div>
+                  {ALL_COUNTRIES.filter(c => !c.isEastAfrican).map((country) => (
+                    <SelectItem key={country.code} value={country.name}>
+                      <div className="flex items-center justify-between w-full">
+                        <span>{country.name}</span>
+                        <span className="text-xs text-muted-foreground ml-2">{country.currencySymbol}</span>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {selectedCountry && countryDeductions.length > 0 && (
+                <div className="text-xs text-muted-foreground">
+                  Available deductions: {countryDeductions.map(d => d.name).join(", ")}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -161,7 +193,14 @@ const AddPayGroupDialog = ({ open, onOpenChange, onPayGroupAdded }: AddPayGroupD
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="tax_rate">Default Tax Percentage *</Label>
+            <Label htmlFor="tax_rate">
+              Default Tax Percentage *
+              {suggestedTaxRate > 0 && (
+                <span className="text-sm text-muted-foreground ml-1">
+                  (Suggested: {suggestedTaxRate}% based on {selectedCountry?.name} PAYE)
+                </span>
+              )}
+            </Label>
             <Input
               id="tax_rate"
               type="number"
@@ -170,9 +209,20 @@ const AddPayGroupDialog = ({ open, onOpenChange, onPayGroupAdded }: AddPayGroupD
               max="100"
               value={formData.default_tax_percentage}
               onChange={(e) => setFormData({ ...formData, default_tax_percentage: e.target.value })}
-              placeholder="e.g., 20.00"
+              placeholder={suggestedTaxRate > 0 ? `e.g., ${suggestedTaxRate}.00` : "e.g., 20.00"}
               required
             />
+            {suggestedTaxRate > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFormData({ ...formData, default_tax_percentage: suggestedTaxRate.toString() })}
+                className="text-xs"
+              >
+                Use suggested rate ({suggestedTaxRate}%)
+              </Button>
+            )}
           </div>
 
           <div className="space-y-2">

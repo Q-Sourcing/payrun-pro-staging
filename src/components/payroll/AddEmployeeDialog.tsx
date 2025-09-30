@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { ALL_COUNTRIES, PIECE_RATE_TYPES, getCountryByName, formatCurrency } from "@/lib/constants/countries";
 
 interface PayGroup {
   id: string;
@@ -29,15 +30,14 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
     country: "",
     pay_group_id: "",
     status: "active",
+    piece_type: "units", // For piece-rate employees
   });
   const [payGroups, setPayGroups] = useState<PayGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const countries = [
-    "United States", "United Kingdom", "Canada", "Australia", 
-    "Germany", "France", "Netherlands", "Sweden", "Other"
-  ];
+  // Get selected country details for currency display
+  const selectedCountry = formData.country ? getCountryByName(formData.country) : null;
 
   useEffect(() => {
     if (open) {
@@ -101,6 +101,7 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
         country: "",
         pay_group_id: "",
         status: "active",
+        piece_type: "units",
       });
       onEmployeeAdded();
       onOpenChange(false);
@@ -189,12 +190,17 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
                 Pay Rate * 
                 {formData.pay_type === "hourly" && " (per hour)"}
                 {formData.pay_type === "salary" && " (yearly)"}
-                {formData.pay_type === "piece_rate" && " (per piece)"}
+                {formData.pay_type === "piece_rate" && ` (per ${formData.piece_type})`}
+                {selectedCountry && (
+                  <span className="text-sm text-muted-foreground ml-1">
+                    ({selectedCountry.currencySymbol})
+                  </span>
+                )}
               </Label>
               <Input
                 id="pay_rate"
                 type="number"
-                step="0.01"
+                step={selectedCountry?.currency === "UGX" || selectedCountry?.currency === "TZS" || selectedCountry?.currency === "RWF" ? "1" : "0.01"}
                 value={formData.pay_rate}
                 onChange={(e) => setFormData({ ...formData, pay_rate: e.target.value })}
                 placeholder="0.00"
@@ -213,14 +219,48 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
                 <SelectValue placeholder="Select country" />
               </SelectTrigger>
               <SelectContent>
-                {countries.map((country) => (
-                  <SelectItem key={country} value={country}>
-                    {country}
+                <div className="px-2 py-1 text-xs font-medium text-muted-foreground">East African Countries</div>
+                {ALL_COUNTRIES.filter(c => c.isEastAfrican).map((country) => (
+                  <SelectItem key={country.code} value={country.name}>
+                    <div className="flex items-center justify-between w-full">
+                      <span>{country.name}</span>
+                      <span className="text-xs text-muted-foreground ml-2">{country.currencySymbol}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+                <div className="px-2 py-1 text-xs font-medium text-muted-foreground border-t mt-1 pt-2">Other Countries</div>
+                {ALL_COUNTRIES.filter(c => !c.isEastAfrican).map((country) => (
+                  <SelectItem key={country.code} value={country.name}>
+                    <div className="flex items-center justify-between w-full">
+                      <span>{country.name}</span>
+                      <span className="text-xs text-muted-foreground ml-2">{country.currencySymbol}</span>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
+          {formData.pay_type === "piece_rate" && (
+            <div className="space-y-2">
+              <Label htmlFor="piece_type">Piece Type *</Label>
+              <Select
+                value={formData.piece_type}
+                onValueChange={(value) => setFormData({ ...formData, piece_type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PIECE_RATE_TYPES.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {formData.country && (
             <div className="space-y-2">
