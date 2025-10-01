@@ -259,13 +259,15 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
               <Label htmlFor="pay_group">Pay Group</Label>
               <Select
                 value={formData.pay_group_id}
-                onValueChange={(value) => setFormData({ ...formData, pay_group_id: value })}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, pay_group_id: value === "__none__" ? "" : value })
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select pay group (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No pay group</SelectItem>
+                  <SelectItem value="__none__">No pay group</SelectItem>
                   {filteredPayGroups.map((group) => (
                     <SelectItem key={group.id} value={group.id}>
                       {group.name}
