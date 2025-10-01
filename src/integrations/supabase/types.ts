@@ -51,9 +51,12 @@ export type Database = {
         Row: {
           country: string
           created_at: string
+          currency: string | null
           email: string
+          first_name: string
           id: string
-          name: string
+          last_name: string | null
+          middle_name: string | null
           pay_group_id: string | null
           pay_rate: number
           pay_type: Database["public"]["Enums"]["pay_type"]
@@ -65,9 +68,12 @@ export type Database = {
         Insert: {
           country: string
           created_at?: string
+          currency?: string | null
           email: string
+          first_name: string
           id?: string
-          name: string
+          last_name?: string | null
+          middle_name?: string | null
           pay_group_id?: string | null
           pay_rate: number
           pay_type?: Database["public"]["Enums"]["pay_type"]
@@ -79,9 +85,12 @@ export type Database = {
         Update: {
           country?: string
           created_at?: string
+          currency?: string | null
           email?: string
+          first_name?: string
           id?: string
-          name?: string
+          last_name?: string | null
+          middle_name?: string | null
           pay_group_id?: string | null
           pay_rate?: number
           pay_type?: Database["public"]["Enums"]["pay_type"]

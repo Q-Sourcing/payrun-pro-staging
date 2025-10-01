@@ -3,21 +3,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Filter } from "lucide-react";
+import { Plus, Search, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getCurrencyByCode } from "@/lib/constants/countries";
 import AddEmployeeDialog from "./AddEmployeeDialog";
+import EditEmployeeDialog from "./EditEmployeeDialog";
 
 interface Employee {
   id: string;
-  name: string;
+  first_name: string;
+  middle_name?: string | null;
+  last_name?: string | null;
   email: string;
-  phone?: string;
+  phone?: string | null;
   pay_type: string;
   pay_rate: number;
   country: string;
+  currency: string;
   status: string;
   pay_groups?: { name: string };
 }
@@ -29,6 +34,8 @@ const EmployeesTab = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [payTypeFilter, setPayTypeFilter] = useState("all");
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const { toast } = useToast();
 
   const fetchEmployees = async () => {
@@ -41,7 +48,7 @@ const EmployeesTab = () => {
             name
           )
         `)
-        .order("name");
+        .order("first_name");
 
       if (error) throw error;
       setEmployees(data || []);
@@ -61,8 +68,14 @@ const EmployeesTab = () => {
     fetchEmployees();
   }, []);
 
+  const getFullName = (employee: Employee) => {
+    const parts = [employee.first_name, employee.middle_name, employee.last_name].filter(Boolean);
+    return parts.join(" ");
+  };
+
   const filteredEmployees = employees.filter((employee) => {
-    const matchesSearch = employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const fullName = getFullName(employee);
+    const matchesSearch = fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          employee.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || employee.status === statusFilter;
     const matchesPayType = payTypeFilter === "all" || employee.pay_type === payTypeFilter;
@@ -79,17 +92,25 @@ const EmployeesTab = () => {
     }
   };
 
-  const formatPayRate = (rate: number, payType: string) => {
+  const formatPayRate = (rate: number, payType: string, currencyCode: string) => {
+    const currency = getCurrencyByCode(currencyCode);
+    const symbol = currency?.symbol || "$";
+    
     switch (payType) {
       case "hourly":
-        return `$${rate}/hr`;
+        return `${symbol}${rate}/hr`;
       case "salary":
-        return `$${rate.toLocaleString()}/yr`;
+        return `${symbol}${rate.toLocaleString()}/yr`;
       case "piece_rate":
-        return `$${rate}/piece`;
+        return `${symbol}${rate}/piece`;
       default:
-        return `$${rate}`;
+        return `${symbol}${rate}`;
     }
+  };
+
+  const handleEditEmployee = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setShowEditDialog(true);
   };
 
   if (loading) {
@@ -169,23 +190,35 @@ const EmployeesTab = () => {
                   <TableHead>Pay Type</TableHead>
                   <TableHead>Pay Rate</TableHead>
                   <TableHead>Country</TableHead>
+                  <TableHead>Currency</TableHead>
                   <TableHead>Pay Group</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredEmployees.map((employee) => (
                   <TableRow key={employee.id}>
-                    <TableCell className="font-medium">{employee.name}</TableCell>
+                    <TableCell className="font-medium">{getFullName(employee)}</TableCell>
                     <TableCell>{employee.email}</TableCell>
                     <TableCell>{formatPayType(employee.pay_type)}</TableCell>
-                    <TableCell>{formatPayRate(employee.pay_rate, employee.pay_type)}</TableCell>
+                    <TableCell>{formatPayRate(employee.pay_rate, employee.pay_type, employee.currency)}</TableCell>
                     <TableCell>{employee.country}</TableCell>
+                    <TableCell>{employee.currency}</TableCell>
                     <TableCell>{employee.pay_groups?.name || "Unassigned"}</TableCell>
                     <TableCell>
                       <Badge variant={employee.status === "active" ? "default" : "secondary"}>
                         {employee.status}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditEmployee(employee)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -199,6 +232,13 @@ const EmployeesTab = () => {
         open={showAddDialog} 
         onOpenChange={setShowAddDialog}
         onEmployeeAdded={fetchEmployees}
+      />
+      
+      <EditEmployeeDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        onEmployeeUpdated={fetchEmployees}
+        employee={selectedEmployee}
       />
     </div>
   );

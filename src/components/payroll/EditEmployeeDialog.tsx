@@ -14,13 +14,29 @@ interface PayGroup {
   country: string;
 }
 
-interface AddEmployeeDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onEmployeeAdded: () => void;
+interface Employee {
+  id: string;
+  first_name: string;
+  middle_name?: string | null;
+  last_name?: string | null;
+  email: string;
+  phone?: string | null;
+  pay_type: string;
+  pay_rate: number;
+  country: string;
+  currency: string;
+  pay_group_id?: string | null;
+  status: string;
 }
 
-const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeDialogProps) => {
+interface EditEmployeeDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onEmployeeUpdated: () => void;
+  employee: Employee | null;
+}
+
+const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }: EditEmployeeDialogProps) => {
   const [formData, setFormData] = useState({
     first_name: "",
     middle_name: "",
@@ -42,10 +58,24 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
   const selectedCurrency = formData.currency ? getCurrencyByCode(formData.currency) : null;
 
   useEffect(() => {
-    if (open) {
+    if (open && employee) {
+      setFormData({
+        first_name: employee.first_name || "",
+        middle_name: employee.middle_name || "",
+        last_name: employee.last_name || "",
+        email: employee.email || "",
+        phone: employee.phone || "",
+        pay_type: employee.pay_type || "hourly",
+        pay_rate: employee.pay_rate?.toString() || "",
+        country: employee.country || "",
+        currency: employee.currency || "",
+        pay_group_id: employee.pay_group_id || "",
+        status: employee.status || "active",
+        piece_type: "units",
+      });
       fetchPayGroups();
     }
-  }, [open]);
+  }, [open, employee]);
 
   const fetchPayGroups = async () => {
     try {
@@ -72,10 +102,13 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
       return;
     }
 
+    if (!employee) return;
+
     setLoading(true);
     try {
-      const { error } = await supabase.from("employees").insert([
-        {
+      const { error } = await supabase
+        .from("employees")
+        .update({
           first_name: formData.first_name,
           middle_name: formData.middle_name || null,
           last_name: formData.last_name || null,
@@ -87,37 +120,23 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
           currency: formData.currency,
           pay_group_id: formData.pay_group_id || null,
           status: formData.status as "active" | "inactive",
-        },
-      ]);
+        })
+        .eq("id", employee.id);
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: "Employee added successfully",
+        description: "Employee updated successfully",
       });
 
-      setFormData({
-        first_name: "",
-        middle_name: "",
-        last_name: "",
-        email: "",
-        phone: "",
-        pay_type: "hourly",
-        pay_rate: "",
-        country: "",
-        currency: "",
-        pay_group_id: "",
-        status: "active",
-        piece_type: "units",
-      });
-      onEmployeeAdded();
+      onEmployeeUpdated();
       onOpenChange(false);
     } catch (error) {
-      console.error("Error adding employee:", error);
+      console.error("Error updating employee:", error);
       toast({
         title: "Error",
-        description: "Failed to add employee",
+        description: "Failed to update employee",
         variant: "destructive",
       });
     } finally {
@@ -129,13 +148,15 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
     !formData.country || group.country === formData.country
   );
 
+  if (!employee) return null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Add New Employee</DialogTitle>
+          <DialogTitle>Edit Employee</DialogTitle>
           <DialogDescription>
-            Enter the employee information and pay details
+            Update employee information and pay details
           </DialogDescription>
         </DialogHeader>
 
@@ -329,12 +350,28 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
             </div>
           )}
 
+          <div className="space-y-2">
+            <Label htmlFor="status">Status *</Label>
+            <Select
+              value={formData.status}
+              onValueChange={(value) => setFormData({ ...formData, status: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="flex gap-3 pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
               Cancel
             </Button>
             <Button type="submit" disabled={loading} className="flex-1">
-              {loading ? "Adding..." : "Add Employee"}
+              {loading ? "Updating..." : "Update Employee"}
             </Button>
           </div>
         </form>
@@ -343,4 +380,4 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
   );
 };
 
-export default AddEmployeeDialog;
+export default EditEmployeeDialog;
