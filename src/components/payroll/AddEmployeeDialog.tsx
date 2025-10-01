@@ -219,22 +219,14 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
                 <SelectValue placeholder="Select country" />
               </SelectTrigger>
               <SelectContent>
-                <div className="px-2 py-1 text-xs font-medium text-muted-foreground">East African Countries</div>
                 {ALL_COUNTRIES.filter(c => c.isEastAfrican).map((country) => (
                   <SelectItem key={country.code} value={country.name}>
-                    <div className="flex items-center justify-between w-full">
-                      <span>{country.name}</span>
-                      <span className="text-xs text-muted-foreground ml-2">{country.currencySymbol}</span>
-                    </div>
+                    {country.name} {country.currencySymbol}
                   </SelectItem>
                 ))}
-                <div className="px-2 py-1 text-xs font-medium text-muted-foreground border-t mt-1 pt-2">Other Countries</div>
                 {ALL_COUNTRIES.filter(c => !c.isEastAfrican).map((country) => (
                   <SelectItem key={country.code} value={country.name}>
-                    <div className="flex items-center justify-between w-full">
-                      <span>{country.name}</span>
-                      <span className="text-xs text-muted-foreground ml-2">{country.currencySymbol}</span>
-                    </div>
+                    {country.name} {country.currencySymbol}
                   </SelectItem>
                 ))}
               </SelectContent>
