@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +7,17 @@ import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Plus, Trash2 } from "lucide-react";
+import { getCountryDeductions, calculateDeduction } from "@/lib/constants/deductions";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+
+interface CustomDeduction {
+  id?: string;
+  name: string;
+  amount: number;
+}
 
 interface PayItem {
   id: string;
@@ -25,7 +36,9 @@ interface PayItem {
     email: string;
     pay_type: string;
     pay_rate: number;
+    country: string;
   };
+  customDeductions?: CustomDeduction[];
 }
 
 interface PayRunDetailsDialogProps {
@@ -34,12 +47,20 @@ interface PayRunDetailsDialogProps {
   payRunId: string | null;
   payRunDate: string;
   payPeriod: { start: string; end: string };
+  onPayRunUpdated?: () => void;
 }
 
-const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeriod }: PayRunDetailsDialogProps) => {
+interface PayGroup {
+  country: string;
+}
+
+const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeriod, onPayRunUpdated }: PayRunDetailsDialogProps) => {
   const [payItems, setPayItems] = useState<PayItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingItems, setEditingItems] = useState<Record<string, Partial<PayItem>>>({});
+  const [expandedEmployee, setExpandedEmployee] = useState<string | null>(null);
+  const [newCustomDeduction, setNewCustomDeduction] = useState<Record<string, { name: string; amount: string }>>({});
+  const [payGroupCountry, setPayGroupCountry] = useState<string>("");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -53,6 +74,17 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
     setLoading(true);
     try {
+      // Fetch pay group country
+      const { data: payRunData, error: payRunError } = await supabase
+        .from("pay_runs")
+        .select("pay_groups(country)")
+        .eq("id", payRunId)
+        .single();
+
+      if (payRunError) throw payRunError;
+      setPayGroupCountry((payRunData?.pay_groups as unknown as PayGroup)?.country || "");
+
+      // Fetch pay items
       const { data, error } = await supabase
         .from("pay_items")
         .select(`
@@ -63,14 +95,31 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
             last_name,
             email,
             pay_type,
-            pay_rate
+            pay_rate,
+            country
           )
         `)
         .eq("pay_run_id", payRunId)
         .order("employees(first_name)");
 
       if (error) throw error;
-      setPayItems(data || []);
+
+      // Fetch custom deductions for each pay item
+      const payItemsWithDeductions = await Promise.all(
+        (data || []).map(async (item) => {
+          const { data: customDeductions } = await supabase
+            .from("pay_item_custom_deductions")
+            .select("*")
+            .eq("pay_item_id", item.id);
+
+          return {
+            ...item,
+            customDeductions: customDeductions || [],
+          };
+        })
+      );
+
+      setPayItems(payItemsWithDeductions);
     } catch (error) {
       console.error("Error fetching pay items:", error);
       toast({
@@ -105,7 +154,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     }));
   };
 
-  const calculatePay = (item: PayItem, edits: Partial<PayItem>) => {
+  const calculatePay = (item: PayItem, edits: Partial<PayItem> = {}) => {
     const hoursWorked = edits.hours_worked ?? item.hours_worked ?? 0;
     const piecesCompleted = edits.pieces_completed ?? item.pieces_completed ?? 0;
     const payRate = item.employees.pay_rate;
@@ -119,17 +168,34 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       grossPay = payRate;
     }
 
-    const taxDeduction = edits.tax_deduction ?? item.tax_deduction ?? 0;
+    // Recalculate country-specific deductions (non-editable)
+    const deductionRules = getCountryDeductions(item.employees.country);
+    const calculatedTaxDeduction = deductionRules
+      .filter(rule => rule.mandatory)
+      .reduce((total, rule) => total + calculateDeduction(grossPay, rule), 0);
+
+    // Custom deductions
+    const customDeductionsTotal = (item.customDeductions || []).reduce(
+      (sum, d) => sum + d.amount,
+      0
+    );
+
     const benefitDeductions = edits.benefit_deductions ?? item.benefit_deductions ?? 0;
-    const totalDeductions = taxDeduction + benefitDeductions;
+    const totalDeductions = calculatedTaxDeduction + benefitDeductions + customDeductionsTotal;
     const netPay = grossPay - totalDeductions;
 
-    return { grossPay, totalDeductions, netPay };
+    return { 
+      grossPay, 
+      taxDeduction: calculatedTaxDeduction, 
+      totalDeductions, 
+      netPay,
+      customDeductionsTotal 
+    };
   };
 
   const handleSave = async (item: PayItem) => {
     const edits = editingItems[item.id] || {};
-    const { grossPay, totalDeductions, netPay } = calculatePay(item, edits);
+    const { grossPay, taxDeduction, totalDeductions, netPay } = calculatePay(item, edits);
 
     try {
       const { error } = await supabase
@@ -137,7 +203,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         .update({
           hours_worked: edits.hours_worked ?? item.hours_worked,
           pieces_completed: edits.pieces_completed ?? item.pieces_completed,
-          tax_deduction: edits.tax_deduction ?? item.tax_deduction,
+          tax_deduction: taxDeduction,
           benefit_deductions: edits.benefit_deductions ?? item.benefit_deductions,
           gross_pay: grossPay,
           total_deductions: totalDeductions,
@@ -146,6 +212,9 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         .eq("id", item.id);
 
       if (error) throw error;
+
+      // Recalculate pay run totals
+      await updatePayRunTotals();
 
       toast({
         title: "Success",
@@ -169,6 +238,104 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     }
   };
 
+  const updatePayRunTotals = async () => {
+    if (!payRunId) return;
+
+    const { data: allPayItems } = await supabase
+      .from("pay_items")
+      .select("gross_pay, total_deductions, net_pay")
+      .eq("pay_run_id", payRunId);
+
+    if (allPayItems) {
+      const totals = allPayItems.reduce(
+        (acc, item) => ({
+          gross: acc.gross + item.gross_pay,
+          deductions: acc.deductions + item.total_deductions,
+          net: acc.net + item.net_pay,
+        }),
+        { gross: 0, deductions: 0, net: 0 }
+      );
+
+      await supabase
+        .from("pay_runs")
+        .update({
+          total_gross_pay: totals.gross,
+          total_deductions: totals.deductions,
+          total_net_pay: totals.net,
+        })
+        .eq("id", payRunId);
+    }
+  };
+
+  const handleAddCustomDeduction = async (payItemId: string) => {
+    const deduction = newCustomDeduction[payItemId];
+    if (!deduction?.name || !deduction?.amount) {
+      toast({
+        title: "Error",
+        description: "Please enter both name and amount",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("pay_item_custom_deductions")
+        .insert({
+          pay_item_id: payItemId,
+          name: deduction.name,
+          amount: parseFloat(deduction.amount),
+        });
+
+      if (error) throw error;
+
+      setNewCustomDeduction(prev => {
+        const updated = { ...prev };
+        delete updated[payItemId];
+        return updated;
+      });
+
+      toast({
+        title: "Success",
+        description: "Custom deduction added",
+      });
+
+      fetchPayItems();
+    } catch (error) {
+      console.error("Error adding custom deduction:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add custom deduction",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteCustomDeduction = async (deductionId: string) => {
+    try {
+      const { error } = await supabase
+        .from("pay_item_custom_deductions")
+        .delete()
+        .eq("id", deductionId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Custom deduction removed",
+      });
+
+      fetchPayItems();
+    } catch (error) {
+      console.error("Error deleting custom deduction:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete custom deduction",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -183,13 +350,13 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Pay Run Details</DialogTitle>
-          <div className="text-sm text-muted-foreground">
+          <DialogDescription>
             Pay Run Date: {format(new Date(payRunDate), 'MMM dd, yyyy')} | 
             Pay Period: {format(new Date(payPeriod.start), 'MMM dd')} - {format(new Date(payPeriod.end), 'MMM dd, yyyy')}
-          </div>
+          </DialogDescription>
         </DialogHeader>
 
         {payItems.length === 0 ? (
@@ -197,103 +364,197 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
             No pay items found for this pay run
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Employee</TableHead>
-                <TableHead>Pay Type</TableHead>
-                <TableHead>Hours/Pieces</TableHead>
-                <TableHead>Gross Pay</TableHead>
-                <TableHead>Tax</TableHead>
-                <TableHead>Benefits</TableHead>
-                <TableHead>Deductions</TableHead>
-                <TableHead>Net Pay</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {payItems.map((item) => {
-                const edits = editingItems[item.id] || {};
-                const calculated = calculatePay(item, edits);
-                const isEditing = !!editingItems[item.id];
+          <div className="space-y-4">
+            {payItems.map((item) => {
+              const edits = editingItems[item.id] || {};
+              const calculated = calculatePay(item, edits);
+              const isEditing = !!editingItems[item.id];
+              const isExpanded = expandedEmployee === item.id;
+              const countryDeductions = getCountryDeductions(item.employees.country);
 
-                return (
-                  <TableRow key={item.id}>
-                    <TableCell>
+              return (
+                <Card key={item.id}>
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
                       <div>
-                        <div className="font-medium">{getFullName(item.employees)}</div>
-                        <div className="text-sm text-muted-foreground">{item.employees.email}</div>
+                        <CardTitle className="text-lg">{getFullName(item.employees)}</CardTitle>
+                        <CardDescription>{item.employees.email}</CardDescription>
                       </div>
-                    </TableCell>
-                    <TableCell>
                       <Badge variant="outline">
                         {item.employees.pay_type === 'hourly' ? 'Hourly' : 
                          item.employees.pay_type === 'piece_rate' ? 'Piece Rate' : 'Salary'}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {item.employees.pay_type === 'hourly' ? (
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {item.employees.pay_type === 'hourly' && (
+                        <div>
+                          <Label>Hours Worked</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={edits.hours_worked ?? item.hours_worked ?? 0}
+                            onChange={(e) => handleFieldChange(item.id, 'hours_worked', parseFloat(e.target.value) || 0)}
+                          />
+                        </div>
+                      )}
+                      {item.employees.pay_type === 'piece_rate' && (
+                        <div>
+                          <Label>Pieces Completed</Label>
+                          <Input
+                            type="number"
+                            value={edits.pieces_completed ?? item.pieces_completed ?? 0}
+                            onChange={(e) => handleFieldChange(item.id, 'pieces_completed', parseInt(e.target.value) || 0)}
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <Label>Gross Pay</Label>
+                        <div className="text-xl font-bold">{formatCurrency(calculated.grossPay)}</div>
+                      </div>
+                      <div>
+                        <Label>Benefits Deduction</Label>
                         <Input
                           type="number"
                           step="0.01"
-                          className="w-20"
-                          value={edits.hours_worked ?? item.hours_worked ?? 0}
-                          onChange={(e) => handleFieldChange(item.id, 'hours_worked', parseFloat(e.target.value) || 0)}
+                          value={edits.benefit_deductions ?? item.benefit_deductions ?? 0}
+                          onChange={(e) => handleFieldChange(item.id, 'benefit_deductions', parseFloat(e.target.value) || 0)}
                         />
-                      ) : item.employees.pay_type === 'piece_rate' ? (
-                        <Input
-                          type="number"
-                          className="w-20"
-                          value={edits.pieces_completed ?? item.pieces_completed ?? 0}
-                          onChange={(e) => handleFieldChange(item.id, 'pieces_completed', parseInt(e.target.value) || 0)}
-                        />
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {formatCurrency(calculated.grossPay)}
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        className="w-24"
-                        value={edits.tax_deduction ?? item.tax_deduction ?? 0}
-                        onChange={(e) => handleFieldChange(item.id, 'tax_deduction', parseFloat(e.target.value) || 0)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        className="w-24"
-                        value={edits.benefit_deductions ?? item.benefit_deductions ?? 0}
-                        onChange={(e) => handleFieldChange(item.id, 'benefit_deductions', parseFloat(e.target.value) || 0)}
-                      />
-                    </TableCell>
-                    <TableCell>{formatCurrency(calculated.totalDeductions)}</TableCell>
-                    <TableCell className="font-bold">{formatCurrency(calculated.netPay)}</TableCell>
-                    <TableCell>
+                      </div>
+                      <div>
+                        <Label>Net Pay</Label>
+                        <div className="text-xl font-bold text-primary">{formatCurrency(calculated.netPay)}</div>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setExpandedEmployee(isExpanded ? null : item.id)}
+                      >
+                        {isExpanded ? 'Hide' : 'Show'} Deductions Breakdown
+                      </Button>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="space-y-4 bg-muted/50 p-4 rounded-lg">
+                        <div>
+                          <h4 className="font-semibold mb-2">Country-Specific Deductions (Auto-calculated)</h4>
+                          <div className="space-y-2">
+                            {countryDeductions
+                              .filter(rule => rule.mandatory)
+                              .map((rule, idx) => {
+                                const amount = calculateDeduction(calculated.grossPay, rule);
+                                return (
+                                  <div key={idx} className="flex justify-between text-sm">
+                                    <span>{rule.name}</span>
+                                    <span className="font-medium">{formatCurrency(amount)}</span>
+                                  </div>
+                                );
+                              })}
+                            <div className="flex justify-between font-semibold pt-2 border-t">
+                              <span>Total Tax Deductions</span>
+                              <span>{formatCurrency(calculated.taxDeduction)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <Separator />
+
+                        <div>
+                          <div className="flex justify-between items-center mb-2">
+                            <h4 className="font-semibold">Custom Deductions</h4>
+                          </div>
+                          {item.customDeductions && item.customDeductions.length > 0 && (
+                            <div className="space-y-2 mb-3">
+                              {item.customDeductions.map((deduction) => (
+                                <div key={deduction.id} className="flex justify-between items-center text-sm bg-background p-2 rounded">
+                                  <span>{deduction.name}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">{formatCurrency(deduction.amount)}</span>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDeleteCustomDeduction(deduction.id!)}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Deduction name"
+                              value={newCustomDeduction[item.id]?.name || ""}
+                              onChange={(e) =>
+                                setNewCustomDeduction((prev) => ({
+                                  ...prev,
+                                  [item.id]: { ...prev[item.id], name: e.target.value },
+                                }))
+                              }
+                            />
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="Amount"
+                              className="w-32"
+                              value={newCustomDeduction[item.id]?.amount || ""}
+                              onChange={(e) =>
+                                setNewCustomDeduction((prev) => ({
+                                  ...prev,
+                                  [item.id]: { ...prev[item.id], amount: e.target.value },
+                                }))
+                              }
+                            />
+                            <Button
+                              size="sm"
+                              onClick={() => handleAddCustomDeduction(item.id)}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        <Separator />
+
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span>Benefits Deduction</span>
+                            <span className="font-medium">{formatCurrency(edits.benefit_deductions ?? item.benefit_deductions ?? 0)}</span>
+                          </div>
+                          <div className="flex justify-between font-bold text-base pt-2 border-t">
+                            <span>Total Deductions</span>
+                            <span>{formatCurrency(calculated.totalDeductions)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 justify-end pt-2">
                       {isEditing ? (
-                        <Button size="sm" onClick={() => handleSave(item)}>
-                          Save
+                        <Button onClick={() => handleSave(item)}>
+                          Save Changes
                         </Button>
                       ) : (
                         <Button 
-                          size="sm" 
                           variant="outline"
                           onClick={() => setEditingItems({ [item.id]: {} })}
                         >
                           Edit
                         </Button>
                       )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         )}
       </DialogContent>
     </Dialog>

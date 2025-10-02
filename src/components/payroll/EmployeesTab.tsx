@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil } from "lucide-react";
+import { Plus, Search, Pencil, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getCurrencyByCode } from "@/lib/constants/countries";
 import AddEmployeeDialog from "./AddEmployeeDialog";
 import EditEmployeeDialog from "./EditEmployeeDialog";
+import BulkUploadEmployeesDialog from "./BulkUploadEmployeesDialog";
 
 interface Employee {
   id: string;
@@ -35,6 +36,7 @@ const EmployeesTab = () => {
   const [payTypeFilter, setPayTypeFilter] = useState("all");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showBulkUploadDialog, setShowBulkUploadDialog] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const { toast } = useToast();
 
@@ -159,10 +161,16 @@ const EmployeesTab = () => {
           </Select>
         </div>
         
-        <Button onClick={() => setShowAddDialog(true)} className="shrink-0">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Employee
-        </Button>
+        <div className="flex gap-2 shrink-0">
+          <Button onClick={() => setShowAddDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Employee
+          </Button>
+          <Button onClick={() => setShowBulkUploadDialog(true)} variant="outline">
+            <Upload className="h-4 w-4 mr-2" />
+            Bulk Upload
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -239,6 +247,12 @@ const EmployeesTab = () => {
         onOpenChange={setShowEditDialog}
         onEmployeeUpdated={fetchEmployees}
         employee={selectedEmployee}
+      />
+
+      <BulkUploadEmployeesDialog
+        open={showBulkUploadDialog}
+        onOpenChange={setShowBulkUploadDialog}
+        onEmployeesAdded={fetchEmployees}
       />
     </div>
   );

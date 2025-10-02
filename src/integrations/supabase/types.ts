@@ -142,6 +142,41 @@ export type Database = {
         }
         Relationships: []
       }
+      pay_item_custom_deductions: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          name: string
+          pay_item_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          name: string
+          pay_item_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          name?: string
+          pay_item_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pay_item_custom_deductions_pay_item_id_fkey"
+            columns: ["pay_item_id"]
+            isOneToOne: false
+            referencedRelation: "pay_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pay_items: {
         Row: {
           benefit_deductions: number

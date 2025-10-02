@@ -2,13 +2,23 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Calendar, DollarSign } from "lucide-react";
+import { Plus, Calendar, DollarSign, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import CreatePayRunDialog from "./CreatePayRunDialog";
 import PayRunDetailsDialog from "./PayRunDetailsDialog";
 import { format } from "date-fns";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface PayRun {
   id: string;
@@ -32,6 +42,8 @@ const PayRunsTab = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [selectedPayRun, setSelectedPayRun] = useState<PayRun | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [payRunToDelete, setPayRunToDelete] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchPayRuns = async () => {
@@ -105,6 +117,36 @@ const PayRunsTab = () => {
 
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), 'MMM dd, yyyy');
+  };
+
+  const handleDeletePayRun = async () => {
+    if (!payRunToDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from("pay_runs")
+        .delete()
+        .eq("id", payRunToDelete);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Pay run deleted successfully",
+      });
+
+      fetchPayRuns();
+    } catch (error) {
+      console.error("Error deleting pay run:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete pay run",
+        variant: "destructive",
+      });
+    } finally {
+      setShowDeleteDialog(false);
+      setPayRunToDelete(null);
+    }
   };
 
   if (loading) {
@@ -246,16 +288,28 @@ const PayRunsTab = () => {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          setSelectedPayRun(payRun);
-                          setShowDetailsDialog(true);
-                        }}
-                      >
-                        View Details
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setSelectedPayRun(payRun);
+                            setShowDetailsDialog(true);
+                          }}
+                        >
+                          View Details
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setPayRunToDelete(payRun.id);
+                            setShowDeleteDialog(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -281,8 +335,26 @@ const PayRunsTab = () => {
             start: selectedPayRun.pay_period_start,
             end: selectedPayRun.pay_period_end
           }}
+          onPayRunUpdated={fetchPayRuns}
         />
       )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Pay Run</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this pay run? This action cannot be undone and will also delete all associated pay items.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeletePayRun} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

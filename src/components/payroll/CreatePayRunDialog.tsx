@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { getCountryDeductions, calculateDeduction } from "@/lib/constants/deductions";
 
 interface PayGroup {
   id: string;
@@ -101,7 +102,7 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
       // Get employees in this pay group
       const { data: employees, error: employeesError } = await supabase
         .from("employees")
-        .select("id, pay_rate, pay_type")
+        .select("id, pay_rate, pay_type, country")
         .eq("pay_group_id", formData.pay_group_id)
         .eq("status", "active");
 
@@ -115,6 +116,10 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
         });
         return;
       }
+
+      // Get the selected pay group's country
+      const selectedPayGroup = payGroups.find(g => g.id === formData.pay_group_id);
+      const payGroupCountry = selectedPayGroup?.country || "";
 
       // Create the pay run
       const { data: payRunData, error: payRunError } = await supabase
@@ -136,24 +141,59 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
 
       if (payRunError) throw payRunError;
 
-      // Create pay items for each employee
-      const payItems = employees.map(employee => ({
-        pay_run_id: payRunData.id,
-        employee_id: employee.id,
-        gross_pay: 0,
-        tax_deduction: 0,
-        benefit_deductions: 0,
-        total_deductions: 0,
-        net_pay: 0,
-        hours_worked: employee.pay_type === 'hourly' ? 0 : null,
-        pieces_completed: employee.pay_type === 'piece_rate' ? 0 : null,
-      }));
+      // Create pay items for each employee with calculated deductions
+      const payItems = employees.map(employee => {
+        // Calculate gross pay based on pay type (defaults for salary)
+        const grossPay = employee.pay_type === 'salary' ? employee.pay_rate : 0;
+        
+        // Get country-specific deductions
+        const deductionRules = getCountryDeductions(payGroupCountry);
+        
+        // Calculate total tax deductions (mandatory deductions only)
+        const taxDeduction = deductionRules
+          .filter(rule => rule.mandatory)
+          .reduce((total, rule) => total + calculateDeduction(grossPay, rule), 0);
+        
+        const totalDeductions = taxDeduction;
+        const netPay = grossPay - totalDeductions;
+
+        return {
+          pay_run_id: payRunData.id,
+          employee_id: employee.id,
+          gross_pay: grossPay,
+          tax_deduction: taxDeduction,
+          benefit_deductions: 0,
+          total_deductions: totalDeductions,
+          net_pay: netPay,
+          hours_worked: employee.pay_type === 'hourly' ? 0 : null,
+          pieces_completed: employee.pay_type === 'piece_rate' ? 0 : null,
+        };
+      });
 
       const { error: payItemsError } = await supabase
         .from("pay_items")
         .insert(payItems);
 
       if (payItemsError) throw payItemsError;
+
+      // Update pay run totals
+      const totals = payItems.reduce(
+        (acc, item) => ({
+          gross: acc.gross + item.gross_pay,
+          deductions: acc.deductions + item.total_deductions,
+          net: acc.net + item.net_pay,
+        }),
+        { gross: 0, deductions: 0, net: 0 }
+      );
+
+      await supabase
+        .from("pay_runs")
+        .update({
+          total_gross_pay: totals.gross,
+          total_deductions: totals.deductions,
+          total_net_pay: totals.net,
+        })
+        .eq("id", payRunData.id);
 
       toast({
         title: "Success",
