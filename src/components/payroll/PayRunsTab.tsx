@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import CreatePayRunDialog from "./CreatePayRunDialog";
+import PayRunDetailsDialog from "./PayRunDetailsDialog";
 import { format } from "date-fns";
 
 interface PayRun {
@@ -29,6 +30,8 @@ const PayRunsTab = () => {
   const [payRuns, setPayRuns] = useState<PayRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [selectedPayRun, setSelectedPayRun] = useState<PayRun | null>(null);
   const { toast } = useToast();
 
   const fetchPayRuns = async () => {
@@ -243,7 +246,14 @@ const PayRunsTab = () => {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setSelectedPayRun(payRun);
+                          setShowDetailsDialog(true);
+                        }}
+                      >
                         View Details
                       </Button>
                     </TableCell>
@@ -260,6 +270,19 @@ const PayRunsTab = () => {
         onOpenChange={setShowCreateDialog}
         onPayRunCreated={fetchPayRuns}
       />
+
+      {selectedPayRun && (
+        <PayRunDetailsDialog
+          open={showDetailsDialog}
+          onOpenChange={setShowDetailsDialog}
+          payRunId={selectedPayRun.id}
+          payRunDate={selectedPayRun.pay_run_date}
+          payPeriod={{
+            start: selectedPayRun.pay_period_start,
+            end: selectedPayRun.pay_period_end
+          }}
+        />
+      )}
     </div>
   );
 };

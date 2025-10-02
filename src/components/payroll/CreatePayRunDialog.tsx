@@ -98,20 +98,62 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
         return;
       }
 
-      const { error } = await supabase.from("pay_runs").insert([
-        {
-          pay_group_id: formData.pay_group_id,
-          pay_run_date: formData.pay_run_date.toISOString().split('T')[0],
-          pay_period_start: formData.pay_period_start.toISOString().split('T')[0],
-          pay_period_end: formData.pay_period_end.toISOString().split('T')[0],
-          status: "draft",
-          total_gross_pay: 0,
-          total_deductions: 0,
-          total_net_pay: 0,
-        },
-      ]);
+      // Get employees in this pay group
+      const { data: employees, error: employeesError } = await supabase
+        .from("employees")
+        .select("id, pay_rate, pay_type")
+        .eq("pay_group_id", formData.pay_group_id)
+        .eq("status", "active");
 
-      if (error) throw error;
+      if (employeesError) throw employeesError;
+
+      if (!employees || employees.length === 0) {
+        toast({
+          title: "Warning",
+          description: "No active employees found in this pay group",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create the pay run
+      const { data: payRunData, error: payRunError } = await supabase
+        .from("pay_runs")
+        .insert([
+          {
+            pay_group_id: formData.pay_group_id,
+            pay_run_date: formData.pay_run_date.toISOString().split('T')[0],
+            pay_period_start: formData.pay_period_start.toISOString().split('T')[0],
+            pay_period_end: formData.pay_period_end.toISOString().split('T')[0],
+            status: "draft",
+            total_gross_pay: 0,
+            total_deductions: 0,
+            total_net_pay: 0,
+          },
+        ])
+        .select()
+        .single();
+
+      if (payRunError) throw payRunError;
+
+      // Create pay items for each employee
+      const payItems = employees.map(employee => ({
+        pay_run_id: payRunData.id,
+        employee_id: employee.id,
+        gross_pay: 0,
+        tax_deduction: 0,
+        benefit_deductions: 0,
+        total_deductions: 0,
+        net_pay: 0,
+        hours_worked: employee.pay_type === 'hourly' ? 0 : null,
+        pieces_completed: employee.pay_type === 'piece_rate' ? 0 : null,
+      }));
+
+      const { error: payItemsError } = await supabase
+        .from("pay_items")
+        .insert(payItems);
+
+      if (payItemsError) throw payItemsError;
 
       toast({
         title: "Success",
