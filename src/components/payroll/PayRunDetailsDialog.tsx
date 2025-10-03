@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,16 +8,22 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUpDown, Filter, Download } from "lucide-react";
 import { getCountryDeductions, calculateDeduction } from "@/lib/constants/deductions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface CustomDeduction {
   id?: string;
   name: string;
   amount: number;
+  type?: string;
 }
+
+type SortField = 'name' | 'pay_type' | 'gross_pay' | 'total_deductions' | 'net_pay' | 'status';
+type SortDirection = 'asc' | 'desc';
 
 interface PayItem {
   id: string;
@@ -29,6 +35,8 @@ interface PayItem {
   net_pay: number;
   hours_worked: number | null;
   pieces_completed: number | null;
+  status: string;
+  employer_contributions: number;
   employees: {
     first_name: string;
     middle_name: string | null;
@@ -59,8 +67,14 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
   const [loading, setLoading] = useState(false);
   const [editingItems, setEditingItems] = useState<Record<string, Partial<PayItem>>>({});
   const [expandedEmployee, setExpandedEmployee] = useState<string | null>(null);
-  const [newCustomDeduction, setNewCustomDeduction] = useState<Record<string, { name: string; amount: string }>>({});
+  const [newCustomDeduction, setNewCustomDeduction] = useState<Record<string, { name: string; amount: string; type: string }>>({});
   const [payGroupCountry, setPayGroupCountry] = useState<string>("");
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterPayType, setFilterPayType] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   useEffect(() => {
@@ -174,23 +188,171 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       .filter(rule => rule.mandatory)
       .reduce((total, rule) => total + calculateDeduction(grossPay, rule), 0);
 
-    // Custom deductions
-    const customDeductionsTotal = (item.customDeductions || []).reduce(
-      (sum, d) => sum + d.amount,
-      0
-    );
+    // Calculate employer contributions (like NSSF employer portion)
+    const employerContributions = deductionRules
+      .filter(rule => rule.employerContribution)
+      .reduce((total, rule) => total + (grossPay * ((rule.employerContribution || 0) / 100)), 0);
+
+    // Custom deductions and benefits
+    const customDeductionsTotal = (item.customDeductions || [])
+      .filter(d => d.type === 'deduction')
+      .reduce((sum, d) => sum + d.amount, 0);
+
+    const customBenefitsTotal = (item.customDeductions || [])
+      .filter(d => d.type === 'benefit' || d.type === 'allowance')
+      .reduce((sum, d) => sum + d.amount, 0);
 
     const benefitDeductions = edits.benefit_deductions ?? item.benefit_deductions ?? 0;
     const totalDeductions = calculatedTaxDeduction + benefitDeductions + customDeductionsTotal;
-    const netPay = grossPay - totalDeductions;
+    const netPay = grossPay + customBenefitsTotal - totalDeductions;
 
     return { 
       grossPay, 
       taxDeduction: calculatedTaxDeduction, 
       totalDeductions, 
       netPay,
-      customDeductionsTotal 
+      customDeductionsTotal,
+      customBenefitsTotal,
+      employerContributions
     };
+  };
+
+  // Filtered and sorted pay items
+  const filteredAndSortedItems = useMemo(() => {
+    let filtered = payItems.filter(item => {
+      const matchesSearch = searchQuery === '' || 
+        getFullName(item.employees).toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = filterStatus === 'all' || item.status === filterStatus;
+      const matchesPayType = filterPayType === 'all' || item.employees.pay_type === filterPayType;
+      
+      return matchesSearch && matchesStatus && matchesPayType;
+    });
+
+    filtered.sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortField) {
+        case 'name':
+          aValue = getFullName(a.employees);
+          bValue = getFullName(b.employees);
+          break;
+        case 'pay_type':
+          aValue = a.employees.pay_type;
+          bValue = b.employees.pay_type;
+          break;
+        case 'gross_pay':
+          aValue = calculatePay(a).grossPay;
+          bValue = calculatePay(b).grossPay;
+          break;
+        case 'total_deductions':
+          aValue = calculatePay(a).totalDeductions;
+          bValue = calculatePay(b).totalDeductions;
+          break;
+        case 'net_pay':
+          aValue = calculatePay(a).netPay;
+          bValue = calculatePay(b).netPay;
+          break;
+        case 'status':
+          aValue = a.status;
+          bValue = b.status;
+          break;
+        default:
+          return 0;
+      }
+
+      if (typeof aValue === 'string') {
+        return sortDirection === 'asc' 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+      
+      return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+    });
+
+    return filtered;
+  }, [payItems, searchQuery, filterStatus, filterPayType, sortField, sortDirection]);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedItems.size === filteredAndSortedItems.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(filteredAndSortedItems.map(item => item.id)));
+    }
+  };
+
+  const toggleSelectItem = (itemId: string) => {
+    const newSelected = new Set(selectedItems);
+    if (newSelected.has(itemId)) {
+      newSelected.delete(itemId);
+    } else {
+      newSelected.add(itemId);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  const handleBulkStatusUpdate = async (newStatus: 'draft' | 'pending' | 'approved' | 'paid') => {
+    if (selectedItems.size === 0) {
+      toast({
+        title: "No items selected",
+        description: "Please select employees to update",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("pay_items")
+        .update({ status: newStatus })
+        .in("id", Array.from(selectedItems));
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Updated ${selectedItems.size} employee(s) to ${newStatus}`,
+      });
+
+      setSelectedItems(new Set());
+      fetchPayItems();
+    } catch (error) {
+      console.error("Error updating status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'paid': return 'default';
+      case 'approved': return 'secondary';
+      case 'pending': return 'outline';
+      case 'draft': return 'outline';
+      default: return 'outline';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'paid': return 'text-green-600';
+      case 'approved': return 'text-blue-600';
+      case 'pending': return 'text-orange-600';
+      case 'draft': return 'text-gray-600';
+      default: return 'text-gray-600';
+    }
   };
 
   const handleSave = async (item: PayItem) => {
@@ -285,6 +447,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
           pay_item_id: payItemId,
           name: deduction.name,
           amount: parseFloat(deduction.amount),
+          type: deduction.type || 'deduction',
         });
 
       if (error) throw error;
@@ -297,18 +460,82 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
       toast({
         title: "Success",
-        description: "Custom deduction added",
+        description: `Custom ${deduction.type || 'deduction'} added`,
       });
 
       fetchPayItems();
+      await updatePayRunTotals();
     } catch (error) {
       console.error("Error adding custom deduction:", error);
       toast({
         title: "Error",
-        description: "Failed to add custom deduction",
+        description: "Failed to add custom item",
         variant: "destructive",
       });
     }
+  };
+
+  const handleStatusChange = async (itemId: string, newStatus: 'draft' | 'pending' | 'approved' | 'paid') => {
+    try {
+      const { error } = await supabase
+        .from("pay_items")
+        .update({ status: newStatus })
+        .eq("id", itemId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Status updated successfully",
+      });
+
+      fetchPayItems();
+    } catch (error) {
+      console.error("Error updating status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const exportToCSV = () => {
+    const headers = ['Employee Name', 'Pay Type', 'Basic Salary', 'Hours/Pieces', 'Gross Pay', 'Tax Deductions', 'Custom Benefits', 'Total Deductions', 'Net Pay', 'Status'];
+    
+    const rows = filteredAndSortedItems.map(item => {
+      const calc = calculatePay(item);
+      const hoursOrPieces = item.employees.pay_type === 'hourly' 
+        ? `${item.hours_worked || 0} hours`
+        : item.employees.pay_type === 'piece_rate'
+        ? `${item.pieces_completed || 0} pieces`
+        : '-';
+      
+      return [
+        getFullName(item.employees),
+        item.employees.pay_type,
+        item.employees.pay_rate,
+        hoursOrPieces,
+        calc.grossPay,
+        calc.taxDeduction,
+        calc.customBenefitsTotal || 0,
+        calc.totalDeductions,
+        calc.netPay,
+        item.status
+      ];
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pay-run-${format(new Date(payRunDate), 'yyyy-MM-dd')}.csv`;
+    a.click();
   };
 
   const handleDeleteCustomDeduction = async (deductionId: string) => {
@@ -348,11 +575,24 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     );
   }
 
+  // Calculate summary totals
+  const summaryTotals = useMemo(() => {
+    return filteredAndSortedItems.reduce((acc, item) => {
+      const calc = calculatePay(item);
+      return {
+        totalGross: acc.totalGross + calc.grossPay,
+        totalDeductions: acc.totalDeductions + calc.totalDeductions,
+        totalNet: acc.totalNet + calc.netPay,
+        totalEmployer: acc.totalEmployer + (calc.employerContributions || 0),
+      };
+    }, { totalGross: 0, totalDeductions: 0, totalNet: 0, totalEmployer: 0 });
+  }, [filteredAndSortedItems]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Pay Run Details</DialogTitle>
+      <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-hidden flex flex-col">
+        <DialogHeader className="flex-shrink-0">
+          <DialogTitle className="text-2xl">Pay Run Details - Comprehensive Summary</DialogTitle>
           <DialogDescription>
             Pay Run Date: {format(new Date(payRunDate), 'MMM dd, yyyy')} | 
             Pay Period: {format(new Date(payPeriod.start), 'MMM dd')} - {format(new Date(payPeriod.end), 'MMM dd, yyyy')}
@@ -364,196 +604,460 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
             No pay items found for this pay run
           </div>
         ) : (
-          <div className="space-y-4">
-            {payItems.map((item) => {
-              const edits = editingItems[item.id] || {};
-              const calculated = calculatePay(item, edits);
-              const isEditing = !!editingItems[item.id];
-              const isExpanded = expandedEmployee === item.id;
-              const countryDeductions = getCountryDeductions(item.employees.country);
+          <div className="flex-1 overflow-hidden flex flex-col gap-4">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-4 gap-4 flex-shrink-0">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardDescription>Total Employees</CardDescription>
+                  <CardTitle className="text-3xl">{filteredAndSortedItems.length}</CardTitle>
+                </CardHeader>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardDescription>Total Gross Pay</CardDescription>
+                  <CardTitle className="text-3xl text-green-600">{formatCurrency(summaryTotals.totalGross)}</CardTitle>
+                </CardHeader>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardDescription>Total Deductions</CardDescription>
+                  <CardTitle className="text-3xl text-orange-600">{formatCurrency(summaryTotals.totalDeductions)}</CardTitle>
+                </CardHeader>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardDescription>Total Net Pay</CardDescription>
+                  <CardTitle className="text-3xl text-primary">{formatCurrency(summaryTotals.totalNet)}</CardTitle>
+                </CardHeader>
+              </Card>
+            </div>
 
-              return (
-                <Card key={item.id}>
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-lg">{getFullName(item.employees)}</CardTitle>
-                        <CardDescription>{item.employees.email}</CardDescription>
-                      </div>
-                      <Badge variant="outline">
-                        {item.employees.pay_type === 'hourly' ? 'Hourly' : 
-                         item.employees.pay_type === 'piece_rate' ? 'Piece Rate' : 'Salary'}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {item.employees.pay_type === 'hourly' && (
-                        <div>
-                          <Label>Hours Worked</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={edits.hours_worked ?? item.hours_worked ?? 0}
-                            onChange={(e) => handleFieldChange(item.id, 'hours_worked', parseFloat(e.target.value) || 0)}
-                          />
-                        </div>
-                      )}
-                      {item.employees.pay_type === 'piece_rate' && (
-                        <div>
-                          <Label>Pieces Completed</Label>
-                          <Input
-                            type="number"
-                            value={edits.pieces_completed ?? item.pieces_completed ?? 0}
-                            onChange={(e) => handleFieldChange(item.id, 'pieces_completed', parseInt(e.target.value) || 0)}
-                          />
-                        </div>
-                      )}
-                      <div>
-                        <Label>Gross Pay</Label>
-                        <div className="text-xl font-bold">{formatCurrency(calculated.grossPay)}</div>
-                      </div>
-                      <div>
-                        <Label>Benefits Deduction</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={edits.benefit_deductions ?? item.benefit_deductions ?? 0}
-                          onChange={(e) => handleFieldChange(item.id, 'benefit_deductions', parseFloat(e.target.value) || 0)}
-                        />
-                      </div>
-                      <div>
-                        <Label>Net Pay</Label>
-                        <div className="text-xl font-bold text-primary">{formatCurrency(calculated.netPay)}</div>
-                      </div>
-                    </div>
+            {/* Filters and Actions */}
+            <div className="flex gap-4 items-center flex-shrink-0">
+              <Input
+                placeholder="Search employees..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="max-w-xs"
+              />
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filterPayType} onValueChange={setFilterPayType}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Filter by type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="hourly">Hourly</SelectItem>
+                  <SelectItem value="piece_rate">Piece Rate</SelectItem>
+                  <SelectItem value="salary">Salary</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              {selectedItems.size > 0 && (
+                <>
+                  <Separator orientation="vertical" className="h-8" />
+                  <span className="text-sm text-muted-foreground">{selectedItems.size} selected</span>
+                  <Select onValueChange={(value) => handleBulkStatusUpdate(value as any)}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Bulk update status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Mark as Pending</SelectItem>
+                      <SelectItem value="approved">Mark as Approved</SelectItem>
+                      <SelectItem value="paid">Mark as Paid</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </>
+              )}
+              
+              <div className="ml-auto flex gap-2">
+                <Button variant="outline" size="sm" onClick={exportToCSV}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export CSV
+                </Button>
+              </div>
+            </div>
 
-                    <Separator />
-
-                    <div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setExpandedEmployee(isExpanded ? null : item.id)}
-                      >
-                        {isExpanded ? 'Hide' : 'Show'} Deductions Breakdown
+            {/* Main Table */}
+            <div className="flex-1 overflow-auto border rounded-lg">
+              <Table>
+                <TableHeader className="sticky top-0 bg-background z-10">
+                  <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={selectedItems.size === filteredAndSortedItems.length && filteredAndSortedItems.length > 0}
+                        onCheckedChange={toggleSelectAll}
+                      />
+                    </TableHead>
+                    <TableHead className="w-12"></TableHead>
+                    <TableHead>
+                      <Button variant="ghost" size="sm" onClick={() => handleSort('name')}>
+                        Employee Name
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
                       </Button>
-                    </div>
+                    </TableHead>
+                    <TableHead>
+                      <Button variant="ghost" size="sm" onClick={() => handleSort('pay_type')}>
+                        Pay Type
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </TableHead>
+                    <TableHead>Basic Salary</TableHead>
+                    <TableHead>Hours/Pieces</TableHead>
+                    <TableHead>
+                      <Button variant="ghost" size="sm" onClick={() => handleSort('gross_pay')}>
+                        Gross Pay
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </TableHead>
+                    <TableHead>Tax Deductions</TableHead>
+                    <TableHead>Custom Items</TableHead>
+                    <TableHead>
+                      <Button variant="ghost" size="sm" onClick={() => handleSort('total_deductions')}>
+                        Total Deductions
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </TableHead>
+                    <TableHead>
+                      <Button variant="ghost" size="sm" onClick={() => handleSort('net_pay')}>
+                        Net Pay
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </TableHead>
+                    <TableHead>
+                      <Button variant="ghost" size="sm" onClick={() => handleSort('status')}>
+                        Status
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAndSortedItems.map((item) => {
+                    const edits = editingItems[item.id] || {};
+                    const calculated = calculatePay(item, edits);
+                    const isExpanded = expandedEmployee === item.id;
+                    const countryDeductions = getCountryDeductions(item.employees.country);
 
-                    {isExpanded && (
-                      <div className="space-y-4 bg-muted/50 p-4 rounded-lg">
-                        <div>
-                          <h4 className="font-semibold mb-2">Country-Specific Deductions (Auto-calculated)</h4>
-                          <div className="space-y-2">
-                            {countryDeductions
-                              .filter(rule => rule.mandatory)
-                              .map((rule, idx) => {
-                                const amount = calculateDeduction(calculated.grossPay, rule);
-                                return (
-                                  <div key={idx} className="flex justify-between text-sm">
-                                    <span>{rule.name}</span>
-                                    <span className="font-medium">{formatCurrency(amount)}</span>
-                                  </div>
-                                );
-                              })}
-                            <div className="flex justify-between font-semibold pt-2 border-t">
-                              <span>Total Tax Deductions</span>
-                              <span>{formatCurrency(calculated.taxDeduction)}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <Separator />
-
-                        <div>
-                          <div className="flex justify-between items-center mb-2">
-                            <h4 className="font-semibold">Custom Deductions</h4>
-                          </div>
-                          {item.customDeductions && item.customDeductions.length > 0 && (
-                            <div className="space-y-2 mb-3">
-                              {item.customDeductions.map((deduction) => (
-                                <div key={deduction.id} className="flex justify-between items-center text-sm bg-background p-2 rounded">
-                                  <span>{deduction.name}</span>
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-medium">{formatCurrency(deduction.amount)}</span>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleDeleteCustomDeduction(deduction.id!)}
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          <div className="flex gap-2">
-                            <Input
-                              placeholder="Deduction name"
-                              value={newCustomDeduction[item.id]?.name || ""}
-                              onChange={(e) =>
-                                setNewCustomDeduction((prev) => ({
-                                  ...prev,
-                                  [item.id]: { ...prev[item.id], name: e.target.value },
-                                }))
-                              }
+                    return (
+                      <>
+                        <TableRow key={item.id} className={selectedItems.has(item.id) ? 'bg-muted/50' : ''}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedItems.has(item.id)}
+                              onCheckedChange={() => toggleSelectItem(item.id)}
                             />
-                            <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="Amount"
-                              className="w-32"
-                              value={newCustomDeduction[item.id]?.amount || ""}
-                              onChange={(e) =>
-                                setNewCustomDeduction((prev) => ({
-                                  ...prev,
-                                  [item.id]: { ...prev[item.id], amount: e.target.value },
-                                }))
-                              }
-                            />
+                          </TableCell>
+                          <TableCell>
                             <Button
+                              variant="ghost"
                               size="sm"
-                              onClick={() => handleAddCustomDeduction(item.id)}
+                              onClick={() => setExpandedEmployee(isExpanded ? null : item.id)}
                             >
-                              <Plus className="h-4 w-4" />
+                              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                             </Button>
-                          </div>
-                        </div>
+                          </TableCell>
+                          <TableCell className="font-medium">{getFullName(item.employees)}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">
+                              {item.employees.pay_type === 'hourly' ? 'Hourly' : 
+                               item.employees.pay_type === 'piece_rate' ? 'Piece' : 'Salary'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{formatCurrency(item.employees.pay_rate)}</TableCell>
+                          <TableCell>
+                            {item.employees.pay_type === 'hourly' && `${item.hours_worked || 0} hrs`}
+                            {item.employees.pay_type === 'piece_rate' && `${item.pieces_completed || 0} pcs`}
+                            {item.employees.pay_type === 'salary' && '-'}
+                          </TableCell>
+                          <TableCell className="font-semibold">{formatCurrency(calculated.grossPay)}</TableCell>
+                          <TableCell>{formatCurrency(calculated.taxDeduction)}</TableCell>
+                          <TableCell>
+                            {(calculated.customBenefitsTotal || 0) > 0 && (
+                              <span className="text-green-600">+{formatCurrency(calculated.customBenefitsTotal)}</span>
+                            )}
+                            {(calculated.customDeductionsTotal || 0) > 0 && (
+                              <span className="text-orange-600">-{formatCurrency(calculated.customDeductionsTotal)}</span>
+                            )}
+                          </TableCell>
+                          <TableCell>{formatCurrency(calculated.totalDeductions)}</TableCell>
+                          <TableCell className="font-bold text-primary">{formatCurrency(calculated.netPay)}</TableCell>
+                          <TableCell>
+                            <Select
+                              value={item.status}
+                              onValueChange={(value) => handleStatusChange(item.id, value as any)}
+                            >
+                              <SelectTrigger className="w-32">
+                                <SelectValue>
+                                  <span className={getStatusColor(item.status)}>
+                                    {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                                  </span>
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="draft">Draft</SelectItem>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="approved">Approved</SelectItem>
+                                <SelectItem value="paid">Paid</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEditingItems({ [item.id]: {} })}
+                            >
+                              Edit
+                            </Button>
+                          </TableCell>
+                        </TableRow>
 
-                        <Separator />
+                        {/* Expanded Details Row */}
+                        {isExpanded && (
+                          <TableRow>
+                            <TableCell colSpan={13} className="bg-muted/30">
+                              <div className="p-6 space-y-6">
+                                <div className="grid grid-cols-2 gap-6">
+                                  {/* Editable Input Fields */}
+                                  <Card>
+                                    <CardHeader>
+                                      <CardTitle className="text-lg">Editable Fields</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                      {item.employees.pay_type === 'hourly' && (
+                                        <div>
+                                          <Label>Hours Worked</Label>
+                                          <Input
+                                            type="number"
+                                            step="0.01"
+                                            value={edits.hours_worked ?? item.hours_worked ?? 0}
+                                            onChange={(e) => handleFieldChange(item.id, 'hours_worked', parseFloat(e.target.value) || 0)}
+                                          />
+                                        </div>
+                                      )}
+                                      {item.employees.pay_type === 'piece_rate' && (
+                                        <div>
+                                          <Label>Pieces Completed</Label>
+                                          <Input
+                                            type="number"
+                                            value={edits.pieces_completed ?? item.pieces_completed ?? 0}
+                                            onChange={(e) => handleFieldChange(item.id, 'pieces_completed', parseInt(e.target.value) || 0)}
+                                          />
+                                        </div>
+                                      )}
+                                      <div>
+                                        <Label>Additional Benefits Deduction</Label>
+                                        <Input
+                                          type="number"
+                                          step="0.01"
+                                          value={edits.benefit_deductions ?? item.benefit_deductions ?? 0}
+                                          onChange={(e) => handleFieldChange(item.id, 'benefit_deductions', parseFloat(e.target.value) || 0)}
+                                        />
+                                      </div>
+                                      <Button onClick={() => handleSave(item)} className="w-full">
+                                        Save Changes
+                                      </Button>
+                                    </CardContent>
+                                  </Card>
 
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span>Benefits Deduction</span>
-                            <span className="font-medium">{formatCurrency(edits.benefit_deductions ?? item.benefit_deductions ?? 0)}</span>
-                          </div>
-                          <div className="flex justify-between font-bold text-base pt-2 border-t">
-                            <span>Total Deductions</span>
-                            <span>{formatCurrency(calculated.totalDeductions)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                                  {/* Earnings Breakdown */}
+                                  <Card>
+                                    <CardHeader>
+                                      <CardTitle className="text-lg">💰 Earnings</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-2">
+                                      <div className="flex justify-between">
+                                        <span>Basic Salary</span>
+                                        <span className="font-semibold">{formatCurrency(item.employees.pay_rate)}</span>
+                                      </div>
+                                      {item.employees.pay_type === 'hourly' && (
+                                        <div className="flex justify-between text-sm text-muted-foreground">
+                                          <span>({item.hours_worked || 0} hours × {formatCurrency(item.employees.pay_rate)}/hr)</span>
+                                        </div>
+                                      )}
+                                      {item.employees.pay_type === 'piece_rate' && (
+                                        <div className="flex justify-between text-sm text-muted-foreground">
+                                          <span>({item.pieces_completed || 0} pieces × {formatCurrency(item.employees.pay_rate)}/pc)</span>
+                                        </div>
+                                      )}
+                                      {(calculated.customBenefitsTotal || 0) > 0 && (
+                                        <div className="flex justify-between text-green-600">
+                                          <span>Custom Benefits/Allowances</span>
+                                          <span className="font-semibold">+{formatCurrency(calculated.customBenefitsTotal)}</span>
+                                        </div>
+                                      )}
+                                      <Separator />
+                                      <div className="flex justify-between font-bold text-lg">
+                                        <span>Gross Pay</span>
+                                        <span className="text-green-600">{formatCurrency(calculated.grossPay)}</span>
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                </div>
 
-                    <div className="flex gap-2 justify-end pt-2">
-                      {isEditing ? (
-                        <Button onClick={() => handleSave(item)}>
-                          Save Changes
-                        </Button>
-                      ) : (
-                        <Button 
-                          variant="outline"
-                          onClick={() => setEditingItems({ [item.id]: {} })}
-                        >
-                          Edit
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                                <div className="grid grid-cols-2 gap-6">
+                                  {/* Deductions Breakdown */}
+                                  <Card>
+                                    <CardHeader>
+                                      <CardTitle className="text-lg">📊 Deductions (Auto-Calculated)</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-2">
+                                      {countryDeductions
+                                        .filter(rule => rule.mandatory)
+                                        .map((rule, idx) => {
+                                          const amount = calculateDeduction(calculated.grossPay, rule);
+                                          return (
+                                            <div key={idx} className="flex justify-between text-sm">
+                                              <span>{rule.name}</span>
+                                              <span className="font-medium">{formatCurrency(amount)}</span>
+                                            </div>
+                                          );
+                                        })}
+                                      {item.benefit_deductions > 0 && (
+                                        <div className="flex justify-between text-sm">
+                                          <span>Additional Benefits</span>
+                                          <span className="font-medium">{formatCurrency(item.benefit_deductions)}</span>
+                                        </div>
+                                      )}
+                                      {(calculated.customDeductionsTotal || 0) > 0 && (
+                                        <div className="flex justify-between text-sm">
+                                          <span>Custom Deductions</span>
+                                          <span className="font-medium">{formatCurrency(calculated.customDeductionsTotal)}</span>
+                                        </div>
+                                      )}
+                                      <Separator />
+                                      <div className="flex justify-between font-bold">
+                                        <span>Total Deductions</span>
+                                        <span className="text-orange-600">{formatCurrency(calculated.totalDeductions)}</span>
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+
+                                  {/* Custom Deductions & Benefits Manager */}
+                                  <Card>
+                                    <CardHeader>
+                                      <CardTitle className="text-lg">➕ Custom Items</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-3">
+                                      {item.customDeductions && item.customDeductions.length > 0 && (
+                                        <div className="space-y-2 mb-4">
+                                          {item.customDeductions.map((deduction) => (
+                                            <div key={deduction.id} className="flex justify-between items-center p-2 bg-background rounded border">
+                                              <div>
+                                                <span className="font-medium">{deduction.name}</span>
+                                                <Badge variant="outline" className="ml-2 text-xs">
+                                                  {deduction.type || 'deduction'}
+                                                </Badge>
+                                              </div>
+                                              <div className="flex items-center gap-2">
+                                                <span className={deduction.type === 'deduction' ? 'text-orange-600' : 'text-green-600'}>
+                                                  {deduction.type === 'deduction' ? '-' : '+'}{formatCurrency(deduction.amount)}
+                                                </span>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  onClick={() => handleDeleteCustomDeduction(deduction.id!)}
+                                                >
+                                                  <Trash2 className="h-3 w-3" />
+                                                </Button>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                      <div className="space-y-2">
+                                        <Label>Add Custom Item</Label>
+                                        <Select
+                                          value={newCustomDeduction[item.id]?.type || 'deduction'}
+                                          onValueChange={(value) =>
+                                            setNewCustomDeduction((prev) => ({
+                                              ...prev,
+                                              [item.id]: { ...prev[item.id], type: value },
+                                            }))
+                                          }
+                                        >
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Type" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="deduction">Deduction</SelectItem>
+                                            <SelectItem value="benefit">Benefit</SelectItem>
+                                            <SelectItem value="allowance">Allowance</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                        <Input
+                                          placeholder="Name (e.g., Transport Allowance)"
+                                          value={newCustomDeduction[item.id]?.name || ""}
+                                          onChange={(e) =>
+                                            setNewCustomDeduction((prev) => ({
+                                              ...prev,
+                                              [item.id]: { ...prev[item.id], name: e.target.value },
+                                            }))
+                                          }
+                                        />
+                                        <div className="flex gap-2">
+                                          <Input
+                                            type="number"
+                                            step="0.01"
+                                            placeholder="Amount"
+                                            value={newCustomDeduction[item.id]?.amount || ""}
+                                            onChange={(e) =>
+                                              setNewCustomDeduction((prev) => ({
+                                                ...prev,
+                                                [item.id]: { ...prev[item.id], amount: e.target.value },
+                                              }))
+                                            }
+                                          />
+                                          <Button
+                                            onClick={() => handleAddCustomDeduction(item.id)}
+                                          >
+                                            <Plus className="h-4 w-4" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                </div>
+
+                                {/* Final Summary */}
+                                <Card className="border-2 border-primary">
+                                  <CardContent className="pt-6">
+                                    <div className="flex justify-between items-center text-2xl font-bold">
+                                      <span>NET PAY</span>
+                                      <span className="text-primary">{formatCurrency(calculated.netPay)}</span>
+                                    </div>
+                                    {(calculated.employerContributions || 0) > 0 && (
+                                      <div className="mt-2 text-sm text-muted-foreground flex justify-between">
+                                        <span>Employer Contributions (NSSF, etc.)</span>
+                                        <span>{formatCurrency(calculated.employerContributions)}</span>
+                                      </div>
+                                    )}
+                                  </CardContent>
+                                </Card>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         )}
       </DialogContent>

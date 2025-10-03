@@ -149,6 +149,7 @@ export type Database = {
           id: string
           name: string
           pay_item_id: string
+          type: string
           updated_at: string
         }
         Insert: {
@@ -157,6 +158,7 @@ export type Database = {
           id?: string
           name: string
           pay_item_id: string
+          type?: string
           updated_at?: string
         }
         Update: {
@@ -165,6 +167,7 @@ export type Database = {
           id?: string
           name?: string
           pay_item_id?: string
+          type?: string
           updated_at?: string
         }
         Relationships: [
@@ -182,6 +185,7 @@ export type Database = {
           benefit_deductions: number
           created_at: string
           employee_id: string
+          employer_contributions: number
           gross_pay: number
           hours_worked: number | null
           id: string
@@ -189,6 +193,7 @@ export type Database = {
           notes: string | null
           pay_run_id: string
           pieces_completed: number | null
+          status: Database["public"]["Enums"]["pay_item_status"]
           tax_deduction: number
           total_deductions: number
           updated_at: string
@@ -197,6 +202,7 @@ export type Database = {
           benefit_deductions?: number
           created_at?: string
           employee_id: string
+          employer_contributions?: number
           gross_pay?: number
           hours_worked?: number | null
           id?: string
@@ -204,6 +210,7 @@ export type Database = {
           notes?: string | null
           pay_run_id: string
           pieces_completed?: number | null
+          status?: Database["public"]["Enums"]["pay_item_status"]
           tax_deduction?: number
           total_deductions?: number
           updated_at?: string
@@ -212,6 +219,7 @@ export type Database = {
           benefit_deductions?: number
           created_at?: string
           employee_id?: string
+          employer_contributions?: number
           gross_pay?: number
           hours_worked?: number | null
           id?: string
@@ -219,6 +227,7 @@ export type Database = {
           notes?: string | null
           pay_run_id?: string
           pieces_completed?: number | null
+          status?: Database["public"]["Enums"]["pay_item_status"]
           tax_deduction?: number
           total_deductions?: number
           updated_at?: string
@@ -314,6 +323,7 @@ export type Database = {
         | "vision"
         | "other"
       pay_frequency: "weekly" | "bi_weekly" | "monthly" | "custom"
+      pay_item_status: "draft" | "pending" | "approved" | "paid"
       pay_run_status: "draft" | "pending_approval" | "approved" | "processed"
       pay_type: "hourly" | "salary" | "piece_rate"
     }
@@ -451,6 +461,7 @@ export const Constants = {
         "other",
       ],
       pay_frequency: ["weekly", "bi_weekly", "monthly", "custom"],
+      pay_item_status: ["draft", "pending", "approved", "paid"],
       pay_run_status: ["draft", "pending_approval", "approved", "processed"],
       pay_type: ["hourly", "salary", "piece_rate"],
     },
