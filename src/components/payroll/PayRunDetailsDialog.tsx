@@ -78,9 +78,86 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
   const { toast } = useToast();
 
   useEffect(() => {
+    let isMounted = true;
+
+    const loadPayItems = async () => {
+      if (!payRunId || !isMounted) return;
+
+      setLoading(true);
+      try {
+        // Fetch pay group country
+        const { data: payRunData, error: payRunError } = await supabase
+          .from("pay_runs")
+          .select("pay_groups(country)")
+          .eq("id", payRunId)
+          .single();
+
+        if (payRunError) throw payRunError;
+        if (!isMounted) return;
+        
+        setPayGroupCountry((payRunData?.pay_groups as unknown as PayGroup)?.country || "");
+
+        // Fetch pay items
+        const { data, error } = await supabase
+          .from("pay_items")
+          .select(`
+            *,
+            employees (
+              first_name,
+              middle_name,
+              last_name,
+              email,
+              pay_type,
+              pay_rate,
+              country
+            )
+          `)
+          .eq("pay_run_id", payRunId)
+          .order("employees(first_name)");
+
+        if (error) throw error;
+        if (!isMounted) return;
+
+        // Fetch custom deductions for each pay item
+        const payItemsWithDeductions = await Promise.all(
+          (data || []).map(async (item) => {
+            const { data: customDeductions } = await supabase
+              .from("pay_item_custom_deductions")
+              .select("*")
+              .eq("pay_item_id", item.id);
+
+            return {
+              ...item,
+              customDeductions: customDeductions || [],
+            };
+          })
+        );
+
+        if (!isMounted) return;
+        setPayItems(payItemsWithDeductions);
+      } catch (error) {
+        console.error("Error fetching pay items:", error);
+        if (!isMounted) return;
+        
+        toast({
+          title: "Error",
+          description: "Failed to fetch pay run details",
+          variant: "destructive",
+        });
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
     if (open && payRunId) {
-      fetchPayItems();
+      loadPayItems();
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, [open, payRunId]);
 
   const fetchPayItems = async () => {
