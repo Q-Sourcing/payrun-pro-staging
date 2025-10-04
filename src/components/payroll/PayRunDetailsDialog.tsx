@@ -261,14 +261,22 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     const payRate = item.employees.pay_rate;
     const isExpatriate = item.employees.employee_type === 'expatriate';
     
-    let grossPay = 0;
+    let baseGrossPay = 0;
     if (item.employees.pay_type === 'hourly') {
-      grossPay = hoursWorked * payRate;
+      baseGrossPay = hoursWorked * payRate;
     } else if (item.employees.pay_type === 'piece_rate') {
-      grossPay = piecesCompleted * payRate;
+      baseGrossPay = piecesCompleted * payRate;
     } else {
-      grossPay = payRate;
+      baseGrossPay = payRate;
     }
+
+    // Custom additions that affect gross (type: 'benefit')
+    const grossAffectingAdditions = (item.customDeductions || [])
+      .filter(d => d.type === 'benefit')
+      .reduce((sum, d) => sum + d.amount, 0);
+
+    // Calculate final gross pay including gross-affecting additions
+    const grossPay = baseGrossPay + grossAffectingAdditions;
 
     let calculatedTaxDeduction = 0;
     let employerContributions = 0;
@@ -294,18 +302,19 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         .reduce((total, rule) => total + (grossPay * ((rule.employerContribution || 0) / 100)), 0);
     }
 
-    // Custom deductions and benefits
+    // Custom deductions
     const customDeductionsTotal = (item.customDeductions || [])
       .filter(d => d.type === 'deduction')
       .reduce((sum, d) => sum + d.amount, 0);
 
-    const customBenefitsTotal = (item.customDeductions || [])
-      .filter(d => d.type === 'benefit' || d.type === 'allowance')
+    // Custom additions that DON'T affect gross (type: 'allowance')
+    const customAllowancesTotal = (item.customDeductions || [])
+      .filter(d => d.type === 'allowance')
       .reduce((sum, d) => sum + d.amount, 0);
 
     const benefitDeductions = edits.benefit_deductions ?? item.benefit_deductions ?? 0;
     const totalDeductions = calculatedTaxDeduction + benefitDeductions + customDeductionsTotal;
-    const netPay = grossPay + customBenefitsTotal - totalDeductions;
+    const netPay = grossPay + customAllowancesTotal - totalDeductions;
 
     return { 
       grossPay, 
@@ -313,7 +322,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       totalDeductions, 
       netPay,
       customDeductionsTotal,
-      customBenefitsTotal,
+      customBenefitsTotal: grossAffectingAdditions,
+      customAllowancesTotal,
       employerContributions
     };
   };
@@ -673,22 +683,36 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         const item = payItems.find(p => p.id === itemId);
         if (!item) continue;
 
-        const finalAmount = isPercentage ? (calculatePay(item).grossPay * amount / 100) : amount;
+        const currentCalc = calculatePay(item);
+        const finalAmount = isPercentage ? (currentCalc.grossPay * amount / 100) : amount;
 
+        // Insert the custom item
+        await supabase.from("pay_item_custom_deductions").insert({
+          pay_item_id: itemId,
+          name: description,
+          amount: finalAmount,
+          type: addToGross ? 'benefit' : 'allowance'
+        });
+
+        // If adding to gross, recalculate and update the pay item
         if (addToGross) {
-          await supabase.from("pay_item_custom_deductions").insert({
-            pay_item_id: itemId,
-            name: description,
-            amount: finalAmount,
-            type: 'benefit'
-          });
-        } else {
-          await supabase.from("pay_item_custom_deductions").insert({
-            pay_item_id: itemId,
-            name: description,
-            amount: finalAmount,
-            type: 'allowance'
-          });
+          const newGrossPay = currentCalc.grossPay + finalAmount;
+          const deductionRules = getCountryDeductions(item.employees.country);
+          const newTaxDeduction = item.employees.employee_type === 'expatriate'
+            ? newGrossPay * 0.15
+            : deductionRules
+                .filter(rule => rule.mandatory)
+                .reduce((total, rule) => total + calculateDeduction(newGrossPay, rule), 0);
+
+          const newTotalDeductions = newTaxDeduction + item.benefit_deductions + currentCalc.customDeductionsTotal;
+          const newNetPay = newGrossPay + currentCalc.customAllowancesTotal - newTotalDeductions;
+
+          await supabase.from("pay_items").update({
+            gross_pay: newGrossPay,
+            tax_deduction: newTaxDeduction,
+            total_deductions: newTotalDeductions,
+            net_pay: newNetPay
+          }).eq("id", itemId);
         }
       }
 
@@ -799,6 +823,17 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       });
     }
   };
+
+  // Get all unique custom column names across all pay items
+  const customColumns = useMemo(() => {
+    const columnNames = new Set<string>();
+    payItems.forEach(item => {
+      (item.customDeductions || []).forEach(cd => {
+        columnNames.add(cd.name);
+      });
+    });
+    return Array.from(columnNames).sort();
+  }, [payItems]);
 
   // Calculate summary totals
   const summaryTotals = useMemo(() => {
@@ -989,7 +1024,11 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                       </Button>
                     </TableHead>
                     <TableHead>Tax Deductions</TableHead>
-                    <TableHead>Custom Items</TableHead>
+                    {customColumns.map(columnName => (
+                      <TableHead key={columnName} className="text-center">
+                        {columnName}
+                      </TableHead>
+                    ))}
                     <TableHead>
                       <Button variant="ghost" size="sm" onClick={() => handleSort('total_deductions')}>
                         Total Deductions
@@ -1064,14 +1103,18 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                           </TableCell>
                           <TableCell className="font-semibold">{formatCurrency(calculated.grossPay)}</TableCell>
                           <TableCell>{formatCurrency(calculated.taxDeduction)}</TableCell>
-                          <TableCell>
-                            {(calculated.customBenefitsTotal || 0) > 0 && (
-                              <span className="text-green-600">+{formatCurrency(calculated.customBenefitsTotal)}</span>
-                            )}
-                            {(calculated.customDeductionsTotal || 0) > 0 && (
-                              <span className="text-orange-600">-{formatCurrency(calculated.customDeductionsTotal)}</span>
-                            )}
-                          </TableCell>
+                          {customColumns.map(columnName => {
+                            const customItem = (item.customDeductions || []).find(cd => cd.name === columnName);
+                            if (!customItem) {
+                              return <TableCell key={columnName} className="text-center text-muted-foreground">-</TableCell>;
+                            }
+                            const isDeduction = customItem.type === 'deduction';
+                            return (
+                              <TableCell key={columnName} className={`text-center font-medium ${isDeduction ? 'text-red-600' : 'text-green-600'}`}>
+                                {isDeduction ? '-' : '+'}{formatCurrency(customItem.amount)}
+                              </TableCell>
+                            );
+                          })}
                           <TableCell>{formatCurrency(calculated.totalDeductions)}</TableCell>
                           <TableCell className="font-bold text-primary">{formatCurrency(calculated.netPay)}</TableCell>
                           <TableCell>
@@ -1108,7 +1151,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                         {/* Expanded Details Row */}
                         {isExpanded && (
                           <TableRow>
-                            <TableCell colSpan={14} className="bg-muted/30">
+                            <TableCell colSpan={13 + customColumns.length} className="bg-muted/30">
                               <div className="p-6 space-y-6">
                                 <div className="grid grid-cols-2 gap-6">
                                   {/* Editable Input Fields */}
@@ -1173,12 +1216,18 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                           <span>({item.pieces_completed || 0} pieces × {formatCurrency(item.employees.pay_rate)}/pc)</span>
                                         </div>
                                       )}
-                                      {(calculated.customBenefitsTotal || 0) > 0 && (
-                                        <div className="flex justify-between text-green-600">
-                                          <span>Custom Benefits/Allowances</span>
-                                          <span className="font-semibold">+{formatCurrency(calculated.customBenefitsTotal)}</span>
-                                        </div>
-                                      )}
+                                       {(calculated.customBenefitsTotal || 0) > 0 && (
+                                         <div className="flex justify-between text-green-600">
+                                           <span>Gross-Affecting Additions</span>
+                                           <span className="font-semibold">+{formatCurrency(calculated.customBenefitsTotal)}</span>
+                                         </div>
+                                       )}
+                                       {(calculated.customAllowancesTotal || 0) > 0 && (
+                                         <div className="flex justify-between text-green-600">
+                                           <span>Non-Gross Allowances</span>
+                                           <span className="font-semibold">+{formatCurrency(calculated.customAllowancesTotal)}</span>
+                                         </div>
+                                       )}
                                       <Separator />
                                       <div className="flex justify-between font-bold text-lg">
                                         <span>Gross Pay</span>
