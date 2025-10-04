@@ -81,7 +81,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     let isMounted = true;
 
     const loadPayItems = async () => {
-      if (!payRunId || !isMounted) return;
+      if (!payRunId) return;
 
       setLoading(true);
       try {
@@ -158,7 +158,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     return () => {
       isMounted = false;
     };
-  }, [open, payRunId]);
+  }, [open, payRunId, toast]);
 
   const fetchPayItems = async () => {
     if (!payRunId) return;
