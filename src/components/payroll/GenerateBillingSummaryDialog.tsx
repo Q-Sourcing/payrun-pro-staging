@@ -97,13 +97,36 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
       const employerNSSF = (payRunData.total_gross_pay || 0) * 0.10;
       const totalEmployerCost = (payRunData.total_gross_pay || 0) + employerNSSF;
 
+      // Validate data consistency before generating
+      const isValid = validateExportData(payRunData, payItems);
+      if (!isValid) {
+        toast({
+          title: "Validation failed",
+          description: "Calculated totals do not match the pay run. Please recalculate before exporting.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Prepare optional company logo
+      const logoDataUrl = await fetchLogoDataUrl();
+
       // Generate based on format
       if (exportFormat === "pdf") {
-        generatePDF(payRunData, payItems, currency, employerNSSF, totalEmployerCost);
+        generatePDF(payRunData, payItems, currency, employerNSSF, totalEmployerCost, logoDataUrl || undefined);
       } else if (exportFormat === "excel") {
         generateExcel(payRunData, payItems, currency, employerNSSF, totalEmployerCost);
       } else {
-        generateCSV(payRunData, payItems, currency, employerNSSF, totalEmployerCost);
+        const csv = generateCSV(payRunData, payItems, currency, employerNSSF, totalEmployerCost);
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `billing-summary-${format(new Date(payRunData.pay_run_date), 'yyyy-MM-dd')}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
       }
 
       toast({
@@ -123,20 +146,56 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
     }
   };
 
-  const generatePDF = (payRun: any, payItems: any[], currency: string, employerNSSF: number, totalEmployerCost: number) => {
+  // Data validation helpers
+  const nearlyEqual = (a: number, b: number, epsilon = 0.01) => Math.abs(a - b) <= epsilon;
+  const validateExportData = (payRun: any, payItems: any[]) => {
+    const gross = payItems.reduce((s, i) => s + (Number(i.gross_pay) || 0), 0);
+    const deductions = payItems.reduce((s, i) => s + (Number(i.total_deductions) || 0), 0);
+    const net = payItems.reduce((s, i) => s + (Number(i.net_pay) || 0), 0);
+    return (
+      nearlyEqual(Number(payRun.total_gross_pay) || 0, gross) &&
+      nearlyEqual(Number(payRun.total_deductions) || 0, deductions) &&
+      nearlyEqual(Number(payRun.total_net_pay) || 0, net)
+    );
+  };
+
+  // Optional logo loader
+  const fetchLogoDataUrl = async (): Promise<string | null> => {
+    try {
+      if (!includeLogo || !companySettings?.include_logo || !companySettings?.logo_url) return null;
+      const res = await fetch(companySettings.logo_url);
+      const blob = await res.blob();
+      return await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
+    } catch (e) {
+      console.warn('Unable to load company logo:', e);
+      return null;
+    }
+  };
+
+  const generatePDF = (payRun: any, payItems: any[], currency: string, employerNSSF: number, totalEmployerCost: number, logoDataUrl?: string) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
     let yPos = 20;
 
     // Company Header
     if (companySettings?.show_company_details) {
+      if (logoDataUrl) {
+        try {
+          doc.addImage(logoDataUrl, 'PNG', 20, yPos - 5, 40, 16);
+          yPos += 18;
+        } catch {}
+      }
       doc.setFontSize(18);
-      doc.setFont("helvetica", "bold");
-      doc.text(companySettings.company_name || "SimplePay Solutions", 20, yPos);
+      doc.setFont('helvetica', 'bold');
+      doc.text(companySettings.company_name || 'SimplePay Solutions', 20, yPos);
       yPos += 7;
       
       doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
+      doc.setFont('helvetica', 'normal');
       if (companySettings.address) {
         doc.text(companySettings.address, 20, yPos);
         yPos += 5;

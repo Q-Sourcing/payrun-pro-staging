@@ -10,6 +10,8 @@ import { format } from "date-fns";
 import { getCurrencyCodeFromCountry } from "@/lib/constants/countries";
 import { FileText, Mail, Download, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface GeneratePayslipsDialogProps {
   open: boolean;
@@ -57,24 +59,20 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
       if (payRunError) throw payRunError;
 
       const currency = getCurrencyCodeFromCountry(payRunData.pay_groups.country);
-      
-      // Generate CSV with all payslips
-      const csvContent = generatePayslipsCSV(payRunData, currency);
-      
-      // Create and download file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `payslips-${format(new Date(payRunData.pay_run_date), 'yyyy-MM-dd')}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+
+      if (formatType === "email" || formatType === "print") {
+        toast({
+          title: "Action not implemented yet",
+          description: "Email and print workflows will be added soon. Generated a downloadable PDF instead.",
+        });
+      }
+
+      // For now, generate a professional combined PDF with one page per employee
+      generatePayslipsPDFCombined(payRunData, currency);
 
       toast({
-        title: "Payslips Downloaded",
-        description: `Successfully generated and downloaded ${employeeCount} payslips`,
+        title: "Payslips Generated",
+        description: `Successfully generated ${employeeCount} payslips as PDF`,
       });
       onOpenChange(false);
     } catch (error) {
@@ -124,7 +122,62 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
     return lines.join('\n');
   };
 
-  return (
+  const generatePayslipsPDFCombined = (payRun: any, currency: string) => {
+    const doc = new jsPDF();
+    const payDate = format(new Date(payRun.pay_run_date), 'MMM dd, yyyy');
+    const period = `${format(new Date(payRun.pay_period_start), 'MMM dd, yyyy')} - ${format(new Date(payRun.pay_period_end), 'MMM dd, yyyy')}`;
+
+    (payRun.pay_items || []).forEach((item: any, idx: number) => {
+      if (idx > 0) doc.addPage();
+      const fullName = [item.employees.first_name, item.employees.middle_name, item.employees.last_name].filter(Boolean).join(' ');
+
+      let y = 18;
+      // Header
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.text('EMPLOYEE PAYSLIP', 105, y, { align: 'center' });
+      y += 8;
+
+      doc.setFontSize(11);
+      doc.text(fullName, 20, y);
+      y += 6;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text(`Email: ${item.employees.email || 'N/A'}`, 20, y);
+      y += 5;
+      doc.text(`Department: ${item.employees.department || 'N/A'}  •  Pay Type: ${item.employees.pay_type}`, 20, y);
+      y += 8;
+
+      // Pay run meta
+      doc.text(`Pay Run Date: ${payDate}`, 20, y);
+      y += 5;
+      doc.text(`Pay Period: ${period}`, 20, y);
+      y += 8;
+
+      // Earnings and deductions table
+      autoTable(doc, {
+        startY: y,
+        head: [['Description', 'Amount']],
+        body: [
+          ['Gross Pay', `${currency} ${Number(item.gross_pay || 0).toLocaleString()}`],
+          ['Tax Deductions', `${currency} ${Number(item.tax_deduction || 0).toLocaleString()}`],
+          ['Other Deductions', `${currency} ${Number(item.benefit_deductions || 0).toLocaleString()}`],
+          ['Total Deductions', `${currency} ${Number(item.total_deductions || 0).toLocaleString()}`],
+          ['Net Pay', `${currency} ${Number(item.net_pay || 0).toLocaleString()}`],
+        ],
+        theme: 'grid',
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [51, 102, 204] },
+      });
+
+      const nextY = (doc as any).lastAutoTable.finalY + 10;
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(8);
+      doc.text('This payslip is confidential and intended for the recipient only.', 105, nextY, { align: 'center' });
+    });
+
+    doc.save(`payslips-${format(new Date(payRun.pay_run_date), 'yyyy-MM-dd')}.pdf`);
+  };
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
