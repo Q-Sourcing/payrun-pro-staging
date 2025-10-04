@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Building2 } from "lucide-react";
+import { Building2, Upload, X } from "lucide-react";
 
 interface CompanySettingsDialogProps {
   open: boolean;
@@ -15,12 +15,14 @@ interface CompanySettingsDialogProps {
 
 export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDialogProps) => {
   const [loading, setLoading] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [companyName, setCompanyName] = useState("SimplePay Solutions");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [website, setWebsite] = useState("");
   const [taxId, setTaxId] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
   const [primaryColor, setPrimaryColor] = useState("#3366CC");
   const [secondaryColor, setSecondaryColor] = useState("#666666");
   const [accentColor, setAccentColor] = useState("#FF6B35");
@@ -54,6 +56,7 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
         setEmail(data.email || "");
         setWebsite(data.website || "");
         setTaxId(data.tax_id || "");
+        setLogoUrl(data.logo_url || "");
         setPrimaryColor(data.primary_color || "#3366CC");
         setSecondaryColor(data.secondary_color || "#666666");
         setAccentColor(data.accent_color || "#FF6B35");
@@ -84,6 +87,7 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
         email,
         website,
         tax_id: taxId,
+        logo_url: logoUrl,
         primary_color: primaryColor,
         secondary_color: secondaryColor,
         accent_color: accentColor,
@@ -215,6 +219,64 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
                   placeholder="TIN123456789"
                 />
               </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <Label className="text-base font-semibold">Company Logo</Label>
+            <div className="space-y-3">
+              {logoUrl && (
+                <div className="flex items-center gap-4 p-3 border rounded-md">
+                  <img src={logoUrl} alt="Company logo" className="h-12 w-auto object-contain" />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setLogoUrl("")}
+                    className="ml-auto"
+                  >
+                    <X className="h-4 w-4" />
+                    Remove
+                  </Button>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <Input
+                  id="logo"
+                  type="file"
+                  accept="image/png,image/jpeg,image/svg+xml"
+                  disabled={uploadingLogo}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 2 * 1024 * 1024) {
+                      toast({
+                        title: "File too large",
+                        description: "Logo must be less than 2MB",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    setUploadingLogo(true);
+                    try {
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        setLogoUrl(reader.result as string);
+                        toast({ title: "Logo uploaded", description: "Logo will be saved when you click Save Branding" });
+                      };
+                      reader.readAsDataURL(file);
+                    } catch (err) {
+                      toast({
+                        title: "Upload failed",
+                        description: "Could not upload logo",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setUploadingLogo(false);
+                    }
+                  }}
+                />
+              </div>
+              <p className="text-sm text-muted-foreground">PNG, JPG, SVG • Max 2MB • Recommended 300x100px</p>
             </div>
           </div>
 

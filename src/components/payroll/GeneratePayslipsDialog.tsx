@@ -34,7 +34,6 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
     setGenerating(true);
     
     try {
-      // Fetch pay run data with all details
       const { data: payRunData, error: payRunError } = await supabase
         .from("pay_runs")
         .select(`
@@ -67,7 +66,6 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
         });
       }
 
-      // For now, generate a professional combined PDF with one page per employee
       generatePayslipsPDFCombined(payRunData, currency);
 
       toast({
@@ -90,16 +88,13 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
   const generatePayslipsCSV = (payRun: any, currency: string) => {
     const lines: string[] = [];
     
-    // Header row
     lines.push("EMPLOYEE PAYSLIPS");
     lines.push(`Pay Run Date: ${format(new Date(payRun.pay_run_date), 'MMM dd, yyyy')}`);
     lines.push(`Pay Period: ${format(new Date(payRun.pay_period_start), 'MMM dd, yyyy')} - ${format(new Date(payRun.pay_period_end), 'MMM dd, yyyy')}`);
     lines.push("");
     
-    // Column headers
     lines.push("Employee Name,Email,Department,Pay Type,Gross Pay,Tax Deductions,Total Deductions,Net Pay");
     
-    // Employee rows
     payRun.pay_items.forEach((item: any) => {
       const fullName = [
         item.employees.first_name,
@@ -132,7 +127,6 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
       const fullName = [item.employees.first_name, item.employees.middle_name, item.employees.last_name].filter(Boolean).join(' ');
 
       let y = 18;
-      // Header
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(16);
       doc.text('EMPLOYEE PAYSLIP', 105, y, { align: 'center' });
@@ -148,13 +142,11 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
       doc.text(`Department: ${item.employees.department || 'N/A'}  •  Pay Type: ${item.employees.pay_type}`, 20, y);
       y += 8;
 
-      // Pay run meta
       doc.text(`Pay Run Date: ${payDate}`, 20, y);
       y += 5;
       doc.text(`Pay Period: ${period}`, 20, y);
       y += 8;
 
-      // Earnings and deductions table
       autoTable(doc, {
         startY: y,
         head: [['Description', 'Amount']],
@@ -178,6 +170,8 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
 
     doc.save(`payslips-${format(new Date(payRun.pay_run_date), 'yyyy-MM-dd')}.pdf`);
   };
+
+  return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
