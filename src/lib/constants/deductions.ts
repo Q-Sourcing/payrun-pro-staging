@@ -231,6 +231,18 @@ export const calculateDeduction = (grossPay: number, rule: DeductionRule): numbe
   }
 };
 
-export const getCountryDeductions = (countryCode: string): DeductionRule[] => {
+export const getCountryDeductions = (countryNameOrCode: string): DeductionRule[] => {
+  // Map country names to codes
+  const countryCodeMap: { [key: string]: string } = {
+    "Uganda": "UG",
+    "Kenya": "KE",
+    "Tanzania": "TZ",
+    "Rwanda": "RW",
+    "South Sudan": "SS"
+  };
+  
+  // Try to get the code from the map, otherwise use the input as-is
+  const countryCode = countryCodeMap[countryNameOrCode] || countryNameOrCode;
+  
   return COUNTRY_DEDUCTIONS[countryCode]?.deductions || [];
 };
