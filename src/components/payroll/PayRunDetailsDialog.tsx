@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUpDown, Filter, Download, Globe, Flag, Settings } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUpDown, Filter, Download, Globe, Flag, Settings, FileText, Gift, Calculator } from "lucide-react";
 import { getCountryDeductions, calculateDeduction } from "@/lib/constants/deductions";
 import { getCurrencyByCode, getCurrencyCodeFromCountry } from "@/lib/constants/countries";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +19,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { BulkAddDialog } from "./BulkAddDialog";
 import { BulkDeductDialog } from "./BulkDeductDialog";
 import { BulkSelectedDialog } from "./BulkSelectedDialog";
+import { GeneratePayslipsDialog } from "./GeneratePayslipsDialog";
+import { GenerateBillingSummaryDialog } from "./GenerateBillingSummaryDialog";
+import { ApplyBenefitsDialog } from "./ApplyBenefitsDialog";
+import { RecalculateTaxesDialog } from "./RecalculateTaxesDialog";
+import { RemoveCustomItemsDialog } from "./RemoveCustomItemsDialog";
 
 interface CustomDeduction {
   id?: string;
@@ -85,6 +90,11 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
   const [bulkAddDialogOpen, setBulkAddDialogOpen] = useState(false);
   const [bulkDeductDialogOpen, setBulkDeductDialogOpen] = useState(false);
   const [bulkSelectedDialogOpen, setBulkSelectedDialogOpen] = useState(false);
+  const [generatePayslipsDialogOpen, setGeneratePayslipsDialogOpen] = useState(false);
+  const [generateBillingDialogOpen, setGenerateBillingDialogOpen] = useState(false);
+  const [applyBenefitsDialogOpen, setApplyBenefitsDialogOpen] = useState(false);
+  const [recalculateTaxesDialogOpen, setRecalculateTaxesDialogOpen] = useState(false);
+  const [removeCustomItemsDialogOpen, setRemoveCustomItemsDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -996,22 +1006,46 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                       <ChevronDown className="h-4 w-4 ml-2" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem onClick={() => setBulkAddDialogOpen(true)}>
-                      <Plus className="h-4 w-4 mr-2 text-green-600" />
-                      Add to All Employees
+                  <DropdownMenuContent align="end" className="w-64 bg-background">
+                    <DropdownMenuItem onClick={() => setBulkAddDialogOpen(true)} className="gap-2">
+                      <Plus className="h-4 w-4 text-green-600" />
+                      <span>Add to All Employees</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setBulkDeductDialogOpen(true)}>
-                      <Trash2 className="h-4 w-4 mr-2 text-red-600" />
-                      Deduct from All Employees
+                    <DropdownMenuItem onClick={() => setBulkDeductDialogOpen(true)} className="gap-2">
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                      <span>Deduct from All Employees</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setGeneratePayslipsDialogOpen(true)} className="gap-2">
+                      <FileText className="h-4 w-4 text-blue-600" />
+                      <span>Generate All Payslips</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setGenerateBillingDialogOpen(true)} className="gap-2">
+                      <Download className="h-4 w-4 text-blue-600" />
+                      <span>Generate Billing Summary</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setApplyBenefitsDialogOpen(true)} className="gap-2">
+                      <Gift className="h-4 w-4 text-purple-600" />
+                      <span>Apply Benefits Package</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setRecalculateTaxesDialogOpen(true)} className="gap-2">
+                      <Calculator className="h-4 w-4 text-orange-600" />
+                      <span>Recalculate All Taxes</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setRemoveCustomItemsDialogOpen(true)} className="gap-2">
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                      <span>Remove All Custom Items</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem 
                       onClick={() => setBulkSelectedDialogOpen(true)}
                       disabled={selectedItems.size === 0}
+                      className="gap-2"
                     >
-                      <Settings className="h-4 w-4 mr-2" />
-                      Apply to Selected ({selectedItems.size})
+                      <Settings className="h-4 w-4" />
+                      <span>Apply to Selected ({selectedItems.size})</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -1485,6 +1519,44 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         })}
         currency={payGroupCountry === "Uganda" ? "UGX" : "USD"}
         onApply={handleBulkSelected}
+      />
+
+      <GeneratePayslipsDialog
+        open={generatePayslipsDialogOpen}
+        onOpenChange={setGeneratePayslipsDialogOpen}
+        employeeCount={payItems.length}
+        payRunId={payRunId || ""}
+      />
+
+      <GenerateBillingSummaryDialog
+        open={generateBillingDialogOpen}
+        onOpenChange={setGenerateBillingDialogOpen}
+        payRunId={payRunId || ""}
+      />
+
+      <ApplyBenefitsDialog
+        open={applyBenefitsDialogOpen}
+        onOpenChange={setApplyBenefitsDialogOpen}
+        employeeCount={payItems.length}
+        currency={payGroupCurrency}
+        onApply={(benefits) => {
+          console.log("Applying benefits:", benefits);
+          fetchPayItems();
+        }}
+      />
+
+      <RecalculateTaxesDialog
+        open={recalculateTaxesDialogOpen}
+        onOpenChange={setRecalculateTaxesDialogOpen}
+        employeeCount={payItems.length}
+        onRecalculate={fetchPayItems}
+      />
+
+      <RemoveCustomItemsDialog
+        open={removeCustomItemsDialogOpen}
+        onOpenChange={setRemoveCustomItemsDialogOpen}
+        customItemCount={payItems.reduce((count, item) => count + (item.customDeductions?.length || 0), 0)}
+        onRemove={fetchPayItems}
       />
     </Dialog>
   );
