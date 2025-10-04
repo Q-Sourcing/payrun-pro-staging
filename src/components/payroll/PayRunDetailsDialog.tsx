@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUpDown, Filter, Download, Globe, Flag, Settings } from "lucide-react";
 import { getCountryDeductions, calculateDeduction } from "@/lib/constants/deductions";
+import { getCurrencyByCode, getCurrencyCodeFromCountry } from "@/lib/constants/countries";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -74,6 +75,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
   const [expandedEmployee, setExpandedEmployee] = useState<string | null>(null);
   const [newCustomDeduction, setNewCustomDeduction] = useState<Record<string, { name: string; amount: string; type: string }>>({});
   const [payGroupCountry, setPayGroupCountry] = useState<string>("");
+  const [payGroupCurrency, setPayGroupCurrency] = useState<string>("UGX");
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -103,7 +105,9 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         if (payRunError) throw payRunError;
         if (!isMounted) return;
         
-        setPayGroupCountry((payRunData?.pay_groups as unknown as PayGroup)?.country || "");
+        const country = (payRunData?.pay_groups as unknown as PayGroup)?.country || "Uganda";
+        setPayGroupCountry(country);
+        setPayGroupCurrency(getCurrencyCodeFromCountry(country));
 
         // Fetch pay items
         const { data, error } = await supabase
@@ -182,7 +186,9 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         .single();
 
       if (payRunError) throw payRunError;
-      setPayGroupCountry((payRunData?.pay_groups as unknown as PayGroup)?.country || "");
+      const country = (payRunData?.pay_groups as unknown as PayGroup)?.country || "Uganda";
+      setPayGroupCountry(country);
+      setPayGroupCurrency(getCurrencyCodeFromCountry(country));
 
       // Fetch pay items
       const { data, error } = await supabase
@@ -233,11 +239,16 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
+  const formatCurrency = (amount: number, currencyCode?: string) => {
+    const currency = currencyCode || 'UGX';
+    const currencyInfo = getCurrencyByCode(currency);
+    const symbol = currencyInfo?.symbol || currency;
+    const decimals = currencyInfo?.decimalPlaces ?? 2;
+    
+    return `${symbol}${amount.toLocaleString('en-US', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    })}`;
   };
 
   const getFullName = (employee: PayItem['employees']) => {
@@ -910,19 +921,19 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
               <Card>
                 <CardHeader className="pb-2">
                   <CardDescription>Total Gross Pay</CardDescription>
-                  <CardTitle className="text-3xl text-green-600">{formatCurrency(summaryTotals.totalGross)}</CardTitle>
+                  <CardTitle className="text-3xl text-green-600">{formatCurrency(summaryTotals.totalGross, payGroupCurrency)}</CardTitle>
                 </CardHeader>
               </Card>
               <Card>
                 <CardHeader className="pb-2">
                   <CardDescription>Total Deductions</CardDescription>
-                  <CardTitle className="text-3xl text-orange-600">{formatCurrency(summaryTotals.totalDeductions)}</CardTitle>
+                  <CardTitle className="text-3xl text-orange-600">{formatCurrency(summaryTotals.totalDeductions, payGroupCurrency)}</CardTitle>
                 </CardHeader>
               </Card>
               <Card>
                 <CardHeader className="pb-2">
                   <CardDescription>Total Net Pay</CardDescription>
-                  <CardTitle className="text-3xl text-primary">{formatCurrency(summaryTotals.totalNet)}</CardTitle>
+                  <CardTitle className="text-3xl text-primary">{formatCurrency(summaryTotals.totalNet, payGroupCurrency)}</CardTitle>
                 </CardHeader>
               </Card>
             </div>
@@ -1123,19 +1134,19 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                item.employees.pay_type === 'piece_rate' ? 'Piece' : 'Salary'}
                             </Badge>
                           </TableCell>
-                          <TableCell>{formatCurrency(item.employees.pay_rate)}</TableCell>
+                          <TableCell>{formatCurrency(item.employees.pay_rate, payGroupCurrency)}</TableCell>
                           <TableCell>
                             {item.employees.pay_type === 'hourly' && `${item.hours_worked || 0} hrs`}
                             {item.employees.pay_type === 'piece_rate' && `${item.pieces_completed || 0} pcs`}
                             {item.employees.pay_type === 'salary' && '-'}
                           </TableCell>
-                          <TableCell className="font-semibold">{formatCurrency(calculated.grossPay)}</TableCell>
+                          <TableCell className="font-semibold">{formatCurrency(calculated.grossPay, payGroupCurrency)}</TableCell>
                           {/* Standard Deduction Columns */}
                           {standardDeductionColumns.map(columnName => {
                             const amount = calculated.standardDeductions?.[columnName] || 0;
                             return (
                               <TableCell key={`standard-${columnName}`} className="text-center text-orange-600 font-medium">
-                                {formatCurrency(amount)}
+                                {formatCurrency(amount, payGroupCurrency)}
                               </TableCell>
                             );
                           })}
@@ -1148,12 +1159,12 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                             const isDeduction = customItem.type === 'deduction';
                             return (
                               <TableCell key={columnName} className={`text-center font-medium ${isDeduction ? 'text-red-600' : 'text-green-600'}`}>
-                                {isDeduction ? '-' : '+'}{formatCurrency(customItem.amount)}
+                                {isDeduction ? '-' : '+'}{formatCurrency(customItem.amount, payGroupCurrency)}
                               </TableCell>
                             );
                           })}
-                          <TableCell>{formatCurrency(calculated.totalDeductions)}</TableCell>
-                          <TableCell className="font-bold text-primary">{formatCurrency(calculated.netPay)}</TableCell>
+                          <TableCell>{formatCurrency(calculated.totalDeductions, payGroupCurrency)}</TableCell>
+                          <TableCell className="font-bold text-primary">{formatCurrency(calculated.netPay, payGroupCurrency)}</TableCell>
                           <TableCell>
                             <Select
                               value={item.status}
@@ -1241,34 +1252,34 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                     <CardContent className="space-y-2">
                                       <div className="flex justify-between">
                                         <span>Basic Salary</span>
-                                        <span className="font-semibold">{formatCurrency(item.employees.pay_rate)}</span>
+                                        <span className="font-semibold">{formatCurrency(item.employees.pay_rate, payGroupCurrency)}</span>
                                       </div>
                                       {item.employees.pay_type === 'hourly' && (
                                         <div className="flex justify-between text-sm text-muted-foreground">
-                                          <span>({item.hours_worked || 0} hours × {formatCurrency(item.employees.pay_rate)}/hr)</span>
+                                          <span>({item.hours_worked || 0} hours × {formatCurrency(item.employees.pay_rate, payGroupCurrency)}/hr)</span>
                                         </div>
                                       )}
                                       {item.employees.pay_type === 'piece_rate' && (
                                         <div className="flex justify-between text-sm text-muted-foreground">
-                                          <span>({item.pieces_completed || 0} pieces × {formatCurrency(item.employees.pay_rate)}/pc)</span>
+                                          <span>({item.pieces_completed || 0} pieces × {formatCurrency(item.employees.pay_rate, payGroupCurrency)}/pc)</span>
                                         </div>
                                       )}
                                        {(calculated.customBenefitsTotal || 0) > 0 && (
                                          <div className="flex justify-between text-green-600">
                                            <span>Gross-Affecting Additions</span>
-                                           <span className="font-semibold">+{formatCurrency(calculated.customBenefitsTotal)}</span>
+                                           <span className="font-semibold">+{formatCurrency(calculated.customBenefitsTotal, payGroupCurrency)}</span>
                                          </div>
                                        )}
                                        {(calculated.customAllowancesTotal || 0) > 0 && (
                                          <div className="flex justify-between text-green-600">
                                            <span>Non-Gross Allowances</span>
-                                           <span className="font-semibold">+{formatCurrency(calculated.customAllowancesTotal)}</span>
+                                           <span className="font-semibold">+{formatCurrency(calculated.customAllowancesTotal, payGroupCurrency)}</span>
                                          </div>
                                        )}
                                       <Separator />
                                       <div className="flex justify-between font-bold text-lg">
                                         <span>Gross Pay</span>
-                                        <span className="text-green-600">{formatCurrency(calculated.grossPay)}</span>
+                                        <span className="text-green-600">{formatCurrency(calculated.grossPay, payGroupCurrency)}</span>
                                       </div>
                                     </CardContent>
                                   </Card>
@@ -1294,7 +1305,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                       {item.employees.employee_type === 'expatriate' ? (
                                         <div className="flex justify-between text-sm">
                                           <span>Flat Tax Rate (15%)</span>
-                                          <span className="font-medium">{formatCurrency(calculated.taxDeduction)}</span>
+                                          <span className="font-medium">{formatCurrency(calculated.taxDeduction, payGroupCurrency)}</span>
                                         </div>
                                       ) : (
                                         countryDeductions
@@ -1304,7 +1315,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                             return (
                                               <div key={idx} className="flex justify-between text-sm">
                                                 <span>{rule.name}</span>
-                                                <span className="font-medium">{formatCurrency(amount)}</span>
+                                                <span className="font-medium">{formatCurrency(amount, payGroupCurrency)}</span>
                                               </div>
                                             );
                                           })
@@ -1312,19 +1323,19 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                       {item.benefit_deductions > 0 && (
                                         <div className="flex justify-between text-sm">
                                           <span>Additional Benefits</span>
-                                          <span className="font-medium">{formatCurrency(item.benefit_deductions)}</span>
+                                          <span className="font-medium">{formatCurrency(item.benefit_deductions, payGroupCurrency)}</span>
                                         </div>
                                       )}
                                       {(calculated.customDeductionsTotal || 0) > 0 && (
                                         <div className="flex justify-between text-sm">
                                           <span>Custom Deductions</span>
-                                          <span className="font-medium">{formatCurrency(calculated.customDeductionsTotal)}</span>
+                                          <span className="font-medium">{formatCurrency(calculated.customDeductionsTotal, payGroupCurrency)}</span>
                                         </div>
                                       )}
                                       <Separator />
                                       <div className="flex justify-between font-bold">
                                         <span>Total Deductions</span>
-                                        <span className="text-orange-600">{formatCurrency(calculated.totalDeductions)}</span>
+                                        <span className="text-orange-600">{formatCurrency(calculated.totalDeductions, payGroupCurrency)}</span>
                                       </div>
                                     </CardContent>
                                   </Card>
@@ -1347,7 +1358,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                               </div>
                                               <div className="flex items-center gap-2">
                                                 <span className={deduction.type === 'deduction' ? 'text-orange-600' : 'text-green-600'}>
-                                                  {deduction.type === 'deduction' ? '-' : '+'}{formatCurrency(deduction.amount)}
+                                                  {deduction.type === 'deduction' ? '-' : '+'}{formatCurrency(deduction.amount, payGroupCurrency)}
                                                 </span>
                                                 <Button
                                                   variant="ghost"
@@ -1420,12 +1431,12 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                   <CardContent className="pt-6">
                                     <div className="flex justify-between items-center text-2xl font-bold">
                                       <span>NET PAY</span>
-                                      <span className="text-primary">{formatCurrency(calculated.netPay)}</span>
+                                      <span className="text-primary">{formatCurrency(calculated.netPay, payGroupCurrency)}</span>
                                     </div>
                                     {(calculated.employerContributions || 0) > 0 && (
                                       <div className="mt-2 text-sm text-muted-foreground flex justify-between">
                                         <span>Employer Contributions (NSSF, etc.)</span>
-                                        <span>{formatCurrency(calculated.employerContributions)}</span>
+                                        <span>{formatCurrency(calculated.employerContributions, payGroupCurrency)}</span>
                                       </div>
                                     )}
                                   </CardContent>

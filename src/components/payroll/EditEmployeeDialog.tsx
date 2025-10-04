@@ -243,8 +243,8 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
             <div className="space-y-2">
               <Label htmlFor="pay_rate">
                 Pay Rate * 
-                {formData.pay_type === "hourly" && " (per hour)"}
-                {formData.pay_type === "salary" && " (yearly)"}
+                {formData.pay_type === "hourly" && " (hourly)"}
+                {formData.pay_type === "salary" && " (monthly)"}
                 {formData.pay_type === "piece_rate" && ` (per ${formData.piece_type})`}
                 {selectedCurrency && (
                   <span className="text-sm text-muted-foreground ml-1">

@@ -97,17 +97,23 @@ const EmployeesTab = () => {
 
   const formatPayRate = (rate: number, payType: string, currencyCode: string) => {
     const currency = getCurrencyByCode(currencyCode);
-    const symbol = currency?.symbol || "$";
+    const symbol = currency?.symbol || currencyCode;
+    const decimals = currency?.decimalPlaces ?? 2;
+    
+    const formattedRate = rate.toLocaleString('en-US', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
     
     switch (payType) {
       case "hourly":
-        return `${symbol}${rate}/hr`;
+        return `${symbol}${formattedRate}/hr`;
       case "salary":
-        return `${symbol}${rate.toLocaleString()}/yr`;
+        return `${symbol}${formattedRate}/mo`;
       case "piece_rate":
-        return `${symbol}${rate}/piece`;
+        return `${symbol}${formattedRate}/piece`;
       default:
-        return `${symbol}${rate}`;
+        return `${symbol}${formattedRate}`;
     }
   };
 

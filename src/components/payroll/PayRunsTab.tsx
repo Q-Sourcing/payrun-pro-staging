@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Calendar, DollarSign, Trash2 } from "lucide-react";
+import { getCurrencyByCode, getCurrencyCodeFromCountry } from "@/lib/constants/countries";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -109,11 +110,18 @@ const PayRunsTab = () => {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
+  const formatCurrency = (amount: number, payRun?: PayRun) => {
+    const country = payRun?.pay_groups?.country || 'Uganda';
+    const currencyCode = getCurrencyCodeFromCountry(country);
+    
+    const currencyInfo = getCurrencyByCode(currencyCode);
+    const symbol = currencyInfo?.symbol || currencyCode;
+    const decimals = currencyInfo?.decimalPlaces ?? 2;
+    
+    return `${symbol}${amount.toLocaleString('en-US', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    })}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -308,8 +316,8 @@ const PayRunsTab = () => {
                         {payRun.pay_items_count} employees
                       </Badge>
                     </TableCell>
-                    <TableCell>{formatCurrency(payRun.total_gross_pay)}</TableCell>
-                    <TableCell className="font-medium">{formatCurrency(payRun.total_net_pay)}</TableCell>
+                    <TableCell>{formatCurrency(payRun.total_gross_pay, payRun)}</TableCell>
+                    <TableCell className="font-medium">{formatCurrency(payRun.total_net_pay, payRun)}</TableCell>
                     <TableCell>
                       <Badge className={getStatusColor(payRun.status)}>
                         {formatStatus(payRun.status)}

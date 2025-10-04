@@ -67,8 +67,23 @@ export const formatCurrency = (amount: number, currencyCode: string): string => 
   const currency = getCurrencyByCode(currencyCode);
   if (!currency) return amount.toString();
   
-  const formatted = amount.toFixed(currency.decimalPlaces);
+  const formatted = amount.toLocaleString('en-US', {
+    minimumFractionDigits: currency.decimalPlaces,
+    maximumFractionDigits: currency.decimalPlaces,
+  });
   return `${currency.symbol}${formatted}`;
+};
+
+// Helper function to get currency symbol for a given currency code
+export const getCurrencySymbol = (currencyCode: string): string => {
+  const currency = getCurrencyByCode(currencyCode);
+  return currency?.symbol || currencyCode;
+};
+
+// Helper function to get currency code from country name
+export const getCurrencyCodeFromCountry = (countryName: string): string => {
+  const country = getCountryByName(countryName);
+  return country?.currency || 'UGX'; // default to UGX
 };
 
 // Piece rate options for enhanced piece-rate system
