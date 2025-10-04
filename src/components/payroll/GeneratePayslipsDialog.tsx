@@ -5,6 +5,9 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
+import { getCurrencyCodeFromCountry } from "@/lib/constants/countries";
 import { FileText, Mail, Download, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -28,15 +31,97 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
   const handleGenerate = async () => {
     setGenerating(true);
     
-    // Simulate generation
-    setTimeout(() => {
-      setGenerating(false);
+    try {
+      // Fetch pay run data with all details
+      const { data: payRunData, error: payRunError } = await supabase
+        .from("pay_runs")
+        .select(`
+          *,
+          pay_groups(name, country),
+          pay_items(
+            *,
+            employees(
+              first_name,
+              middle_name,
+              last_name,
+              email,
+              pay_type,
+              pay_rate,
+              department
+            )
+          )
+        `)
+        .eq("id", payRunId)
+        .single();
+
+      if (payRunError) throw payRunError;
+
+      const currency = getCurrencyCodeFromCountry(payRunData.pay_groups.country);
+      
+      // Generate CSV with all payslips
+      const csvContent = generatePayslipsCSV(payRunData, currency);
+      
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `payslips-${format(new Date(payRunData.pay_run_date), 'yyyy-MM-dd')}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
       toast({
-        title: "Payslips Generated",
-        description: `Successfully generated ${employeeCount} payslips`,
+        title: "Payslips Downloaded",
+        description: `Successfully generated and downloaded ${employeeCount} payslips`,
       });
       onOpenChange(false);
-    }, 2000);
+    } catch (error) {
+      console.error("Error generating payslips:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate payslips",
+        variant: "destructive",
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const generatePayslipsCSV = (payRun: any, currency: string) => {
+    const lines: string[] = [];
+    
+    // Header row
+    lines.push("EMPLOYEE PAYSLIPS");
+    lines.push(`Pay Run Date: ${format(new Date(payRun.pay_run_date), 'MMM dd, yyyy')}`);
+    lines.push(`Pay Period: ${format(new Date(payRun.pay_period_start), 'MMM dd, yyyy')} - ${format(new Date(payRun.pay_period_end), 'MMM dd, yyyy')}`);
+    lines.push("");
+    
+    // Column headers
+    lines.push("Employee Name,Email,Department,Pay Type,Gross Pay,Tax Deductions,Total Deductions,Net Pay");
+    
+    // Employee rows
+    payRun.pay_items.forEach((item: any) => {
+      const fullName = [
+        item.employees.first_name,
+        item.employees.middle_name,
+        item.employees.last_name
+      ].filter(Boolean).join(' ');
+      
+      lines.push([
+        fullName,
+        item.employees.email,
+        item.employees.department || 'N/A',
+        item.employees.pay_type,
+        `${currency} ${item.gross_pay.toLocaleString()}`,
+        `${currency} ${item.tax_deduction.toLocaleString()}`,
+        `${currency} ${item.total_deductions.toLocaleString()}`,
+        `${currency} ${item.net_pay.toLocaleString()}`
+      ].join(','));
+    });
+    
+    return lines.join('\n');
   };
 
   return (

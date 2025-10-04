@@ -7,6 +7,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 import { FileText, FileSpreadsheet, Code, Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
+import { getCurrencyCodeFromCountry } from "@/lib/constants/countries";
 
 interface GenerateBillingSummaryDialogProps {
   open: boolean;
@@ -34,14 +37,112 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
   const handleGenerate = async () => {
     setGenerating(true);
     
-    setTimeout(() => {
-      setGenerating(false);
+    try {
+      // Fetch pay run data
+      const { data: payRunData, error: payRunError } = await supabase
+        .from("pay_runs")
+        .select(`
+          *,
+          pay_groups(name, country),
+          pay_items(
+            *,
+            employees(
+              first_name,
+              middle_name,
+              last_name,
+              email,
+              pay_type,
+              pay_rate,
+              department,
+              employee_type
+            )
+          )
+        `)
+        .eq("id", payRunId)
+        .single();
+
+      if (payRunError) throw payRunError;
+
+      const currency = getCurrencyCodeFromCountry(payRunData.pay_groups.country);
+      const payItems = payRunData.pay_items || [];
+
+      // Generate CSV content
+      const csvContent = generateBillingCSV(payRunData, payItems, currency);
+      
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `billing-summary-${format(new Date(payRunData.pay_run_date), 'yyyy-MM-dd')}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
       toast({
-        title: "Billing Summary Generated",
-        description: `Successfully generated ${reportType} billing summary in ${exportFormat.toUpperCase()} format`,
+        title: "Billing Summary Downloaded",
+        description: `Successfully generated and downloaded billing summary`,
       });
       onOpenChange(false);
-    }, 2000);
+    } catch (error) {
+      console.error("Error generating billing summary:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate billing summary",
+        variant: "destructive",
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const generateBillingCSV = (payRun: any, payItems: any[], currency: string) => {
+    const lines: string[] = [];
+    
+    // Header
+    lines.push("PAYROLL BILLING SUMMARY");
+    lines.push(`Pay Run Date: ${format(new Date(payRun.pay_run_date), 'MMM dd, yyyy')}`);
+    lines.push(`Pay Period: ${format(new Date(payRun.pay_period_start), 'MMM dd, yyyy')} - ${format(new Date(payRun.pay_period_end), 'MMM dd, yyyy')}`);
+    lines.push(`Pay Group: ${payRun.pay_groups.name}`);
+    lines.push("");
+    
+    // Executive Summary
+    lines.push("EXECUTIVE SUMMARY");
+    lines.push(`Total Employees,${payItems.length}`);
+    lines.push(`Total Gross Pay,${currency} ${payRun.total_gross_pay?.toLocaleString() || '0'}`);
+    lines.push(`Total Deductions,${currency} ${payRun.total_deductions?.toLocaleString() || '0'}`);
+    lines.push(`Total Net Pay,${currency} ${payRun.total_net_pay?.toLocaleString() || '0'}`);
+    lines.push("");
+    
+    // Detailed Employee Breakdown
+    lines.push("EMPLOYEE BREAKDOWN");
+    lines.push("Employee Name,Email,Pay Type,Gross Pay,Deductions,Net Pay,Status");
+    
+    payItems.forEach(item => {
+      const fullName = [
+        item.employees.first_name,
+        item.employees.middle_name,
+        item.employees.last_name
+      ].filter(Boolean).join(' ');
+      
+      lines.push([
+        fullName,
+        item.employees.email,
+        item.employees.pay_type,
+        `${currency} ${item.gross_pay.toLocaleString()}`,
+        `${currency} ${item.total_deductions.toLocaleString()}`,
+        `${currency} ${item.net_pay.toLocaleString()}`,
+        item.status
+      ].join(','));
+    });
+    
+    lines.push("");
+    lines.push("PAYMENT INSTRUCTIONS");
+    lines.push(`Total Amount to Transfer: ${currency} ${payRun.total_net_pay?.toLocaleString() || '0'}`);
+    lines.push(`Number of Beneficiaries: ${payItems.length}`);
+    
+    return lines.join('\n');
   };
 
   return (
