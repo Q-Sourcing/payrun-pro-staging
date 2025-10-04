@@ -13,7 +13,7 @@ import { FileText, Mail, Download, Printer, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as JSZip from "jszip";
+import JSZip from "jszip";
 
 interface GeneratePayslipsDialogProps {
   open: boolean;
