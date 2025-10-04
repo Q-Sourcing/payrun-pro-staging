@@ -247,22 +247,10 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
     }
 
     // Add password protection if enabled
+    // Note: Password protection requires jsPDF with encryption plugin
+    // For now, this is a placeholder for future implementation
     if (passwordProtect && password) {
-      try {
-        const userPassword = project ? `${project}_${password}` : password;
-        doc.setEncryption({
-          userPassword: userPassword,
-          ownerPassword: 'payroll_master_key',
-          permissions: {
-            printing: 'lowResolution',
-            modifying: false,
-            copying: false,
-            annotating: false,
-          }
-        } as any);
-      } catch (e) {
-        console.warn("Password protection not supported in this jsPDF version");
-      }
+      console.log(`Password protection requested for ${project || 'payslip'}`);
     }
 
     return doc;
@@ -577,9 +565,10 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
                   id="password-protect"
                   checked={passwordProtect}
                   onCheckedChange={(checked) => setPasswordProtect(checked as boolean)}
+                  disabled
                 />
-                <Label htmlFor="password-protect" className="font-normal">
-                  Password protect sensitive payslips
+                <Label htmlFor="password-protect" className="font-normal text-muted-foreground">
+                  Password protect sensitive payslips (Coming soon)
                 </Label>
               </div>
             </div>
