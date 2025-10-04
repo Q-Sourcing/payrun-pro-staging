@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Upload } from "lucide-react";
+import { Plus, Search, Pencil, Upload, Globe, Flag } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -25,6 +25,7 @@ interface Employee {
   country: string;
   currency: string;
   status: string;
+  employee_type: string;
   pay_groups?: { name: string };
 }
 
@@ -194,6 +195,7 @@ const EmployeesTab = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Pay Type</TableHead>
                   <TableHead>Pay Rate</TableHead>
@@ -208,6 +210,19 @@ const EmployeesTab = () => {
                 {filteredEmployees.map((employee) => (
                   <TableRow key={employee.id}>
                     <TableCell className="font-medium">{getFullName(employee)}</TableCell>
+                    <TableCell>
+                      {employee.employee_type === 'expatriate' ? (
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100">
+                          <Globe className="h-3 w-3 mr-1" />
+                          Expat
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900 dark:text-green-100">
+                          <Flag className="h-3 w-3 mr-1" />
+                          Local
+                        </Badge>
+                      )}
+                    </TableCell>
                     <TableCell>{employee.email}</TableCell>
                     <TableCell>{formatPayType(employee.pay_type)}</TableCell>
                     <TableCell>{formatPayRate(employee.pay_rate, employee.pay_type, employee.currency)}</TableCell>

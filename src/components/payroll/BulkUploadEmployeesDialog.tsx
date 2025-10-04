@@ -30,12 +30,13 @@ const BulkUploadEmployeesDialog = ({ open, onOpenChange, onEmployeesAdded }: Bul
       "pay_type",
       "pay_rate",
       "pay_group_id",
-      "status"
+      "status",
+      "employee_type"
     ];
     
     const sampleData = [
-      "John,M,Doe,john.doe@example.com,+256700000000,Uganda,UGX,salary,5000000,,active",
-      "Jane,,Smith,jane.smith@example.com,+254700000000,Kenya,KSH,hourly,1500,,active"
+      "John,M,Doe,john.doe@example.com,+256700000000,Uganda,UGX,salary,5000000,,active,local",
+      "Jane,,Smith,jane.smith@example.com,+254700000000,Kenya,KSH,hourly,1500,,active,expatriate"
     ];
 
     const csvContent = [headers.join(","), ...sampleData].join("\n");
@@ -121,7 +122,7 @@ const BulkUploadEmployeesDialog = ({ open, onOpenChange, onEmployeesAdded }: Bul
         return;
       }
 
-      // Validate required fields
+      // Validate required fields and set defaults
       const validEmployees = employees.filter(emp => 
         emp.first_name && 
         emp.email && 
@@ -129,7 +130,10 @@ const BulkUploadEmployeesDialog = ({ open, onOpenChange, onEmployeesAdded }: Bul
         emp.currency && 
         emp.pay_type && 
         emp.pay_rate
-      );
+      ).map(emp => ({
+        ...emp,
+        employee_type: emp.employee_type || 'local' // Default to local if not specified
+      }));
 
       if (validEmployees.length === 0) {
         toast({
@@ -185,9 +189,10 @@ const BulkUploadEmployeesDialog = ({ open, onOpenChange, onEmployeesAdded }: Bul
                   <div className="flex-1">
                     <h4 className="font-medium mb-1">CSV Format Requirements</h4>
                     <ul className="text-sm text-muted-foreground space-y-1">
-                      <li>• Required: first_name, email, country, currency, pay_type, pay_rate, status</li>
+                      <li>• Required: first_name, email, country, currency, pay_type, pay_rate, status, employee_type</li>
                       <li>• Optional: middle_name, last_name, phone, pay_group_id</li>
                       <li>• Pay types: salary, hourly, piece_rate</li>
+                      <li>• Employee types: local, expatriate</li>
                       <li>• Status: active, inactive</li>
                     </ul>
                   </div>

@@ -27,6 +27,7 @@ interface Employee {
   currency: string;
   pay_group_id?: string | null;
   status: string;
+  employee_type: string;
 }
 
 interface EditEmployeeDialogProps {
@@ -50,6 +51,7 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
     pay_group_id: "",
     status: "active",
     piece_type: "units",
+    employee_type: "local",
   });
   const [payGroups, setPayGroups] = useState<PayGroup[]>([]);
   const [loading, setLoading] = useState(false);
@@ -72,6 +74,7 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
         pay_group_id: employee.pay_group_id || "",
         status: employee.status || "active",
         piece_type: "units",
+        employee_type: employee.employee_type || "local",
       });
       fetchPayGroups();
     }
@@ -120,6 +123,7 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
           currency: formData.currency,
           pay_group_id: formData.pay_group_id || null,
           status: formData.status as "active" | "inactive",
+          employee_type: formData.employee_type as "local" | "expatriate",
         })
         .eq("id", employee.id);
 
@@ -350,20 +354,38 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="status">Status *</Label>
-            <Select
-              value={formData.status}
-              onValueChange={(value) => setFormData({ ...formData, status: value })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="status">Status *</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) => setFormData({ ...formData, status: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="employee_type">Employee Type *</Label>
+              <Select
+                value={formData.employee_type}
+                onValueChange={(value) => setFormData({ ...formData, employee_type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="local">Local National</SelectItem>
+                  <SelectItem value="expatriate">Expatriate</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="flex gap-3 pt-4">

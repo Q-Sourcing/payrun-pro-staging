@@ -34,6 +34,7 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
     pay_group_id: "",
     status: "active",
     piece_type: "units",
+    employee_type: "local",
   });
   const [payGroups, setPayGroups] = useState<PayGroup[]>([]);
   const [loading, setLoading] = useState(false);
@@ -87,6 +88,7 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
           currency: formData.currency,
           pay_group_id: formData.pay_group_id || null,
           status: formData.status as "active" | "inactive",
+          employee_type: formData.employee_type as "local" | "expatriate",
         },
       ]);
 
@@ -110,6 +112,7 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
         pay_group_id: "",
         status: "active",
         piece_type: "units",
+        employee_type: "local",
       });
       onEmployeeAdded();
       onOpenChange(false);
@@ -304,6 +307,25 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
               </Select>
             </div>
           )}
+
+          <div className="space-y-2">
+            <Label htmlFor="employee_type">Employee Type *</Label>
+            <Select
+              value={formData.employee_type}
+              onValueChange={(value) => setFormData({ ...formData, employee_type: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="local">Local National</SelectItem>
+                <SelectItem value="expatriate">Expatriate</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Local nationals follow standard country-specific payroll rules. Expatriates may have different tax treatments, benefits, and deductions based on company policy.
+            </p>
+          </div>
 
           {formData.country && (
             <div className="space-y-2">

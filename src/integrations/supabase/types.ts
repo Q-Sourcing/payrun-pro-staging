@@ -53,6 +53,7 @@ export type Database = {
           created_at: string
           currency: string | null
           email: string
+          employee_type: string
           first_name: string
           id: string
           last_name: string | null
@@ -70,6 +71,7 @@ export type Database = {
           created_at?: string
           currency?: string | null
           email: string
+          employee_type?: string
           first_name: string
           id?: string
           last_name?: string | null
@@ -87,6 +89,7 @@ export type Database = {
           created_at?: string
           currency?: string | null
           email?: string
+          employee_type?: string
           first_name?: string
           id?: string
           last_name?: string | null
@@ -108,6 +111,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      expatriate_policies: {
+        Row: {
+          apply_flat_tax: boolean
+          country: string
+          created_at: string
+          education_allowance_percent: number | null
+          exempt_housing_levy: boolean
+          exempt_lst: boolean
+          exempt_nhif: boolean
+          flat_tax_rate: number | null
+          housing_allowance_percent: number | null
+          id: string
+          social_security_reduced_rate: number | null
+          social_security_treatment: string
+          travel_allowance_percent: number | null
+          updated_at: string
+        }
+        Insert: {
+          apply_flat_tax?: boolean
+          country: string
+          created_at?: string
+          education_allowance_percent?: number | null
+          exempt_housing_levy?: boolean
+          exempt_lst?: boolean
+          exempt_nhif?: boolean
+          flat_tax_rate?: number | null
+          housing_allowance_percent?: number | null
+          id?: string
+          social_security_reduced_rate?: number | null
+          social_security_treatment?: string
+          travel_allowance_percent?: number | null
+          updated_at?: string
+        }
+        Update: {
+          apply_flat_tax?: boolean
+          country?: string
+          created_at?: string
+          education_allowance_percent?: number | null
+          exempt_housing_levy?: boolean
+          exempt_lst?: boolean
+          exempt_nhif?: boolean
+          flat_tax_rate?: number | null
+          housing_allowance_percent?: number | null
+          id?: string
+          social_security_reduced_rate?: number | null
+          social_security_treatment?: string
+          travel_allowance_percent?: number | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       pay_groups: {
         Row: {

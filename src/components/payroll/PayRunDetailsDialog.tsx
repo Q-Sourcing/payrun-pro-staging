@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUpDown, Filter, Download } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUpDown, Filter, Download, Globe, Flag } from "lucide-react";
 import { getCountryDeductions, calculateDeduction } from "@/lib/constants/deductions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -45,6 +45,7 @@ interface PayItem {
     pay_type: string;
     pay_rate: number;
     country: string;
+    employee_type: string;
   };
   customDeductions?: CustomDeduction[];
 }
@@ -109,7 +110,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
               email,
               pay_type,
               pay_rate,
-              country
+              country,
+              employee_type
             )
           `)
           .eq("pay_run_id", payRunId)
@@ -187,7 +189,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
             email,
             pay_type,
             pay_rate,
-            country
+            country,
+            employee_type
           )
         `)
         .eq("pay_run_id", payRunId)
@@ -249,6 +252,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     const hoursWorked = edits.hours_worked ?? item.hours_worked ?? 0;
     const piecesCompleted = edits.pieces_completed ?? item.pieces_completed ?? 0;
     const payRate = item.employees.pay_rate;
+    const isExpatriate = item.employees.employee_type === 'expatriate';
     
     let grossPay = 0;
     if (item.employees.pay_type === 'hourly') {
@@ -259,16 +263,29 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       grossPay = payRate;
     }
 
-    // Recalculate country-specific deductions (non-editable)
-    const deductionRules = getCountryDeductions(item.employees.country);
-    const calculatedTaxDeduction = deductionRules
-      .filter(rule => rule.mandatory)
-      .reduce((total, rule) => total + calculateDeduction(grossPay, rule), 0);
+    let calculatedTaxDeduction = 0;
+    let employerContributions = 0;
 
-    // Calculate employer contributions (like NSSF employer portion)
-    const employerContributions = deductionRules
-      .filter(rule => rule.employerContribution)
-      .reduce((total, rule) => total + (grossPay * ((rule.employerContribution || 0) / 100)), 0);
+    if (isExpatriate) {
+      // For expatriates, apply simplified flat tax (default 15%)
+      // This should ideally fetch from expatriate_policies table
+      const flatTaxRate = 0.15; // Default 15%
+      calculatedTaxDeduction = grossPay * flatTaxRate;
+      
+      // Expatriates are typically exempt from social security
+      employerContributions = 0;
+    } else {
+      // For local employees, apply standard country-specific deductions
+      const deductionRules = getCountryDeductions(item.employees.country);
+      calculatedTaxDeduction = deductionRules
+        .filter(rule => rule.mandatory)
+        .reduce((total, rule) => total + calculateDeduction(grossPay, rule), 0);
+
+      // Calculate employer contributions (like NSSF employer portion)
+      employerContributions = deductionRules
+        .filter(rule => rule.employerContribution)
+        .reduce((total, rule) => total + (grossPay * ((rule.employerContribution || 0) / 100)), 0);
+    }
 
     // Custom deductions and benefits
     const customDeductionsTotal = (item.customDeductions || [])
@@ -785,6 +802,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                       </Button>
                     </TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead>
                       <Button variant="ghost" size="sm" onClick={() => handleSort('pay_type')}>
                         Pay Type
@@ -849,6 +867,19 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                           </TableCell>
                           <TableCell className="font-medium">{getFullName(item.employees)}</TableCell>
                           <TableCell>
+                            {item.employees.employee_type === 'expatriate' ? (
+                              <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100">
+                                <Globe className="h-3 w-3 mr-1" />
+                                Expat
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900 dark:text-green-100">
+                                <Flag className="h-3 w-3 mr-1" />
+                                Local
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
                             <Badge variant="outline">
                               {item.employees.pay_type === 'hourly' ? 'Hourly' : 
                                item.employees.pay_type === 'piece_rate' ? 'Piece' : 'Salary'}
@@ -906,7 +937,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                         {/* Expanded Details Row */}
                         {isExpanded && (
                           <TableRow>
-                            <TableCell colSpan={13} className="bg-muted/30">
+                            <TableCell colSpan={14} className="bg-muted/30">
                               <div className="p-6 space-y-6">
                                 <div className="grid grid-cols-2 gap-6">
                                   {/* Editable Input Fields */}
@@ -990,20 +1021,37 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                   {/* Deductions Breakdown */}
                                   <Card>
                                     <CardHeader>
-                                      <CardTitle className="text-lg">📊 Deductions (Auto-Calculated)</CardTitle>
+                                      <CardTitle className="text-lg">📊 Deductions</CardTitle>
+                                      {item.employees.employee_type === 'expatriate' && (
+                                        <p className="text-xs text-orange-600 mt-1">
+                                          ⚠ Applying expatriate policies - flat tax rate and modified benefits
+                                        </p>
+                                      )}
+                                      {item.employees.employee_type === 'local' && (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                          Applying standard {item.employees.country} tax brackets and deductions
+                                        </p>
+                                      )}
                                     </CardHeader>
                                     <CardContent className="space-y-2">
-                                      {countryDeductions
-                                        .filter(rule => rule.mandatory)
-                                        .map((rule, idx) => {
-                                          const amount = calculateDeduction(calculated.grossPay, rule);
-                                          return (
-                                            <div key={idx} className="flex justify-between text-sm">
-                                              <span>{rule.name}</span>
-                                              <span className="font-medium">{formatCurrency(amount)}</span>
-                                            </div>
-                                          );
-                                        })}
+                                      {item.employees.employee_type === 'expatriate' ? (
+                                        <div className="flex justify-between text-sm">
+                                          <span>Flat Tax Rate (15%)</span>
+                                          <span className="font-medium">{formatCurrency(calculated.taxDeduction)}</span>
+                                        </div>
+                                      ) : (
+                                        countryDeductions
+                                          .filter(rule => rule.mandatory)
+                                          .map((rule, idx) => {
+                                            const amount = calculateDeduction(calculated.grossPay, rule);
+                                            return (
+                                              <div key={idx} className="flex justify-between text-sm">
+                                                <span>{rule.name}</span>
+                                                <span className="font-medium">{formatCurrency(amount)}</span>
+                                              </div>
+                                            );
+                                          })
+                                      )}
                                       {item.benefit_deductions > 0 && (
                                         <div className="flex justify-between text-sm">
                                           <span>Additional Benefits</span>
