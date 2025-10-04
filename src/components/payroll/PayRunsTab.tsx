@@ -44,6 +44,7 @@ const PayRunsTab = () => {
   const [selectedPayRun, setSelectedPayRun] = useState<PayRun | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [payRunToDelete, setPayRunToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
   const fetchPayRuns = async () => {
@@ -120,32 +121,59 @@ const PayRunsTab = () => {
   };
 
   const handleDeletePayRun = async () => {
-    if (!payRunToDelete) return;
+    if (!payRunToDelete || isDeleting) return;
+
+    setIsDeleting(true);
 
     try {
-      const { error } = await supabase
-        .from("pay_runs")
-        .delete()
-        .eq("id", payRunToDelete);
+      // Add retry logic for network failures
+      let attempts = 0;
+      const maxAttempts = 3;
+      let lastError;
 
-      if (error) throw error;
+      while (attempts < maxAttempts) {
+        try {
+          const { error } = await supabase
+            .from("pay_runs")
+            .delete()
+            .eq("id", payRunToDelete);
 
-      toast({
-        title: "Success",
-        description: "Pay run deleted successfully",
-      });
+          if (error) throw error;
 
-      fetchPayRuns();
-    } catch (error) {
+          toast({
+            title: "Success",
+            description: "Pay run deleted successfully",
+          });
+
+          await fetchPayRuns();
+          setShowDeleteDialog(false);
+          setPayRunToDelete(null);
+          return;
+        } catch (err: any) {
+          lastError = err;
+          attempts++;
+          
+          // Only retry on network errors
+          if (err.message?.includes("Failed to fetch") && attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+            continue;
+          }
+          throw err;
+        }
+      }
+
+      throw lastError;
+    } catch (error: any) {
       console.error("Error deleting pay run:", error);
       toast({
         title: "Error",
-        description: "Failed to delete pay run",
+        description: error.message?.includes("Failed to fetch") 
+          ? "Network error. Please check your connection and try again."
+          : "Failed to delete pay run",
         variant: "destructive",
       });
     } finally {
-      setShowDeleteDialog(false);
-      setPayRunToDelete(null);
+      setIsDeleting(false);
     }
   };
 
@@ -348,9 +376,13 @@ const PayRunsTab = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeletePayRun} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeletePayRun} 
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
