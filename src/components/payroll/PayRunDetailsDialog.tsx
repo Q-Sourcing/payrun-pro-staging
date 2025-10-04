@@ -640,18 +640,6 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     }
   };
 
-  if (loading) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-6xl">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-lg">Loading pay run details...</div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
   // Calculate summary totals
   const summaryTotals = useMemo(() => {
     return filteredAndSortedItems.reduce((acc, item) => {
@@ -664,6 +652,18 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       };
     }, { totalGross: 0, totalDeductions: 0, totalNet: 0, totalEmployer: 0 });
   }, [filteredAndSortedItems]);
+
+  if (loading) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-6xl">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-lg">Loading pay run details...</div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
