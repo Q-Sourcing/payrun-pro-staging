@@ -297,45 +297,11 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
       project: item.employees.project || 'General'
     }));
 
-    const payslipFiles = await Promise.all(
-      payRun.pay_items.map(async (item: any) => {
-        const doc = generateSinglePayslipPDF(item, payRun, currency, logoDataUrl);
-        const pdfBlob = doc.output('blob');
-        const base64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-          reader.readAsDataURL(pdfBlob);
-        });
-        const fullName = [item.employees.first_name, item.employees.middle_name, item.employees.last_name].filter(Boolean).join('_');
-        return {
-          filename: `${fullName}_payslip.pdf`,
-          content: base64
-        };
-      })
-    );
-
-    try {
-      const { data, error } = await supabase.functions.invoke('send-payslip-emails', {
-        body: { employees, payPeriod, payslipFiles }
-      });
-
-      if (error) throw error;
-
-      const successCount = data.results.filter((r: any) => r.success).length;
-      const failedCount = data.results.filter((r: any) => !r.success).length;
-
-      toast({
-        title: "Payslips Emailed",
-        description: `Successfully sent ${successCount} payslips. ${failedCount > 0 ? `Failed: ${failedCount}` : ''}`,
-      });
-    } catch (error: any) {
-      console.error("Email error:", error);
-      toast({
-        title: "Email Error",
-        description: error.message || "Failed to send emails",
-        variant: "destructive",
-      });
-    }
+    // Email integration temporarily disabled
+    toast({
+      title: "Email Disabled",
+      description: "Email integration has been temporarily disabled. Payslips can still be downloaded.",
+    });
   };
 
   const printPayslips = async (payRun: any, currency: string) => {
