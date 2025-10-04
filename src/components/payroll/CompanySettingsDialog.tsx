@@ -16,16 +16,16 @@ interface CompanySettingsDialogProps {
 export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDialogProps) => {
   const [loading, setLoading] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [companyName, setCompanyName] = useState("SimplePay Solutions");
+  const [companyName, setCompanyName] = useState("Q-Payroll Solutions");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [website, setWebsite] = useState("");
   const [taxId, setTaxId] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
-  const [primaryColor, setPrimaryColor] = useState("#3366CC");
-  const [secondaryColor, setSecondaryColor] = useState("#666666");
-  const [accentColor, setAccentColor] = useState("#FF6B35");
+  const [primaryColor, setPrimaryColor] = useState("#117288");
+  const [secondaryColor, setSecondaryColor] = useState("#faa71c");
+  const [accentColor, setAccentColor] = useState("#faa71c");
   const [includeLogo, setIncludeLogo] = useState(true);
   const [showCompanyDetails, setShowCompanyDetails] = useState(true);
   const [addConfidentialityFooter, setAddConfidentialityFooter] = useState(true);
@@ -50,16 +50,16 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
       if (error && error.code !== "PGRST116") throw error;
 
       if (data) {
-        setCompanyName(data.company_name || "SimplePay Solutions");
+        setCompanyName(data.company_name || "Q-Payroll Solutions");
         setAddress(data.address || "");
         setPhone(data.phone || "");
         setEmail(data.email || "");
         setWebsite(data.website || "");
         setTaxId(data.tax_id || "");
         setLogoUrl(data.logo_url || "");
-        setPrimaryColor(data.primary_color || "#3366CC");
-        setSecondaryColor(data.secondary_color || "#666666");
-        setAccentColor(data.accent_color || "#FF6B35");
+        setPrimaryColor(data.primary_color || "#117288");
+        setSecondaryColor(data.secondary_color || "#faa71c");
+        setAccentColor(data.accent_color || "#faa71c");
         setIncludeLogo(data.include_logo ?? true);
         setShowCompanyDetails(data.show_company_details ?? true);
         setAddConfidentialityFooter(data.add_confidentiality_footer ?? true);
@@ -131,15 +131,15 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
   };
 
   const handleReset = () => {
-    setCompanyName("SimplePay Solutions");
+    setCompanyName("Q-Payroll Solutions");
     setAddress("");
     setPhone("");
     setEmail("");
     setWebsite("");
     setTaxId("");
-    setPrimaryColor("#3366CC");
-    setSecondaryColor("#666666");
-    setAccentColor("#FF6B35");
+    setPrimaryColor("#117288");
+    setSecondaryColor("#faa71c");
+    setAccentColor("#faa71c");
     setIncludeLogo(true);
     setShowCompanyDetails(true);
     setAddConfidentialityFooter(true);
@@ -170,7 +170,7 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
                   id="companyName"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="SimplePay Solutions"
+                  placeholder="Q-Payroll Solutions"
                 />
               </div>
               <div className="col-span-2">

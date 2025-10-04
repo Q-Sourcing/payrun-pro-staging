@@ -1,4 +1,4 @@
-// Country and currency configuration for SimplePay
+// Country and currency configuration for Q-Payroll
 export interface Country {
   code: string;
   name: string;

@@ -38,7 +38,7 @@ const Index = () => {
       <div className="flex min-h-screen w-full bg-background">
         <Sidebar>
           <SidebarHeader className="border-b border-sidebar-border p-4">
-            <h1 className="text-xl font-bold text-sidebar-primary">SimplePay</h1>
+            <h1 className="text-xl font-bold text-sidebar-primary">Q-Payroll</h1>
             <p className="text-sm text-sidebar-foreground">Payroll Management</p>
           </SidebarHeader>
           <SidebarContent>

@@ -191,7 +191,7 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
       }
       doc.setFontSize(18);
       doc.setFont('helvetica', 'bold');
-      doc.text(companySettings.company_name || 'SimplePay Solutions', 20, yPos);
+      doc.text(companySettings.company_name || 'Q-Payroll Solutions', 20, yPos);
       yPos += 7;
       
       doc.setFontSize(10);
@@ -365,7 +365,7 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
     const summaryData = [
       ["PAYROLL BILLING SUMMARY"],
       [],
-      ["Company", companySettings?.company_name || "SimplePay Solutions"],
+      ["Company", companySettings?.company_name || "Q-Payroll Solutions"],
       ["Pay Run Date", format(new Date(payRun.pay_run_date), 'MMM dd, yyyy')],
       ["Pay Period", `${format(new Date(payRun.pay_period_start), 'MMM dd, yyyy')} - ${format(new Date(payRun.pay_period_end), 'MMM dd, yyyy')}`],
       ["Pay Group", payRun.pay_groups.name],
