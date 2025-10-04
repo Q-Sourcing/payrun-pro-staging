@@ -27,7 +27,14 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
     last_name: "",
     email: "",
     phone: "",
-    pay_type: "hourly",
+    phone_country_code: "+256",
+    gender: "",
+    date_of_birth: "",
+    national_id: "",
+    tin: "",
+    nssf_number: "",
+    passport_number: "",
+    pay_type: "salary",
     pay_rate: "",
     country: "",
     currency: "",
@@ -35,6 +42,11 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
     status: "active",
     piece_type: "units",
     employee_type: "local",
+    bank_name: "",
+    bank_branch: "",
+    account_number: "",
+    account_type: "",
+    department: "",
   });
   const [payGroups, setPayGroups] = useState<PayGroup[]>([]);
   const [loading, setLoading] = useState(false);
@@ -81,7 +93,13 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
           middle_name: formData.middle_name || null,
           last_name: formData.last_name || null,
           email: formData.email,
-          phone: formData.phone || null,
+          phone: formData.phone ? `${formData.phone_country_code}${formData.phone}` : null,
+          gender: formData.gender || null,
+          date_of_birth: formData.date_of_birth || null,
+          national_id: formData.national_id || null,
+          tin: formData.tin || null,
+          nssf_number: formData.nssf_number || null,
+          passport_number: formData.passport_number || null,
           pay_type: formData.pay_type as "hourly" | "salary" | "piece_rate",
           pay_rate: parseFloat(formData.pay_rate),
           country: formData.country,
@@ -89,6 +107,11 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
           pay_group_id: formData.pay_group_id || null,
           status: formData.status as "active" | "inactive",
           employee_type: formData.employee_type as "local" | "expatriate",
+          bank_name: formData.bank_name || null,
+          bank_branch: formData.bank_branch || null,
+          account_number: formData.account_number || null,
+          account_type: formData.account_type || null,
+          department: formData.department || null,
         },
       ]);
 
@@ -105,7 +128,14 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
         last_name: "",
         email: "",
         phone: "",
-        pay_type: "hourly",
+        phone_country_code: "+256",
+        gender: "",
+        date_of_birth: "",
+        national_id: "",
+        tin: "",
+        nssf_number: "",
+        passport_number: "",
+        pay_type: "salary",
         pay_rate: "",
         country: "",
         currency: "",
@@ -113,6 +143,11 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
         status: "active",
         piece_type: "units",
         employee_type: "local",
+        bank_name: "",
+        bank_branch: "",
+        account_number: "",
+        account_type: "",
+        department: "",
       });
       onEmployeeAdded();
       onOpenChange(false);
@@ -190,12 +225,110 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">Phone *</Label>
+              <div className="flex gap-2">
+                <Select
+                  value={formData.phone_country_code}
+                  onValueChange={(value) => setFormData({ ...formData, phone_country_code: value })}
+                >
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="+256">+256 🇺🇬</SelectItem>
+                    <SelectItem value="+254">+254 🇰🇪</SelectItem>
+                    <SelectItem value="+255">+255 🇹🇿</SelectItem>
+                    <SelectItem value="+250">+250 🇷🇼</SelectItem>
+                    <SelectItem value="+211">+211 🇸🇸</SelectItem>
+                    <SelectItem value="+1">+1 🇺🇸</SelectItem>
+                    <SelectItem value="+44">+44 🇬🇧</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  id="phone"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="752 123 456"
+                  required
+                  className="flex-1"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="gender">Gender *</Label>
+              <Select
+                value={formData.gender}
+                onValueChange={(value) => setFormData({ ...formData, gender: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select gender" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="male">Male</SelectItem>
+                  <SelectItem value="female">Female</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="date_of_birth">Date of Birth *</Label>
               <Input
-                id="phone"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="Phone number"
+                id="date_of_birth"
+                type="date"
+                value={formData.date_of_birth}
+                onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="national_id">National ID Number *</Label>
+              <Input
+                id="national_id"
+                value={formData.national_id}
+                onChange={(e) => setFormData({ ...formData, national_id: e.target.value })}
+                placeholder="National ID"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="tin">TIN (Tax ID) *</Label>
+              <Input
+                id="tin"
+                value={formData.tin}
+                onChange={(e) => setFormData({ ...formData, tin: e.target.value })}
+                placeholder="Tax Identification Number"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="nssf_number">NSSF Number *</Label>
+              <Input
+                id="nssf_number"
+                value={formData.nssf_number}
+                onChange={(e) => setFormData({ ...formData, nssf_number: e.target.value })}
+                placeholder="Social Security Number"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="passport_number">Passport Number</Label>
+              <Input
+                id="passport_number"
+                value={formData.passport_number}
+                onChange={(e) => setFormData({ ...formData, passport_number: e.target.value })}
+                placeholder="Passport (optional)"
               />
             </div>
           </div>
@@ -350,6 +483,76 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
               </Select>
             </div>
           )}
+
+          {/* Bank Details Section */}
+          <div className="pt-4 border-t">
+            <h3 className="text-sm font-semibold mb-3">Bank Details</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="bank_name">Bank Name *</Label>
+                <Input
+                  id="bank_name"
+                  value={formData.bank_name}
+                  onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
+                  placeholder="e.g., Stanbic Bank"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="bank_branch">Bank Branch *</Label>
+                <Input
+                  id="bank_branch"
+                  value={formData.bank_branch}
+                  onChange={(e) => setFormData({ ...formData, bank_branch: e.target.value })}
+                  placeholder="e.g., Kampala Main"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="account_number">Account Number *</Label>
+                <Input
+                  id="account_number"
+                  value={formData.account_number}
+                  onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
+                  placeholder="Account number"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="account_type">Account Type *</Label>
+                <Select
+                  value={formData.account_type}
+                  onValueChange={(value) => setFormData({ ...formData, account_type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select account type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="savings">Savings Account</SelectItem>
+                    <SelectItem value="current">Current Account</SelectItem>
+                    <SelectItem value="salary">Salary Account</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          {/* Department/Project Section */}
+          <div className="space-y-2">
+            <Label htmlFor="department">Project/Department *</Label>
+            <Input
+              id="department"
+              value={formData.department}
+              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+              placeholder="e.g., Sales, IT, Operations"
+              required
+            />
+          </div>
 
           <div className="flex gap-3 pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1">

@@ -49,56 +49,89 @@ export type Database = {
       }
       employees: {
         Row: {
+          account_number: string | null
+          account_type: string | null
+          bank_branch: string | null
+          bank_name: string | null
           country: string
           created_at: string
           currency: string | null
+          date_of_birth: string | null
+          department: string | null
           email: string
           employee_type: string
           first_name: string
+          gender: string | null
           id: string
           last_name: string | null
           middle_name: string | null
+          national_id: string | null
+          nssf_number: string | null
+          passport_number: string | null
           pay_group_id: string | null
           pay_rate: number
           pay_type: Database["public"]["Enums"]["pay_type"]
           phone: string | null
           status: string
+          tin: string | null
           updated_at: string
           user_id: string | null
         }
         Insert: {
+          account_number?: string | null
+          account_type?: string | null
+          bank_branch?: string | null
+          bank_name?: string | null
           country: string
           created_at?: string
           currency?: string | null
+          date_of_birth?: string | null
+          department?: string | null
           email: string
           employee_type?: string
           first_name: string
+          gender?: string | null
           id?: string
           last_name?: string | null
           middle_name?: string | null
+          national_id?: string | null
+          nssf_number?: string | null
+          passport_number?: string | null
           pay_group_id?: string | null
           pay_rate: number
           pay_type?: Database["public"]["Enums"]["pay_type"]
           phone?: string | null
           status?: string
+          tin?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Update: {
+          account_number?: string | null
+          account_type?: string | null
+          bank_branch?: string | null
+          bank_name?: string | null
           country?: string
           created_at?: string
           currency?: string | null
+          date_of_birth?: string | null
+          department?: string | null
           email?: string
           employee_type?: string
           first_name?: string
+          gender?: string | null
           id?: string
           last_name?: string | null
           middle_name?: string | null
+          national_id?: string | null
+          nssf_number?: string | null
+          passport_number?: string | null
           pay_group_id?: string | null
           pay_rate?: number
           pay_type?: Database["public"]["Enums"]["pay_type"]
           phone?: string | null
           status?: string
+          tin?: string | null
           updated_at?: string
           user_id?: string | null
         }
