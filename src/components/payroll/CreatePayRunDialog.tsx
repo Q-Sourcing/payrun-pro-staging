@@ -102,7 +102,7 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
       // Get employees in this pay group
       const { data: employees, error: employeesError } = await supabase
         .from("employees")
-        .select("id, pay_rate, pay_type, country")
+        .select("id, pay_rate, pay_type, country, employee_type")
         .eq("pay_group_id", formData.pay_group_id)
         .eq("status", "active");
 
@@ -146,13 +146,29 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
         // Calculate gross pay based on pay type (defaults for salary)
         const grossPay = employee.pay_type === 'salary' ? employee.pay_rate : 0;
         
-        // Get country-specific deductions
-        const deductionRules = getCountryDeductions(payGroupCountry);
+        let taxDeduction = 0;
+        let employerContributions = 0;
         
-        // Calculate total tax deductions (mandatory deductions only)
-        const taxDeduction = deductionRules
-          .filter(rule => rule.mandatory)
-          .reduce((total, rule) => total + calculateDeduction(grossPay, rule), 0);
+        if (employee.employee_type === 'expatriate') {
+          // For expatriates, apply flat tax rate (15%)
+          const flatTaxRate = 0.15;
+          taxDeduction = grossPay * flatTaxRate;
+          // Expatriates are exempt from social security
+          employerContributions = 0;
+        } else {
+          // For local employees, apply standard country-specific deductions
+          const deductionRules = getCountryDeductions(payGroupCountry);
+          
+          // Calculate total tax deductions (mandatory deductions only)
+          taxDeduction = deductionRules
+            .filter(rule => rule.mandatory)
+            .reduce((total, rule) => total + calculateDeduction(grossPay, rule), 0);
+          
+          // Calculate employer contributions
+          employerContributions = deductionRules
+            .filter(rule => rule.employerContribution)
+            .reduce((total, rule) => total + (grossPay * ((rule.employerContribution || 0) / 100)), 0);
+        }
         
         const totalDeductions = taxDeduction;
         const netPay = grossPay - totalDeductions;
@@ -165,6 +181,7 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
           benefit_deductions: 0,
           total_deductions: totalDeductions,
           net_pay: netPay,
+          employer_contributions: employerContributions,
           hours_worked: employee.pay_type === 'hourly' ? 0 : null,
           pieces_completed: employee.pay_type === 'piece_rate' ? 0 : null,
         };
