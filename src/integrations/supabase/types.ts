@@ -135,6 +135,7 @@ export type Database = {
           pay_rate: number
           pay_type: Database["public"]["Enums"]["pay_type"]
           phone: string | null
+          project: string | null
           status: string
           tin: string | null
           updated_at: string
@@ -164,6 +165,7 @@ export type Database = {
           pay_rate: number
           pay_type?: Database["public"]["Enums"]["pay_type"]
           phone?: string | null
+          project?: string | null
           status?: string
           tin?: string | null
           updated_at?: string
@@ -193,6 +195,7 @@ export type Database = {
           pay_rate?: number
           pay_type?: Database["public"]["Enums"]["pay_type"]
           phone?: string | null
+          project?: string | null
           status?: string
           tin?: string | null
           updated_at?: string
