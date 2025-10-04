@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ALL_COUNTRIES, CURRENCIES, PIECE_RATE_TYPES, getCurrencyByCode } from "@/lib/constants/countries";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface PayGroup {
   id: string;
@@ -21,6 +23,7 @@ interface AddEmployeeDialogProps {
 }
 
 const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeDialogProps) => {
+  const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     first_name: "",
     middle_name: "",
@@ -57,6 +60,7 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
   useEffect(() => {
     if (open) {
       fetchPayGroups();
+      setCurrentStep(1);
     }
   }, [open]);
 
@@ -74,16 +78,45 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.first_name || !formData.email || !formData.pay_rate || !formData.country || !formData.currency) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
+  const validateStep = (step: number): boolean => {
+    switch (step) {
+      case 1:
+        if (!formData.first_name || !formData.email || !formData.phone) {
+          toast({
+            title: "Required Fields",
+            description: "Please fill in First Name, Email, and Phone",
+            variant: "destructive",
+          });
+          return false;
+        }
+        return true;
+      case 2:
+        if (!formData.pay_rate || !formData.country || !formData.currency) {
+          toast({
+            title: "Required Fields",
+            description: "Please fill in Pay Rate, Country, and Currency",
+            variant: "destructive",
+          });
+          return false;
+        }
+        return true;
+      default:
+        return true;
     }
+  };
+
+  const handleNext = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handleBack = () => {
+    setCurrentStep(currentStep - 1);
+  };
+
+  const handleSubmit = async () => {
+    if (!validateStep(2)) return;
 
     setLoading(true);
     try {
@@ -149,6 +182,7 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
         account_type: "",
         department: "",
       });
+      setCurrentStep(1);
       onEmployeeAdded();
       onOpenChange(false);
     } catch (error) {
@@ -167,402 +201,510 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
     !formData.country || group.country === formData.country
   );
 
+  const steps = [
+    { number: 1, label: "Personal Details" },
+    { number: 2, label: "Employment" },
+    { number: 3, label: "Bank & Project" },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Add New Employee</DialogTitle>
-          <DialogDescription>
-            Enter the employee information and pay details
+      <DialogContent className="sm:max-w-[600px] max-h-[85vh] p-0 gap-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b">
+          <DialogTitle className="text-xl">
+            Add New Employee (Step {currentStep} of 3)
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            Complete the employee information in 3 steps
           </DialogDescription>
+          
+          {/* Progress Indicator */}
+          <div className="flex items-center gap-2 mt-4">
+            {steps.map((step, index) => (
+              <div key={step.number} className="flex items-center flex-1">
+                <div className="flex flex-col items-center gap-1 flex-1">
+                  <div className="flex items-center w-full">
+                    <div className={`
+                      w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors
+                      ${currentStep >= step.number 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'bg-muted text-muted-foreground'}
+                    `}>
+                      {step.number}
+                    </div>
+                    {index < steps.length - 1 && (
+                      <div className={`
+                        flex-1 h-0.5 mx-2 transition-colors
+                        ${currentStep > step.number ? 'bg-primary' : 'bg-muted'}
+                      `} />
+                    )}
+                  </div>
+                  <span className={`
+                    text-xs transition-colors hidden sm:block
+                    ${currentStep >= step.number ? 'text-foreground font-medium' : 'text-muted-foreground'}
+                  `}>
+                    {step.label}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="first_name">First Name *</Label>
-              <Input
-                id="first_name"
-                value={formData.first_name}
-                onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                placeholder="First name"
-                required
-              />
-            </div>
+        <ScrollArea className="h-[400px] px-6 py-4">
+          {/* Step 1: Personal Information */}
+          {currentStep === 1 && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-primary mb-3 uppercase tracking-wide">Personal Information</h3>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="first_name" className="text-xs">First Name *</Label>
+                      <Input
+                        id="first_name"
+                        value={formData.first_name}
+                        onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                        placeholder="First name"
+                        className="h-9"
+                      />
+                    </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="middle_name">Middle Name</Label>
-              <Input
-                id="middle_name"
-                value={formData.middle_name}
-                onChange={(e) => setFormData({ ...formData, middle_name: e.target.value })}
-                placeholder="Middle name"
-              />
-            </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="middle_name" className="text-xs">Middle Name</Label>
+                      <Input
+                        id="middle_name"
+                        value={formData.middle_name}
+                        onChange={(e) => setFormData({ ...formData, middle_name: e.target.value })}
+                        placeholder="Middle name"
+                        className="h-9"
+                      />
+                    </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="last_name">Last Name</Label>
-              <Input
-                id="last_name"
-                value={formData.last_name}
-                onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                placeholder="Last name"
-              />
-            </div>
-          </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="last_name" className="text-xs">Last Name</Label>
+                      <Input
+                        id="last_name"
+                        value={formData.last_name}
+                        onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                        placeholder="Last name"
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="email@example.com"
-                required
-              />
-            </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="email" className="text-xs">Email *</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        placeholder="email@example.com"
+                        className="h-9"
+                      />
+                    </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone *</Label>
-              <div className="flex gap-2">
-                <Select
-                  value={formData.phone_country_code}
-                  onValueChange={(value) => setFormData({ ...formData, phone_country_code: value })}
-                >
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="+256">+256 🇺🇬</SelectItem>
-                    <SelectItem value="+254">+254 🇰🇪</SelectItem>
-                    <SelectItem value="+255">+255 🇹🇿</SelectItem>
-                    <SelectItem value="+250">+250 🇷🇼</SelectItem>
-                    <SelectItem value="+211">+211 🇸🇸</SelectItem>
-                    <SelectItem value="+1">+1 🇺🇸</SelectItem>
-                    <SelectItem value="+44">+44 🇬🇧</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input
-                  id="phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="752 123 456"
-                  required
-                  className="flex-1"
-                />
+                    <div className="space-y-1.5">
+                      <Label htmlFor="phone" className="text-xs">Phone *</Label>
+                      <div className="flex gap-2">
+                        <Select
+                          value={formData.phone_country_code}
+                          onValueChange={(value) => setFormData({ ...formData, phone_country_code: value })}
+                        >
+                          <SelectTrigger className="w-24 h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="+256">+256 🇺🇬</SelectItem>
+                            <SelectItem value="+254">+254 🇰🇪</SelectItem>
+                            <SelectItem value="+255">+255 🇹🇿</SelectItem>
+                            <SelectItem value="+250">+250 🇷🇼</SelectItem>
+                            <SelectItem value="+211">+211 🇸🇸</SelectItem>
+                            <SelectItem value="+1">+1 🇺🇸</SelectItem>
+                            <SelectItem value="+44">+44 🇬🇧</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          id="phone"
+                          value={formData.phone}
+                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                          placeholder="752 123 456"
+                          className="flex-1 h-9"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="gender" className="text-xs">Gender</Label>
+                      <Select
+                        value={formData.gender}
+                        onValueChange={(value) => setFormData({ ...formData, gender: value })}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select gender" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="male">Male</SelectItem>
+                          <SelectItem value="female">Female</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="date_of_birth" className="text-xs">Date of Birth</Label>
+                      <Input
+                        id="date_of_birth"
+                        type="date"
+                        value={formData.date_of_birth}
+                        onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="gender">Gender *</Label>
-              <Select
-                value={formData.gender}
-                onValueChange={(value) => setFormData({ ...formData, gender: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select gender" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="male">Male</SelectItem>
-                  <SelectItem value="female">Female</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              <div>
+                <h3 className="text-sm font-semibold text-primary mb-3 uppercase tracking-wide">Identification</h3>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="national_id" className="text-xs">National ID Number</Label>
+                      <Input
+                        id="national_id"
+                        value={formData.national_id}
+                        onChange={(e) => setFormData({ ...formData, national_id: e.target.value })}
+                        placeholder="National ID"
+                        className="h-9"
+                      />
+                    </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="date_of_birth">Date of Birth *</Label>
-              <Input
-                id="date_of_birth"
-                type="date"
-                value={formData.date_of_birth}
-                onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
-                required
-              />
-            </div>
-          </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="tin" className="text-xs">TIN (Tax ID)</Label>
+                      <Input
+                        id="tin"
+                        value={formData.tin}
+                        onChange={(e) => setFormData({ ...formData, tin: e.target.value })}
+                        placeholder="Tax Identification Number"
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="national_id">National ID Number *</Label>
-              <Input
-                id="national_id"
-                value={formData.national_id}
-                onChange={(e) => setFormData({ ...formData, national_id: e.target.value })}
-                placeholder="National ID"
-                required
-              />
-            </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="nssf_number" className="text-xs">Social Security Number</Label>
+                      <Input
+                        id="nssf_number"
+                        value={formData.nssf_number}
+                        onChange={(e) => setFormData({ ...formData, nssf_number: e.target.value })}
+                        placeholder="Social Security Number"
+                        className="h-9"
+                      />
+                    </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="tin">TIN (Tax ID) *</Label>
-              <Input
-                id="tin"
-                value={formData.tin}
-                onChange={(e) => setFormData({ ...formData, tin: e.target.value })}
-                placeholder="Tax Identification Number"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="nssf_number">NSSF Number *</Label>
-              <Input
-                id="nssf_number"
-                value={formData.nssf_number}
-                onChange={(e) => setFormData({ ...formData, nssf_number: e.target.value })}
-                placeholder="Social Security Number"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="passport_number">Passport Number</Label>
-              <Input
-                id="passport_number"
-                value={formData.passport_number}
-                onChange={(e) => setFormData({ ...formData, passport_number: e.target.value })}
-                placeholder="Passport (optional)"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="pay_type">Pay Type *</Label>
-              <Select
-                value={formData.pay_type}
-                onValueChange={(value) => setFormData({ ...formData, pay_type: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="hourly">Hourly</SelectItem>
-                  <SelectItem value="salary">Salary</SelectItem>
-                  <SelectItem value="piece_rate">Piece Rate</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="pay_rate">
-                Pay Rate * 
-                {formData.pay_type === "hourly" && " (hourly)"}
-                {formData.pay_type === "salary" && " (monthly)"}
-                {formData.pay_type === "piece_rate" && ` (per ${formData.piece_type})`}
-                {selectedCurrency && (
-                  <span className="text-sm text-muted-foreground ml-1">
-                    ({selectedCurrency.symbol})
-                  </span>
-                )}
-              </Label>
-              <Input
-                id="pay_rate"
-                type="number"
-                step={selectedCurrency?.decimalPlaces === 0 ? "1" : "0.01"}
-                value={formData.pay_rate}
-                onChange={(e) => setFormData({ ...formData, pay_rate: e.target.value })}
-                placeholder="0.00"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="country">Country *</Label>
-              <Select
-                value={formData.country}
-                onValueChange={(value) => setFormData({ ...formData, country: value, pay_group_id: "" })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select country" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ALL_COUNTRIES.filter(c => c.isEastAfrican).map((country) => (
-                    <SelectItem key={country.code} value={country.name}>
-                      {country.name}
-                    </SelectItem>
-                  ))}
-                  {ALL_COUNTRIES.filter(c => !c.isEastAfrican).map((country) => (
-                    <SelectItem key={country.code} value={country.name}>
-                      {country.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="currency">Currency *</Label>
-              <Select
-                value={formData.currency}
-                onValueChange={(value) => setFormData({ ...formData, currency: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select currency" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CURRENCIES.map((currency) => (
-                    <SelectItem key={currency.code} value={currency.code}>
-                      {currency.code} - {currency.name} ({currency.symbol})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {formData.pay_type === "piece_rate" && (
-            <div className="space-y-2">
-              <Label htmlFor="piece_type">Piece Type *</Label>
-              <Select
-                value={formData.piece_type}
-                onValueChange={(value) => setFormData({ ...formData, piece_type: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PIECE_RATE_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="passport_number" className="text-xs">Passport Number</Label>
+                      <Input
+                        id="passport_number"
+                        value={formData.passport_number}
+                        onChange={(e) => setFormData({ ...formData, passport_number: e.target.value })}
+                        placeholder="Passport (optional)"
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="employee_type">Employee Type *</Label>
-            <Select
-              value={formData.employee_type}
-              onValueChange={(value) => setFormData({ ...formData, employee_type: value })}
+          {/* Step 2: Employment Details */}
+          {currentStep === 2 && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-primary mb-3 uppercase tracking-wide">Employment Information</h3>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="pay_type" className="text-xs">Pay Type *</Label>
+                      <Select
+                        value={formData.pay_type}
+                        onValueChange={(value) => setFormData({ ...formData, pay_type: value })}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="hourly">Hourly</SelectItem>
+                          <SelectItem value="salary">Salary</SelectItem>
+                          <SelectItem value="piece_rate">Piece Rate</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="pay_rate" className="text-xs">
+                        Pay Rate * 
+                        {formData.pay_type === "hourly" && " (hourly)"}
+                        {formData.pay_type === "salary" && " (monthly)"}
+                        {formData.pay_type === "piece_rate" && ` (per ${formData.piece_type})`}
+                      </Label>
+                      <Input
+                        id="pay_rate"
+                        type="number"
+                        step={selectedCurrency?.decimalPlaces === 0 ? "1" : "0.01"}
+                        value={formData.pay_rate}
+                        onChange={(e) => setFormData({ ...formData, pay_rate: e.target.value })}
+                        placeholder="0.00"
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="country" className="text-xs">Country *</Label>
+                      <Select
+                        value={formData.country}
+                        onValueChange={(value) => setFormData({ ...formData, country: value, pay_group_id: "" })}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select country" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ALL_COUNTRIES.filter(c => c.isEastAfrican).map((country) => (
+                            <SelectItem key={country.code} value={country.name}>
+                              {country.name}
+                            </SelectItem>
+                          ))}
+                          {ALL_COUNTRIES.filter(c => !c.isEastAfrican).map((country) => (
+                            <SelectItem key={country.code} value={country.name}>
+                              {country.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="currency" className="text-xs">Currency *</Label>
+                      <Select
+                        value={formData.currency}
+                        onValueChange={(value) => setFormData({ ...formData, currency: value })}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select currency" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CURRENCIES.map((currency) => (
+                            <SelectItem key={currency.code} value={currency.code}>
+                              {currency.code} - {currency.symbol}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {formData.pay_type === "piece_rate" && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="piece_type" className="text-xs">Piece Type *</Label>
+                      <Select
+                        value={formData.piece_type}
+                        onValueChange={(value) => setFormData({ ...formData, piece_type: value })}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PIECE_RATE_TYPES.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="employee_type" className="text-xs">Employee Type *</Label>
+                    <Select
+                      value={formData.employee_type}
+                      onValueChange={(value) => setFormData({ ...formData, employee_type: value })}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="local">Local National</SelectItem>
+                        <SelectItem value="expatriate">Expatriate</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Local nationals follow standard country-specific payroll rules. Expatriates may have different tax treatments.
+                    </p>
+                  </div>
+
+                  {formData.country && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="pay_group" className="text-xs">Pay Group</Label>
+                      <Select
+                        value={formData.pay_group_id}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, pay_group_id: value === "__none__" ? "" : value })
+                        }
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select pay group (optional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">No pay group</SelectItem>
+                          {filteredPayGroups.map((group) => (
+                            <SelectItem key={group.id} value={group.id}>
+                              {group.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Bank & Project Details */}
+          {currentStep === 3 && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-primary mb-3 uppercase tracking-wide">Banking Information</h3>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="bank_name" className="text-xs">Bank Name</Label>
+                      <Input
+                        id="bank_name"
+                        value={formData.bank_name}
+                        onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
+                        placeholder="e.g., Stanbic Bank"
+                        className="h-9"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="bank_branch" className="text-xs">Bank Branch</Label>
+                      <Input
+                        id="bank_branch"
+                        value={formData.bank_branch}
+                        onChange={(e) => setFormData({ ...formData, bank_branch: e.target.value })}
+                        placeholder="e.g., Kampala Main"
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="account_number" className="text-xs">Account Number</Label>
+                      <Input
+                        id="account_number"
+                        value={formData.account_number}
+                        onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
+                        placeholder="Account number"
+                        className="h-9"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="account_type" className="text-xs">Account Type</Label>
+                      <Select
+                        value={formData.account_type}
+                        onValueChange={(value) => setFormData({ ...formData, account_type: value })}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select account type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="savings">Savings Account</SelectItem>
+                          <SelectItem value="current">Current Account</SelectItem>
+                          <SelectItem value="checking">Checking Account</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-primary mb-3 uppercase tracking-wide">Project/Department</h3>
+                <div className="space-y-1.5">
+                  <Label htmlFor="department" className="text-xs">Project/Department</Label>
+                  <Input
+                    id="department"
+                    value={formData.department}
+                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                    placeholder="e.g., Engineering, Marketing"
+                    className="h-9"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </ScrollArea>
+
+        {/* Footer with Navigation Buttons */}
+        <div className="px-6 py-4 border-t bg-muted/30 flex items-center justify-between gap-3">
+          <div className="flex gap-2">
+            {currentStep > 1 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleBack}
+                className="gap-1"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Back
+              </Button>
+            )}
+          </div>
+          
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
             >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="local">Local National</SelectItem>
-                <SelectItem value="expatriate">Expatriate</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Local nationals follow standard country-specific payroll rules. Expatriates may have different tax treatments, benefits, and deductions based on company policy.
-            </p>
-          </div>
-
-          {formData.country && (
-            <div className="space-y-2">
-              <Label htmlFor="pay_group">Pay Group</Label>
-              <Select
-                value={formData.pay_group_id}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, pay_group_id: value === "__none__" ? "" : value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select pay group (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">No pay group</SelectItem>
-                  {filteredPayGroups.map((group) => (
-                    <SelectItem key={group.id} value={group.id}>
-                      {group.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Bank Details Section */}
-          <div className="pt-4 border-t">
-            <h3 className="text-sm font-semibold mb-3">Bank Details</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="bank_name">Bank Name *</Label>
-                <Input
-                  id="bank_name"
-                  value={formData.bank_name}
-                  onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
-                  placeholder="e.g., Stanbic Bank"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="bank_branch">Bank Branch *</Label>
-                <Input
-                  id="bank_branch"
-                  value={formData.bank_branch}
-                  onChange={(e) => setFormData({ ...formData, bank_branch: e.target.value })}
-                  placeholder="e.g., Kampala Main"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="account_number">Account Number *</Label>
-                <Input
-                  id="account_number"
-                  value={formData.account_number}
-                  onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
-                  placeholder="Account number"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="account_type">Account Type *</Label>
-                <Select
-                  value={formData.account_type}
-                  onValueChange={(value) => setFormData({ ...formData, account_type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select account type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="savings">Savings Account</SelectItem>
-                    <SelectItem value="current">Current Account</SelectItem>
-                    <SelectItem value="salary">Salary Account</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-
-          {/* Department/Project Section */}
-          <div className="space-y-2">
-            <Label htmlFor="department">Project/Department *</Label>
-            <Input
-              id="department"
-              value={formData.department}
-              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-              placeholder="e.g., Sales, IT, Operations"
-              required
-            />
-          </div>
-
-          <div className="flex gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
               Cancel
             </Button>
-            <Button type="submit" disabled={loading} className="flex-1">
-              {loading ? "Adding..." : "Add Employee"}
-            </Button>
+            
+            {currentStep < 3 ? (
+              <Button
+                type="button"
+                onClick={handleNext}
+                className="gap-1 bg-secondary hover:bg-secondary-dark"
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={handleSubmit}
+                disabled={loading}
+                className="bg-secondary hover:bg-secondary-dark"
+              >
+                {loading ? "Adding..." : "Add Employee"}
+              </Button>
+            )}
           </div>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );
