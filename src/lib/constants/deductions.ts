@@ -35,9 +35,10 @@ export const COUNTRY_DEDUCTIONS: CountryDeductions = {
         type: "progressive",
         brackets: [
           { min: 0, max: 235000, rate: 0 },
-          { min: 235001, max: 335000, rate: 10 },
-          { min: 335001, max: 410000, rate: 20 },
-          { min: 410001, rate: 30 }
+          { min: 235001, max: 335000, rate: 0.10 },
+          { min: 335001, max: 410000, rate: 0.20 },
+          { min: 410001, max: 10000000, rate: 0.30 },
+          { min: 10000001, rate: 0.40 }
         ],
         mandatory: true,
         description: "Pay As You Earn Tax - Progressive income tax"
@@ -49,14 +50,14 @@ export const COUNTRY_DEDUCTIONS: CountryDeductions = {
         mandatory: true,
         employeeContribution: 5,
         employerContribution: 10,
-        description: "National Social Security Fund - Employee 5%, Employer 10%"
+        description: "National Social Security Fund - Employee 5%, Employer 10% (max 1,200,000 UGX)"
       },
       {
         name: "LST",
         type: "fixed",
         amount: 4000,
-        mandatory: false, // Can be toggled
-        description: "Local Service Tax - 4,000 UGX monthly (first payroll of month)"
+        mandatory: false,
+        description: "Local Service Tax - 4,000 UGX monthly"
       }
     ]
   },
@@ -67,19 +68,21 @@ export const COUNTRY_DEDUCTIONS: CountryDeductions = {
         name: "PAYE",
         type: "progressive",
         brackets: [
-          { min: 0, max: 24000, rate: 10 },
-          { min: 24001, max: 32333, rate: 25 },
-          { min: 32334, rate: 30 }
+          { min: 0, max: 24000, rate: 0.10 },
+          { min: 24001, max: 32333, rate: 0.25 },
+          { min: 32334, rate: 0.30 }
         ],
         mandatory: true,
-        description: "Pay As You Earn Tax"
+        description: "Pay As You Earn Tax - Personal Relief: 2,400 KSH"
       },
       {
         name: "NSSF",
         type: "percentage",
         percentage: 6,
         mandatory: true,
-        description: "National Social Security Fund"
+        employeeContribution: 6,
+        employerContribution: 6,
+        description: "National Social Security Fund - Tiered (max 360 KSH total)"
       },
       {
         name: "NHIF",
@@ -104,14 +107,16 @@ export const COUNTRY_DEDUCTIONS: CountryDeductions = {
           { min: 100000, rate: 1700 }
         ],
         mandatory: true,
-        description: "National Hospital Insurance Fund"
+        description: "National Hospital Insurance Fund - Sliding scale"
       },
       {
         name: "Housing Levy",
         type: "percentage",
         percentage: 1.5,
         mandatory: true,
-        description: "Housing Development Levy - 1.5% of gross salary"
+        employeeContribution: 1.5,
+        employerContribution: 1.5,
+        description: "Housing Development Levy - 1.5% employee + 1.5% employer"
       }
     ]
   },
@@ -123,10 +128,10 @@ export const COUNTRY_DEDUCTIONS: CountryDeductions = {
         type: "progressive",
         brackets: [
           { min: 0, max: 270000, rate: 0 },
-          { min: 270001, max: 520000, rate: 9 },
-          { min: 520001, max: 760000, rate: 20 },
-          { min: 760001, max: 1000000, rate: 25 },
-          { min: 1000001, rate: 30 }
+          { min: 270001, max: 520000, rate: 0.08 },
+          { min: 520001, max: 760000, rate: 0.20 },
+          { min: 760001, max: 1000000, rate: 0.25 },
+          { min: 1000001, rate: 0.30 }
         ],
         mandatory: true,
         description: "Pay As You Earn Tax"
@@ -136,14 +141,24 @@ export const COUNTRY_DEDUCTIONS: CountryDeductions = {
         type: "percentage",
         percentage: 10,
         mandatory: true,
-        description: "National Social Security Fund"
+        employeeContribution: 10,
+        employerContribution: 10,
+        description: "National Social Security Fund - 10% employee + 10% employer"
       },
       {
         name: "Skills Development Levy",
         type: "percentage",
-        percentage: 5,
+        percentage: 4.5,
         mandatory: true,
-        description: "Skills Development Levy - 4-6% of gross salary"
+        employerContribution: 4.5,
+        description: "Skills Development Levy - 4.5% employer paid"
+      },
+      {
+        name: "NHIF",
+        type: "percentage",
+        percentage: 3,
+        mandatory: true,
+        description: "Health Insurance - 3-6% variable"
       }
     ]
   },
@@ -155,20 +170,39 @@ export const COUNTRY_DEDUCTIONS: CountryDeductions = {
         type: "progressive",
         brackets: [
           { min: 0, max: 30000, rate: 0 },
-          { min: 30001, max: 100000, rate: 20 },
-          { min: 100001, rate: 30 }
+          { min: 30001, max: 100000, rate: 0.20 },
+          { min: 100001, max: 200000, rate: 0.25 },
+          { min: 200001, max: 400000, rate: 0.30 },
+          { min: 400001, rate: 0.35 }
         ],
         mandatory: true,
         description: "Pay As You Earn Tax"
       },
       {
-        name: "RSSB",
+        name: "RSSB Pension",
         type: "percentage",
         percentage: 3,
         mandatory: true,
         employeeContribution: 3,
-        employerContribution: 5,
-        description: "Rwanda Social Security Board - Employee 3%, Employer 5%"
+        employerContribution: 3,
+        description: "Rwanda Social Security Board - Pension 3% + 3%"
+      },
+      {
+        name: "RSSB Medical",
+        type: "percentage",
+        percentage: 3,
+        mandatory: true,
+        employeeContribution: 3,
+        employerContribution: 3,
+        description: "Rwanda Social Security Board - Medical 3% + 3%"
+      },
+      {
+        name: "RSSB Occupational Hazards",
+        type: "percentage",
+        percentage: 2,
+        mandatory: true,
+        employerContribution: 2,
+        description: "Rwanda Social Security Board - Occupational Hazards 2% employer"
       }
     ]
   },
@@ -177,24 +211,33 @@ export const COUNTRY_DEDUCTIONS: CountryDeductions = {
     deductions: [
       {
         name: "PAYE",
-        type: "percentage",
-        percentage: 10,
+        type: "progressive",
+        brackets: [
+          { min: 0, max: 300, rate: 0 },
+          { min: 301, max: 1000, rate: 0.10 },
+          { min: 1001, max: 3000, rate: 0.15 },
+          { min: 3001, max: 10000, rate: 0.20 },
+          { min: 10001, max: 20000, rate: 0.25 },
+          { min: 20001, rate: 0.30 }
+        ],
         mandatory: true,
-        description: "Pay As You Earn Tax - Basic income tax"
+        description: "Pay As You Earn Tax - Progressive"
       },
       {
         name: "Pension",
         type: "percentage",
         percentage: 5,
         mandatory: true,
-        description: "Pension contributions"
+        employeeContribution: 5,
+        employerContribution: 7,
+        description: "Pension - 5% employee + 7% employer"
       }
     ]
   }
 };
 
 // Helper functions for tax calculations
-export const calculateProgressiveTax = (grossPay: number, brackets: TaxBracket[]): number => {
+export const calculateProgressiveTax = (grossPay: number, brackets: TaxBracket[], countryCode?: string): number => {
   let totalTax = 0;
   
   for (const bracket of brackets) {
@@ -209,23 +252,35 @@ export const calculateProgressiveTax = (grossPay: number, brackets: TaxBracket[]
         // It's a percentage rate (0-1)
         totalTax += taxableAmount * bracket.rate;
       } else {
-        // It's a fixed amount or percentage > 100
-        totalTax += bracket.rate;
+        // It's a fixed amount (like NHIF in Kenya)
+        totalTax = bracket.rate;
       }
     }
+  }
+  
+  // Apply personal relief for Kenya PAYE
+  if (countryCode === 'KE' && totalTax > 0) {
+    totalTax = Math.max(0, totalTax - 2400);
   }
   
   return totalTax;
 };
 
-export const calculateDeduction = (grossPay: number, rule: DeductionRule): number => {
+export const calculateDeduction = (grossPay: number, rule: DeductionRule, countryCode?: string): number => {
   switch (rule.type) {
     case 'fixed':
       return rule.amount || 0;
     case 'percentage':
+      // Apply NSSF cap for Uganda
+      if (countryCode === 'UG' && rule.name === 'NSSF') {
+        const cappedAmount = Math.min(grossPay, 1200000);
+        return cappedAmount * ((rule.percentage || 0) / 100);
+      }
       return grossPay * ((rule.percentage || 0) / 100);
     case 'progressive':
-      return calculateProgressiveTax(grossPay, rule.brackets || []);
+      // Pass country code for Kenya PAYE personal relief
+      const isPAYE = rule.name === 'PAYE';
+      return calculateProgressiveTax(grossPay, rule.brackets || [], isPAYE ? countryCode : undefined);
     default:
       return 0;
   }
