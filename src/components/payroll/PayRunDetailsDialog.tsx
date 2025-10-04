@@ -280,26 +280,33 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
     let calculatedTaxDeduction = 0;
     let employerContributions = 0;
+    const standardDeductions: { [key: string]: number } = {};
 
     if (isExpatriate) {
       // For expatriates, apply simplified flat tax (default 15%)
       // This should ideally fetch from expatriate_policies table
       const flatTaxRate = 0.15; // Default 15%
       calculatedTaxDeduction = grossPay * flatTaxRate;
+      standardDeductions['Flat Tax (15%)'] = calculatedTaxDeduction;
       
       // Expatriates are typically exempt from social security
       employerContributions = 0;
     } else {
       // For local employees, apply standard country-specific deductions
       const deductionRules = getCountryDeductions(item.employees.country);
-      calculatedTaxDeduction = deductionRules
-        .filter(rule => rule.mandatory)
-        .reduce((total, rule) => total + calculateDeduction(grossPay, rule), 0);
-
-      // Calculate employer contributions (like NSSF employer portion)
-      employerContributions = deductionRules
-        .filter(rule => rule.employerContribution)
-        .reduce((total, rule) => total + (grossPay * ((rule.employerContribution || 0) / 100)), 0);
+      
+      deductionRules.forEach(rule => {
+        if (rule.mandatory) {
+          const amount = calculateDeduction(grossPay, rule, item.employees.country);
+          standardDeductions[rule.name] = amount;
+          calculatedTaxDeduction += amount;
+        }
+        
+        // Calculate employer contributions (like NSSF employer portion)
+        if (rule.employerContribution) {
+          employerContributions += grossPay * ((rule.employerContribution || 0) / 100);
+        }
+      });
     }
 
     // Custom deductions
@@ -324,7 +331,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       customDeductionsTotal,
       customBenefitsTotal: grossAffectingAdditions,
       customAllowancesTotal,
-      employerContributions
+      employerContributions,
+      standardDeductions
     };
   };
 
@@ -835,6 +843,20 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     return Array.from(columnNames).sort();
   }, [payItems]);
 
+  // Get standard deduction columns based on country (using first employee's country)
+  const standardDeductionColumns = useMemo(() => {
+    if (payItems.length === 0) return [];
+    const firstEmployee = payItems[0]?.employees;
+    if (!firstEmployee) return [];
+    
+    if (firstEmployee.employee_type === 'expatriate') {
+      return ['Flat Tax (15%)'];
+    }
+    
+    const deductionRules = getCountryDeductions(firstEmployee.country);
+    return deductionRules.filter(rule => rule.mandatory).map(rule => rule.name);
+  }, [payItems]);
+
   // Calculate summary totals
   const summaryTotals = useMemo(() => {
     return filteredAndSortedItems.reduce((acc, item) => {
@@ -1023,7 +1045,13 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                       </Button>
                     </TableHead>
-                    <TableHead>Tax Deductions</TableHead>
+                    {/* Standard Deduction Columns */}
+                    {standardDeductionColumns.map(columnName => (
+                      <TableHead key={`standard-${columnName}`} className="text-center">
+                        {columnName}
+                      </TableHead>
+                    ))}
+                    {/* Custom Addition/Deduction Columns */}
                     {customColumns.map(columnName => (
                       <TableHead key={columnName} className="text-center">
                         {columnName}
@@ -1102,7 +1130,16 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                             {item.employees.pay_type === 'salary' && '-'}
                           </TableCell>
                           <TableCell className="font-semibold">{formatCurrency(calculated.grossPay)}</TableCell>
-                          <TableCell>{formatCurrency(calculated.taxDeduction)}</TableCell>
+                          {/* Standard Deduction Columns */}
+                          {standardDeductionColumns.map(columnName => {
+                            const amount = calculated.standardDeductions?.[columnName] || 0;
+                            return (
+                              <TableCell key={`standard-${columnName}`} className="text-center text-orange-600 font-medium">
+                                {formatCurrency(amount)}
+                              </TableCell>
+                            );
+                          })}
+                          {/* Custom Addition/Deduction Columns */}
                           {customColumns.map(columnName => {
                             const customItem = (item.customDeductions || []).find(cd => cd.name === columnName);
                             if (!customItem) {
@@ -1151,7 +1188,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                         {/* Expanded Details Row */}
                         {isExpanded && (
                           <TableRow>
-                            <TableCell colSpan={13 + customColumns.length} className="bg-muted/30">
+                            <TableCell colSpan={13 + standardDeductionColumns.length + customColumns.length} className="bg-muted/30">
                               <div className="p-6 space-y-6">
                                 <div className="grid grid-cols-2 gap-6">
                                   {/* Editable Input Fields */}
