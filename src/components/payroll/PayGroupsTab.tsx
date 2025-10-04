@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import AddPayGroupDialog from "./AddPayGroupDialog";
+import PayGroupDetailsDialog from "./PayGroupDetailsDialog";
 
 interface PayGroup {
   id: string;
@@ -22,6 +23,8 @@ const PayGroupsTab = () => {
   const [payGroups, setPayGroups] = useState<PayGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [selectedPayGroupId, setSelectedPayGroupId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchPayGroups = async () => {
@@ -80,6 +83,11 @@ const PayGroupsTab = () => {
     }
   };
 
+  const handleViewPayGroup = (groupId: string) => {
+    setSelectedPayGroupId(groupId);
+    setShowDetailsDialog(true);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -133,7 +141,11 @@ const PayGroupsTab = () => {
               </TableHeader>
               <TableBody>
                 {payGroups.map((group) => (
-                  <TableRow key={group.id}>
+                  <TableRow 
+                    key={group.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleViewPayGroup(group.id)}
+                  >
                     <TableCell className="font-medium">{group.name}</TableCell>
                     <TableCell>{group.country}</TableCell>
                     <TableCell>
@@ -160,6 +172,24 @@ const PayGroupsTab = () => {
         open={showAddDialog} 
         onOpenChange={setShowAddDialog}
         onPayGroupAdded={fetchPayGroups}
+      />
+
+      <PayGroupDetailsDialog
+        open={showDetailsDialog}
+        onOpenChange={setShowDetailsDialog}
+        payGroupId={selectedPayGroupId}
+        onEditPayGroup={() => {
+          toast({
+            title: "Coming Soon",
+            description: "Edit pay group functionality will be available soon",
+          });
+        }}
+        onRunPayroll={() => {
+          toast({
+            title: "Coming Soon",
+            description: "Run payroll functionality will be available soon",
+          });
+        }}
       />
     </div>
   );
