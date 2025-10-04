@@ -8,12 +8,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUpDown, Filter, Download, Globe, Flag } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUpDown, Filter, Download, Globe, Flag, Settings } from "lucide-react";
 import { getCountryDeductions, calculateDeduction } from "@/lib/constants/deductions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { BulkAddDialog } from "./BulkAddDialog";
+import { BulkDeductDialog } from "./BulkDeductDialog";
+import { BulkSelectedDialog } from "./BulkSelectedDialog";
 
 interface CustomDeduction {
   id?: string;
@@ -76,6 +80,9 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
   const [filterPayType, setFilterPayType] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [bulkAddDialogOpen, setBulkAddDialogOpen] = useState(false);
+  const [bulkDeductDialogOpen, setBulkDeductDialogOpen] = useState(false);
+  const [bulkSelectedDialogOpen, setBulkSelectedDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -657,6 +664,142 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     }
   };
 
+  // Bulk Operations Handlers
+  const handleBulkAdd = async (amount: number, description: string, isPercentage: boolean, addToGross: boolean) => {
+    try {
+      const itemsToUpdate = Array.from(selectedItems.size > 0 ? selectedItems : new Set(payItems.map(p => p.id)));
+      
+      for (const itemId of itemsToUpdate) {
+        const item = payItems.find(p => p.id === itemId);
+        if (!item) continue;
+
+        const finalAmount = isPercentage ? (calculatePay(item).grossPay * amount / 100) : amount;
+
+        if (addToGross) {
+          await supabase.from("pay_item_custom_deductions").insert({
+            pay_item_id: itemId,
+            name: description,
+            amount: finalAmount,
+            type: 'benefit'
+          });
+        } else {
+          await supabase.from("pay_item_custom_deductions").insert({
+            pay_item_id: itemId,
+            name: description,
+            amount: finalAmount,
+            type: 'allowance'
+          });
+        }
+      }
+
+      await updatePayRunTotals();
+      toast({
+        title: "Success",
+        description: `Added ${description} to ${itemsToUpdate.length} employee(s)`,
+      });
+
+      setSelectedItems(new Set());
+      fetchPayItems();
+    } catch (error) {
+      console.error("Error applying bulk addition:", error);
+      toast({
+        title: "Error",
+        description: "Failed to apply bulk addition",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkDeduct = async (amount: number, description: string, isPercentage: boolean, deductionType: string) => {
+    try {
+      const itemsToUpdate = Array.from(selectedItems.size > 0 ? selectedItems : new Set(payItems.map(p => p.id)));
+      
+      for (const itemId of itemsToUpdate) {
+        const item = payItems.find(p => p.id === itemId);
+        if (!item) continue;
+
+        const finalAmount = isPercentage ? (calculatePay(item).grossPay * amount / 100) : amount;
+
+        await supabase.from("pay_item_custom_deductions").insert({
+          pay_item_id: itemId,
+          name: description,
+          amount: finalAmount,
+          type: 'deduction'
+        });
+      }
+
+      await updatePayRunTotals();
+      toast({
+        title: "Success",
+        description: `Applied ${description} to ${itemsToUpdate.length} employee(s)`,
+      });
+
+      setSelectedItems(new Set());
+      fetchPayItems();
+    } catch (error) {
+      console.error("Error applying bulk deduction:", error);
+      toast({
+        title: "Error",
+        description: "Failed to apply bulk deduction",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkSelected = async (amount: number, description: string, operationType: string, applicationMethod: string, recalculateTaxes: boolean) => {
+    if (selectedItems.size === 0) {
+      toast({
+        title: "No items selected",
+        description: "Please select employees first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      for (const itemId of selectedItems) {
+        const item = payItems.find(p => p.id === itemId);
+        if (!item) continue;
+
+        const isAdd = operationType.startsWith("add");
+        const isPercentage = operationType.includes("percentage");
+        const finalAmount = isPercentage ? (calculatePay(item).grossPay * amount / 100) : amount;
+
+        if (isAdd) {
+          await supabase.from("pay_item_custom_deductions").insert({
+            pay_item_id: itemId,
+            name: description,
+            amount: finalAmount,
+            type: applicationMethod.includes("gross") ? 'benefit' : 'allowance'
+          });
+        } else {
+          await supabase.from("pay_item_custom_deductions").insert({
+            pay_item_id: itemId,
+            name: description,
+            amount: finalAmount,
+            type: 'deduction'
+          });
+        }
+      }
+
+      await updatePayRunTotals();
+      toast({
+        title: "Success",
+        description: `Updated ${selectedItems.size} employee(s)`,
+      });
+
+      setSelectedItems(new Set());
+      fetchPayItems();
+    } catch (error) {
+      console.error("Error applying bulk update:", error);
+      toast({
+        title: "Error",
+        description: "Failed to apply bulk update",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Calculate summary totals
   const summaryTotals = useMemo(() => {
     return filteredAndSortedItems.reduce((acc, item) => {
@@ -777,6 +920,34 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
               )}
               
               <div className="ml-auto flex gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="default" size="sm">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Bulk Actions
+                      <ChevronDown className="h-4 w-4 ml-2" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={() => setBulkAddDialogOpen(true)}>
+                      <Plus className="h-4 w-4 mr-2 text-green-600" />
+                      Add to All Employees
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setBulkDeductDialogOpen(true)}>
+                      <Trash2 className="h-4 w-4 mr-2 text-red-600" />
+                      Deduct from All Employees
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      onClick={() => setBulkSelectedDialogOpen(true)}
+                      disabled={selectedItems.size === 0}
+                    >
+                      <Settings className="h-4 w-4 mr-2" />
+                      Apply to Selected ({selectedItems.size})
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                
                 <Button variant="outline" size="sm" onClick={exportToCSV}>
                   <Download className="h-4 w-4 mr-2" />
                   Export CSV
@@ -1186,6 +1357,38 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
           </div>
         )}
       </DialogContent>
+
+      {/* Bulk Operations Dialogs */}
+      <BulkAddDialog
+        open={bulkAddDialogOpen}
+        onOpenChange={setBulkAddDialogOpen}
+        employeeCount={selectedItems.size > 0 ? selectedItems.size : payItems.length}
+        currency={payGroupCountry === "Uganda" ? "UGX" : "USD"}
+        onApply={handleBulkAdd}
+      />
+      
+      <BulkDeductDialog
+        open={bulkDeductDialogOpen}
+        onOpenChange={setBulkDeductDialogOpen}
+        employeeCount={selectedItems.size > 0 ? selectedItems.size : payItems.length}
+        currency={payGroupCountry === "Uganda" ? "UGX" : "USD"}
+        onApply={handleBulkDeduct}
+      />
+      
+      <BulkSelectedDialog
+        open={bulkSelectedDialogOpen}
+        onOpenChange={setBulkSelectedDialogOpen}
+        selectedEmployees={Array.from(selectedItems).map(id => {
+          const item = payItems.find(p => p.id === id);
+          return {
+            id,
+            name: item ? getFullName(item.employees) : "",
+            grossPay: item ? calculatePay(item).grossPay : 0
+          };
+        })}
+        currency={payGroupCountry === "Uganda" ? "UGX" : "USD"}
+        onApply={handleBulkSelected}
+      />
     </Dialog>
   );
 };
