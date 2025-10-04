@@ -53,6 +53,9 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
   });
   const [payGroups, setPayGroups] = useState<PayGroup[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showCreatePayGroup, setShowCreatePayGroup] = useState(false);
+  const [newPayGroupName, setNewPayGroupName] = useState("");
+  const [creatingPayGroup, setCreatingPayGroup] = useState(false);
   const { toast } = useToast();
 
   const selectedCurrency = formData.currency ? getCurrencyByCode(formData.currency) : null;
@@ -185,15 +188,91 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
       setCurrentStep(1);
       onEmployeeAdded();
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding employee:", error);
+      
+      // Enhanced error handling with specific messages
+      let errorMessage = "Failed to add employee";
+      
+      if (error?.code === "23505") {
+        if (error.message?.includes("employees_email_key")) {
+          errorMessage = "This email address is already registered to another employee";
+        } else if (error.message?.includes("employees_phone_key")) {
+          errorMessage = "This phone number is already registered to another employee";
+        } else if (error.message?.includes("employees_national_id_key")) {
+          errorMessage = "This National ID is already registered to another employee";
+        } else if (error.message?.includes("nssf_number")) {
+          errorMessage = "This Social Security Number is already registered to another employee";
+        } else {
+          errorMessage = "Duplicate entry detected. Please check your data.";
+        }
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
-        title: "Error",
-        description: "Failed to add employee",
+        title: "Error Adding Employee",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreatePayGroup = async () => {
+    if (!newPayGroupName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a pay group name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.country) {
+      toast({
+        title: "Error",
+        description: "Please select a country first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCreatingPayGroup(true);
+    try {
+      const { data, error } = await supabase
+        .from("pay_groups")
+        .insert({
+          name: newPayGroupName.trim(),
+          country: formData.country,
+          pay_frequency: "monthly",
+          default_tax_percentage: 0,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Add to local list and select it
+      setPayGroups([...payGroups, data]);
+      setFormData({ ...formData, pay_group_id: data.id });
+      setNewPayGroupName("");
+      setShowCreatePayGroup(false);
+
+      toast({
+        title: "Success",
+        description: "Pay group created and selected",
+      });
+    } catch (error: any) {
+      console.error("Error creating pay group:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create pay group",
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingPayGroup(false);
     }
   };
 
@@ -554,7 +633,18 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
 
                   {formData.country && (
                     <div className="space-y-1.5">
-                      <Label htmlFor="pay_group" className="text-xs">Pay Group</Label>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="pay_group" className="text-xs">Pay Group</Label>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowCreatePayGroup(true)}
+                          className="h-7 text-xs text-primary hover:text-primary-dark"
+                        >
+                          + Create New
+                        </Button>
+                      </div>
                       <Select
                         value={formData.pay_group_id}
                         onValueChange={(value) =>
@@ -706,6 +796,79 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
           </div>
         </div>
       </DialogContent>
+
+      {/* Inline Pay Group Creation Dialog */}
+      <Dialog open={showCreatePayGroup} onOpenChange={setShowCreatePayGroup}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle>Create New Pay Group</DialogTitle>
+            <DialogDescription>
+              Create a new pay group for {formData.country}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="new_paygroup_name">Pay Group Name *</Label>
+              <Input
+                id="new_paygroup_name"
+                value={newPayGroupName}
+                onChange={(e) => setNewPayGroupName(e.target.value)}
+                placeholder="e.g., Engineering Team, Sales Staff"
+                autoFocus
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Country</Label>
+                <Input value={formData.country} disabled className="bg-muted" />
+              </div>
+              <div className="space-y-2">
+                <Label>Currency</Label>
+                <Input value={formData.currency} disabled className="bg-muted" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Pay Frequency</Label>
+              <Select defaultValue="monthly" disabled>
+                <SelectTrigger className="bg-muted">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Default to monthly. You can configure this later in Pay Groups settings.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowCreatePayGroup(false);
+                setNewPayGroupName("");
+              }}
+              disabled={creatingPayGroup}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleCreatePayGroup}
+              disabled={creatingPayGroup}
+              className="bg-secondary hover:bg-secondary-dark"
+            >
+              {creatingPayGroup ? "Creating..." : "Create & Select"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 };
