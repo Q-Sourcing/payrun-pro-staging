@@ -47,6 +47,69 @@ export type Database = {
         }
         Relationships: []
       }
+      company_settings: {
+        Row: {
+          accent_color: string | null
+          add_confidentiality_footer: boolean | null
+          address: string | null
+          company_name: string
+          created_at: string
+          email: string | null
+          id: string
+          include_generated_date: boolean | null
+          include_logo: boolean | null
+          logo_url: string | null
+          phone: string | null
+          primary_color: string | null
+          secondary_color: string | null
+          show_company_details: boolean | null
+          show_page_numbers: boolean | null
+          tax_id: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          accent_color?: string | null
+          add_confidentiality_footer?: boolean | null
+          address?: string | null
+          company_name?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          include_generated_date?: boolean | null
+          include_logo?: boolean | null
+          logo_url?: string | null
+          phone?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          show_company_details?: boolean | null
+          show_page_numbers?: boolean | null
+          tax_id?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          accent_color?: string | null
+          add_confidentiality_footer?: boolean | null
+          address?: string | null
+          company_name?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          include_generated_date?: boolean | null
+          include_logo?: boolean | null
+          logo_url?: string | null
+          phone?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          show_company_details?: boolean | null
+          show_page_numbers?: boolean | null
+          tax_id?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       employees: {
         Row: {
           account_number: string | null
