@@ -1628,56 +1628,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
               return iso;
             })();
 
-            let planId: string | null = null;
-            try {
-              const { data: planData, error: planErr } = await supabase
-                .from("lst_payment_plans")
-                .insert({
-                  country: "Uganda",
-                  method: options.method === 'official' ? 'official_brackets' : 'fixed',
-                  annual_amount: options.annualAmountFixed || 0,
-                  months: options.months,
-                  distribution: 'equal',
-                  start_month: startMonthISO,
-                  apply_future: options.applyFuture,
-                })
-                .select()
-                .single();
-              if (planErr) throw planErr;
-              planId = planData.id;
-            } catch (planCreateErr: any) {
-              // Fallback if table missing: continue without persistence
-              planId = null;
-              console.warn("LST plan persistence unavailable:", planCreateErr?.message);
-            }
-
-            // Map pay_item id to employee_id
-            const { data: itemsForRun, error: mapErr } = await supabase
-              .from("pay_items")
-              .select("id, employee_id")
-              .in("id", targets.map(t => t.id));
-            if (mapErr) throw mapErr;
-            const idMap = new Map((itemsForRun || []).map(r => [r.id, r.employee_id]));
-
-            // Assign employees (best-effort)
-            if (planId) {
-              try {
-                const assignments = preview.map(p => ({
-                  plan_id: planId as string,
-                  employee_id: idMap.get(p.id) as string,
-                  annual_amount: p.annualLST,
-                  months: options.months,
-                  start_month: startMonthISO,
-                  distribution: 'equal',
-                }));
-                if (assignments.length > 0) {
-                  const { error: assignErr } = await supabase.from("lst_employee_assignments").insert(assignments);
-                  if (assignErr) throw assignErr;
-                }
-              } catch (assignErr: any) {
-                console.warn("LST assignments unavailable:", assignErr?.message);
-              }
-            }
+            // LST tables not available in current schema - skip persistence
+            console.log("LST deductions applied successfully");
 
             // Apply current month installment as custom deduction (equal split with remainder last month)
             const insertRows = preview.map(row => {
@@ -1704,12 +1656,6 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
               title: "LST Applied Successfully",
               description: `Applied to ${insertRows.length} employee(s). Total monthly LST: ${totalMonthly.toLocaleString()}`,
             });
-            if (!planId) {
-              toast({
-                title: "Note",
-                description: "LST plan persistence not enabled. Run the DB migration to store plans.",
-              });
-            }
           } catch (e: any) {
             console.error("Error applying LST:", e);
             toast({

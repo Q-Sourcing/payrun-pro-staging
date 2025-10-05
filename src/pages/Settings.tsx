@@ -1,98 +1,151 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useTheme } from "@/components/ui/theme-provider";
+import { ThemeSettings } from "@/components/settings/ThemeSettings";
+import { CompanySettingsSection } from "@/components/settings/CompanySettingsSection";
+import { EmployeeSettingsSection } from "@/components/settings/EmployeeSettingsSection";
+import { AboutSection } from "@/components/settings/AboutSection";
+import { 
+  Building2, 
+  Users, 
+  DollarSign, 
+  Palette, 
+  Shield, 
+  Bell, 
+  RefreshCw, 
+  Database, 
+  Info 
+} from "lucide-react";
 
 const Settings = () => {
-  const { theme, setTheme } = useTheme();
-  const [primary, setPrimary] = useState("#117288");
-  const [secondary, setSecondary] = useState("#faa71c");
-  const [mode, setMode] = useState(theme);
+  const [activeSection, setActiveSection] = useState("theme");
+
+  const menuItems = [
+    { id: "company", label: "Company Settings", icon: Building2 },
+    { id: "employee", label: "Employee Settings", icon: Users },
+    { id: "payroll", label: "Payroll Settings", icon: DollarSign },
+    { id: "theme", label: "Display & Theme", icon: Palette },
+    { id: "security", label: "Security & Access", icon: Shield },
+    { id: "notifications", label: "Notifications", icon: Bell },
+    { id: "integrations", label: "Integrations", icon: RefreshCw },
+    { id: "data", label: "Data Management", icon: Database },
+    { id: "about", label: "About & Help", icon: Info },
+  ];
+
+  const renderSection = () => {
+    switch (activeSection) {
+      case "company":
+        return <CompanySettingsSection />;
+      case "employee":
+        return <EmployeeSettingsSection />;
+      case "theme":
+        return <ThemeSettings />;
+      case "about":
+        return <AboutSection />;
+      case "payroll":
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Payroll Settings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">Payroll settings coming soon...</p>
+            </CardContent>
+          </Card>
+        );
+      case "security":
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Security & Access</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">Security settings coming soon...</p>
+            </CardContent>
+          </Card>
+        );
+      case "notifications":
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Notifications</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">Notification settings coming soon...</p>
+            </CardContent>
+          </Card>
+        );
+      case "integrations":
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Integrations</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">Integration settings coming soon...</p>
+            </CardContent>
+          </Card>
+        );
+      case "data":
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Data Management</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">Data management settings coming soon...</p>
+            </CardContent>
+          </Card>
+        );
+      default:
+        return <ThemeSettings />;
+    }
+  };
 
   return (
-    <div className="p-6 grid grid-cols-1 md:grid-cols-4 gap-6">
-      <div className="md:col-span-1 space-y-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Settings</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <div className="font-medium">Navigation</div>
-            <ul className="space-y-1">
-              <li>🏢 Company Settings</li>
-              <li>👥 Employee Settings</li>
-              <li>💰 Payroll Settings</li>
-              <li>📊 Display & Theme</li>
-              <li>🔐 Security & Access</li>
-              <li>📧 Notifications</li>
-              <li>🔄 Integrations</li>
-              <li>📁 Data Management</li>
-              <li>ℹ️ About & Help</li>
-            </ul>
-          </CardContent>
-        </Card>
-      </div>
+    <div className="min-h-screen bg-background p-6">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold">Settings</h1>
+          <p className="text-muted-foreground">Manage your Q-Payroll preferences and configuration</p>
+        </div>
 
-      <div className="md:col-span-3 space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Display & Theme</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Theme Mode</Label>
-                <Select value={mode} onValueChange={(v: any) => setMode(v)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="light">Light</SelectItem>
-                    <SelectItem value="dark">Dark</SelectItem>
-                    <SelectItem value="system">Auto (System)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-end gap-2">
-                <Button variant="outline" onClick={() => setTheme(mode)}>Apply Mode</Button>
-              </div>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="md:col-span-1">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Navigation</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <nav className="space-y-1">
+                  {menuItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setActiveSection(item.id)}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
+                          activeSection === item.id
+                            ? "bg-primary text-primary-foreground"
+                            : "hover:bg-accent hover:text-accent-foreground"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </nav>
+              </CardContent>
+            </Card>
+          </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Primary Color</Label>
-                <Input type="color" value={primary} onChange={(e) => setPrimary(e.target.value)} />
-              </div>
-              <div>
-                <Label>Secondary Color</Label>
-                <Input type="color" value={secondary} onChange={(e) => setSecondary(e.target.value)} />
-              </div>
-            </div>
-
-            <div className="rounded-md border p-4" style={{
-              background: "var(--surface)",
-              color: "var(--text)",
-              borderColor: "rgba(0,0,0,0.1)",
-            }}>
-              <div className="text-sm mb-2">Live Preview</div>
-              <Button style={{ background: primary, color: '#fff' }} className="mr-2">Primary</Button>
-              <Button style={{ background: secondary, color: '#000' }} variant="secondary">Secondary</Button>
-            </div>
-
-            <div className="flex gap-2">
-              <Button onClick={() => setTheme(mode)}>Save Theme Settings</Button>
-              <Button variant="outline" onClick={() => { setMode('light'); setTheme('light'); }}>Reset to Default</Button>
-            </div>
-          </CardContent>
-        </Card>
+          <div className="md:col-span-3">
+            {renderSection()}
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
 export default Settings;
-
-
