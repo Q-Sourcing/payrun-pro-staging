@@ -82,26 +82,25 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
   };
 
   const fetchNumbering = async () => {
-    // Table doesn't exist yet - using defaults
-    // try {
-    //   const { data, error } = await supabase
-    //     .from("employee_number_settings")
-    //     .select("number_format, default_prefix, sequence_digits, next_sequence, use_department_prefix, include_country_code, use_employment_type")
-    //     .limit(1)
-    //     .single();
-    //   if (error && error.code !== "PGRST116") throw error;
-    //   if (data) {
-    //     setNumberFormat(data.number_format || "PREFIX-SEQUENCE");
-    //     setDefaultPrefix(data.default_prefix || "EMP");
-    //     setSequenceDigits(data.sequence_digits || 3);
-    //     setNextSequence(data.next_sequence || 1);
-    //     setUseDeptPrefix(!!data.use_department_prefix);
-    //     setIncludeCountryCode(!!data.include_country_code);
-    //     setUseEmploymentType(!!data.use_employment_type);
-    //   }
-    // } catch (err) {
-    //   console.error("Error fetching numbering settings:", err);
-    // }
+    try {
+      const { data, error } = await supabase
+        .from("employee_number_settings")
+        .select("number_format, default_prefix, sequence_digits, next_sequence, use_department_prefix, include_country_code, use_employment_type")
+        .limit(1)
+        .single();
+      if (error && error.code !== "PGRST116") throw error;
+      if (data) {
+        setNumberFormat(data.number_format || "PREFIX-SEQUENCE");
+        setDefaultPrefix(data.default_prefix || "EMP");
+        setSequenceDigits(data.sequence_digits || 3);
+        setNextSequence(data.next_sequence || 1);
+        setUseDeptPrefix(!!data.use_department_prefix);
+        setIncludeCountryCode(!!data.include_country_code);
+        setUseEmploymentType(!!data.use_employment_type);
+      }
+    } catch (err) {
+      console.error("Error fetching numbering settings:", err);
+    }
   };
 
   const handleSave = async () => {
@@ -146,33 +145,33 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
         if (error) throw error;
       }
 
-      // Upsert numbering settings singleton - table doesn't exist yet
-      // const { data: existingNumbering } = await supabase
-      //   .from("employee_number_settings")
-      //   .select("id")
-      //   .limit(1)
-      //   .single();
-      // const numberingData = {
-      //   number_format: numberFormat,
-      //   default_prefix: defaultPrefix,
-      //   sequence_digits: sequenceDigits,
-      //   next_sequence: nextSequence,
-      //   use_department_prefix: useDeptPrefix,
-      //   include_country_code: includeCountryCode,
-      //   use_employment_type: useEmploymentType,
-      // };
-      // if (existingNumbering) {
-      //   const { error: nErr } = await supabase
-      //     .from("employee_number_settings")
-      //     .update(numberingData)
-      //     .eq("id", existingNumbering.id);
-      //   if (nErr) throw nErr;
-      // } else {
-      //   const { error: nErr } = await supabase
-      //     .from("employee_number_settings")
-      //     .insert([numberingData]);
-      //   if (nErr) throw nErr;
-      // }
+      // Upsert numbering settings singleton
+      const { data: existingNumbering } = await supabase
+        .from("employee_number_settings")
+        .select("id")
+        .limit(1)
+        .single();
+      const numberingData = {
+        number_format: numberFormat,
+        default_prefix: defaultPrefix,
+        sequence_digits: sequenceDigits,
+        next_sequence: nextSequence,
+        use_department_prefix: useDeptPrefix,
+        include_country_code: includeCountryCode,
+        use_employment_type: useEmploymentType,
+      };
+      if (existingNumbering) {
+        const { error: nErr } = await supabase
+          .from("employee_number_settings")
+          .update(numberingData)
+          .eq("id", existingNumbering.id);
+        if (nErr) throw nErr;
+      } else {
+        const { error: nErr } = await supabase
+          .from("employee_number_settings")
+          .insert([numberingData]);
+        if (nErr) throw nErr;
+      }
 
       toast({
         title: "Settings Saved",

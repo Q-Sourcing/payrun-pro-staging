@@ -110,6 +110,45 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_number_settings: {
+        Row: {
+          created_at: string
+          default_prefix: string
+          id: string
+          include_country_code: boolean
+          next_sequence: number
+          number_format: string
+          sequence_digits: number
+          updated_at: string
+          use_department_prefix: boolean
+          use_employment_type: boolean
+        }
+        Insert: {
+          created_at?: string
+          default_prefix?: string
+          id?: string
+          include_country_code?: boolean
+          next_sequence?: number
+          number_format?: string
+          sequence_digits?: number
+          updated_at?: string
+          use_department_prefix?: boolean
+          use_employment_type?: boolean
+        }
+        Update: {
+          created_at?: string
+          default_prefix?: string
+          id?: string
+          include_country_code?: boolean
+          next_sequence?: number
+          number_format?: string
+          sequence_digits?: number
+          updated_at?: string
+          use_department_prefix?: boolean
+          use_employment_type?: boolean
+        }
+        Relationships: []
+      }
       employees: {
         Row: {
           account_number: string | null
@@ -122,6 +161,7 @@ export type Database = {
           date_of_birth: string | null
           department: string | null
           email: string
+          employee_number: string | null
           employee_type: string
           first_name: string
           gender: string | null
@@ -152,6 +192,7 @@ export type Database = {
           date_of_birth?: string | null
           department?: string | null
           email: string
+          employee_number?: string | null
           employee_type?: string
           first_name: string
           gender?: string | null
@@ -182,6 +223,7 @@ export type Database = {
           date_of_birth?: string | null
           department?: string | null
           email?: string
+          employee_number?: string | null
           employee_type?: string
           first_name?: string
           gender?: string | null

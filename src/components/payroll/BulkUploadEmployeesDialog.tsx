@@ -143,24 +143,24 @@ const BulkUploadEmployeesDialog = ({ open, onOpenChange, onEmployeesAdded }: Bul
         return;
       }
 
-      // Pre-check duplicates for provided employee_number values - column doesn't exist yet
-      // const providedIds = validEmployees.map(e => e.employee_number).filter(Boolean);
-      // if (providedIds.length > 0) {
-      //   const { data: existing, error: chkErr } = await supabase
-      //     .from("employees")
-      //     .select("employee_number")
-      //     .in("employee_number", providedIds);
-      //   if (chkErr) throw chkErr;
-      //   if (existing && existing.length > 0) {
-      //     const dup = existing[0].employee_number;
-      //     toast({
-      //       title: "Duplicate Employee ID",
-      //       description: `Employee ID ${dup} already exists. Remove or change it in CSV.`,
-      //       variant: "destructive",
-      //     });
-      //     return;
-      //   }
-      // }
+      // Pre-check duplicates for provided employee_number values
+      const providedIds = validEmployees.map(e => e.employee_number).filter(Boolean);
+      if (providedIds.length > 0) {
+        const { data: existing, error: chkErr } = await supabase
+          .from("employees")
+          .select("employee_number")
+          .in("employee_number", providedIds);
+        if (chkErr) throw chkErr;
+        if (existing && existing.length > 0) {
+          const dup = existing[0].employee_number;
+          toast({
+            title: "Duplicate Employee ID",
+            description: `Employee ID ${dup} already exists. Remove or change it in CSV.`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
 
       const { error } = await supabase
         .from("employees")

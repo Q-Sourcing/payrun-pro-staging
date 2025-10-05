@@ -139,17 +139,16 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
           setLoading(false);
           return;
         }
-        // Employee number validation - column doesn't exist yet in schema
-        // const { count, error: countError } = await supabase
-        //   .from("employees")
-        //   .select("id", { count: "exact", head: true })
-        //   .eq("employee_number", trimmed);
-        // if (countError) throw countError;
-        // if ((count || 0) > 0) {
-        //   setEmployeeNumberError("This Employee ID already exists");
-        //   setLoading(false);
-        //   return;
-        // }
+        const { count, error: countError } = await supabase
+          .from("employees")
+          .select("id", { count: "exact", head: true })
+          .eq("employee_number", trimmed);
+        if (countError) throw countError;
+        if ((count || 0) > 0) {
+          setEmployeeNumberError("This Employee ID already exists");
+          setLoading(false);
+          return;
+        }
       }
 
       const { error } = await supabase.from("employees").insert([
