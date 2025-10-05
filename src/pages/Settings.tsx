@@ -4,6 +4,11 @@ import { ThemeSettings } from "@/components/settings/ThemeSettings";
 import { CompanySettingsSection } from "@/components/settings/CompanySettingsSection";
 import { EmployeeSettingsSection } from "@/components/settings/EmployeeSettingsSection";
 import { AboutSection } from "@/components/settings/AboutSection";
+import { PayrollSettingsSection } from "@/components/settings/PayrollSettingsSection";
+import { SecuritySettingsSection } from "@/components/settings/SecuritySettingsSection";
+import { NotificationsSection } from "@/components/settings/NotificationsSection";
+import { IntegrationsSection } from "@/components/settings/IntegrationsSection";
+import { DataManagementSection } from "@/components/settings/DataManagementSection";
 import { 
   Building2, 
   Users, 
@@ -42,60 +47,15 @@ const Settings = () => {
       case "about":
         return <AboutSection />;
       case "payroll":
-        return (
-          <Card>
-            <CardHeader>
-              <CardTitle>Payroll Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Payroll settings coming soon...</p>
-            </CardContent>
-          </Card>
-        );
+        return <PayrollSettingsSection />;
       case "security":
-        return (
-          <Card>
-            <CardHeader>
-              <CardTitle>Security & Access</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Security settings coming soon...</p>
-            </CardContent>
-          </Card>
-        );
+        return <SecuritySettingsSection />;
       case "notifications":
-        return (
-          <Card>
-            <CardHeader>
-              <CardTitle>Notifications</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Notification settings coming soon...</p>
-            </CardContent>
-          </Card>
-        );
+        return <NotificationsSection />;
       case "integrations":
-        return (
-          <Card>
-            <CardHeader>
-              <CardTitle>Integrations</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Integration settings coming soon...</p>
-            </CardContent>
-          </Card>
-        );
+        return <IntegrationsSection />;
       case "data":
-        return (
-          <Card>
-            <CardHeader>
-              <CardTitle>Data Management</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Data management settings coming soon...</p>
-            </CardContent>
-          </Card>
-        );
+        return <DataManagementSection />;
       default:
         return <ThemeSettings />;
     }
