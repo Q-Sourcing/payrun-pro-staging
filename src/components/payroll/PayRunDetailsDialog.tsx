@@ -24,6 +24,7 @@ import { GenerateBillingSummaryDialog } from "./GenerateBillingSummaryDialog";
 import { ApplyBenefitsDialog } from "./ApplyBenefitsDialog";
 import { RecalculateTaxesDialog } from "./RecalculateTaxesDialog";
 import { RemoveCustomItemsDialog } from "./RemoveCustomItemsDialog";
+import LstDeductionsDialog, { LstDialogEmployee } from "./LstDeductionsDialog";
 
 interface CustomDeduction {
   id?: string;
@@ -95,6 +96,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
   const [applyBenefitsDialogOpen, setApplyBenefitsDialogOpen] = useState(false);
   const [recalculateTaxesDialogOpen, setRecalculateTaxesDialogOpen] = useState(false);
   const [removeCustomItemsDialogOpen, setRemoveCustomItemsDialogOpen] = useState(false);
+  const [lstDialogOpen, setLstDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -319,13 +321,17 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       deductionRules.forEach(rule => {
         if (rule.mandatory) {
           const amount = calculateDeduction(grossPay, rule, item.employees.country);
-          standardDeductions[rule.name] = amount;
-          calculatedTaxDeduction += amount;
-        }
-        
-        // Calculate employer contributions (like NSSF employer portion)
-        if (rule.employerContribution) {
-          employerContributions += grossPay * ((rule.employerContribution || 0) / 100);
+          // Exclude NSSF Employer from employee deductions; track as employer contribution only
+          if (rule.name === 'NSSF Employer') {
+            employerContributions += Math.min(grossPay, 1200000) * ((rule.percentage || 0) / 100);
+          } else {
+            standardDeductions[rule.name] = amount;
+            calculatedTaxDeduction += amount;
+            // If rule has an employer portion (rare), add to employerContributions without affecting deductions
+            if (rule.employerContribution) {
+              employerContributions += grossPay * ((rule.employerContribution || 0) / 100);
+            }
+          }
         }
       });
     }
@@ -875,7 +881,10 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     }
     
     const deductionRules = getCountryDeductions(firstEmployee.country);
-    return deductionRules.filter(rule => rule.mandatory).map(rule => rule.name);
+    // Show employee NSSF as a deduction; employer NSSF is displayed but not part of total_deductions
+    return deductionRules
+      .filter(rule => rule.mandatory && rule.name !== 'NSSF Employer')
+      .map(rule => rule.name);
   }, [payItems]);
 
   // Calculate summary totals
@@ -1016,10 +1025,40 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                       <span>Deduct from All Employees</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => setGeneratePayslipsDialogOpen(true)} className="gap-2">
+                  <DropdownMenuItem onClick={() => setGeneratePayslipsDialogOpen(true)} className="gap-2">
                       <FileText className="h-4 w-4 text-blue-600" />
                       <span>Generate All Payslips</span>
                     </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setLstDialogOpen(true)} className="gap-2">
+                    <Flag className="h-4 w-4 text-green-700" />
+                    <span>Uganda LST Deductions</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={async () => {
+                    try {
+                      if (!payRunId) return;
+                      // Remove all LST custom deductions for items in this pay run only
+                      const { data: items } = await supabase
+                        .from("pay_items")
+                        .select("id")
+                        .eq("pay_run_id", payRunId);
+                      const ids = (items || []).map(i => i.id);
+                      if (ids.length > 0) {
+                        await supabase
+                          .from("pay_item_custom_deductions")
+                          .delete()
+                          .in("pay_item_id", ids)
+                          .eq("name", "LST");
+                      }
+                      await updatePayRunTotals();
+                      fetchPayItems();
+                      toast({ title: "LST Removed", description: "Removed LST deductions for this pay run." });
+                    } catch (e: any) {
+                      toast({ title: "Failed to remove LST", description: e?.message || "", variant: "destructive" });
+                    }
+                  }} className="gap-2">
+                    <Trash2 className="h-4 w-4 text-red-600" />
+                    <span>Remove LST Deductions</span>
+                  </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setGenerateBillingDialogOpen(true)} className="gap-2">
                       <Download className="h-4 w-4 text-blue-600" />
                       <span>Generate Billing Summary</span>
@@ -1096,6 +1135,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                         {columnName}
                       </TableHead>
                     ))}
+                    {/* Employer Contribution Column (NSSF Employer) */}
+                    <TableHead className="text-center">NSSF Employer</TableHead>
                     {/* Custom Addition/Deduction Columns */}
                     {customColumns.map(columnName => (
                       <TableHead key={columnName} className="text-center">
@@ -1184,6 +1225,10 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                               </TableCell>
                             );
                           })}
+                          {/* Employer NSSF (company cost) */}
+                          <TableCell className="text-center text-muted-foreground italic font-medium">
+                            {formatCurrency((calculatePay(item).employerContributions || 0), payGroupCurrency)}
+                          </TableCell>
                           {/* Custom Addition/Deduction Columns */}
                           {customColumns.map(columnName => {
                             const customItem = (item.customDeductions || []).find(cd => cd.name === columnName);
@@ -1557,6 +1602,123 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         onOpenChange={setRemoveCustomItemsDialogOpen}
         customItemCount={payItems.reduce((count, item) => count + (item.customDeductions?.length || 0), 0)}
         onRemove={fetchPayItems}
+      />
+
+      <LstDeductionsDialog
+        open={lstDialogOpen}
+        onOpenChange={setLstDialogOpen}
+        employees={payItems.map(item => ({
+          id: item.id,
+          name: getFullName(item.employees),
+          grossPay: calculatePay(item).grossPay,
+        })) as LstDialogEmployee[]}
+        currency={payGroupCurrency}
+        selectedIds={Array.from(selectedItems)}
+        payRunStartMonthISO={(() => {
+          const d = payPeriod?.start ? new Date(payPeriod.start) : new Date();
+          const iso = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString().slice(0, 10);
+          return iso; // YYYY-MM-DD
+        })()}
+        onApply={async (options, targets, preview) => {
+          try {
+            // Create plan
+            const startMonthISO = (() => {
+              const d = payPeriod?.start ? new Date(payPeriod.start) : new Date();
+              const iso = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString().slice(0, 10);
+              return iso;
+            })();
+
+            let planId: string | null = null;
+            try {
+              const { data: planData, error: planErr } = await supabase
+                .from("lst_payment_plans")
+                .insert({
+                  country: "Uganda",
+                  method: options.method === 'official' ? 'official_brackets' : 'fixed',
+                  annual_amount: options.annualAmountFixed || 0,
+                  months: options.months,
+                  distribution: 'equal',
+                  start_month: startMonthISO,
+                  apply_future: options.applyFuture,
+                })
+                .select()
+                .single();
+              if (planErr) throw planErr;
+              planId = planData.id;
+            } catch (planCreateErr: any) {
+              // Fallback if table missing: continue without persistence
+              planId = null;
+              console.warn("LST plan persistence unavailable:", planCreateErr?.message);
+            }
+
+            // Map pay_item id to employee_id
+            const { data: itemsForRun, error: mapErr } = await supabase
+              .from("pay_items")
+              .select("id, employee_id")
+              .in("id", targets.map(t => t.id));
+            if (mapErr) throw mapErr;
+            const idMap = new Map((itemsForRun || []).map(r => [r.id, r.employee_id]));
+
+            // Assign employees (best-effort)
+            if (planId) {
+              try {
+                const assignments = preview.map(p => ({
+                  plan_id: planId as string,
+                  employee_id: idMap.get(p.id) as string,
+                  annual_amount: p.annualLST,
+                  months: options.months,
+                  start_month: startMonthISO,
+                  distribution: 'equal',
+                }));
+                if (assignments.length > 0) {
+                  const { error: assignErr } = await supabase.from("lst_employee_assignments").insert(assignments);
+                  if (assignErr) throw assignErr;
+                }
+              } catch (assignErr: any) {
+                console.warn("LST assignments unavailable:", assignErr?.message);
+              }
+            }
+
+            // Apply current month installment as custom deduction (equal split with remainder last month)
+            const insertRows = preview.map(row => {
+              const base = Math.floor(row.annualLST / options.months);
+              const remainder = row.annualLST % options.months;
+              const monthly = options.months > 1 ? base : row.annualLST;
+              return {
+                pay_item_id: row.id, // row.id is current pay run's pay_item id → scoping ensured
+                name: "LST",
+                amount: monthly,
+                type: 'deduction',
+              };
+            });
+            if (insertRows.length > 0) {
+              const { error: insErr } = await supabase.from("pay_item_custom_deductions").insert(insertRows);
+              if (insErr) throw insErr;
+            }
+
+            await updatePayRunTotals();
+            fetchPayItems();
+
+            const totalMonthly = insertRows.reduce((s, r) => s + (r.amount as number), 0);
+            toast({
+              title: "LST Applied Successfully",
+              description: `Applied to ${insertRows.length} employee(s). Total monthly LST: ${totalMonthly.toLocaleString()}`,
+            });
+            if (!planId) {
+              toast({
+                title: "Note",
+                description: "LST plan persistence not enabled. Run the DB migration to store plans.",
+              });
+            }
+          } catch (e: any) {
+            console.error("Error applying LST:", e);
+            toast({
+              title: "LST Application Failed",
+              description: e?.message || "Unable to apply LST deductions. Please try again.",
+              variant: "destructive",
+            });
+          }
+        }}
       />
     </Dialog>
   );

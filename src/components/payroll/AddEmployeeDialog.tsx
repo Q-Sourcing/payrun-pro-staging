@@ -53,6 +53,9 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
   });
   const [payGroups, setPayGroups] = useState<PayGroup[]>([]);
   const [loading, setLoading] = useState(false);
+  const [employeeNumberCustomEnabled, setEmployeeNumberCustomEnabled] = useState(false);
+  const [employeeNumber, setEmployeeNumber] = useState("");
+  const [employeeNumberError, setEmployeeNumberError] = useState("");
   const [showCreatePayGroup, setShowCreatePayGroup] = useState(false);
   const [newPayGroupName, setNewPayGroupName] = useState("");
   const [creatingPayGroup, setCreatingPayGroup] = useState(false);
@@ -123,6 +126,31 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
 
     setLoading(true);
     try {
+      // Validate custom employee number uniqueness if provided
+      if (employeeNumberCustomEnabled) {
+        const trimmed = employeeNumber.trim();
+        if (!trimmed) {
+          setEmployeeNumberError("Employee ID cannot be empty");
+          setLoading(false);
+          return;
+        }
+        if (!/^[A-Za-z0-9\-]+$/.test(trimmed)) {
+          setEmployeeNumberError("Only letters, numbers and hyphens allowed");
+          setLoading(false);
+          return;
+        }
+        const { count, error: countError } = await supabase
+          .from("employees")
+          .select("id", { count: "exact", head: true })
+          .eq("employee_number", trimmed);
+        if (countError) throw countError;
+        if ((count || 0) > 0) {
+          setEmployeeNumberError("This Employee ID already exists");
+          setLoading(false);
+          return;
+        }
+      }
+
       const { error } = await supabase.from("employees").insert([
         {
           first_name: formData.first_name,
@@ -148,6 +176,7 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
           account_number: formData.account_number || null,
           account_type: formData.account_type || null,
           department: formData.department || null,
+          employee_number: employeeNumberCustomEnabled ? employeeNumber.trim() : undefined,
         },
       ]);
 
@@ -185,6 +214,9 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
         account_type: "",
         department: "",
       });
+      setEmployeeNumber("");
+      setEmployeeNumberCustomEnabled(false);
+      setEmployeeNumberError("");
       setCurrentStep(1);
       onEmployeeAdded();
       onOpenChange(false);
@@ -334,6 +366,31 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
           {/* Step 1: Personal Information */}
           {currentStep === 1 && (
             <div className="space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-primary mb-3 uppercase tracking-wide">Employee Number</h3>
+              <div className="space-y-2">
+                <Label htmlFor="employee_number" className="text-xs">Employee ID * (Auto-generated)</Label>
+                <div className="flex gap-2 items-center">
+                  <Input
+                    id="employee_number"
+                    placeholder={employeeNumberCustomEnabled ? "Enter custom ID, e.g., EMP-024" : "Will be generated on save"}
+                    disabled={!employeeNumberCustomEnabled}
+                    value={employeeNumber}
+                    onChange={(e) => { setEmployeeNumber(e.target.value); setEmployeeNumberError(""); }}
+                    className="h-9"
+                  />
+                  {employeeNumberCustomEnabled ? (
+                    <Button type="button" variant="outline" onClick={() => { setEmployeeNumberCustomEnabled(false); setEmployeeNumber(""); setEmployeeNumberError(""); }}>Use Auto</Button>
+                  ) : (
+                    <Button type="button" variant="outline" onClick={() => setEmployeeNumberCustomEnabled(true)}>✎ Customize</Button>
+                  )}
+                </div>
+                {employeeNumberError && (
+                  <p className="text-xs text-destructive">{employeeNumberError}</p>
+                )}
+                <p className="text-xs text-muted-foreground">Format suggestion: PREFIX-SEQ, e.g., EMP-001. Leave blank to auto-generate.</p>
+              </div>
+            </div>
               <div>
                 <h3 className="text-sm font-semibold text-primary mb-3 uppercase tracking-wide">Personal Information</h3>
                 <div className="space-y-3">

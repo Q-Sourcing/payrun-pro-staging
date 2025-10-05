@@ -2,6 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg-light: #ffffff;
+  --surface-light: #f8f9fa;
+  --text-light: #333333;
+  --bg-dark: #121212;
+  --surface-dark: #1e1e1e;
+  --text-dark: #ffffff;
+  --primary: #117288;
+  --secondary: #faa71c;
+}
+
+[data-theme="light"] {
+  --bg: var(--bg-light);
+  --surface: var(--surface-light);
+  --text: var(--text-light);
+}
+
+[data-theme="dark"] {
+  --bg: var(--bg-dark);
+  --surface: var(--surface-dark);
+  --text: var(--text-dark);
+}
+
+html, body, #root {
+  background-color: var(--bg);
+  color: var(--text);
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */

@@ -44,13 +44,20 @@ export const COUNTRY_DEDUCTIONS: CountryDeductions = {
         description: "Pay As You Earn Tax - Progressive income tax"
       },
       {
-        name: "NSSF",
+        name: "NSSF Employee",
         type: "percentage",
         percentage: 5,
         mandatory: true,
         employeeContribution: 5,
+        description: "NSSF Employee - 5% (cap at 1,200,000 UGX pensionable)"
+      },
+      {
+        name: "NSSF Employer",
+        type: "percentage",
+        percentage: 10,
+        mandatory: true,
         employerContribution: 10,
-        description: "National Social Security Fund - Employee 5%, Employer 10% (max 1,200,000 UGX)"
+        description: "NSSF Employer - 10% (cap at 1,200,000 UGX pensionable)"
       },
       {
         name: "LST",
@@ -271,8 +278,8 @@ export const calculateDeduction = (grossPay: number, rule: DeductionRule, countr
     case 'fixed':
       return rule.amount || 0;
     case 'percentage':
-      // Apply NSSF cap for Uganda
-      if (countryCode === 'UG' && rule.name === 'NSSF') {
+      // Apply NSSF cap for Uganda (employee portion)
+      if (countryCode === 'UG' && (rule.name === 'NSSF' || rule.name === 'NSSF Employee')) {
         const cappedAmount = Math.min(grossPay, 1200000);
         return cappedAmount * ((rule.percentage || 0) / 100);
       }

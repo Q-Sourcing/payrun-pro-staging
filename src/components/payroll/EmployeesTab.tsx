@@ -15,6 +15,7 @@ import BulkUploadEmployeesDialog from "./BulkUploadEmployeesDialog";
 
 interface Employee {
   id: string;
+  employee_number?: string;
   first_name: string;
   middle_name?: string | null;
   last_name?: string | null;
@@ -35,6 +36,8 @@ const EmployeesTab = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [payTypeFilter, setPayTypeFilter] = useState("all");
+  const [prefixFilter, setPrefixFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("name"); // name | employee_number
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showBulkUploadDialog, setShowBulkUploadDialog] = useState(false);
@@ -78,12 +81,23 @@ const EmployeesTab = () => {
 
   const filteredEmployees = employees.filter((employee) => {
     const fullName = getFullName(employee);
-    const matchesSearch = fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         employee.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (
+      fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (employee.employee_number || "").toLowerCase().includes(searchTerm.toLowerCase())
+    );
     const matchesStatus = statusFilter === "all" || employee.status === statusFilter;
     const matchesPayType = payTypeFilter === "all" || employee.pay_type === payTypeFilter;
+    const matchesPrefix = prefixFilter === "all" || (employee.employee_number || "").startsWith(prefixFilter + "-");
     
-    return matchesSearch && matchesStatus && matchesPayType;
+    return matchesSearch && matchesStatus && matchesPayType && matchesPrefix;
+  });
+
+  const sortedEmployees = [...filteredEmployees].sort((a, b) => {
+    if (sortBy === "employee_number") {
+      return (a.employee_number || "").localeCompare(b.employee_number || "");
+    }
+    return getFullName(a).localeCompare(getFullName(b));
   });
 
   const formatPayType = (payType: string) => {
@@ -166,6 +180,31 @@ const EmployeesTab = () => {
               <SelectItem value="piece_rate">Piece Rate</SelectItem>
             </SelectContent>
           </Select>
+
+          <Select value={prefixFilter} onValueChange={setPrefixFilter}>
+            <SelectTrigger className="w-full sm:w-40">
+              <SelectValue placeholder="Prefix" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Prefixes</SelectItem>
+              <SelectItem value="EMP">EMP</SelectItem>
+              <SelectItem value="UG">UG</SelectItem>
+              <SelectItem value="KE">KE</SelectItem>
+              <SelectItem value="TZ">TZ</SelectItem>
+              <SelectItem value="ENG">ENG</SelectItem>
+              <SelectItem value="SAL">SAL</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-full sm:w-44">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="employee_number">Employee ID</SelectItem>
+              <SelectItem value="name">Name</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         
         <div className="flex gap-2 shrink-0">
@@ -200,6 +239,7 @@ const EmployeesTab = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Employee ID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Email</TableHead>
@@ -213,8 +253,9 @@ const EmployeesTab = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredEmployees.map((employee) => (
+                {sortedEmployees.map((employee) => (
                   <TableRow key={employee.id}>
+                    <TableCell className="font-medium">{employee.employee_number || "—"}</TableCell>
                     <TableCell className="font-medium">{getFullName(employee)}</TableCell>
                     <TableCell>
                       {employee.employee_type === 'expatriate' ? (

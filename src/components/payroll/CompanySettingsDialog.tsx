@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Building2, Upload, X } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface CompanySettingsDialogProps {
   open: boolean;
@@ -32,10 +33,19 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
   const [includeGeneratedDate, setIncludeGeneratedDate] = useState(true);
   const [showPageNumbers, setShowPageNumbers] = useState(true);
   const { toast } = useToast();
+  // Employee numbering settings
+  const [numberFormat, setNumberFormat] = useState("PREFIX-SEQUENCE");
+  const [defaultPrefix, setDefaultPrefix] = useState("EMP");
+  const [sequenceDigits, setSequenceDigits] = useState(3);
+  const [nextSequence, setNextSequence] = useState(1);
+  const [useDeptPrefix, setUseDeptPrefix] = useState(false);
+  const [includeCountryCode, setIncludeCountryCode] = useState(false);
+  const [useEmploymentType, setUseEmploymentType] = useState(false);
 
   useEffect(() => {
     if (open) {
       fetchSettings();
+      fetchNumbering();
     }
   }, [open]);
 
@@ -68,6 +78,28 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
       }
     } catch (error) {
       console.error("Error fetching settings:", error);
+    }
+  };
+
+  const fetchNumbering = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("employee_number_settings")
+        .select("number_format, default_prefix, sequence_digits, next_sequence, use_department_prefix, include_country_code, use_employment_type")
+        .limit(1)
+        .single();
+      if (error && error.code !== "PGRST116") throw error;
+      if (data) {
+        setNumberFormat(data.number_format || "PREFIX-SEQUENCE");
+        setDefaultPrefix(data.default_prefix || "EMP");
+        setSequenceDigits(data.sequence_digits || 3);
+        setNextSequence(data.next_sequence || 1);
+        setUseDeptPrefix(!!data.use_department_prefix);
+        setIncludeCountryCode(!!data.include_country_code);
+        setUseEmploymentType(!!data.use_employment_type);
+      }
+    } catch (err) {
+      console.error("Error fetching numbering settings:", err);
     }
   };
 
@@ -113,9 +145,37 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
         if (error) throw error;
       }
 
+      // Upsert numbering settings singleton
+      const { data: existingNumbering } = await supabase
+        .from("employee_number_settings")
+        .select("id")
+        .limit(1)
+        .single();
+      const numberingData = {
+        number_format: numberFormat,
+        default_prefix: defaultPrefix,
+        sequence_digits: sequenceDigits,
+        next_sequence: nextSequence,
+        use_department_prefix: useDeptPrefix,
+        include_country_code: includeCountryCode,
+        use_employment_type: useEmploymentType,
+      };
+      if (existingNumbering) {
+        const { error: nErr } = await supabase
+          .from("employee_number_settings")
+          .update(numberingData)
+          .eq("id", existingNumbering.id);
+        if (nErr) throw nErr;
+      } else {
+        const { error: nErr } = await supabase
+          .from("employee_number_settings")
+          .insert([numberingData]);
+        if (nErr) throw nErr;
+      }
+
       toast({
         title: "Settings Saved",
-        description: "Company branding settings have been updated successfully",
+        description: "Company settings and numbering updated successfully",
       });
       onOpenChange(false);
     } catch (error) {
@@ -145,6 +205,14 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
     setAddConfidentialityFooter(true);
     setIncludeGeneratedDate(true);
     setShowPageNumbers(true);
+    // numbering defaults
+    setNumberFormat("PREFIX-SEQUENCE");
+    setDefaultPrefix("EMP");
+    setSequenceDigits(3);
+    setNextSequence(1);
+    setUseDeptPrefix(false);
+    setIncludeCountryCode(false);
+    setUseEmploymentType(false);
   };
 
   return (
@@ -161,6 +229,59 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
         </DialogHeader>
 
         <div className="space-y-6">
+          <div className="space-y-4">
+            <Label className="text-base font-semibold">Employee Numbering</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Number Format</Label>
+                <Select value={numberFormat} onValueChange={setNumberFormat}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PREFIX-SEQUENCE">PREFIX-SEQUENCE (EMP-001)</SelectItem>
+                    <SelectItem value="SEQUENCE">SEQUENCE ONLY (001)</SelectItem>
+                    <SelectItem value="DEPARTMENT-PREFIX">DEPARTMENT-PREFIX (ENG-001)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Default Prefix</Label>
+                <Input value={defaultPrefix} onChange={(e) => setDefaultPrefix(e.target.value.toUpperCase())} />
+              </div>
+              <div>
+                <Label>Sequence Digits</Label>
+                <Select value={String(sequenceDigits)} onValueChange={(v) => setSequenceDigits(parseInt(v))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="3">3</SelectItem>
+                    <SelectItem value="4">4</SelectItem>
+                    <SelectItem value="5">5</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Next Sequence</Label>
+                <Input type="number" min={1} value={nextSequence} onChange={(e) => setNextSequence(parseInt(e.target.value || "1"))} />
+              </div>
+              <div className="col-span-2 grid grid-cols-2 gap-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="deptPrefix" checked={useDeptPrefix} onCheckedChange={(c) => setUseDeptPrefix(!!c)} />
+                  <Label htmlFor="deptPrefix" className="font-normal">Use department as prefix</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="countryCode" checked={includeCountryCode} onCheckedChange={(c) => setIncludeCountryCode(!!c)} />
+                  <Label htmlFor="countryCode" className="font-normal">Include country code</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="employmentType" checked={useEmploymentType} onCheckedChange={(c) => setUseEmploymentType(!!c)} />
+                  <Label htmlFor="employmentType" className="font-normal">Use employment type</Label>
+                </div>
+              </div>
+            </div>
+          </div>
           <div className="space-y-4">
             <Label className="text-base font-semibold">Company Details</Label>
             <div className="grid grid-cols-2 gap-4">

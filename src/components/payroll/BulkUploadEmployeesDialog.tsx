@@ -20,6 +20,7 @@ const BulkUploadEmployeesDialog = ({ open, onOpenChange, onEmployeesAdded }: Bul
 
   const downloadTemplate = () => {
     const headers = [
+      "employee_number", // optional
       "first_name",
       "middle_name",
       "last_name",
@@ -35,8 +36,8 @@ const BulkUploadEmployeesDialog = ({ open, onOpenChange, onEmployeesAdded }: Bul
     ];
     
     const sampleData = [
-      "John,M,Doe,john.doe@example.com,+256700000000,Uganda,UGX,salary,5000000,,active,local",
-      "Jane,,Smith,jane.smith@example.com,+254700000000,Kenya,KSH,hourly,1500,,active,expatriate"
+      "EMP-023,John,M,Doe,john.doe@example.com,+256700000000,Uganda,UGX,salary,5000000,,active,local",
+      ",Jane,,Smith,jane.smith@example.com,+254700000000,Kenya,KES,hourly,1500,,active,expatriate"
     ];
 
     const csvContent = [headers.join(","), ...sampleData].join("\n");
@@ -65,8 +66,6 @@ const BulkUploadEmployeesDialog = ({ open, onOpenChange, onEmployeesAdded }: Bul
         if (value) {
           if (header === "pay_rate") {
             employee[header] = parseFloat(value);
-          } else if (header === "pay_group_id" && !value) {
-            employee[header] = null;
           } else {
             employee[header] = value;
           }
@@ -142,6 +141,25 @@ const BulkUploadEmployeesDialog = ({ open, onOpenChange, onEmployeesAdded }: Bul
           variant: "destructive",
         });
         return;
+      }
+
+      // Pre-check duplicates for provided employee_number values
+      const providedIds = validEmployees.map(e => e.employee_number).filter(Boolean);
+      if (providedIds.length > 0) {
+        const { data: existing, error: chkErr } = await supabase
+          .from("employees")
+          .select("employee_number")
+          .in("employee_number", providedIds);
+        if (chkErr) throw chkErr;
+        if (existing && existing.length > 0) {
+          const dup = existing[0].employee_number;
+          toast({
+            title: "Duplicate Employee ID",
+            description: `Employee ID ${dup} already exists. Remove or change it in CSV.`,
+            variant: "destructive",
+          });
+          return;
+        }
       }
 
       const { error } = await supabase

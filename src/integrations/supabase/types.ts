@@ -112,6 +112,7 @@ export type Database = {
       }
       employees: {
         Row: {
+          employee_number: string
           account_number: string | null
           account_type: string | null
           bank_branch: string | null
@@ -142,6 +143,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          employee_number?: string
           account_number?: string | null
           account_type?: string | null
           bank_branch?: string | null
@@ -172,6 +174,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          employee_number?: string
           account_number?: string | null
           account_type?: string | null
           bank_branch?: string | null
@@ -209,6 +212,95 @@ export type Database = {
             referencedRelation: "pay_groups"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      employee_number_settings: {
+        Row: {
+          id: string
+          number_format: string
+          default_prefix: string
+          sequence_digits: number
+          use_department_prefix: boolean
+          include_country_code: boolean
+          use_employment_type: boolean
+          custom_prefix_per_pay_group: boolean
+          custom_format: string | null
+          next_sequence: number
+          department_rules: Json
+          country_rules: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          number_format?: string
+          default_prefix?: string
+          sequence_digits?: number
+          use_department_prefix?: boolean
+          include_country_code?: boolean
+          use_employment_type?: boolean
+          custom_prefix_per_pay_group?: boolean
+          custom_format?: string | null
+          next_sequence?: number
+          department_rules?: Json
+          country_rules?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          number_format?: string
+          default_prefix?: string
+          sequence_digits?: number
+          use_department_prefix?: boolean
+          include_country_code?: boolean
+          use_employment_type?: boolean
+          custom_prefix_per_pay_group?: boolean
+          custom_format?: string | null
+          next_sequence?: number
+          department_rules?: Json
+          country_rules?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      employee_number_history: {
+        Row: {
+          id: string
+          employee_id: string
+          old_employee_number: string | null
+          new_employee_number: string
+          changed_at: string
+          changed_by: string | null
+          reason: string | null
+        }
+        Insert: {
+          id?: string
+          employee_id: string
+          old_employee_number?: string | null
+          new_employee_number: string
+          changed_at?: string
+          changed_by?: string | null
+          reason?: string | null
+        }
+        Update: {
+          id?: string
+          employee_id?: string
+          old_employee_number?: string | null
+          new_employee_number?: string
+          changed_at?: string
+          changed_by?: string | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_number_history_employee_id_fkey",
+            columns: ["employee_id"],
+            isOneToOne: false,
+            referencedRelation: "employees",
+            referencedColumns: ["id"],
+          }
         ]
       }
       expatriate_policies: {
