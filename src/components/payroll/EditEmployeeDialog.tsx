@@ -204,15 +204,16 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Edit Employee</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto modern-dialog">
+        <DialogHeader className="modern-dialog-header">
+          <DialogTitle className="modern-dialog-title">Edit Employee</DialogTitle>
+          <DialogDescription className="modern-dialog-description">
             Update employee information and pay details
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="modern-dialog-content">
+          <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="first_name">First Name *</Label>
@@ -604,15 +605,16 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
             </div>
           </div>
 
-          <div className="flex gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+          <div className="modern-dialog-actions">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="modern-dialog-button-secondary flex-1">
               Cancel
             </Button>
-            <Button type="submit" disabled={loading} className="flex-1">
+            <Button type="submit" disabled={loading} className="modern-dialog-button flex-1">
               {loading ? "Updating..." : "Update Employee"}
             </Button>
           </div>
-        </form>
+          </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

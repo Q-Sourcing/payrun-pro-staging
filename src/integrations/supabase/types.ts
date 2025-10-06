@@ -455,6 +455,7 @@ export type Database = {
           pay_period_end: string
           pay_period_start: string
           pay_run_date: string
+          pay_run_id: string | null
           status: Database["public"]["Enums"]["pay_run_status"]
           total_deductions: number | null
           total_gross_pay: number | null
@@ -471,6 +472,7 @@ export type Database = {
           pay_period_end: string
           pay_period_start: string
           pay_run_date?: string
+          pay_run_id?: string | null
           status?: Database["public"]["Enums"]["pay_run_status"]
           total_deductions?: number | null
           total_gross_pay?: number | null
@@ -487,6 +489,7 @@ export type Database = {
           pay_period_end?: string
           pay_period_start?: string
           pay_run_date?: string
+          pay_run_id?: string | null
           status?: Database["public"]["Enums"]["pay_run_status"]
           total_deductions?: number | null
           total_gross_pay?: number | null

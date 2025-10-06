@@ -56,6 +56,8 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
   const [employeeNumberCustomEnabled, setEmployeeNumberCustomEnabled] = useState(false);
   const [employeeNumber, setEmployeeNumber] = useState("");
   const [employeeNumberError, setEmployeeNumberError] = useState("");
+  const [employeePrefix, setEmployeePrefix] = useState("EMP");
+  const [nextSequence, setNextSequence] = useState(1);
   const [showCreatePayGroup, setShowCreatePayGroup] = useState(false);
   const [newPayGroupName, setNewPayGroupName] = useState("");
   const [creatingPayGroup, setCreatingPayGroup] = useState(false);
@@ -67,8 +69,57 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
     if (open) {
       fetchPayGroups();
       setCurrentStep(1);
+      generateEmployeeNumber();
     }
   }, [open]);
+
+  const generateEmployeeNumber = async () => {
+    try {
+      // Get the next sequence number from the database
+      const { data: settings, error: settingsError } = await supabase
+        .from("employee_number_settings")
+        .select("next_sequence, sequence_digits")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .single();
+
+      if (settingsError || !settings) {
+        // Fallback: get the highest existing employee number
+        const { data: existingEmployees, error: fetchError } = await supabase
+          .from("employees")
+          .select("employee_number")
+          .not("employee_number", "is", null)
+          .like("employee_number", `${employeePrefix}-%`)
+          .order("employee_number", { ascending: false })
+          .limit(1);
+
+        if (fetchError || !existingEmployees || existingEmployees.length === 0) {
+          setNextSequence(1);
+        } else {
+          // Extract sequence number from the highest employee number
+          const lastNumber = existingEmployees[0].employee_number;
+          const match = lastNumber.match(new RegExp(`${employeePrefix}-(\\d+)`));
+          if (match) {
+            setNextSequence(parseInt(match[1]) + 1);
+          } else {
+            setNextSequence(1);
+          }
+        }
+      } else {
+        setNextSequence(settings.next_sequence);
+      }
+
+      // Generate the employee number with the current sequence
+      const sequenceDigits = settings?.sequence_digits || 3;
+      const paddedSequence = nextSequence.toString().padStart(sequenceDigits, '0');
+      const generatedNumber = `${employeePrefix}-${paddedSequence}`;
+      setEmployeeNumber(generatedNumber);
+    } catch (error) {
+      // Fallback to simple generation
+      const paddedSequence = nextSequence.toString().padStart(3, '0');
+      setEmployeeNumber(`${employeePrefix}-${paddedSequence}`);
+    }
+  };
 
   const fetchPayGroups = async () => {
     try {
@@ -176,7 +227,7 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
           account_number: formData.account_number || null,
           account_type: formData.account_type || null,
           department: formData.department || null,
-          employee_number: employeeNumberCustomEnabled ? employeeNumber.trim() : undefined,
+          employee_number: employeeNumber.trim() || null,
         },
       ]);
 
@@ -186,6 +237,9 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
         title: "Success",
         description: "Employee added successfully",
       });
+
+      // Increment the sequence for next employee
+      setNextSequence(prev => prev + 1);
 
       setFormData({
         first_name: "",
@@ -320,12 +374,12 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[85vh] p-0 gap-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b">
-          <DialogTitle className="text-xl">
+      <DialogContent className="sm:max-w-[600px] max-h-[85vh] p-0 gap-0 modern-dialog">
+        <DialogHeader className="modern-dialog-header">
+          <DialogTitle className="modern-dialog-title">
             Add New Employee (Step {currentStep} of 3)
           </DialogTitle>
-          <DialogDescription className="sr-only">
+          <DialogDescription className="modern-dialog-description">
             Complete the employee information in 3 steps
           </DialogDescription>
           
@@ -362,33 +416,78 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
           </div>
         </DialogHeader>
 
-        <ScrollArea className="h-[400px] px-6 py-4">
+        <div className="modern-dialog-content">
+          <ScrollArea className="h-[400px] px-6 py-4">
           {/* Step 1: Personal Information */}
           {currentStep === 1 && (
             <div className="space-y-4">
             <div>
               <h3 className="text-sm font-semibold text-primary mb-3 uppercase tracking-wide">Employee Number</h3>
-              <div className="space-y-2">
-                <Label htmlFor="employee_number" className="text-xs">Employee ID * (Auto-generated)</Label>
-                <div className="flex gap-2 items-center">
-                  <Input
-                    id="employee_number"
-                    placeholder={employeeNumberCustomEnabled ? "Enter custom ID, e.g., EMP-024" : "Will be generated on save"}
-                    disabled={!employeeNumberCustomEnabled}
-                    value={employeeNumber}
-                    onChange={(e) => { setEmployeeNumber(e.target.value); setEmployeeNumberError(""); }}
-                    className="h-9"
-                  />
-                  {employeeNumberCustomEnabled ? (
-                    <Button type="button" variant="outline" onClick={() => { setEmployeeNumberCustomEnabled(false); setEmployeeNumber(""); setEmployeeNumberError(""); }}>Use Auto</Button>
-                  ) : (
-                    <Button type="button" variant="outline" onClick={() => setEmployeeNumberCustomEnabled(true)}>✎ Customize</Button>
-                  )}
+              <div className="space-y-3">
+                {/* Prefix Configuration */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="employee_prefix" className="text-xs">Prefix</Label>
+                    <Input
+                      id="employee_prefix"
+                      value={employeePrefix}
+                      onChange={(e) => {
+                        setEmployeePrefix(e.target.value.toUpperCase());
+                        if (!employeeNumberCustomEnabled) {
+                          // Regenerate with new prefix
+                          setTimeout(() => generateEmployeeNumber(), 100);
+                        }
+                      }}
+                      placeholder="EMP"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="next_sequence" className="text-xs">Next Sequence</Label>
+                    <Input
+                      id="next_sequence"
+                      value={nextSequence}
+                      onChange={(e) => {
+                        const newSeq = parseInt(e.target.value) || 1;
+                        setNextSequence(newSeq);
+                        if (!employeeNumberCustomEnabled) {
+                          // Regenerate with new sequence
+                          setTimeout(() => generateEmployeeNumber(), 100);
+                        }
+                      }}
+                      type="number"
+                      min="1"
+                      className="h-9"
+                    />
+                  </div>
                 </div>
-                {employeeNumberError && (
-                  <p className="text-xs text-destructive">{employeeNumberError}</p>
-                )}
-                <p className="text-xs text-muted-foreground">Format suggestion: PREFIX-SEQ, e.g., EMP-001. Leave blank to auto-generate.</p>
+
+                {/* Employee ID Field */}
+                <div className="space-y-2">
+                  <Label htmlFor="employee_number" className="text-xs">Employee ID * (Auto-generated)</Label>
+                  <div className="flex gap-2 items-center">
+                    <Input
+                      id="employee_number"
+                      placeholder={employeeNumberCustomEnabled ? "Enter custom ID, e.g., EMP-024" : "Auto-generated employee ID"}
+                      disabled={!employeeNumberCustomEnabled}
+                      value={employeeNumber}
+                      onChange={(e) => { setEmployeeNumber(e.target.value); setEmployeeNumberError(""); }}
+                      className="h-9"
+                    />
+                    {employeeNumberCustomEnabled ? (
+                      <Button type="button" variant="outline" onClick={() => { setEmployeeNumberCustomEnabled(false); generateEmployeeNumber(); setEmployeeNumberError(""); }}>Use Auto</Button>
+                    ) : (
+                      <div className="flex gap-1">
+                        <Button type="button" variant="outline" onClick={() => setEmployeeNumberCustomEnabled(true)}>✎ Customize</Button>
+                        <Button type="button" variant="outline" onClick={generateEmployeeNumber} title="Generate new ID">🔄</Button>
+                      </div>
+                    )}
+                  </div>
+                  {employeeNumberError && (
+                    <p className="text-xs text-destructive">{employeeNumberError}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">Format: {employeePrefix}-{nextSequence.toString().padStart(3, '0')}. Next ID will be: {employeePrefix}-{(nextSequence + 1).toString().padStart(3, '0')}</p>
+                </div>
               </div>
             </div>
               <div>
@@ -804,17 +903,18 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
               </div>
             </div>
           )}
-        </ScrollArea>
+          </ScrollArea>
+        </div>
 
         {/* Footer with Navigation Buttons */}
-        <div className="px-6 py-4 border-t bg-muted/30 flex items-center justify-between gap-3">
+        <div className="modern-dialog-actions">
           <div className="flex gap-2">
             {currentStep > 1 && (
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleBack}
-                className="gap-1"
+                className="modern-dialog-button-secondary gap-1"
               >
                 <ChevronLeft className="h-4 w-4" />
                 Back
@@ -827,6 +927,7 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
+              className="modern-dialog-button-secondary"
             >
               Cancel
             </Button>
@@ -835,7 +936,7 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
               <Button
                 type="button"
                 onClick={handleNext}
-                className="gap-1 bg-secondary hover:bg-secondary-dark"
+                className="modern-dialog-button gap-1"
               >
                 Next
                 <ChevronRight className="h-4 w-4" />
@@ -845,7 +946,7 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
                 type="button"
                 onClick={handleSubmit}
                 disabled={loading}
-                className="bg-secondary hover:bg-secondary-dark"
+                className="modern-dialog-button"
               >
                 {loading ? "Adding..." : "Add Employee"}
               </Button>
@@ -856,15 +957,16 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
 
       {/* Inline Pay Group Creation Dialog */}
       <Dialog open={showCreatePayGroup} onOpenChange={setShowCreatePayGroup}>
-        <DialogContent className="sm:max-w-[450px]">
-          <DialogHeader>
-            <DialogTitle>Create New Pay Group</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="sm:max-w-[450px] modern-dialog">
+          <DialogHeader className="modern-dialog-header">
+            <DialogTitle className="modern-dialog-title">Create New Pay Group</DialogTitle>
+            <DialogDescription className="modern-dialog-description">
               Create a new pay group for {formData.country}
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4 py-4">
+          <div className="modern-dialog-content">
+            <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="new_paygroup_name">Pay Group Name *</Label>
               <Input
@@ -901,9 +1003,10 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
                 Default to monthly. You can configure this later in Pay Groups settings.
               </p>
             </div>
+            </div>
           </div>
 
-          <div className="flex justify-end gap-2">
+          <div className="modern-dialog-actions">
             <Button
               type="button"
               variant="outline"
@@ -912,6 +1015,7 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
                 setNewPayGroupName("");
               }}
               disabled={creatingPayGroup}
+              className="modern-dialog-button-secondary"
             >
               Cancel
             </Button>
@@ -919,7 +1023,7 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
               type="button"
               onClick={handleCreatePayGroup}
               disabled={creatingPayGroup}
-              className="bg-secondary hover:bg-secondary-dark"
+              className="modern-dialog-button"
             >
               {creatingPayGroup ? "Creating..." : "Create & Select"}
             </Button>

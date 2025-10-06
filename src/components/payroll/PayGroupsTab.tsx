@@ -105,7 +105,7 @@ const PayGroupsTab = () => {
             Configure pay frequencies and tax settings by country
           </p>
         </div>
-        <Button onClick={() => setShowAddDialog(true)}>
+        <Button onClick={() => setShowAddDialog(true)} variant="default" style={{backgroundColor: 'hsl(192 78% 30%)', color: 'white'}}>
           <Plus className="h-4 w-4 mr-2" />
           Add Pay Group
         </Button>
@@ -122,7 +122,7 @@ const PayGroupsTab = () => {
           {payGroups.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground">No pay groups found</p>
-              <Button onClick={() => setShowAddDialog(true)} className="mt-4">
+              <Button onClick={() => setShowAddDialog(true)} className="mt-4" variant="default" style={{backgroundColor: 'hsl(192 78% 30%)', color: 'white'}}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create Your First Pay Group
               </Button>

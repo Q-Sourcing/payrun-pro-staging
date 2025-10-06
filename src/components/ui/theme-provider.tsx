@@ -5,20 +5,54 @@ type Theme = "light" | "dark" | "system";
 interface ThemeContextValue {
   theme: Theme;
   setTheme: (t: Theme) => void;
+  highContrast: boolean;
+  setHighContrast: (enabled: boolean) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem("theme") as Theme) || "light");
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem("theme") as Theme) || "light";
+    }
+    return "light";
+  });
+
+  const [highContrast, setHighContrast] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem("highContrast") === "true";
+    }
+    return false;
+  });
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
     localStorage.setItem("theme", theme);
+    localStorage.setItem("highContrast", highContrast.toString());
+    
     const isDark = theme === "dark" || (theme === "system" && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    
+    // Set data-theme attribute for custom CSS variables
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-  }, [theme]);
+    
+    // Set high contrast class
+    if (highContrast) {
+      document.documentElement.classList.add('high-contrast');
+    } else {
+      document.documentElement.classList.remove('high-contrast');
+    }
+    
+    // Set dark class for Tailwind dark mode
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme, highContrast]);
 
-  const value = useMemo(() => ({ theme, setTheme }), [theme]);
+  const value = useMemo(() => ({ theme, setTheme, highContrast, setHighContrast }), [theme, highContrast]);
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 };
 

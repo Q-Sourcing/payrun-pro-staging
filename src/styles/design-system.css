@@ -1,0 +1,322 @@
+/* Design System CSS Variables and Utilities */
+
+:root {
+  /* Spacing Scale - Base unit: 8px */
+  --spacing-xs: 0.5rem;    /* 8px */
+  --spacing-sm: 0.75rem;   /* 12px */
+  --spacing-md: 1rem;      /* 16px */
+  --spacing-lg: 1.5rem;     /* 24px */
+  --spacing-xl: 2rem;       /* 32px */
+  --spacing-2xl: 3rem;      /* 48px */
+  --spacing-3xl: 4rem;      /* 64px */
+
+  /* Typography Scale */
+  --text-xs: 0.75rem;      /* 12px */
+  --text-sm: 0.875rem;     /* 14px */
+  --text-base: 1rem;       /* 16px */
+  --text-lg: 1.125rem;     /* 18px */
+  --text-xl: 1.25rem;      /* 20px */
+  --text-2xl: 1.5rem;      /* 24px */
+  --text-3xl: 2rem;        /* 32px */
+  --text-4xl: 2.5rem;      /* 40px */
+
+  /* Border Radius */
+  --radius-sm: 0.375rem;   /* 6px */
+  --radius-md: 0.5rem;     /* 8px */
+  --radius-lg: 0.75rem;    /* 12px */
+  --radius-xl: 1rem;       /* 16px */
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+  /* Transitions */
+  --transition-fast: 150ms ease-in-out;
+  --transition-normal: 200ms ease-in-out;
+  --transition-slow: 300ms ease-in-out;
+
+  /* Z-Index Scale */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+  --z-toast: 1080;
+}
+
+/* Enhanced Component Styles */
+
+/* Card Enhancements */
+.card-enhanced {
+  @apply border border-border shadow-sm hover:shadow-md transition-shadow duration-200;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+}
+
+.card-enhanced-header {
+  @apply pb-4 border-b border-border;
+  margin-bottom: var(--spacing-lg);
+}
+
+/* Table Enhancements */
+.table-enhanced {
+  @apply border-collapse;
+}
+
+.table-enhanced th {
+  @apply bg-muted/50 font-semibold text-foreground;
+  padding: var(--spacing-md) var(--spacing-lg);
+  height: 3rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.table-enhanced td {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.table-enhanced tbody tr {
+  @apply hover:bg-muted/50 transition-colors;
+}
+
+.table-enhanced tbody tr:nth-child(even) {
+  @apply bg-muted/20;
+}
+
+/* Button Enhancements */
+.btn-enhanced {
+  @apply transition-all duration-200;
+  height: 2.75rem;
+  padding: 0 var(--spacing-lg);
+  border-radius: var(--radius-md);
+  font-weight: 500;
+}
+
+.btn-enhanced:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-enhanced:active {
+  transform: translateY(0);
+}
+
+/* Form Enhancements */
+.form-enhanced input,
+.form-enhanced select,
+.form-enhanced textarea {
+  @apply transition-colors duration-200;
+  height: 2.75rem;
+  padding: 0 var(--spacing-md);
+  border-radius: var(--radius-md);
+}
+
+.form-enhanced input:focus,
+.form-enhanced select:focus,
+.form-enhanced textarea:focus {
+  @apply ring-2 ring-primary/20 border-primary;
+}
+
+/* Badge Enhancements */
+.badge-enhanced {
+  @apply font-medium px-3 py-1 rounded-full;
+  border-radius: var(--radius-xl);
+}
+
+/* Status Colors with Enhanced Light Mode */
+.status-draft {
+  @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800;
+}
+
+.status-pending {
+  @apply bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300 border border-orange-200 dark:border-orange-800;
+}
+
+.status-approved {
+  @apply bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300 border border-green-200 dark:border-green-800;
+}
+
+.status-processed {
+  @apply bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 border border-blue-200 dark:border-blue-800;
+}
+
+/* Enhanced Table Styles for Light Mode */
+.table-light-header {
+  @apply bg-gray-50 border-b-2 border-gray-200;
+}
+
+.table-light-row-even {
+  @apply bg-white;
+}
+
+.table-light-row-odd {
+  @apply bg-gray-50;
+}
+
+.table-light-hover {
+  @apply hover:bg-blue-50;
+}
+
+/* Enhanced Button States for Light Mode */
+.btn-light-primary {
+  @apply bg-blue-600 text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+}
+
+.btn-light-secondary {
+  @apply bg-gray-100 text-gray-900 border border-gray-300 hover:bg-gray-200 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2;
+}
+
+.btn-light-outline {
+  @apply border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2;
+}
+
+/* Enhanced Card Styles for Light Mode */
+.card-light {
+  @apply bg-white border border-gray-200 shadow-sm hover:shadow-md;
+}
+
+.card-light-header {
+  @apply border-b border-gray-200 bg-gray-50;
+}
+
+/* Enhanced Form Elements for Light Mode */
+.input-light {
+  @apply bg-white border border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0;
+}
+
+.input-light:focus {
+  @apply border-blue-500 ring-2 ring-blue-500 ring-offset-0;
+}
+
+/* Enhanced Badge Styles for Light Mode */
+.badge-light-draft {
+  @apply bg-yellow-100 text-yellow-800 border border-yellow-200;
+}
+
+.badge-light-pending {
+  @apply bg-orange-100 text-orange-800 border border-orange-200;
+}
+
+.badge-light-approved {
+  @apply bg-green-100 text-green-800 border border-green-200;
+}
+
+.badge-light-processed {
+  @apply bg-blue-100 text-blue-800 border border-blue-200;
+}
+
+/* Loading States */
+.skeleton {
+  @apply animate-pulse bg-muted rounded;
+}
+
+.skeleton-text {
+  @apply h-4 bg-muted rounded;
+}
+
+.skeleton-avatar {
+  @apply h-10 w-10 bg-muted rounded-full;
+}
+
+/* Empty States */
+.empty-state {
+  @apply text-center py-16;
+}
+
+.empty-state-icon {
+  @apply mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-6;
+}
+
+.empty-state-title {
+  @apply text-lg font-semibold text-foreground mb-2;
+}
+
+.empty-state-description {
+  @apply text-muted-foreground mb-6 max-w-sm mx-auto;
+}
+
+/* Responsive Grid */
+.grid-responsive {
+  @apply grid gap-6;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+/* Focus Management */
+.focus-visible {
+  @apply focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2;
+}
+
+/* Animation Utilities */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0; 
+    transform: translateY(20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+@keyframes scaleIn {
+  from { 
+    opacity: 0; 
+    transform: scale(0.95); 
+  }
+  to { 
+    opacity: 1; 
+    transform: scale(1); 
+  }
+}
+
+/* Print Styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-break {
+    page-break-before: always;
+  }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .card-enhanced {
+    @apply border-2;
+  }
+  
+  .table-enhanced th {
+    @apply border-2 border-border;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -9,6 +9,11 @@ import { SecuritySettingsSection } from "@/components/settings/SecuritySettingsS
 import { NotificationsSection } from "@/components/settings/NotificationsSection";
 import { IntegrationsSection } from "@/components/settings/IntegrationsSection";
 import { DataManagementSection } from "@/components/settings/DataManagementSection";
+import { ZohoIntegrationConfig } from "@/components/integrations/ZohoIntegrationConfig";
+import { IntegrationDashboard } from "@/components/integrations/IntegrationDashboard";
+import { UserManagement } from "@/components/user-management/UserManagement";
+import { RoleManagement } from "@/components/user-management/RoleManagement";
+import { RoleBasedDashboard } from "@/components/user-management/RoleBasedDashboard";
 import { 
   Building2, 
   Users, 
@@ -18,7 +23,8 @@ import {
   Bell, 
   RefreshCw, 
   Database, 
-  Info 
+  Info,
+  Activity
 } from "lucide-react";
 
 const Settings = () => {
@@ -32,6 +38,11 @@ const Settings = () => {
     { id: "security", label: "Security & Access", icon: Shield },
     { id: "notifications", label: "Notifications", icon: Bell },
     { id: "integrations", label: "Integrations", icon: RefreshCw },
+    { id: "zoho-config", label: "Zoho Integration", icon: RefreshCw },
+    { id: "zoho-dashboard", label: "Integration Dashboard", icon: Activity },
+    { id: "user-management", label: "User Management", icon: Users },
+    { id: "role-management", label: "Role Management", icon: Shield },
+    { id: "role-dashboard", label: "Role Dashboard", icon: Activity },
     { id: "data", label: "Data Management", icon: Database },
     { id: "about", label: "About & Help", icon: Info },
   ];
@@ -54,6 +65,16 @@ const Settings = () => {
         return <NotificationsSection />;
       case "integrations":
         return <IntegrationsSection />;
+      case "zoho-config":
+        return <ZohoIntegrationConfig />;
+      case "zoho-dashboard":
+        return <IntegrationDashboard integration={null} />; // Will be properly initialized
+      case "user-management":
+        return <UserManagement currentUser={null} />; // Will be properly initialized
+      case "role-management":
+        return <RoleManagement currentUser={null} />; // Will be properly initialized
+      case "role-dashboard":
+        return <RoleBasedDashboard currentUser={null} />; // Will be properly initialized
       case "data":
         return <DataManagementSection />;
       default:
@@ -83,11 +104,15 @@ const Settings = () => {
                       <button
                         key={item.id}
                         onClick={() => setActiveSection(item.id)}
-                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
+                        className={`settings-nav-item ${
                           activeSection === item.id
-                            ? "bg-primary text-primary-foreground"
-                            : "hover:bg-accent hover:text-accent-foreground"
+                            ? "settings-nav-item-selected"
+                            : "settings-nav-item-unselected"
                         }`}
+                        style={activeSection === item.id ? {
+                          backgroundColor: 'hsl(192 78% 30%)',
+                          color: 'white'
+                        } : {}}
                       >
                         <Icon className="h-4 w-4" />
                         <span>{item.label}</span>

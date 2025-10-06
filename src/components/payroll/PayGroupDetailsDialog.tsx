@@ -159,21 +159,21 @@ const PayGroupDetailsDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto modern-dialog">
+        <DialogHeader className="modern-dialog-header">
           <div className="flex items-center justify-between">
             <div>
-              <DialogTitle className="text-2xl">{payGroup.name}</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="modern-dialog-title">{payGroup.name}</DialogTitle>
+              <DialogDescription className="modern-dialog-description">
                 {payGroup.country} • {formatFrequency(payGroup.pay_frequency)} • {employees.length} employees
               </DialogDescription>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={onEditPayGroup}>
+              <Button variant="outline" size="sm" onClick={onEditPayGroup} className="modern-dialog-button-secondary">
                 <Pencil className="h-4 w-4 mr-2" />
                 Edit Details
               </Button>
-              <Button size="sm" onClick={onRunPayroll}>
+              <Button size="sm" onClick={onRunPayroll} className="modern-dialog-button">
                 <DollarSign className="h-4 w-4 mr-2" />
                 Run Payroll
               </Button>
@@ -182,94 +182,96 @@ const PayGroupDetailsDialog = ({
         </DialogHeader>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-4 gap-4 my-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Total Employees</CardDescription>
-              <CardTitle className="text-3xl">{employees.length}</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Active</CardDescription>
-              <CardTitle className="text-3xl text-green-600">
-                {employees.filter(e => e.status === 'active').length}
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Pay Frequency</CardDescription>
-              <CardTitle className="text-lg">{formatFrequency(payGroup.pay_frequency)}</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Default Tax</CardDescription>
-              <CardTitle className="text-lg">{payGroup.default_tax_percentage}%</CardTitle>
-            </CardHeader>
-          </Card>
-        </div>
-
-        {payGroup.description && (
-          <div className="bg-muted p-3 rounded-md mb-4">
-            <p className="text-sm text-muted-foreground">{payGroup.description}</p>
-          </div>
-        )}
-
-        {/* Employees Table */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Employees in this Pay Group</h3>
-            <Button variant="outline" size="sm">
-              <UserPlus className="h-4 w-4 mr-2" />
-              Add Employees to Group
-            </Button>
-          </div>
-
-          {employees.length === 0 ? (
-            <div className="text-center py-8 border rounded-lg bg-muted/20">
-              <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground mb-4">No employees in this pay group yet</p>
-              <Button variant="outline" size="sm">
-                <UserPlus className="h-4 w-4 mr-2" />
-                Add Your First Employee
-              </Button>
+        <div className="modern-dialog-content">
+          <div className="grid grid-cols-4 gap-4 my-4">
+            <div className="modern-dialog-card">
+              <div className="pb-2">
+                <div className="text-sm text-muted-foreground">Total Employees</div>
+                <div className="text-3xl font-bold">{employees.length}</div>
+              </div>
             </div>
-          ) : (
-            <div className="border rounded-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Employee Name</TableHead>
-                    <TableHead>Pay Type</TableHead>
-                    <TableHead>Pay Rate</TableHead>
-                    <TableHead>Department</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Join Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {employees.map((employee) => (
-                    <TableRow key={employee.id}>
-                      <TableCell className="font-medium">{getFullName(employee)}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{formatPayType(employee.pay_type)}</Badge>
-                      </TableCell>
-                      <TableCell>{formatPayRate(employee.pay_rate, employee.pay_type, employee.currency)}</TableCell>
-                      <TableCell>{employee.department || "-"}</TableCell>
-                      <TableCell>
-                        <Badge variant={employee.status === "active" ? "default" : "secondary"}>
-                          {employee.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{format(new Date(employee.created_at), 'MMM dd, yyyy')}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <div className="modern-dialog-card">
+              <div className="pb-2">
+                <div className="text-sm text-muted-foreground">Active</div>
+                <div className="text-3xl font-bold text-green-600">
+                  {employees.filter(e => e.status === 'active').length}
+                </div>
+              </div>
+            </div>
+            <div className="modern-dialog-card">
+              <div className="pb-2">
+                <div className="text-sm text-muted-foreground">Pay Frequency</div>
+                <div className="text-lg font-bold">{formatFrequency(payGroup.pay_frequency)}</div>
+              </div>
+            </div>
+            <div className="modern-dialog-card">
+              <div className="pb-2">
+                <div className="text-sm text-muted-foreground">Default Tax</div>
+                <div className="text-lg font-bold">{payGroup.default_tax_percentage}%</div>
+              </div>
+            </div>
+          </div>
+
+          {payGroup.description && (
+            <div className="modern-dialog-card mb-4">
+              <p className="text-sm text-muted-foreground">{payGroup.description}</p>
             </div>
           )}
+
+          {/* Employees Table */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Employees in this Pay Group</h3>
+              <Button variant="outline" size="sm" className="modern-dialog-button-secondary">
+                <UserPlus className="h-4 w-4 mr-2" />
+                Add Employees to Group
+              </Button>
+            </div>
+
+            {employees.length === 0 ? (
+              <div className="text-center py-8 modern-dialog-card">
+                <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground mb-4">No employees in this pay group yet</p>
+                <Button variant="outline" size="sm" className="modern-dialog-button-secondary">
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Add Your First Employee
+                </Button>
+              </div>
+            ) : (
+              <div className="modern-dialog-table">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Employee Name</TableHead>
+                      <TableHead>Pay Type</TableHead>
+                      <TableHead>Pay Rate</TableHead>
+                      <TableHead>Department</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Join Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {employees.map((employee) => (
+                      <TableRow key={employee.id}>
+                        <TableCell className="font-medium">{getFullName(employee)}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{formatPayType(employee.pay_type)}</Badge>
+                        </TableCell>
+                        <TableCell>{formatPayRate(employee.pay_rate, employee.pay_type, employee.currency)}</TableCell>
+                        <TableCell>{employee.department || "-"}</TableCell>
+                        <TableCell>
+                          <Badge variant={employee.status === "active" ? "default" : "secondary"}>
+                            {employee.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{format(new Date(employee.created_at), 'MMM dd, yyyy')}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

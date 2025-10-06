@@ -1,24 +1,30 @@
 import { useState } from "react";
 import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { Users, DollarSign, Calendar, FileText, Settings } from "lucide-react";
+import { Users, DollarSign, Calendar, FileText, Settings, Moon, Sun, Palette, Search, Bell } from "lucide-react";
+import { useTheme } from "@/components/ui/theme-provider";
 import EmployeesTab from "@/components/payroll/EmployeesTab";
 import PayGroupsTab from "@/components/payroll/PayGroupsTab";
 import PayRunsTab from "@/components/payroll/PayRunsTab";
 import ReportsTab from "@/components/payroll/ReportsTab";
+import SettingsPage from "./Settings";
+import { ThemeTest } from "@/components/ui/ThemeTest";
 import { Toaster } from "@/components/ui/toaster";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("employees");
+  const { theme, setTheme } = useTheme();
 
   const menuItems = [
     { id: "employees", label: "Employees", icon: Users },
-    { id: "paygroups", label: "Pay Groups", icon: Settings },
+    { id: "paygroups", label: "Pay Groups", icon: Calendar },
     { id: "payruns", label: "Pay Runs", icon: DollarSign },
     { id: "reports", label: "Reports", icon: FileText },
+    { id: "theme-test", label: "Theme Preview", icon: Palette },
+    { id: "settings", label: "Settings", icon: Settings },
   ];
 
-  const renderContent = () => {
+  const renderTabContent = () => {
     switch (activeTab) {
       case "employees":
         return <EmployeesTab />;
@@ -28,54 +34,137 @@ const Index = () => {
         return <PayRunsTab />;
       case "reports":
         return <ReportsTab />;
+      case "theme-test":
+        return <ThemeTest />;
+      case "settings":
+        return <SettingsPage />;
       default:
         return <EmployeesTab />;
     }
   };
 
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-background">
-        <Sidebar>
-          <SidebarHeader className="border-b border-sidebar-border p-4">
-            <h1 className="text-xl font-bold text-sidebar-primary">Q-Payroll</h1>
-            <p className="text-sm text-sidebar-foreground">Payroll Management</p>
-          </SidebarHeader>
-          <SidebarContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.id}>
-                  <SidebarMenuButton
-                    onClick={() => setActiveTab(item.id)}
-                    isActive={activeTab === item.id}
-                    className="w-full justify-start"
-                  >
-                    <item.icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarContent>
-        </Sidebar>
-        
-        <main className="flex-1">
-          <header className="border-b border-border bg-card p-4">
-            <div className="flex items-center gap-4">
-              <SidebarTrigger />
-              <h2 className="text-2xl font-semibold text-card-foreground">
-                {menuItems.find(item => item.id === activeTab)?.label}
-              </h2>
+    <div className="app-container">
+      {/* Modern Sidebar */}
+      <div className="sidebar">
+        <div className="sidebar-header">
+          <div className="brand">
+            <div className="brand-logo">Q</div>
+            <div>
+              <div className="brand-name">Q-Payroll</div>
+              <div className="brand-tagline">Professional Payroll</div>
             </div>
-          </header>
-          
-          <div className="p-6">
-            {renderContent()}
           </div>
-        </main>
+        </div>
+
+        {/* Main Navigation */}
+        <div className="nav-section">
+          <div className="nav-items">
+            {menuItems.slice(0, 4).map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`nav-item ${activeTab === item.id ? "active" : ""}`}
+              >
+                <item.icon className="nav-icon" />
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Reports Section */}
+        <div className="nav-section">
+          <div className="nav-section-title">Reports</div>
+          <div className="nav-items">
+            {menuItems.slice(4, 6).map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`nav-item ${activeTab === item.id ? "active" : ""}`}
+              >
+                <item.icon className="nav-icon" />
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Settings Section */}
+        <div className="nav-section">
+          <div className="nav-items">
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`nav-item ${activeTab === 'settings' ? "active" : ""}`}
+            >
+              <Settings className="nav-icon" />
+              <span>Settings</span>
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* Modern Header */}
+      <div className="header">
+        <div className="header-search">
+          <Search className="nav-icon" />
+          <input 
+            type="text" 
+            className="search-input" 
+            placeholder="Search employees, pay runs..." 
+          />
+        </div>
+
+        <div className="header-actions">
+          <div className="notification-badge">
+            <Bell className="nav-icon" />
+            <div className="badge"></div>
+          </div>
+          
+          <div className="user-menu">
+            <div className="user-avatar">NK</div>
+            <div className="user-info">
+              <div className="user-name">Nalungu Kevin</div>
+              <div className="user-email">nalungukevin@gmail.com</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="main">
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">
+              {menuItems.find(item => item.id === activeTab)?.label}
+            </h1>
+            <p className="text-muted-foreground">
+              {activeTab === 'employees' && 'Manage your workforce and employee data'}
+              {activeTab === 'paygroups' && 'Organize employees into pay groups'}
+              {activeTab === 'payruns' && 'Process and manage payroll runs'}
+              {activeTab === 'reports' && 'View payroll reports and analytics'}
+              {activeTab === 'theme-test' && 'Preview the modern theme system with brand colors'}
+              {activeTab === 'settings' && 'Configure system settings and preferences'}
+            </p>
+          </div>
+          <div className="page-actions">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className="flex items-center space-x-2"
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              <span>{theme === "dark" ? "Light" : "Dark"}</span>
+            </Button>
+          </div>
+        </div>
+        
+        {renderTabContent()}
+      </div>
+      
       <Toaster />
-    </SidebarProvider>
+    </div>
   );
 };
 

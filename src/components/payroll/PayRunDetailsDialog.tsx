@@ -914,10 +914,10 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-hidden flex flex-col">
-        <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="text-2xl">Pay Run Details - Comprehensive Summary</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-hidden flex flex-col modern-dialog">
+        <DialogHeader className="flex-shrink-0 modern-dialog-header">
+          <DialogTitle className="modern-dialog-title">Pay Run Details - Comprehensive Summary</DialogTitle>
+          <DialogDescription className="modern-dialog-description">
             Pay Run Date: {format(new Date(payRunDate), 'MMM dd, yyyy')} | 
             Pay Period: {format(new Date(payPeriod.start), 'MMM dd')} - {format(new Date(payPeriod.end), 'MMM dd, yyyy')}
           </DialogDescription>
@@ -930,31 +930,33 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         ) : (
           <div className="flex-1 overflow-hidden flex flex-col gap-4">
             {/* Summary Cards */}
-            <div className="grid grid-cols-4 gap-4 flex-shrink-0">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardDescription>Total Employees</CardDescription>
-                  <CardTitle className="text-3xl">{filteredAndSortedItems.length}</CardTitle>
-                </CardHeader>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardDescription>Total Gross Pay</CardDescription>
-                  <CardTitle className="text-3xl text-green-600">{formatCurrency(summaryTotals.totalGross, payGroupCurrency)}</CardTitle>
-                </CardHeader>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardDescription>Total Deductions</CardDescription>
-                  <CardTitle className="text-3xl text-orange-600">{formatCurrency(summaryTotals.totalDeductions, payGroupCurrency)}</CardTitle>
-                </CardHeader>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardDescription>Total Net Pay</CardDescription>
-                  <CardTitle className="text-3xl text-primary">{formatCurrency(summaryTotals.totalNet, payGroupCurrency)}</CardTitle>
-                </CardHeader>
-              </Card>
+            <div className="modern-dialog-content">
+              <div className="grid grid-cols-4 gap-4 flex-shrink-0">
+                <div className="modern-dialog-card">
+                  <div className="pb-2">
+                    <div className="text-sm text-muted-foreground">Total Employees</div>
+                    <div className="text-3xl font-bold">{filteredAndSortedItems.length}</div>
+                  </div>
+                </div>
+                <div className="modern-dialog-card">
+                  <div className="pb-2">
+                    <div className="text-sm text-muted-foreground">Total Gross Pay</div>
+                    <div className="text-3xl font-bold text-green-600">{formatCurrency(summaryTotals.totalGross, payGroupCurrency)}</div>
+                  </div>
+                </div>
+                <div className="modern-dialog-card">
+                  <div className="pb-2">
+                    <div className="text-sm text-muted-foreground">Total Deductions</div>
+                    <div className="text-3xl font-bold text-orange-600">{formatCurrency(summaryTotals.totalDeductions, payGroupCurrency)}</div>
+                  </div>
+                </div>
+                <div className="modern-dialog-card">
+                  <div className="pb-2">
+                    <div className="text-sm text-muted-foreground">Total Net Pay</div>
+                    <div className="text-3xl font-bold text-primary">{formatCurrency(summaryTotals.totalNet, payGroupCurrency)}</div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Filters and Actions */}
@@ -1097,7 +1099,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
             </div>
 
             {/* Main Table */}
-            <div className="flex-1 overflow-auto border rounded-lg">
+            <div className="flex-1 overflow-auto modern-dialog-table payrun-details-table">
               <Table>
                 <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow>
