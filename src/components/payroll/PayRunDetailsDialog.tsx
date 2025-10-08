@@ -1040,7 +1040,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                       <ChevronDown className="h-4 w-4 ml-2" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-64 bg-background">
+                  <DropdownMenuContent align="end" className="w-64">
                     <DropdownMenuItem onClick={() => setBulkAddDialogOpen(true)} className="gap-2">
                       <Plus className="h-4 w-4 text-green-600" />
                       <span>Add to All Employees</span>

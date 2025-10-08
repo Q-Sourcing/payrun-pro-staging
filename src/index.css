@@ -95,93 +95,57 @@
 }
 
 [data-theme="light"] {
-  --background: var(--bg-primary);
-  --foreground: var(--text-primary);
-  --muted: var(--bg-secondary);
-  --muted-foreground: var(--text-tertiary);
-  --border: var(--border-primary);
-  --input: var(--bg-primary);
-  --ring: var(--border-focus);
-  --card: var(--bg-primary);
-  --card-foreground: var(--text-primary);
-  --popover: #fefefe;  /* Solid warm white for popovers */
-  --popover-foreground: var(--text-primary);
-  --primary: var(--primary);
-  --primary-foreground: #ffffff;
-  --secondary: var(--bg-secondary);
-  --secondary-foreground: var(--text-primary);
-  --accent: var(--bg-tertiary);
-  --accent-foreground: var(--text-primary);
-  --destructive: var(--error);
-  --destructive-foreground: #ffffff;
-  --success: var(--success);
-  --success-foreground: #ffffff;
-  --warning: var(--warning);
-  --warning-foreground: var(--text-primary);
+  /* Use HSL numeric tokens to be compatible with tailwind hsl(var(--*))) */
+  --background: 0 0% 100%;
+  --foreground: 222 84% 5%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 186 84% 30%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 84% 5%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 84% 5%;
+  --primary: 186 84% 30%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 45 91% 52%;
+  --secondary-foreground: 0 0% 100%;
+  --accent: 186 84% 94%;
+  --accent-foreground: 186 84% 30%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --success: 142 76% 36%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 222 84% 5%;
 }
 
 [data-theme="dark"] {
-  /* Enhanced Dark Mode - WCAG AA Compliant */
-  --bg-primary: #0a0f1c;
-  --bg-secondary: #151b2d;
-  --bg-tertiary: #1e293b;
-  --text-primary: #f8fafc;    /* 12.5:1 contrast on bg-primary */
-  --text-secondary: #e2e8f0;  /* 10.3:1 contrast */
-  --text-tertiary: #94a3b8;   /* 6.2:1 contrast */
-  --text-disabled: #64748b;
-  --border-primary: #2d3748;
-  --border-secondary: #4a5568;
-  --border-focus: rgba(246, 186, 21, 0.6);
-  
-  /* Sidebar - Dark Sophisticated */
-  --sidebar-bg: #151b2d;
-  --sidebar-text: #e2e8f0;
-  --sidebar-border: #2d3748;
-  
-  /* Navigation - Enhanced Dark */
-  --nav-bg: var(--sidebar-bg);
-  --nav-text: var(--sidebar-text);
-  --nav-hover: rgba(255, 255, 255, 0.08);
-  --nav-active: rgba(14, 114, 136, 0.2);
-  
-  /* Interactive Elements */
-  --button-primary-bg: var(--brand-teal);
-  --button-primary-hover: var(--brand-teal-light);
-  --button-secondary-bg: #334155;
-  --button-secondary-hover: #475569;
-  --button-secondary-text: var(--text-primary);
-  
-  /* Dark Mode Shadows */
-  --shadow-sm: 0 1px 2px rgba(246, 186, 21, 0.2);
-  --shadow-md: 0 4px 6px rgba(14, 114, 136, 0.1);
-  --shadow-lg: 0 10px 15px rgba(14, 114, 136, 0.15);
-  --button-shadow: 0 2px 4px rgba(246, 186, 21, 0.2);
-  --card-shadow: 0 4px 6px rgba(14, 114, 136, 0.1);
-  
-  /* Shadcn/UI Variables */
-  --background: var(--bg-primary);
-  --foreground: var(--text-primary);
-  --muted: var(--bg-secondary);
-  --muted-foreground: var(--text-tertiary);
-  --border: var(--border-primary);
-  --input: var(--bg-secondary);
-  --ring: var(--brand-primary);
-  --card: var(--bg-secondary);
-  --card-foreground: var(--text-primary);
-  --popover: var(--bg-secondary);  /* Solid background for dark mode */
-  --popover-foreground: var(--text-primary);
-  --primary: var(--brand-primary);
-  --primary-foreground: #ffffff;
-  --secondary: var(--bg-tertiary);
-  --secondary-foreground: var(--text-primary);
-  --accent: var(--bg-tertiary);
-  --accent-foreground: var(--text-primary);
-  --destructive: var(--error);
-  --destructive-foreground: #ffffff;
-  --success: var(--success);
-  --success-foreground: #ffffff;
-  --warning: var(--warning);
-  --warning-foreground: var(--text-primary);
+  /* Enhanced Dark Mode - WCAG AA Compliant using HSL tokens */
+  --background: 222 84% 5%;
+  --foreground: 210 40% 98%;
+  --muted: 215 28% 17%;
+  --muted-foreground: 215 16% 47%;
+  --border: 215 28% 17%;
+  --input: 215 28% 17%;
+  --ring: 186 84% 30%;
+  --card: 222 84% 10%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222 84% 10%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 186 84% 30%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 45 91% 52%;
+  --secondary-foreground: 0 0% 100%;
+  --accent: 215 28% 17%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --success: 142 76% 36%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 210 40% 98%;
 }
 
 /* High Contrast Mode */
