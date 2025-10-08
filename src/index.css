@@ -283,10 +283,10 @@ All colors MUST be HSL.
     --background: 222 84% 5%;
     --foreground: 210 40% 98%;
 
-    --card: 222 84% 5%;
+    --card: 222 84% 10%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222 84% 5%;
+    --popover: 222 84% 10%;
     --popover-foreground: 210 40% 98%;
 
     /* Brand Colors - Teal & Gold in Dark Mode */
