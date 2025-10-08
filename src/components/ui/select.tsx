@@ -105,13 +105,17 @@ const SelectItem = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <SelectPrimitive.Item
     ref={ref}
-    className={cn(
-      "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 focus:bg-accent focus:text-accent-foreground",
-      "transition-all duration-300 ease-out hover:translate-x-2 hover:scale-105 hover:shadow-lg hover:border-l-4 hover:font-bold hover:bg-brand-teal-100 hover:text-brand-teal-800 hover:border-brand-gold-500",
-      "data-[highlighted]:translate-x-2 data-[highlighted]:scale-105 data-[highlighted]:shadow-md data-[highlighted]:border-l-4 data-[highlighted]:font-semibold data-[highlighted]:bg-brand-teal-100 data-[highlighted]:text-brand-teal-700 data-[highlighted]:border-brand-gold-500",
-      "data-[state=checked]:bg-brand-teal-600 data-[state=checked]:text-white data-[state=checked]:font-semibold data-[state=checked]:shadow-md data-[state=checked]:rounded-md data-[state=checked]:border-l-4 data-[state=checked]:border-brand-teal-600 data-[state=checked]:!bg-brand-teal-600 data-[state=checked]:!text-white data-[state=checked]:!font-semibold",
-      className,
-    )}
+      className={cn(
+        "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none",
+        "text-popover-foreground",
+        "transition-colors duration-150",
+        "hover:bg-accent hover:text-accent-foreground",
+        "focus:bg-accent focus:text-accent-foreground",
+        "data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground",
+        "data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground data-[state=checked]:font-medium",
+        "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        className,
+      )}
     {...props}
   >
     <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
