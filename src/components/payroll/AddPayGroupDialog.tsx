@@ -103,10 +103,10 @@ const AddPayGroupDialog = ({ open, onOpenChange, onPayGroupAdded }: AddPayGroupD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Create Pay Group</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="sm:max-w-[500px] modern-dialog">
+        <DialogHeader className="modern-dialog-header">
+          <DialogTitle className="modern-dialog-title">Create Pay Group</DialogTitle>
+          <DialogDescription className="modern-dialog-description">
             Set up a new pay group with specific frequency and tax settings
           </DialogDescription>
         </DialogHeader>

@@ -9,6 +9,7 @@ import { SecuritySettingsSection } from "@/components/settings/SecuritySettingsS
 import { NotificationsSection } from "@/components/settings/NotificationsSection";
 import { IntegrationsSection } from "@/components/settings/IntegrationsSection";
 import { DataManagementSection } from "@/components/settings/DataManagementSection";
+import { PayslipDesignerSection } from "@/components/settings/PayslipDesignerSection";
 import { ZohoIntegrationConfig } from "@/components/integrations/ZohoIntegrationConfig";
 import { IntegrationDashboard } from "@/components/integrations/IntegrationDashboard";
 import { UserManagement } from "@/components/user-management/UserManagement";
@@ -24,7 +25,8 @@ import {
   RefreshCw, 
   Database, 
   Info,
-  Activity
+  Activity,
+  FileText
 } from "lucide-react";
 
 const Settings = () => {
@@ -34,6 +36,7 @@ const Settings = () => {
     { id: "company", label: "Company Settings", icon: Building2 },
     { id: "employee", label: "Employee Settings", icon: Users },
     { id: "payroll", label: "Payroll Settings", icon: DollarSign },
+    { id: "payslip-designer", label: "Payslip Designer", icon: FileText },
     { id: "theme", label: "Display & Theme", icon: Palette },
     { id: "security", label: "Security & Access", icon: Shield },
     { id: "notifications", label: "Notifications", icon: Bell },
@@ -53,6 +56,8 @@ const Settings = () => {
         return <CompanySettingsSection />;
       case "employee":
         return <EmployeeSettingsSection />;
+      case "payslip-designer":
+        return <PayslipDesignerSection />;
       case "theme":
         return <ThemeSettings />;
       case "about":

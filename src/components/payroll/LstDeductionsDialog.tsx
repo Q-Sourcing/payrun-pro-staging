@@ -112,10 +112,10 @@ export const LstDeductionsDialog = ({ open, onOpenChange, employees, currency, s
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[680px]">
-        <DialogHeader>
-          <DialogTitle>Uganda LST Deductions</DialogTitle>
-          <DialogDescription>Configure and apply Local Service Tax installments</DialogDescription>
+      <DialogContent className="sm:max-w-[680px] modern-dialog">
+        <DialogHeader className="modern-dialog-header">
+          <DialogTitle className="modern-dialog-title">Uganda LST Deductions</DialogTitle>
+          <DialogDescription className="modern-dialog-description">Configure and apply Local Service Tax installments</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">

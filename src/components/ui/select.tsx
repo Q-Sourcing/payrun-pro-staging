@@ -67,6 +67,7 @@ const SelectContent = React.forwardRef<
       ref={ref}
       className={cn(
         "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+        "select-dropdown-animated", // Add custom class for animations
         position === "popper" &&
           "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
         className,
@@ -106,6 +107,9 @@ const SelectItem = React.forwardRef<
     ref={ref}
     className={cn(
       "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 focus:bg-accent focus:text-accent-foreground",
+      "transition-all duration-300 ease-out hover:translate-x-2 hover:scale-105 hover:shadow-lg hover:border-l-4 hover:font-bold hover:bg-brand-teal-100 hover:text-brand-teal-800 hover:border-brand-gold-500",
+      "data-[highlighted]:translate-x-2 data-[highlighted]:scale-105 data-[highlighted]:shadow-md data-[highlighted]:border-l-4 data-[highlighted]:font-semibold data-[highlighted]:bg-brand-teal-100 data-[highlighted]:text-brand-teal-700 data-[highlighted]:border-brand-gold-500",
+      "data-[state=checked]:bg-brand-teal-600 data-[state=checked]:text-white data-[state=checked]:font-semibold data-[state=checked]:shadow-md data-[state=checked]:rounded-md data-[state=checked]:border-l-4 data-[state=checked]:border-brand-teal-600 data-[state=checked]:!bg-brand-teal-600 data-[state=checked]:!text-white data-[state=checked]:!font-semibold",
       className,
     )}
     {...props}

@@ -217,13 +217,13 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto modern-dialog">
+        <DialogHeader className="modern-dialog-header">
+          <DialogTitle className="modern-dialog-title flex items-center gap-2">
             <Building2 className="h-5 w-5" />
             Company Branding Settings
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="modern-dialog-description">
             Configure your company details and branding for all exports
           </DialogDescription>
         </DialogHeader>

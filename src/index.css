@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import payslip styles */
+@import './styles/payslip.css';
+
 /* Import Design System */
 @import './styles/design-system.css';
 
@@ -21,10 +24,10 @@
   --brand-primary-hover: var(--brand-teal-dark);
   --brand-primary-light: rgba(14, 114, 136, 0.1);
   
-  /* Light Theme - Clean White with Glass Effects */
-  --bg-primary: #ffffff;
-  --bg-secondary: #f8fafc;
-  --bg-tertiary: #f1f5f9;
+  /* Light Theme - Warm Brand-Consistent Colors */
+  --bg-primary: #fefefe;                    /* Slightly warm white */
+  --bg-secondary: #f6f8fa;                  /* Warm gray with subtle teal tint */
+  --bg-tertiary: #f0f4f7;                   /* Warmer tertiary with teal hint */
   --text-primary: #1e293b;
   --text-secondary: #475569;
   --text-tertiary: #64748b;
@@ -39,10 +42,10 @@
   --sidebar-border: rgba(14, 114, 136, 0.1);
   
   /* Glass Effects using Brand Teal */
-  --glass-primary: rgba(14, 114, 136, 0.08);
-  --glass-hover: rgba(14, 114, 136, 0.12);
-  --glass-active: rgba(14, 114, 136, 0.15);
-  --glass-border: rgba(14, 114, 136, 0.2);
+  --glass-primary: rgba(14, 114, 136, 0.06);  /* Subtle teal tint */
+  --glass-hover: rgba(14, 114, 136, 0.10);     /* Slightly more teal on hover */
+  --glass-active: rgba(14, 114, 136, 0.12);    /* Active state with teal */
+  --glass-border: rgba(14, 114, 136, 0.15);    /* Subtle teal border */
   
   /* Gradient Sidebar Navigation */
   --sidebar-gradient: linear-gradient(135deg, var(--brand-teal) 0%, var(--brand-gold) 100%);
@@ -101,7 +104,7 @@
   --ring: var(--border-focus);
   --card: var(--bg-primary);
   --card-foreground: var(--text-primary);
-  --popover: var(--bg-primary);
+  --popover: #fefefe;  /* Solid warm white for popovers */
   --popover-foreground: var(--text-primary);
   --primary: var(--primary);
   --primary-foreground: #ffffff;
@@ -165,7 +168,7 @@
   --ring: var(--brand-primary);
   --card: var(--bg-secondary);
   --card-foreground: var(--text-primary);
-  --popover: var(--bg-secondary);
+  --popover: var(--bg-secondary);  /* Solid background for dark mode */
   --popover-foreground: var(--text-primary);
   --primary: var(--brand-primary);
   --primary-foreground: #ffffff;
@@ -244,10 +247,10 @@ All colors MUST be HSL.
     --secondary-light: 45 91% 60%;   /* #f8c542 */
     --secondary-very-light: 45 91% 95%;
 
-    --muted: 210 40% 98%;
+    --muted: 210 40% 96%;                    /* Warmer muted background */
     --muted-foreground: 215 16% 47%;
 
-    --accent: 186 84% 95%;
+    --accent: 186 84% 94%;                    /* Warmer accent with subtle teal */
     --accent-foreground: 186 84% 30%;
 
     --destructive: 0 84% 60%;
@@ -500,7 +503,7 @@ All colors MUST be HSL.
     "sidebar header"
     "sidebar main";
   height: 100vh;
-  background: #f8fafc;
+  background: linear-gradient(135deg, #f6f8fa 0%, #f4f7f9 100%);  /* Subtle gradient with teal hint */
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
@@ -729,7 +732,7 @@ All colors MUST be HSL.
   grid-area: main;
   padding: 24px;
   overflow-y: auto;
-  background: #f8fafc;
+  background: linear-gradient(135deg, #f6f8fa 0%, #f4f7f9 100%);  /* Subtle gradient with teal hint */
 }
 
 .page-header {
@@ -752,7 +755,7 @@ All colors MUST be HSL.
 
 /* Modern Card Design */
 .card {
-  background: #ffffff;
+  background: #fefefe;  /* Slightly warm white */
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 24px;
@@ -761,8 +764,9 @@ All colors MUST be HSL.
 }
 
 .card:hover {
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 6px rgba(14, 114, 136, 0.08);  /* Subtle teal shadow */
   transform: translateY(-2px);
+  border-color: rgba(14, 114, 136, 0.1);  /* Subtle teal border on hover */
 }
 
 .card-header {
@@ -1160,6 +1164,369 @@ All colors MUST be HSL.
   box-shadow: 0 0 0 3px rgba(14, 114, 136, 0.2);
 }
 
+/* Light Mode Select Dropdowns - Clear Backgrounds */
+[data-radix-select-content],
+[data-radix-select-content].bg-popover,
+.bg-popover[data-radix-select-content] {
+  background: #fefefe !important;  /* Clear warm white background */
+  border: 1px solid rgba(14, 114, 136, 0.2) !important;
+  box-shadow: 0 10px 38px -10px rgba(0, 0, 0, 0.15), 0 10px 20px -15px rgba(0, 0, 0, 0.1) !important;
+  border-radius: 8px !important;
+}
+
+/* AGGRESSIVE HOVER ANIMATIONS - HIGHEST SPECIFICITY */
+[data-radix-select-content] [data-radix-select-item],
+[data-radix-select-content] .select-item,
+.select-content [data-radix-select-item] {
+  background: #fefefe !important;
+  color: #1e293b !important;
+  border-radius: 4px !important;
+  margin: 2px !important;
+  padding: 8px 12px !important;
+  cursor: pointer !important;
+  position: relative !important;
+  overflow: hidden !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transform: translateX(0) !important;
+  box-shadow: none !important;
+}
+
+[data-radix-select-content] [data-radix-select-item]:hover,
+[data-radix-select-content] .select-item:hover,
+.select-content [data-radix-select-item]:hover {
+  background: rgba(14, 114, 136, 0.1) !important;
+  color: #1e293b !important;
+  transform: translateX(4px) !important;
+  box-shadow: 0 4px 12px rgba(14, 114, 136, 0.2) !important;
+  border-left: 3px solid #0e7288 !important;
+}
+
+[data-radix-select-content] [data-radix-select-item][data-highlighted],
+[data-radix-select-content] .select-item[data-highlighted],
+.select-content [data-radix-select-item][data-highlighted] {
+  background: rgba(14, 114, 136, 0.15) !important;
+  color: #1e293b !important;
+  transform: translateX(4px) !important;
+  box-shadow: 0 4px 12px rgba(14, 114, 136, 0.25) !important;
+  border-left: 3px solid #0e7288 !important;
+}
+
+[data-radix-select-content] [data-radix-select-item][data-state="checked"],
+[data-radix-select-content] .select-item[data-state="checked"],
+.select-content [data-radix-select-item][data-state="checked"] {
+  background: #0e7288 !important;
+  color: white !important;
+  transform: translateX(4px) !important;
+  box-shadow: 0 4px 12px rgba(14, 114, 136, 0.3) !important;
+  border-left: 3px solid #0e7288 !important;
+}
+
+/* Override any Tailwind bg-popover class specifically */
+.bg-popover {
+  background: #fefefe !important;
+}
+
+/* Additional specificity for Select components */
+[data-radix-select-content][data-state="open"],
+[data-radix-select-content][data-state="closed"],
+[data-radix-select-content].relative,
+[data-radix-select-content].z-50 {
+  background: #fefefe !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Ensure SelectContent has solid background */
+[data-radix-select-content] {
+  background: #fefefe !important;
+  background-color: #fefefe !important;
+}
+
+/* Force solid background for all select content elements */
+[data-radix-select-content] * {
+  background: transparent !important;
+}
+
+/* Override any potential transparency */
+[data-radix-select-content],
+[data-radix-select-content]::before,
+[data-radix-select-content]::after {
+  background: #fefefe !important;
+  background-color: #fefefe !important;
+  opacity: 1 !important;
+}
+
+[data-radix-select-item] {
+  background: #fefefe !important;  /* Clear warm white background */
+  color: #1e293b !important;
+  border-radius: 4px !important;
+  margin: 2px !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;  /* Smooth transition */
+  cursor: pointer !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+[data-radix-select-item]:hover {
+  background: rgba(14, 114, 136, 0.08) !important;  /* Subtle teal hover */
+  color: #1e293b !important;
+  transform: translateX(2px) !important;  /* Subtle slide animation */
+  box-shadow: 0 2px 8px rgba(14, 114, 136, 0.15) !important;  /* Teal shadow */
+}
+
+[data-radix-select-item][data-highlighted] {
+  background: rgba(14, 114, 136, 0.12) !important;  /* Teal highlight */
+  color: #1e293b !important;
+  transform: translateX(2px) !important;  /* Subtle slide animation */
+  box-shadow: 0 2px 8px rgba(14, 114, 136, 0.2) !important;  /* Enhanced teal shadow */
+}
+
+[data-radix-select-item][data-state="checked"] {
+  background: #0e7288 !important;  /* Brand teal for selected */
+  color: white !important;
+  transform: translateX(2px) !important;  /* Subtle slide animation */
+  box-shadow: 0 2px 8px rgba(14, 114, 136, 0.3) !important;  /* Strong teal shadow */
+}
+
+/* Light Mode Popover Content - Radix UI Popover */
+[data-radix-popover-content] {
+  background: #fefefe !important;  /* Clear warm white background */
+  border: 1px solid rgba(14, 114, 136, 0.2) !important;
+  box-shadow: 0 10px 38px -10px rgba(0, 0, 0, 0.15), 0 10px 20px -15px rgba(0, 0, 0, 0.1) !important;
+  border-radius: 8px !important;
+}
+
+/* Light Mode Calendar - Radix UI Calendar */
+[data-radix-calendar-content] {
+  background: #fefefe !important;  /* Clear warm white background */
+  border: 1px solid rgba(14, 114, 136, 0.2) !important;
+  box-shadow: 0 10px 38px -10px rgba(0, 0, 0, 0.15), 0 10px 20px -15px rgba(0, 0, 0, 0.1) !important;
+  border-radius: 8px !important;
+}
+
+[data-radix-calendar-cell] {
+  background: #fefefe !important;  /* Clear warm white background */
+  color: #1e293b !important;
+  border: 1px solid transparent !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;  /* Smooth transition */
+  cursor: pointer !important;
+  border-radius: 4px !important;
+  margin: 1px !important;
+}
+
+[data-radix-calendar-cell]:hover {
+  background: rgba(14, 114, 136, 0.08) !important;  /* Subtle teal hover */
+  color: #1e293b !important;
+  transform: scale(1.05) !important;  /* Subtle scale animation */
+  box-shadow: 0 2px 8px rgba(14, 114, 136, 0.15) !important;  /* Teal shadow */
+}
+
+[data-radix-calendar-cell][data-selected] {
+  background: #0e7288 !important;  /* Brand teal for selected */
+  color: white !important;
+  transform: scale(1.05) !important;  /* Subtle scale animation */
+  box-shadow: 0 2px 8px rgba(14, 114, 136, 0.3) !important;  /* Strong teal shadow */
+}
+
+[data-radix-calendar-cell][data-today] {
+  background: rgba(14, 114, 136, 0.1) !important;  /* Subtle teal for today */
+  color: #1e293b !important;
+  border: 1px solid #0e7288 !important;
+  transform: scale(1.02) !important;  /* Subtle scale animation */
+  box-shadow: 0 1px 4px rgba(14, 114, 136, 0.2) !important;  /* Teal shadow */
+}
+
+/* Light Mode Dropdown Menu - Radix UI DropdownMenu */
+[data-radix-dropdown-menu-content] {
+  background: #fefefe !important;  /* Clear warm white background */
+  border: 1px solid rgba(14, 114, 136, 0.2) !important;
+  box-shadow: 0 10px 38px -10px rgba(0, 0, 0, 0.15), 0 10px 20px -15px rgba(0, 0, 0, 0.1) !important;
+  border-radius: 8px !important;
+}
+
+[data-radix-dropdown-menu-item] {
+  background: #fefefe !important;  /* Clear warm white background */
+  color: #1e293b !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;  /* Smooth transition */
+  cursor: pointer !important;
+  border-radius: 4px !important;
+  margin: 2px !important;
+}
+
+[data-radix-dropdown-menu-item]:hover {
+  background: rgba(14, 114, 136, 0.08) !important;  /* Subtle teal hover */
+  color: #1e293b !important;
+  transform: translateX(2px) !important;  /* Subtle slide animation */
+  box-shadow: 0 2px 8px rgba(14, 114, 136, 0.15) !important;  /* Teal shadow */
+}
+
+[data-radix-dropdown-menu-item][data-highlighted] {
+  background: rgba(14, 114, 136, 0.12) !important;  /* Teal highlight */
+  color: #1e293b !important;
+  transform: translateX(2px) !important;  /* Subtle slide animation */
+  box-shadow: 0 2px 8px rgba(14, 114, 136, 0.2) !important;  /* Enhanced teal shadow */
+}
+
+[data-radix-dropdown-menu-separator] {
+  background: rgba(14, 114, 136, 0.2) !important;
+  height: 1px !important;
+}
+
+/* Light Mode Command Palette - Radix UI Command */
+[data-radix-command-dialog-content] {
+  background: #fefefe !important;  /* Clear warm white background */
+  border: 1px solid rgba(14, 114, 136, 0.2) !important;
+  box-shadow: 0 10px 38px -10px rgba(0, 0, 0, 0.15), 0 10px 20px -15px rgba(0, 0, 0, 0.1) !important;
+  border-radius: 8px !important;
+}
+
+[data-radix-command-item] {
+  background: #fefefe !important;  /* Clear warm white background */
+  color: #1e293b !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;  /* Smooth transition */
+  cursor: pointer !important;
+  border-radius: 4px !important;
+  margin: 2px !important;
+}
+
+[data-radix-command-item]:hover {
+  background: rgba(14, 114, 136, 0.08) !important;  /* Subtle teal hover */
+  color: #1e293b !important;
+  transform: translateX(2px) !important;  /* Subtle slide animation */
+  box-shadow: 0 2px 8px rgba(14, 114, 136, 0.15) !important;  /* Teal shadow */
+}
+
+[data-radix-command-item][data-highlighted] {
+  background: rgba(14, 114, 136, 0.12) !important;  /* Teal highlight */
+  color: #1e293b !important;
+  transform: translateX(2px) !important;  /* Subtle slide animation */
+  box-shadow: 0 2px 8px rgba(14, 114, 136, 0.2) !important;  /* Enhanced teal shadow */
+}
+
+/* Light Mode Combobox - Radix UI Combobox */
+[data-radix-combobox-content] {
+  background: #fefefe !important;  /* Clear warm white background */
+  border: 1px solid rgba(14, 114, 136, 0.2) !important;
+  box-shadow: 0 10px 38px -10px rgba(0, 0, 0, 0.15), 0 10px 20px -15px rgba(0, 0, 0, 0.1) !important;
+  border-radius: 8px !important;
+}
+
+[data-radix-combobox-item] {
+  background: #fefefe !important;  /* Clear warm white background */
+  color: #1e293b !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;  /* Smooth transition */
+  cursor: pointer !important;
+  border-radius: 4px !important;
+  margin: 2px !important;
+}
+
+[data-radix-combobox-item]:hover {
+  background: rgba(14, 114, 136, 0.08) !important;  /* Subtle teal hover */
+  color: #1e293b !important;
+  transform: translateX(2px) !important;  /* Subtle slide animation */
+  box-shadow: 0 2px 8px rgba(14, 114, 136, 0.15) !important;  /* Teal shadow */
+}
+
+[data-radix-combobox-item][data-highlighted] {
+  background: rgba(14, 114, 136, 0.12) !important;  /* Teal highlight */
+  color: #1e293b !important;
+  transform: translateX(2px) !important;  /* Subtle slide animation */
+  box-shadow: 0 2px 8px rgba(14, 114, 136, 0.2) !important;  /* Enhanced teal shadow */
+}
+
+/* Light Mode Date Picker - React DatePicker */
+.react-datepicker {
+  background: #fefefe !important;  /* Clear warm white background */
+  border: 1px solid rgba(14, 114, 136, 0.2) !important;
+  box-shadow: 0 10px 38px -10px rgba(0, 0, 0, 0.15), 0 10px 20px -15px rgba(0, 0, 0, 0.1) !important;
+  border-radius: 8px !important;
+}
+
+.react-datepicker__header {
+  background: rgba(14, 114, 136, 0.05) !important;  /* Subtle teal header */
+  border-bottom: 1px solid rgba(14, 114, 136, 0.2) !important;
+}
+
+.react-datepicker__day {
+  background: #fefefe !important;  /* Clear warm white background */
+  color: #1e293b !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;  /* Smooth transition */
+  cursor: pointer !important;
+  border-radius: 4px !important;
+  margin: 1px !important;
+}
+
+.react-datepicker__day:hover {
+  background: rgba(14, 114, 136, 0.08) !important;  /* Subtle teal hover */
+  color: #1e293b !important;
+  transform: scale(1.05) !important;  /* Subtle scale animation */
+  box-shadow: 0 2px 8px rgba(14, 114, 136, 0.15) !important;  /* Teal shadow */
+}
+
+.react-datepicker__day--selected {
+  background: #0e7288 !important;  /* Brand teal for selected */
+  color: white !important;
+  transform: scale(1.05) !important;  /* Subtle scale animation */
+  box-shadow: 0 2px 8px rgba(14, 114, 136, 0.3) !important;  /* Strong teal shadow */
+}
+
+.react-datepicker__day--today {
+  background: rgba(14, 114, 136, 0.1) !important;  /* Subtle teal for today */
+  color: #1e293b !important;
+  border: 1px solid #0e7288 !important;
+  transform: scale(1.02) !important;  /* Subtle scale animation */
+  box-shadow: 0 1px 4px rgba(14, 114, 136, 0.2) !important;  /* Teal shadow */
+}
+
+/* Light Mode Shadcn/UI Components - Clear Backgrounds */
+.select-content,
+.popover-content,
+.calendar-content,
+.dropdown-menu-content,
+.command-dialog-content,
+.combobox-content {
+  background: #fefefe !important;  /* Clear warm white background */
+  border: 1px solid rgba(14, 114, 136, 0.2) !important;
+  box-shadow: 0 10px 38px -10px rgba(0, 0, 0, 0.15), 0 10px 20px -15px rgba(0, 0, 0, 0.1) !important;
+  border-radius: 8px !important;
+}
+
+.select-item,
+.popover-item,
+.calendar-item,
+.dropdown-menu-item,
+.command-item,
+.combobox-item {
+  background: #fefefe !important;  /* Clear warm white background */
+  color: #1e293b !important;
+}
+
+.select-item:hover,
+.popover-item:hover,
+.calendar-item:hover,
+.dropdown-menu-item:hover,
+.command-item:hover,
+.combobox-item:hover {
+  background: rgba(14, 114, 136, 0.08) !important;  /* Subtle teal hover */
+  color: #1e293b !important;
+  transform: translateX(2px) !important;  /* Subtle slide animation */
+  box-shadow: 0 2px 8px rgba(14, 114, 136, 0.15) !important;  /* Teal shadow */
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;  /* Smooth transition */
+}
+
+.select-item[data-highlighted],
+.popover-item[data-highlighted],
+.calendar-item[data-highlighted],
+.dropdown-menu-item[data-highlighted],
+.command-item[data-highlighted],
+.combobox-item[data-highlighted] {
+  background: rgba(14, 114, 136, 0.12) !important;  /* Teal highlight */
+  color: #1e293b !important;
+  transform: translateX(2px) !important;  /* Subtle slide animation */
+  box-shadow: 0 2px 8px rgba(14, 114, 136, 0.2) !important;  /* Enhanced teal shadow */
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;  /* Smooth transition */
+}
+
 /* Dark Mode Select Dropdowns */
 [data-theme="dark"] select {
   background: var(--bg-secondary);
@@ -1528,7 +1895,7 @@ All colors MUST be HSL.
 
 /* Modern Dialog Styling with Glass Effects */
 .modern-dialog {
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(254, 254, 254, 0.95);  /* Slightly warm white with transparency */
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
@@ -1557,7 +1924,7 @@ All colors MUST be HSL.
 
 .modern-dialog-content {
   padding: 24px;
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(254, 254, 254, 0.8);  /* Slightly warm white with transparency */
   backdrop-filter: blur(10px);
 }
 
@@ -1605,7 +1972,7 @@ All colors MUST be HSL.
 }
 
 .modern-dialog-card {
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(254, 254, 254, 0.9);  /* Slightly warm white with transparency */
   border: 1px solid rgba(14, 114, 136, 0.1);
   border-radius: 12px;
   padding: 20px;
@@ -1614,7 +1981,7 @@ All colors MUST be HSL.
 }
 
 .modern-dialog-table {
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(254, 254, 254, 0.95);  /* Slightly warm white with transparency */
   border: 1px solid rgba(14, 114, 136, 0.1);
   border-radius: 12px;
   overflow: hidden;
@@ -1632,7 +1999,7 @@ All colors MUST be HSL.
 .modern-dialog-table td {
   padding: 16px;
   border-bottom: 1px solid rgba(14, 114, 136, 0.1);
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(254, 254, 254, 0.8);  /* Slightly warm white with transparency */
 }
 
 .modern-dialog-table tbody tr:hover {
@@ -1771,7 +2138,7 @@ All colors MUST be HSL.
 
 /* Universal Dialog Styling - Apply to ALL dialogs */
 [data-radix-dialog-content] {
-  background: rgba(255, 255, 255, 0.95) !important;
+  background: rgba(254, 254, 254, 0.95) !important;  /* Slightly warm white with transparency */
   backdrop-filter: blur(20px) !important;
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
@@ -1914,7 +2281,7 @@ All colors MUST be HSL.
 }
 
 .table th {
-  background: var(--bg-secondary);
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(14, 114, 136, 0.02) 100%);  /* Subtle teal gradient */
   border: none;
   font-weight: 600;
   color: var(--brand-teal);
@@ -1956,14 +2323,14 @@ All colors MUST be HSL.
 
 /* Glass Morphism Effects (Light Mode Only) */
 .glass-card {
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(254, 254, 254, 0.85);  /* Slightly warm white with transparency */
   backdrop-filter: blur(20px);
   border: 1px solid rgba(14, 114, 136, 0.1);
   border-radius: 12px;
 }
 
 .glass-nav {
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(254, 254, 254, 0.9);  /* Slightly warm white with transparency */
   backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(14, 114, 136, 0.1);
 }
@@ -2002,7 +2369,7 @@ All colors MUST be HSL.
 }
 
 .preview-card.light {
-  background: #ffffff;
+  background: #fefefe;  /* Slightly warm white */
   border: 1px solid rgba(14, 114, 136, 0.1);
   color: #1e293b;
 }
@@ -2023,7 +2390,7 @@ All colors MUST be HSL.
 }
 
 .light .preview-sidebar-sample {
-  background: #ffffff;
+  background: #fefefe;  /* Slightly warm white */
   border: 1px solid rgba(14, 114, 136, 0.1);
 }
 
@@ -2086,4 +2453,519 @@ All colors MUST be HSL.
 .high-contrast .brand-accent {
   background-color: var(--brand-gold);
   border: 2px solid var(--brand-teal);
+}
+
+/* Brand Teal Shades for Hover Animations */
+:root {
+  --brand-teal-50: #f0fdfa;
+  --brand-teal-100: #ccfbf1;
+  --brand-teal-200: #99f6e4;
+  --brand-teal-300: #5eead4;
+  --brand-teal-400: #2dd4bf;
+  --brand-teal-500: #14b8a6;
+  --brand-teal-600: #0e7288;
+  --brand-teal-700: #0d6b7a;
+  --brand-teal-800: #0a5a66;
+  --brand-teal-900: #064e56;
+}
+
+/* Brand Gold Shades */
+:root {
+  --brand-gold-50: #fffbeb;
+  --brand-gold-100: #fef3c7;
+  --brand-gold-200: #fde68a;
+  --brand-gold-300: #fcd34d;
+  --brand-gold-400: #fbbf24;
+  --brand-gold-500: #f6ba15;
+  --brand-gold-600: #d9a512;
+  --brand-gold-700: #b8910f;
+  --brand-gold-800: #977d0c;
+  --brand-gold-900: #7a650a;
+}
+
+/* Brand Teal Utility Classes */
+.bg-brand-teal-50 { background-color: var(--brand-teal-50) !important; }
+.bg-brand-teal-100 { background-color: var(--brand-teal-100) !important; }
+.bg-brand-teal-200 { background-color: var(--brand-teal-200) !important; }
+.bg-brand-teal-300 { background-color: var(--brand-teal-300) !important; }
+.bg-brand-teal-400 { background-color: var(--brand-teal-400) !important; }
+.bg-brand-teal-500 { background-color: var(--brand-teal-500) !important; }
+.bg-brand-teal-600 { background-color: var(--brand-teal-600) !important; }
+.bg-brand-teal-700 { background-color: var(--brand-teal-700) !important; }
+.bg-brand-teal-800 { background-color: var(--brand-teal-800) !important; }
+.bg-brand-teal-900 { background-color: var(--brand-teal-900) !important; }
+
+.text-brand-teal-50 { color: var(--brand-teal-50) !important; }
+.text-brand-teal-100 { color: var(--brand-teal-100) !important; }
+.text-brand-teal-200 { color: var(--brand-teal-200) !important; }
+.text-brand-teal-300 { color: var(--brand-teal-300) !important; }
+.text-brand-teal-400 { color: var(--brand-teal-400) !important; }
+.text-brand-teal-500 { color: var(--brand-teal-500) !important; }
+.text-brand-teal-600 { color: var(--brand-teal-600) !important; }
+.text-brand-teal-700 { color: var(--brand-teal-700) !important; }
+.text-brand-teal-800 { color: var(--brand-teal-800) !important; }
+.text-brand-teal-900 { color: var(--brand-teal-900) !important; }
+
+.border-brand-teal-50 { border-color: var(--brand-teal-50) !important; }
+.border-brand-teal-100 { border-color: var(--brand-teal-100) !important; }
+.border-brand-teal-200 { border-color: var(--brand-teal-200) !important; }
+.border-brand-teal-300 { border-color: var(--brand-teal-300) !important; }
+.border-brand-teal-400 { border-color: var(--brand-teal-400) !important; }
+.border-brand-teal-500 { border-color: var(--brand-teal-500) !important; }
+.border-brand-teal-600 { border-color: var(--brand-teal-600) !important; }
+.border-brand-teal-700 { border-color: var(--brand-teal-700) !important; }
+.border-brand-teal-800 { border-color: var(--brand-teal-800) !important; }
+.border-brand-teal-900 { border-color: var(--brand-teal-900) !important; }
+
+/* Brand Gold Utility Classes */
+.bg-brand-gold-50 { background-color: var(--brand-gold-50) !important; }
+.bg-brand-gold-100 { background-color: var(--brand-gold-100) !important; }
+.bg-brand-gold-200 { background-color: var(--brand-gold-200) !important; }
+.bg-brand-gold-300 { background-color: var(--brand-gold-300) !important; }
+.bg-brand-gold-400 { background-color: var(--brand-gold-400) !important; }
+.bg-brand-gold-500 { background-color: var(--brand-gold-500) !important; }
+.bg-brand-gold-600 { background-color: var(--brand-gold-600) !important; }
+.bg-brand-gold-700 { background-color: var(--brand-gold-700) !important; }
+.bg-brand-gold-800 { background-color: var(--brand-gold-800) !important; }
+.bg-brand-gold-900 { background-color: var(--brand-gold-900) !important; }
+
+.text-brand-gold-50 { color: var(--brand-gold-50) !important; }
+.text-brand-gold-100 { color: var(--brand-gold-100) !important; }
+.text-brand-gold-200 { color: var(--brand-gold-200) !important; }
+.text-brand-gold-300 { color: var(--brand-gold-300) !important; }
+.text-brand-gold-400 { color: var(--brand-gold-400) !important; }
+.text-brand-gold-500 { color: var(--brand-gold-500) !important; }
+.text-brand-gold-600 { color: var(--brand-gold-600) !important; }
+.text-brand-gold-700 { color: var(--brand-gold-700) !important; }
+.text-brand-gold-800 { color: var(--brand-gold-800) !important; }
+.text-brand-gold-900 { color: var(--brand-gold-900) !important; }
+
+.border-brand-gold-50 { border-color: var(--brand-gold-50) !important; }
+.border-brand-gold-100 { border-color: var(--brand-gold-100) !important; }
+.border-brand-gold-200 { border-color: var(--brand-gold-200) !important; }
+.border-brand-gold-300 { border-color: var(--brand-gold-300) !important; }
+.border-brand-gold-400 { border-color: var(--brand-gold-400) !important; }
+.border-brand-gold-500 { border-color: var(--brand-gold-500) !important; }
+.border-brand-gold-600 { border-color: var(--brand-gold-600) !important; }
+.border-brand-gold-700 { border-color: var(--brand-gold-700) !important; }
+.border-brand-gold-800 { border-color: var(--brand-gold-800) !important; }
+.border-brand-gold-900 { border-color: var(--brand-gold-900) !important; }
+
+/* FINAL OVERRIDE - MAXIMUM SPECIFICITY FOR HOVER ANIMATIONS */
+/* This ensures hover animations work regardless of other CSS */
+* [data-radix-select-item]:hover,
+* [data-radix-select-item][data-highlighted] {
+  background: rgba(14, 114, 136, 0.1) !important;
+  transform: translateX(4px) !important;
+  box-shadow: 0 4px 12px rgba(14, 114, 136, 0.2) !important;
+  border-left: 3px solid #0e7288 !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Selected state - match button styling exactly */
+* [data-radix-select-item][data-state="checked"] {
+  background: #0e7288 !important;
+  background-color: #0e7288 !important;
+  color: white !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+  padding: 8px 12px !important;
+  margin: 2px !important;
+  transform: none !important;
+  border: none !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+* [data-radix-select-item] {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: pointer !important;
+}
+
+/* Calendar hover animations */
+* [data-radix-calendar-cell]:hover,
+* .react-datepicker__day:hover {
+  background: rgba(14, 114, 136, 0.1) !important;
+  transform: scale(1.05) !important;
+  box-shadow: 0 4px 12px rgba(14, 114, 136, 0.2) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+* [data-radix-calendar-cell],
+* .react-datepicker__day {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: pointer !important;
+}
+
+/* COMPREHENSIVE DROPDOWN & CALENDAR BRAND STYLING */
+/* Dropdown Container Styling */
+.dropdown-container {
+  position: relative;
+  width: 100%;
+}
+
+.dropdown-select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.dropdown-select:focus {
+  outline: none;
+  border-color: #0e7288;
+  box-shadow: 0 0 0 3px rgba(14, 114, 136, 0.1);
+}
+
+/* Dropdown Options List */
+.dropdown-options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 4px;
+  animation: dropdownSlide 0.2s ease-out;
+}
+
+@keyframes dropdownSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdown-option {
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dropdown-option:last-child {
+  border-bottom: none;
+}
+
+/* Brand Color States for Dropdown */
+.dropdown-option:hover {
+  background: rgba(14, 114, 136, 0.08) !important;
+  color: #0e7288 !important;
+  border-left: 3px solid #f6ba15 !important;
+}
+
+.dropdown-option:hover .option-description {
+  color: #64748b !important;
+}
+
+.dropdown-option.selected {
+  background: rgba(14, 114, 136, 0.12) !important;
+  color: #0e7288 !important;
+  border-left: 3px solid #0e7288 !important;
+  font-weight: 600 !important;
+}
+
+.dropdown-option.selected .option-description {
+  color: #0a5a6c !important;
+  font-weight: 500 !important;
+}
+
+.dropdown-option:focus {
+  outline: none;
+  background: rgba(246, 186, 21, 0.1) !important;
+  border-left: 3px solid #f6ba15 !important;
+  box-shadow: inset 0 0 0 1px rgba(246, 186, 21, 0.2) !important;
+}
+
+.dropdown-option:focus-visible {
+  outline: 2px solid #f6ba15 !important;
+  outline-offset: -2px !important;
+  background: rgba(246, 186, 21, 0.1) !important;
+}
+
+/* Calendar Component Styling */
+.calendar-container {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendar-day {
+  padding: 8px;
+  text-align: center;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.calendar-day:hover {
+  background: rgba(14, 114, 136, 0.08) !important;
+  border-color: rgba(14, 114, 136, 0.2) !important;
+}
+
+.calendar-day:focus-visible {
+  outline: 2px solid #f6ba15 !important;
+  outline-offset: 2px !important;
+}
+
+/* Calendar Brand Color States */
+.calendar-day.selected {
+  background: #0e7288 !important;
+  color: #ffffff !important;
+  border-color: #0e7288 !important;
+  font-weight: 600 !important;
+}
+
+.calendar-day.selected:hover {
+  background: #0a5a6c !important;
+  border-color: #0a5a6c !important;
+}
+
+.calendar-day.today {
+  background: rgba(246, 186, 21, 0.1) !important;
+  color: #d9a512 !important;
+  border: 1px solid rgba(246, 186, 21, 0.3) !important;
+  font-weight: 600 !important;
+}
+
+.calendar-day.today:hover {
+  background: rgba(246, 186, 21, 0.2) !important;
+}
+
+.calendar-day.in-range {
+  background: rgba(14, 114, 136, 0.05) !important;
+  border: 1px solid rgba(14, 114, 136, 0.1) !important;
+}
+
+.calendar-day.range-start,
+.calendar-day.range-end {
+  background: #0e7288 !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+.calendar-day.range-start {
+  border-radius: 6px 0 0 6px !important;
+}
+
+.calendar-day.range-end {
+  border-radius: 0 6px 6px 0 !important;
+}
+
+/* Dark Mode Support */
+[data-theme="dark"] .dropdown-select {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+[data-theme="dark"] .dropdown-options {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+[data-theme="dark"] .dropdown-option {
+  border-bottom-color: #334155 !important;
+}
+
+[data-theme="dark"] .dropdown-option:hover {
+  background: rgba(14, 114, 136, 0.2) !important;
+  color: #7dd3fc !important;
+}
+
+[data-theme="dark"] .dropdown-option.selected {
+  background: rgba(14, 114, 136, 0.3) !important;
+  color: #7dd3fc !important;
+}
+
+[data-theme="dark"] .calendar-container {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+[data-theme="dark"] .calendar-day:hover {
+  background: rgba(14, 114, 136, 0.2) !important;
+  border-color: rgba(14, 114, 136, 0.4) !important;
+}
+
+[data-theme="dark"] .calendar-day.selected {
+  background: #0e7288 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .calendar-day.today {
+  background: rgba(246, 186, 21, 0.2) !important;
+  color: #f6ba15 !important;
+  border-color: rgba(246, 186, 21, 0.4) !important;
+}
+
+/* Dialog Box Specific Styling */
+.dialog-dropdown .dropdown-option {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.option-main {
+  font-weight: 500;
+  color: inherit;
+}
+
+.option-description {
+  font-size: 0.75rem;
+  color: #64748b;
+  transition: color 0.2s ease;
+}
+
+[data-theme="dark"] .option-description {
+  color: #94a3b8 !important;
+}
+
+.option-meta {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+/* High Contrast Support */
+@media (prefers-contrast: high) {
+  .dropdown-option:hover {
+    background: #0e7288 !important;
+    color: #ffffff !important;
+  }
+  
+  .calendar-day.selected {
+    background: #0e7288 !important;
+    color: #ffffff !important;
+    border: 2px solid #0e7288 !important;
+  }
+  
+  .calendar-day.today {
+    background: #f6ba15 !important;
+    color: #000000 !important;
+    border: 2px solid #f6ba15 !important;
+  }
+}
+
+/* DIRECT CLASS-BASED ANIMATIONS */
+.select-dropdown-animated [data-radix-select-item] {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: pointer !important;
+  padding: 8px 12px !important;
+  margin: 2px !important;
+  border-radius: 4px !important;
+  background: #fefefe !important;
+  color: #1e293b !important;
+}
+
+/* Override selected state to match button styling */
+.select-dropdown-animated [data-radix-select-item][data-state="checked"] {
+  background: #0e7288 !important;  /* Brand teal - same as button */
+  background-color: #0e7288 !important;
+  color: white !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+  padding: 8px 12px !important;
+  margin: 2px !important;
+  transform: none !important;
+  border: none !important;
+}
+
+/* Override any white backgrounds for selected items - match button styling */
+[data-radix-select-item][data-state="checked"],
+[data-radix-select-item][data-state="checked"]:hover,
+[data-radix-select-item][data-state="checked"]:focus,
+[data-radix-select-item][data-state="checked"]:active,
+[data-radix-select-item][data-state="checked"]:visited {
+  background: #0e7288 !important;
+  background-color: #0e7288 !important;
+  color: white !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+  padding: 8px 12px !important;
+  margin: 2px !important;
+  transform: none !important;
+  border: none !important;
+}
+
+/* Override any focus states that might show white */
+[data-radix-select-item]:focus,
+[data-radix-select-item]:focus-visible {
+  background: #fefefe !important;
+  color: #1e293b !important;
+}
+
+[data-radix-select-item][data-state="checked"]:focus,
+[data-radix-select-item][data-state="checked"]:focus-visible {
+  background: #0e7288 !important;
+  background-color: #0e7288 !important;
+  color: white !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+  padding: 8px 12px !important;
+  margin: 2px !important;
+  transform: none !important;
+  border: none !important;
+}
+
+.select-dropdown-animated [data-radix-select-item]:hover {
+  background: rgba(14, 114, 136, 0.2) !important;
+  transform: translateX(8px) scale(1.02) !important;
+  box-shadow: 0 6px 16px rgba(14, 114, 136, 0.3) !important;
+  border-left: 4px solid #0e7288 !important;
+  color: #0e7288 !important;
+  font-weight: 600 !important;
+}
+
+.select-dropdown-animated [data-radix-select-item][data-highlighted] {
+  background: rgba(14, 114, 136, 0.15) !important;
+  transform: translateX(4px) !important;
+  box-shadow: 0 4px 12px rgba(14, 114, 136, 0.25) !important;
+  border-left: 3px solid #0e7288 !important;
+}
+
+.select-dropdown-animated [data-radix-select-item][data-state="checked"] {
+  background: #0e7288 !important;
+  color: white !important;
+  transform: translateX(4px) !important;
+  box-shadow: 0 4px 12px rgba(14, 114, 136, 0.3) !important;
+  border-left: 3px solid #0e7288 !important;
 }

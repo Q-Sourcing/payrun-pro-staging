@@ -241,15 +241,15 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Create New Pay Run</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="sm:max-w-[500px] modern-dialog">
+        <DialogHeader className="modern-dialog-header">
+          <DialogTitle className="modern-dialog-title">Create New Pay Run</DialogTitle>
+          <DialogDescription className="modern-dialog-description">
             Set up a new pay run for processing employee payments
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 modern-dialog-content">
           <div className="space-y-2">
             <Label htmlFor="pay_group">Pay Group *</Label>
             <Select
@@ -367,11 +367,11 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
             </div>
           </div>
 
-          <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <div className="flex justify-end space-x-2 modern-dialog-actions">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="modern-dialog-button-secondary">
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} className="modern-dialog-button">
               {loading ? "Creating..." : "Create Pay Run"}
             </Button>
           </div>

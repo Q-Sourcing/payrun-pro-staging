@@ -24,6 +24,7 @@ import { GenerateBillingSummaryDialog } from "./GenerateBillingSummaryDialog";
 import { ApplyBenefitsDialog } from "./ApplyBenefitsDialog";
 import { RecalculateTaxesDialog } from "./RecalculateTaxesDialog";
 import { RemoveCustomItemsDialog } from "./RemoveCustomItemsDialog";
+import { IndividualPayslipDialog } from "./IndividualPayslipDialog";
 import LstDeductionsDialog, { LstDialogEmployee } from "./LstDeductionsDialog";
 
 interface CustomDeduction {
@@ -97,6 +98,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
   const [recalculateTaxesDialogOpen, setRecalculateTaxesDialogOpen] = useState(false);
   const [removeCustomItemsDialogOpen, setRemoveCustomItemsDialogOpen] = useState(false);
   const [lstDialogOpen, setLstDialogOpen] = useState(false);
+  const [individualPayslipDialogOpen, setIndividualPayslipDialogOpen] = useState(false);
+  const [selectedEmployeeForPayslip, setSelectedEmployeeForPayslip] = useState<{id: string, name: string} | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -995,6 +998,26 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                 <>
                   <Separator orientation="vertical" className="h-8" />
                   <span className="text-sm text-muted-foreground">{selectedItems.size} selected</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // If only one employee is selected, auto-select them for payslip
+                      if (selectedItems.size === 1) {
+                        const selectedItem = payItems.find(item => selectedItems.has(item.id));
+                        if (selectedItem) {
+                          setSelectedEmployeeForPayslip({
+                            id: selectedItem.employee_id,
+                            name: getFullName(selectedItem.employees)
+                          });
+                        }
+                      }
+                      setIndividualPayslipDialogOpen(true);
+                    }}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Generate Payslip{selectedItems.size > 1 ? 's' : ''}
+                  </Button>
                   <Select onValueChange={(value) => handleBulkStatusUpdate(value as any)}>
                     <SelectTrigger className="w-48">
                       <SelectValue placeholder="Bulk update status" />
@@ -1027,7 +1050,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                       <span>Deduct from All Employees</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setGeneratePayslipsDialogOpen(true)} className="gap-2">
+                    <DropdownMenuItem onClick={() => setGeneratePayslipsDialogOpen(true)} className="gap-2">
                       <FileText className="h-4 w-4 text-blue-600" />
                       <span>Generate All Payslips</span>
                     </DropdownMenuItem>
@@ -1267,13 +1290,29 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                             </Select>
                           </TableCell>
                           <TableCell>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setEditingItems({ [item.id]: {} })}
-                            >
-                              Edit
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setEditingItems({ [item.id]: {} })}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedEmployeeForPayslip({
+                                    id: item.employee_id,
+                                    name: getFullName(item.employees)
+                                  });
+                                  setIndividualPayslipDialogOpen(true);
+                                }}
+                              >
+                                <FileText className="h-4 w-4 mr-1" />
+                                Payslip
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
 
@@ -1667,6 +1706,15 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
             });
           }
         }}
+      />
+
+      {/* Individual Payslip Dialog */}
+      <IndividualPayslipDialog
+        open={individualPayslipDialogOpen}
+        onOpenChange={setIndividualPayslipDialogOpen}
+        payRunId={payRunId}
+        employeeId={selectedEmployeeForPayslip?.id}
+        employeeName={selectedEmployeeForPayslip?.name}
       />
     </Dialog>
   );

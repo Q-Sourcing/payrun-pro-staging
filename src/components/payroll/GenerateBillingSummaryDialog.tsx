@@ -504,13 +504,13 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto modern-dialog">
+        <DialogHeader className="modern-dialog-header">
+          <DialogTitle className="modern-dialog-title flex items-center gap-2">
             <FileText className="h-5 w-5" />
             Generate Billing Summary
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="modern-dialog-description">
             Create a comprehensive payroll billing and compliance report
           </DialogDescription>
         </DialogHeader>

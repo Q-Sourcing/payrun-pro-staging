@@ -1,0 +1,333 @@
+/* Payslip Template Styles */
+
+/* Corporate Template */
+.payslip-corporate {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 800px;
+  margin: 0 auto;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.payslip-corporate .payslip-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 24px;
+  align-items: center;
+  padding-bottom: 24px;
+  border-bottom: 2px solid #0e7288;
+  margin-bottom: 24px;
+}
+
+.payslip-corporate .company-logo {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #0e7288, #0a5a6c);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  font-size: 1.5rem;
+}
+
+.payslip-corporate .company-info {
+  text-align: center;
+}
+
+.payslip-corporate .company-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.payslip-corporate .company-address {
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.payslip-corporate .payslip-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #0e7288;
+  text-align: right;
+}
+
+/* Minimal Template */
+.payslip-minimal {
+  background: #ffffff;
+  border: 1px solid #f1f5f9;
+  padding: 24px;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.payslip-minimal .payslip-header {
+  border: none;
+  padding-bottom: 0;
+  margin-bottom: 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.payslip-minimal .company-name {
+  color: #0f172a;
+  font-size: 1.25rem;
+}
+
+.payslip-minimal .employee-name {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #0e7288;
+}
+
+/* Premium Template */
+.payslip-premium {
+  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+  border: 2px solid #0e7288;
+  border-radius: 16px;
+  padding: 40px;
+  max-width: 850px;
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+}
+
+.payslip-premium::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #0e7288, #f6ba15);
+}
+
+.payslip-premium .accent-stripe {
+  background: linear-gradient(90deg, #0e7288, #f6ba15);
+  height: 8px;
+  margin: 16px 0;
+  border-radius: 4px;
+}
+
+.payslip-premium .payslip-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 24px;
+  align-items: center;
+  padding-bottom: 24px;
+  border-bottom: 2px solid #0e7288;
+  margin-bottom: 24px;
+}
+
+/* Common Styles */
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  margin: 24px 0;
+}
+
+.info-section h3 {
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.info-row .label {
+  color: #64748b;
+}
+
+.info-row .value {
+  font-weight: 500;
+}
+
+.info-row .value.highlight {
+  color: #10b981;
+  font-weight: 600;
+}
+
+/* Tables */
+.earnings-table, .deductions-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+}
+
+.earnings-table th, .deductions-table th {
+  background: #f8fafc;
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #0f172a;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.earnings-table td, .deductions-table td {
+  padding: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.amount-column {
+  text-align: right;
+  font-weight: 500;
+  color: #0e7288;
+}
+
+.total-row {
+  background: #f0fdf4;
+  font-weight: 600;
+}
+
+.total-row .amount-column {
+  color: #059669;
+}
+
+/* Sections */
+.earnings-section, .deductions-section, .contributions-section, .leave-section, .totals-section {
+  margin: 24px 0;
+}
+
+.earnings-section h3, .deductions-section h3, .contributions-section h3, .leave-section h3, .totals-section h3 {
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* Contributions */
+.contributions-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.contribution-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.contribution-breakdown {
+  display: flex;
+  gap: 16px;
+}
+
+/* Leave */
+.leave-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.leave-item {
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  text-align: center;
+}
+
+/* Totals */
+.totals-grid {
+  display: grid;
+  gap: 12px;
+  min-height: 120px; /* Ensure adequate height for all content */
+}
+
+.total-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center; /* Center align items vertically */
+  padding: 16px; /* Increased padding for better spacing */
+  background: #f8fafc;
+  border-radius: 8px;
+  min-height: 20px; /* Ensure minimum height for content */
+}
+
+.total-item.net-pay {
+  background: #f0fdf4;
+  border: 2px solid #10b981;
+  font-weight: 600;
+  padding: 18px; /* Slightly more padding for the net pay item */
+}
+
+/* Footer */
+.payslip-footer {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+/* Watermark */
+.watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-45deg);
+  font-size: 3rem;
+  font-weight: bold;
+  opacity: 0.1;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .payslip-corporate, .payslip-minimal, .payslip-premium {
+    padding: 20px;
+    margin: 10px;
+  }
+  
+  .payslip-corporate .payslip-header, .payslip-premium .payslip-header {
+    grid-template-columns: 1fr;
+    text-align: center;
+    gap: 16px;
+  }
+  
+  .info-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .earnings-table, .deductions-table {
+    font-size: 0.75rem;
+  }
+  
+  .contribution-breakdown {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .leave-info {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .payslip-corporate, .payslip-minimal, .payslip-premium {
+    box-shadow: none;
+    border: 1px solid #000;
+    margin: 0;
+    padding: 20px;
+  }
+  
+  .watermark {
+    opacity: 0.05;
+  }
+}
