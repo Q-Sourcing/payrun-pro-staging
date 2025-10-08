@@ -1,11 +1,12 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
-import { User } from '@/lib/types/roles';
+import { User, UserRole } from '@/lib/types/roles';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
+  register: (email: string, password: string, firstName: string, lastName: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -32,7 +33,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         email: email,
         firstName: 'Demo',
         lastName: 'User',
-        role: 'super_admin',
+        role: 'super_admin' as UserRole,
         organizationId: null,
         departmentId: null,
         managerId: null,
@@ -58,6 +59,45 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const register = async (email: string, password: string, firstName: string, lastName: string) => {
+    setIsLoading(true);
+    
+    try {
+      // Simulate registration - in real app, this would call your backend
+      console.log('Registration attempt:', { email, firstName, lastName });
+      
+      // For demo purposes, create a mock user
+      const mockUser: User = {
+        id: '1',
+        email: email,
+        firstName: firstName,
+        lastName: lastName,
+        role: 'employee' as UserRole,
+        organizationId: null,
+        departmentId: null,
+        managerId: null,
+        isActive: true,
+        lastLogin: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        permissions: [],
+        restrictions: [],
+        twoFactorEnabled: false,
+        sessionTimeout: 480
+      };
+      
+      setUser(mockUser);
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+    } catch (error: any) {
+      throw new Error(error.message || 'Registration failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = async () => {
     setIsLoading(true);
     
@@ -76,6 +116,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isAuthenticated: !!user,
     isLoading,
     login,
+    register,
     logout
   };
 

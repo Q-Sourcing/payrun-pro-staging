@@ -351,7 +351,7 @@ export const RoleBasedDashboard = ({ currentUser }: RoleBasedDashboardProps) => 
                     {key.replace(/([A-Z])/g, ' $1').trim()}
                   </p>
                   <p className="text-2xl font-bold">
-                    {typeof value === 'number' ? value.toLocaleString() : value}
+                    {typeof value === 'number' ? value.toLocaleString() : String(value)}
                   </p>
                 </div>
                 <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
