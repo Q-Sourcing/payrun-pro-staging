@@ -38,6 +38,7 @@ export type Permission =
   | 'manage_budgets'
   | 'view_sensitive_data'
   | 'export_data'
+  | 'export_bank_schedule'
   | 'bulk_operations'
   | 'delete_records';
 
@@ -136,6 +137,7 @@ export const ROLE_DEFINITIONS: Record<UserRole, RoleDefinition> = {
       'view_system_health',
       'view_sensitive_data',
       'export_data',
+      'export_bank_schedule',
       'bulk_operations',
       'delete_records'
     ],
@@ -184,6 +186,7 @@ export const ROLE_DEFINITIONS: Record<UserRole, RoleDefinition> = {
       'manage_budgets',
       'view_sensitive_data',
       'export_data',
+      'export_bank_schedule',
       'bulk_operations'
     ],
     restrictions: [
@@ -225,7 +228,8 @@ export const ROLE_DEFINITIONS: Record<UserRole, RoleDefinition> = {
       'approve_payroll',
       'manage_budgets',
       'view_sensitive_data',
-      'export_data'
+      'export_data',
+      'export_bank_schedule'
     ],
     restrictions: [
       'Cannot process payroll or make individual employee changes',
@@ -267,7 +271,8 @@ export const ROLE_DEFINITIONS: Record<UserRole, RoleDefinition> = {
       'approve_expenses',
       'approve_leave',
       'approve_overtime',
-      'export_data'
+      'export_data',
+      'export_bank_schedule'
     ],
     restrictions: [
       'Cannot access data outside their department',
@@ -387,7 +392,8 @@ export const ROLE_DEFINITIONS: Record<UserRole, RoleDefinition> = {
       'approve_payroll',
       'manage_budgets',
       'view_audit_logs',
-      'export_data'
+      'export_data',
+      'export_bank_schedule'
     ],
     restrictions: [
       'Cannot modify employee personal data',

@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useBankSchedulePermissions } from "@/hooks/use-bank-schedule-permissions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUpDown, Filter, Download, Globe, Flag, Settings, FileText, Gift, Calculator } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUpDown, Filter, Download, Globe, Flag, Settings, FileText, Gift, Calculator, FileSpreadsheet } from "lucide-react";
 import { getCountryDeductions, calculateDeduction } from "@/lib/constants/deductions";
 import { getCurrencyByCode, getCurrencyCodeFromCountry } from "@/lib/constants/countries";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +27,7 @@ import { RecalculateTaxesDialog } from "./RecalculateTaxesDialog";
 import { RemoveCustomItemsDialog } from "./RemoveCustomItemsDialog";
 import { IndividualPayslipDialog } from "./IndividualPayslipDialog";
 import LstDeductionsDialog, { LstDialogEmployee } from "./LstDeductionsDialog";
+import BankScheduleExportDialog from "./BankScheduleExportDialog";
 
 interface CustomDeduction {
   id?: string;
@@ -99,8 +101,10 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
   const [removeCustomItemsDialogOpen, setRemoveCustomItemsDialogOpen] = useState(false);
   const [lstDialogOpen, setLstDialogOpen] = useState(false);
   const [individualPayslipDialogOpen, setIndividualPayslipDialogOpen] = useState(false);
+  const [bankScheduleDialogOpen, setBankScheduleDialogOpen] = useState(false);
   const [selectedEmployeeForPayslip, setSelectedEmployeeForPayslip] = useState<{id: string, name: string} | null>(null);
   const { toast } = useToast();
+  const { canExportBankSchedule } = useBankSchedulePermissions();
 
   useEffect(() => {
     let isMounted = true;
@@ -1054,6 +1058,12 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                       <FileText className="h-4 w-4 text-blue-600" />
                       <span>Generate All Payslips</span>
                     </DropdownMenuItem>
+                    {canExportBankSchedule && (
+                      <DropdownMenuItem onClick={() => setBankScheduleDialogOpen(true)} className="gap-2">
+                        <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                        <span>Export Bank Schedule</span>
+                      </DropdownMenuItem>
+                    )}
                   <DropdownMenuItem onClick={() => setLstDialogOpen(true)} className="gap-2">
                     <Flag className="h-4 w-4 text-green-700" />
                     <span>Uganda LST Deductions</span>
@@ -1612,6 +1622,14 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         onOpenChange={setGeneratePayslipsDialogOpen}
         employeeCount={payItems.length}
         payRunId={payRunId || ""}
+      />
+
+      <BankScheduleExportDialog
+        open={bankScheduleDialogOpen}
+        onOpenChange={setBankScheduleDialogOpen}
+        payRunId={payRunId || ""}
+        payRunDate={payRunDate}
+        payPeriod={payPeriod ? `${payPeriod.start} to ${payPeriod.end}` : undefined}
       />
 
       <GenerateBillingSummaryDialog

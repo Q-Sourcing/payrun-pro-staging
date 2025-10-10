@@ -2,13 +2,15 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Calendar, DollarSign, Trash2 } from "lucide-react";
+import { Plus, Calendar, DollarSign, Trash2, FileSpreadsheet } from "lucide-react";
 import { getCurrencyByCode, getCurrencyCodeFromCountry } from "@/lib/constants/countries";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useBankSchedulePermissions } from "@/hooks/use-bank-schedule-permissions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import CreatePayRunDialog from "./CreatePayRunDialog";
 import PayRunDetailsDialog from "./PayRunDetailsDialog";
+import BankScheduleExportDialog from "./BankScheduleExportDialog";
 import { format } from "date-fns";
 import {
   AlertDialog,
@@ -42,11 +44,13 @@ const PayRunsTab = () => {
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [showBankScheduleDialog, setShowBankScheduleDialog] = useState(false);
   const [selectedPayRun, setSelectedPayRun] = useState<PayRun | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [payRunToDelete, setPayRunToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
+  const { canExportBankSchedule } = useBankSchedulePermissions();
 
   const fetchPayRuns = async () => {
     try {
@@ -389,6 +393,20 @@ const PayRunsTab = () => {
                           >
                             View Details
                           </Button>
+                          {(payRun.status === 'approved' || payRun.status === 'processed') && canExportBankSchedule && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 px-3 text-xs font-medium border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400 dark:border-blue-600 dark:text-blue-300 dark:hover:bg-blue-900/20"
+                              onClick={() => {
+                                setSelectedPayRun(payRun);
+                                setShowBankScheduleDialog(true);
+                              }}
+                            >
+                              <FileSpreadsheet className="h-3 w-3 mr-1" />
+                              Bank Schedule
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -418,17 +436,27 @@ const PayRunsTab = () => {
       />
 
       {selectedPayRun && (
-        <PayRunDetailsDialog
-          open={showDetailsDialog}
-          onOpenChange={setShowDetailsDialog}
-          payRunId={selectedPayRun.id}
-          payRunDate={selectedPayRun.pay_run_date}
-          payPeriod={{
-            start: selectedPayRun.pay_period_start,
-            end: selectedPayRun.pay_period_end
-          }}
-          onPayRunUpdated={fetchPayRuns}
-        />
+        <>
+          <PayRunDetailsDialog
+            open={showDetailsDialog}
+            onOpenChange={setShowDetailsDialog}
+            payRunId={selectedPayRun.id}
+            payRunDate={selectedPayRun.pay_run_date}
+            payPeriod={{
+              start: selectedPayRun.pay_period_start,
+              end: selectedPayRun.pay_period_end
+            }}
+            onPayRunUpdated={fetchPayRuns}
+          />
+          
+          <BankScheduleExportDialog
+            open={showBankScheduleDialog}
+            onOpenChange={setShowBankScheduleDialog}
+            payRunId={selectedPayRun.id}
+            payRunDate={selectedPayRun.pay_run_date}
+            payPeriod={`${selectedPayRun.pay_period_start} to ${selectedPayRun.pay_period_end}`}
+          />
+        </>
       )}
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

@@ -1,7 +1,3 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 /* Import payslip styles */
 @import './styles/payslip.css';
 
@@ -10,6 +6,10 @@
 
 /* Import Comprehensive Dark Mode Fixes */
 @import './styles/dark-mode-comprehensive.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   /* Brand Colors - Teal & Gold Palette */
