@@ -2,6 +2,7 @@ import { useState, useEffect, createContext, useContext, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { log, warn, error, debug } from '@/lib/logger';
 
 export type UserRole = 'super_admin' | 'admin' | 'manager' | 'employee';
 
@@ -39,7 +40,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
   // Fetch user profile and roles
   const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
     try {
-      console.log('📊 Fetching user profile for:', userId);
+      debug('Fetching user profile for:', userId);
       
       // Fetch profile
       const { data: profileData, error: profileError } = await supabase
@@ -49,7 +50,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
         .single();
 
       if (profileError) {
-        console.error('❌ Profile fetch error:', profileError);
+        error('Profile fetch error:', profileError);
         return null;
       }
 
@@ -60,7 +61,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
         .eq('user_id', userId);
 
       if (rolesError) {
-        console.error('❌ Roles fetch error:', rolesError);
+        error('Roles fetch error:', rolesError);
       }
 
       const roles = rolesData?.map(r => r.role as UserRole) || [];
@@ -73,10 +74,10 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
         roles,
       };
 
-      console.log('✅ User profile loaded:', userProfile);
+      log('User profile loaded:', userProfile);
       return userProfile;
-    } catch (error) {
-      console.error('❌ Error fetching user profile:', error);
+    } catch (err) {
+      error('Error fetching user profile:', err);
       return null;
     }
   };
@@ -84,11 +85,11 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
   // Refresh session
   const refreshSession = async () => {
     try {
-      console.log('🔄 Refreshing session...');
+      debug('Refreshing session...');
       const { data, error } = await supabase.auth.refreshSession();
       
       if (error) {
-        console.error('❌ Session refresh error:', error);
+        error('Session refresh error:', error);
         throw error;
       }
       
@@ -100,9 +101,9 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
         setProfile(userProfile);
       }
       
-      console.log('✅ Session refreshed successfully');
+      log('Session refreshed successfully');
     } catch (error) {
-      console.error('❌ Failed to refresh session:', error);
+      error('Failed to refresh session:', error);
       setSession(null);
       setUser(null);
       setProfile(null);
@@ -111,12 +112,12 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
 
   // Initialize auth state
   useEffect(() => {
-    console.log('🔐 Initializing auth...');
+    debug('Initializing auth...');
     
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('🔔 Auth state changed:', event, session?.user?.email);
+        debug('Auth state changed:', event, session?.user?.email);
         
         setSession(session);
         setUser(session?.user ?? null);
@@ -137,7 +138,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('📋 Initial session check:', session?.user?.email);
+      debug('Initial session check:', session?.user?.email);
       
       setSession(session);
       setUser(session?.user ?? null);
@@ -150,7 +151,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
     });
 
     return () => {
-      console.log('🔌 Cleaning up auth subscription');
+      debug('Cleaning up auth subscription');
       subscription.unsubscribe();
     };
   }, []);
@@ -160,7 +161,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
     setIsLoading(true);
     
     try {
-      console.log('🔑 Attempting login for:', email);
+      debug('Attempting login for:', email);
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -168,11 +169,11 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
       });
 
       if (error) {
-        console.error('❌ Login error:', error);
+        error('Login error:', error);
         throw error;
       }
 
-      console.log('✅ Login successful:', data.user?.email);
+      log('Login successful:', data.user?.email);
       
       // Fetch user profile after successful login
       if (data.user) {
@@ -185,7 +186,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
         description: `Successfully logged in as ${data.user?.email}`,
       });
     } catch (error: any) {
-      console.error('❌ Login failed:', error);
+      error('Login failed:', error);
       
       let errorMessage = 'Invalid email or password';
       
@@ -214,12 +215,12 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
     setIsLoading(true);
     
     try {
-      console.log('👋 Logging out...');
+      debug('Logging out...');
       
       const { error } = await supabase.auth.signOut();
       
       if (error) {
-        console.error('❌ Logout error:', error);
+        error('Logout error:', error);
         throw error;
       }
       
@@ -227,14 +228,14 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
       setProfile(null);
       setSession(null);
       
-      console.log('✅ Logout successful');
+      log('Logout successful');
       
       toast({
         title: "Logged out",
         description: "You have been successfully logged out.",
       });
     } catch (error) {
-      console.error('❌ Logout failed:', error);
+      error('Logout failed:', error);
       toast({
         title: "Logout Failed",
         description: "Failed to logout. Please try again.",

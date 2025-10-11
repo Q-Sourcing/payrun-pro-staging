@@ -1,4 +1,5 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { log, warn, error, debug } from '@/lib/logger';
 import { User, UserRole } from '@/lib/types/roles';
 
 interface AuthContextType {
@@ -25,7 +26,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     
     try {
       // Simulate login - in real app, this would call your backend
-      console.log('Login attempt:', { email, password, rememberMe });
+      debug('Login attempt:', { email, password: '[REDACTED]', rememberMe });
       
       // For demo purposes, create a mock user
       const mockUser: User = {

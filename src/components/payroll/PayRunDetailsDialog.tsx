@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { log, warn, error, debug } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -171,7 +172,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         if (!isMounted) return;
         setPayItems(payItemsWithDeductions);
       } catch (error) {
-        console.error("Error fetching pay items:", error);
+        error("Error fetching pay items:", error);
         if (!isMounted) return;
         
         toast({
@@ -307,7 +308,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       // Use server-side Edge Function for calculations
       return await PayrollCalculationService.calculatePayroll(input);
     } catch (error) {
-      console.error('Error calculating payroll:', error);
+      error('Error calculating payroll:', error);
       toast({
         title: "Calculation Error",
         description: "Failed to calculate payroll. Using fallback calculation.",
@@ -528,7 +529,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       setSelectedItems(new Set());
       fetchPayItems();
     } catch (error) {
-      console.error("Error updating status:", error);
+        error("Error updating status:", error);
       toast({
         title: "Error",
         description: "Failed to update status",
@@ -595,7 +596,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
       fetchPayItems();
     } catch (error) {
-      console.error("Error updating pay item:", error);
+        error("Error updating pay item:", error);
       toast({
         title: "Error",
         description: "Failed to update pay item",
@@ -670,7 +671,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       fetchPayItems();
       await updatePayRunTotals();
     } catch (error) {
-      console.error("Error adding custom deduction:", error);
+        error("Error adding custom deduction:", error);
       toast({
         title: "Error",
         description: "Failed to add custom item",
@@ -695,7 +696,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
       fetchPayItems();
     } catch (error) {
-      console.error("Error updating status:", error);
+        error("Error updating status:", error);
       toast({
         title: "Error",
         description: "Failed to update status",
@@ -758,7 +759,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
       fetchPayItems();
     } catch (error) {
-      console.error("Error deleting custom deduction:", error);
+        error("Error deleting custom deduction:", error);
       toast({
         title: "Error",
         description: "Failed to delete custom deduction",
@@ -818,7 +819,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       setSelectedItems(new Set());
       fetchPayItems();
     } catch (error) {
-      console.error("Error applying bulk addition:", error);
+        error("Error applying bulk addition:", error);
       toast({
         title: "Error",
         description: "Failed to apply bulk addition",
@@ -854,7 +855,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       setSelectedItems(new Set());
       fetchPayItems();
     } catch (error) {
-      console.error("Error applying bulk deduction:", error);
+        error("Error applying bulk deduction:", error);
       toast({
         title: "Error",
         description: "Failed to apply bulk deduction",
@@ -908,7 +909,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       setSelectedItems(new Set());
       fetchPayItems();
     } catch (error) {
-      console.error("Error applying bulk update:", error);
+        error("Error applying bulk update:", error);
       toast({
         title: "Error",
         description: "Failed to apply bulk update",
@@ -1695,7 +1696,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         employeeCount={payItems.length}
         currency={payGroupCurrency}
         onApply={(benefits) => {
-          console.log("Applying benefits:", benefits);
+          debug("Applying benefits:", benefits);
           fetchPayItems();
         }}
       />
@@ -1739,7 +1740,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
             })();
 
             // LST tables not available in current schema - skip persistence
-            console.log("LST deductions applied successfully");
+            log("LST deductions applied successfully");
 
             // Apply current month installment as custom deduction (equal split with remainder last month)
             const insertRows = preview.map(row => {
@@ -1767,7 +1768,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
               description: `Applied to ${insertRows.length} employee(s). Total monthly LST: ${totalMonthly.toLocaleString()}`,
             });
           } catch (e: any) {
-            console.error("Error applying LST:", e);
+            error("Error applying LST:", e);
             toast({
               title: "LST Application Failed",
               description: e?.message || "Unable to apply LST deductions. Please try again.",

@@ -4,6 +4,7 @@ import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { log, warn, error, debug } from '@/lib/logger';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Mail, Lock, LogIn } from 'lucide-react';
@@ -20,7 +21,7 @@ export function ModernLoginForm() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      console.log('✅ User authenticated, redirecting to dashboard');
+      log('User authenticated, redirecting to dashboard');
       navigate('/');
     }
   }, [isAuthenticated, navigate]);
@@ -44,12 +45,12 @@ export function ModernLoginForm() {
     }
 
     try {
-      console.log('🔐 Submitting login form...');
+      debug('Submitting login form...');
       await login(email, password);
-      console.log('✅ Login successful, navigating to dashboard');
+      log('Login successful, navigating to dashboard');
       navigate('/');
     } catch (err: any) {
-      console.error('❌ Login error:', err);
+      error('Login error:', err);
       setError(err.message || 'Failed to login. Please try again.');
     } finally {
       setIsSubmitting(false);

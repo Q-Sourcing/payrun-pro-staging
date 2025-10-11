@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { log, warn, error, debug } from "@/lib/logger";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Calendar, DollarSign, Trash2, FileSpreadsheet } from "lucide-react";
 import { getCurrencyByCode, getCurrencyCodeFromCountry } from "@/lib/constants/countries";
@@ -75,7 +76,7 @@ const PayRunsTab = () => {
       
       setPayRuns(payRunsWithCount);
     } catch (error) {
-      console.error("Error fetching pay runs:", error);
+      error("Error fetching pay runs:", error);
       toast({
         title: "Error",
         description: "Failed to fetch pay runs",
@@ -176,7 +177,7 @@ const PayRunsTab = () => {
 
       throw lastError;
     } catch (error: any) {
-      console.error("Error deleting pay run:", error);
+      error("Error deleting pay run:", error);
       toast({
         title: "Error",
         description: error.message?.includes("Failed to fetch") 

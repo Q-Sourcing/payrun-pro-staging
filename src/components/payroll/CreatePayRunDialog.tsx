@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { log, warn, error, debug } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -74,7 +75,7 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
         .select("*");
 
       if (error) {
-        console.error("Error fetching pay groups:", error);
+        error("Error fetching pay groups:", error);
         // Fallback to mock data if database fails
         setPayGroups([
           { id: "1", name: "UG Monthly Staff", country: "Uganda", pay_frequency: "monthly" },
@@ -84,7 +85,7 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
         setPayGroups(data || []);
       }
     } catch (error) {
-      console.error("Database connection failed:", error);
+      error("Database connection failed:", error);
       // Fallback to mock data
       setPayGroups([
         { id: "1", name: "UG Monthly Staff", country: "Uganda", pay_frequency: "monthly" },
@@ -195,7 +196,7 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
               pieces_completed: employee.pay_type === 'piece_rate' ? 0 : null,
             };
           } catch (error) {
-            console.error(`Failed to calculate payroll for employee ${employee.id}:`, error);
+            error(`Failed to calculate payroll for employee ${employee.id}:`, error);
             // Fallback to simple calculation
             const grossPay = employee.pay_rate || 0;
             const taxDeduction = grossPay * 0.1; // Simple 10% tax for demo
@@ -263,7 +264,7 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
       onPayRunCreated();
       onOpenChange(false);
     } catch (error: any) {
-      console.error("Error creating pay run:", error);
+      error("Error creating pay run:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to create pay run. Please check your database connection.",

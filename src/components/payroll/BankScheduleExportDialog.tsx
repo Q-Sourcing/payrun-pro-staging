@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { log, warn, error, debug } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -81,7 +82,7 @@ export const BankScheduleExportDialog: React.FC<BankScheduleExportDialogProps> =
         });
       }
     } catch (error) {
-      console.error('Error loading bank schedule data:', error);
+      error('Error loading bank schedule data:', error);
       toast({
         title: "Error loading data",
         description: error instanceof Error ? error.message : 'Failed to load bank schedule data',
@@ -113,7 +114,7 @@ export const BankScheduleExportDialog: React.FC<BankScheduleExportDialogProps> =
 
       onOpenChange(false);
     } catch (error) {
-      console.error('Error exporting bank schedule:', error);
+      error('Error exporting bank schedule:', error);
       toast({
         title: "Export failed",
         description: error instanceof Error ? error.message : 'Failed to export bank schedule',
@@ -153,7 +154,7 @@ export const BankScheduleExportDialog: React.FC<BankScheduleExportDialogProps> =
         description: `${bankName.toUpperCase()} bank schedule exported to ${fileName}`,
       });
     } catch (error) {
-      console.error('Error exporting CSV:', error);
+      error('Error exporting CSV:', error);
       toast({
         title: "CSV Export failed",
         description: error instanceof Error ? error.message : 'Failed to export CSV',

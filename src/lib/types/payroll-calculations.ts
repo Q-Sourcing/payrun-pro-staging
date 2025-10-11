@@ -1,4 +1,5 @@
 // Types for payroll calculation Edge Function
+import { log, warn, error, debug } from '@/lib/logger';
 
 export interface CalculationInput {
   employee_id: string;
@@ -65,7 +66,7 @@ export class PayrollCalculationService {
       const supabaseClient = (await import('@/integrations/supabase/client')).supabase;
       const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
       
-      console.log('🔍 Debug - Session check:', {
+      debug('Session check:', {
         hasSession: !!session,
         hasAccessToken: !!session?.access_token,
         userEmail: session?.user?.email,
@@ -73,12 +74,12 @@ export class PayrollCalculationService {
       });
       
       if (sessionError) {
-        console.error('Session error:', sessionError);
+        error('Session error:', sessionError);
         throw new Error('Authentication failed: Unable to get session');
       }
       
       if (!session?.access_token) {
-        console.error('❌ No access token available - using fallback calculation');
+        error('No access token available - using fallback calculation');
         throw new Error('Authentication failed: No access token');
       }
       
@@ -87,7 +88,7 @@ export class PayrollCalculationService {
         'Authorization': `Bearer ${session.access_token}`,
       };
       
-      console.log('Calling Edge Function with authentication...');
+      debug('Calling Edge Function with authentication...');
       
       const response = await fetch(url, {
         method: 'POST',
@@ -97,7 +98,7 @@ export class PayrollCalculationService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`Edge Function error (${response.status}):`, errorText);
+        error(`Edge Function error (${response.status}):`, errorText);
         
         let errorData: CalculationError;
         try {
@@ -115,11 +116,11 @@ export class PayrollCalculationService {
         throw new Error('Calculation failed');
       }
 
-      console.log('Edge Function calculation successful:', result.data);
+      log('Edge Function calculation successful:', result.data);
       return result.data;
-    } catch (error) {
-      console.error('Error calling payroll calculation function:', error);
-      throw error;
+    } catch (err) {
+      error('Error calling payroll calculation function:', err);
+      throw err;
     }
   }
 
@@ -132,7 +133,7 @@ export class PayrollCalculationService {
       if (result.status === 'fulfilled') {
         return result.value;
       } else {
-        console.error(`Calculation failed for employee ${inputs[index].employee_id}:`, result.reason);
+        error(`Calculation failed for employee ${inputs[index].employee_id}:`, result.reason);
         throw result.reason;
       }
     });
