@@ -304,6 +304,51 @@ export type Database = {
         }
         Relationships: []
       }
+      pay_calculation_audit_log: {
+        Row: {
+          calculated_at: string | null
+          created_at: string | null
+          employee_id: string | null
+          id: string
+          input_data: Json | null
+          output_data: Json | null
+          pay_run_id: string | null
+        }
+        Insert: {
+          calculated_at?: string | null
+          created_at?: string | null
+          employee_id?: string | null
+          id?: string
+          input_data?: Json | null
+          output_data?: Json | null
+          pay_run_id?: string | null
+        }
+        Update: {
+          calculated_at?: string | null
+          created_at?: string | null
+          employee_id?: string | null
+          id?: string
+          input_data?: Json | null
+          output_data?: Json | null
+          pay_run_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pay_calculation_audit_log_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pay_calculation_audit_log_pay_run_id_fkey"
+            columns: ["pay_run_id"]
+            isOneToOne: false
+            referencedRelation: "pay_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pay_groups: {
         Row: {
           country: string
@@ -455,7 +500,6 @@ export type Database = {
           pay_period_end: string
           pay_period_start: string
           pay_run_date: string
-          pay_run_id: string | null
           status: Database["public"]["Enums"]["pay_run_status"]
           total_deductions: number | null
           total_gross_pay: number | null
@@ -472,7 +516,6 @@ export type Database = {
           pay_period_end: string
           pay_period_start: string
           pay_run_date?: string
-          pay_run_id?: string | null
           status?: Database["public"]["Enums"]["pay_run_status"]
           total_deductions?: number | null
           total_gross_pay?: number | null
@@ -489,7 +532,6 @@ export type Database = {
           pay_period_end?: string
           pay_period_start?: string
           pay_run_date?: string
-          pay_run_id?: string | null
           status?: Database["public"]["Enums"]["pay_run_status"]
           total_deductions?: number | null
           total_gross_pay?: number | null
@@ -505,6 +547,121 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payslip_generations: {
+        Row: {
+          created_by: string | null
+          employee_id: string | null
+          export_format: string
+          file_size: number | null
+          generated_at: string
+          id: string
+          pay_run_id: string | null
+          template_id: string | null
+        }
+        Insert: {
+          created_by?: string | null
+          employee_id?: string | null
+          export_format?: string
+          file_size?: number | null
+          generated_at?: string
+          id?: string
+          pay_run_id?: string | null
+          template_id?: string | null
+        }
+        Update: {
+          created_by?: string | null
+          employee_id?: string | null
+          export_format?: string
+          file_size?: number | null
+          generated_at?: string
+          id?: string
+          pay_run_id?: string | null
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payslip_generations_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payslip_generations_pay_run_id_fkey"
+            columns: ["pay_run_id"]
+            isOneToOne: false
+            referencedRelation: "pay_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payslip_generations_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "payslip_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payslip_templates: {
+        Row: {
+          config: Json
+          created_at: string
+          description: string | null
+          id: string
+          is_default: boolean
+          name: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          config: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean
+          name: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string
+          first_name: string | null
+          id: string
+          last_name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          first_name?: string | null
+          id: string
+          last_name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       settings: {
         Row: {
@@ -536,14 +693,42 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
+      app_role: "super_admin" | "admin" | "manager" | "employee"
       benefit_type:
         | "health_insurance"
         | "retirement"
@@ -681,6 +866,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["super_admin", "admin", "manager", "employee"],
       benefit_type: [
         "health_insurance",
         "retirement",

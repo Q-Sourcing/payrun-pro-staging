@@ -6,13 +6,13 @@ export interface CalculationInput {
   hours_worked?: number;
   pieces_completed?: number;
   pay_rate?: number;
-  pay_type?: 'hourly' | 'piece_rate' | 'salary';
-  employee_type?: 'local' | 'expatriate';
+  pay_type?: string;
+  employee_type?: string;
   country?: string;
   custom_deductions?: Array<{
     name: string;
     amount: number;
-    type: 'benefit' | 'deduction' | 'allowance';
+    type: string;
   }>;
   benefit_deductions?: number;
 }

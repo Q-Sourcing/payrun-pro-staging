@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { Users, DollarSign, Calendar, FileText, Settings, Moon, Sun, Palette, Search, Bell } from "lucide-react";
+import { Users, DollarSign, Calendar, FileText, Settings, Moon, Sun, Palette, Search, Bell, LogOut } from "lucide-react";
 import { useTheme } from "@/components/ui/theme-provider";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import EmployeesTab from "@/components/payroll/EmployeesTab";
 import PayGroupsTab from "@/components/payroll/PayGroupsTab";
 import PayRunsTab from "@/components/payroll/PayRunsTab";
@@ -14,6 +15,7 @@ import { Toaster } from "@/components/ui/toaster";
 const Index = () => {
   const [activeTab, setActiveTab] = useState("employees");
   const { theme, setTheme } = useTheme();
+  const { logout, profile } = useSupabaseAuth();
 
   const menuItems = [
     { id: "employees", label: "Employees", icon: Users },
@@ -122,12 +124,27 @@ const Index = () => {
           </div>
           
           <div className="user-menu">
-            <div className="user-avatar">NK</div>
+            <div className="user-avatar">
+              {profile?.first_name?.[0]}{profile?.last_name?.[0] || 'U'}
+            </div>
             <div className="user-info">
-              <div className="user-name">Nalungu Kevin</div>
-              <div className="user-email">nalungukevin@gmail.com</div>
+              <div className="user-name">
+                {profile?.first_name} {profile?.last_name}
+              </div>
+              <div className="user-email">{profile?.email}</div>
             </div>
           </div>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={logout}
+            className="flex items-center gap-2"
+            title="Logout"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden md:inline">Logout</span>
+          </Button>
         </div>
       </div>
 

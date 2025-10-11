@@ -34,7 +34,7 @@ interface CustomDeduction {
   id?: string;
   name: string;
   amount: number;
-  type?: string;
+  type: string;
 }
 
 type SortField = 'name' | 'pay_type' | 'gross_pay' | 'total_deductions' | 'net_pay' | 'status';
@@ -43,6 +43,7 @@ type SortDirection = 'asc' | 'desc';
 interface PayItem {
   id: string;
   employee_id: string;
+  pay_run_id: string;
   gross_pay: number;
   tax_deduction: number;
   benefit_deductions: number;
@@ -396,17 +397,26 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     const totalDeductions = calculatedTaxDeduction + benefitDeductions + customDeductionsTotal;
     const netPay = grossPay + customAllowancesTotal - totalDeductions;
 
+    // Return in the same format as CalculationResult
     return { 
+      gross_pay: grossPay,
+      paye_tax: calculatedTaxDeduction,
+      nssf_employee: standardDeductions['NSSF Employee'] || 0,
+      nssf_employer: standardDeductions['NSSF Employer'] || 0,
+      total_deductions: totalDeductions,
+      net_pay: netPay,
+      employer_contributions: employerContributions,
+      breakdown: [],
+      standard_deductions: standardDeductions,
+      // Legacy fields for backward compatibility
       grossPay, 
       taxDeduction: calculatedTaxDeduction, 
       totalDeductions, 
       netPay,
       customDeductionsTotal,
       customBenefitsTotal: grossAffectingAdditions,
-      customAllowancesTotal,
-      employerContributions,
-      standardDeductions
-    };
+      customAllowancesTotal
+    } as any;
   };
 
   // Filtered and sorted pay items

@@ -334,7 +334,7 @@ const getCountryDeductions = (countryNameOrCode: string): DeductionRule[] => {
   // Try to get the code from the map, otherwise use the input as-is
   const countryCode = countryCodeMap[countryNameOrCode] || countryNameOrCode;
   
-  return COUNTRY_DEDUCTIONS[countryCode]?.deductions || [];
+  return (COUNTRY_DEDUCTIONS as any)[countryCode]?.deductions || [];
 };
 
 // Main calculation function
@@ -587,10 +587,11 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in calculate-pay function:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error',
-        details: error.message 
+        details: errorMessage 
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
