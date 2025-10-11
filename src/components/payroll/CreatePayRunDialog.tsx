@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { PayrollCalculationService, CalculationInput } from "@/lib/types/payroll-calculations";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
@@ -162,26 +163,60 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
         return;
       }
 
-      // Create pay items for each employee
-      const payItems = employees.map(employee => {
-        const grossPay = employee.pay_rate || 0;
-        const taxDeduction = grossPay * 0.1; // Simple 10% tax for demo
-        const totalDeductions = taxDeduction;
-        const netPay = grossPay - totalDeductions;
+      // Create pay items for each employee using server-side calculations
+      const payItems = await Promise.all(
+        employees.map(async (employee) => {
+          try {
+            const input: CalculationInput = {
+              employee_id: employee.id,
+              pay_run_id: payRunData.id,
+              pay_rate: employee.pay_rate,
+              pay_type: employee.pay_type,
+              employee_type: employee.employee_type,
+              country: employee.country,
+              hours_worked: employee.pay_type === 'hourly' ? 0 : undefined,
+              pieces_completed: employee.pay_type === 'piece_rate' ? 0 : undefined,
+              custom_deductions: [],
+              benefit_deductions: 0
+            };
 
-        return {
-          pay_run_id: payRunData.id,
-          employee_id: employee.id,
-          gross_pay: grossPay,
-          tax_deduction: taxDeduction,
-          benefit_deductions: 0,
-          total_deductions: totalDeductions,
-          net_pay: netPay,
-          employer_contributions: 0,
-          hours_worked: employee.pay_type === 'hourly' ? 0 : null,
-          pieces_completed: employee.pay_type === 'piece_rate' ? 0 : null,
-        };
-      });
+            const result = await PayrollCalculationService.calculatePayroll(input);
+            
+            return {
+              pay_run_id: payRunData.id,
+              employee_id: employee.id,
+              gross_pay: result.gross_pay,
+              tax_deduction: result.paye_tax,
+              benefit_deductions: 0,
+              total_deductions: result.total_deductions,
+              net_pay: result.net_pay,
+              employer_contributions: result.employer_contributions,
+              hours_worked: employee.pay_type === 'hourly' ? 0 : null,
+              pieces_completed: employee.pay_type === 'piece_rate' ? 0 : null,
+            };
+          } catch (error) {
+            console.error(`Failed to calculate payroll for employee ${employee.id}:`, error);
+            // Fallback to simple calculation
+            const grossPay = employee.pay_rate || 0;
+            const taxDeduction = grossPay * 0.1; // Simple 10% tax for demo
+            const totalDeductions = taxDeduction;
+            const netPay = grossPay - totalDeductions;
+
+            return {
+              pay_run_id: payRunData.id,
+              employee_id: employee.id,
+              gross_pay: grossPay,
+              tax_deduction: taxDeduction,
+              benefit_deductions: 0,
+              total_deductions: totalDeductions,
+              net_pay: netPay,
+              employer_contributions: 0,
+              hours_worked: employee.pay_type === 'hourly' ? 0 : null,
+              pieces_completed: employee.pay_type === 'piece_rate' ? 0 : null,
+            };
+          }
+        })
+      );
 
       const { error: payItemsError } = await supabase
         .from("pay_items")

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUpDown, Filter, Download, Globe, Flag, Settings, FileText, Gift, Calculator, FileSpreadsheet } from "lucide-react";
 import { getCountryDeductions, calculateDeduction } from "@/lib/constants/deductions";
+import { PayrollCalculationService, CalculationInput, CalculationResult } from "@/lib/types/payroll-calculations";
 import { getCurrencyByCode, getCurrencyCodeFromCountry } from "@/lib/constants/countries";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -78,6 +79,7 @@ interface PayGroup {
 }
 
 const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeriod, onPayRunUpdated }: PayRunDetailsDialogProps) => {
+  
   const [payItems, setPayItems] = useState<PayItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingItems, setEditingItems] = useState<Record<string, Partial<PayItem>>>({});
@@ -285,7 +287,44 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     }));
   };
 
+  // Server-side calculation using Edge Function (for final submissions)
+  const calculatePayServer = async (item: PayItem, edits: Partial<PayItem> = {}): Promise<CalculationResult> => {
+    try {
+      const input: CalculationInput = {
+        employee_id: item.employee_id,
+        pay_run_id: item.pay_run_id,
+        hours_worked: edits.hours_worked ?? item.hours_worked ?? 0,
+        pieces_completed: edits.pieces_completed ?? item.pieces_completed ?? 0,
+        pay_rate: item.employees.pay_rate,
+        pay_type: item.employees.pay_type,
+        employee_type: item.employees.employee_type,
+        country: item.employees.country,
+        custom_deductions: item.customDeductions || [],
+        benefit_deductions: edits.benefit_deductions ?? item.benefit_deductions ?? 0
+      };
+
+      // Use server-side Edge Function for calculations
+      return await PayrollCalculationService.calculatePayroll(input);
+    } catch (error) {
+      console.error('Error calculating payroll:', error);
+      toast({
+        title: "Calculation Error",
+        description: "Failed to calculate payroll. Using fallback calculation.",
+        variant: "destructive",
+      });
+      
+      // Fallback to client-side calculation if server fails
+      return calculatePayFallback(item, edits);
+    }
+  };
+
+  // Client-side calculation for real-time UI updates (keeping original logic)
   const calculatePay = (item: PayItem, edits: Partial<PayItem> = {}) => {
+    return calculatePayFallback(item, edits);
+  };
+
+  // Fallback client-side calculation (keeping the original logic as backup)
+  const calculatePayFallback = (item: PayItem, edits: Partial<PayItem> = {}) => {
     const hoursWorked = edits.hours_worked ?? item.hours_worked ?? 0;
     const piecesCompleted = edits.pieces_completed ?? item.pieces_completed ?? 0;
     const payRate = item.employees.pay_rate;
@@ -510,7 +549,9 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
   const handleSave = async (item: PayItem) => {
     const edits = editingItems[item.id] || {};
-    const { grossPay, taxDeduction, totalDeductions, netPay } = calculatePay(item, edits);
+    // Use server-side calculation for final save
+    const result = await calculatePayServer(item, edits);
+    const { gross_pay: grossPay, paye_tax: taxDeduction, total_deductions: totalDeductions, net_pay: netPay } = result;
 
     try {
       const { error } = await supabase
@@ -1207,8 +1248,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                     const countryDeductions = getCountryDeductions(item.employees.country);
 
                     return (
-                      <>
-                        <TableRow key={item.id} className={selectedItems.has(item.id) ? 'bg-muted/50' : ''}>
+                      <React.Fragment key={item.id}>
+                        <TableRow className={selectedItems.has(item.id) ? 'bg-muted/50' : ''}>
                           <TableCell>
                             <Checkbox
                               checked={selectedItems.has(item.id)}
@@ -1575,7 +1616,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                             </TableCell>
                           </TableRow>
                         )}
-                      </>
+                      </React.Fragment>
                     );
                   })}
                 </TableBody>
