@@ -8,15 +8,18 @@ import { Card } from "@/components/ui/card";
 import { Calculator, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { supabase } from "@/integrations/supabase/client";
+import { PayrollCalculationService, CalculationInput } from "@/lib/types/payroll-calculations";
 
 interface RecalculateTaxesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   employeeCount: number;
+  payRunId?: string;
   onRecalculate: () => void;
 }
 
-export const RecalculateTaxesDialog = ({ open, onOpenChange, employeeCount, onRecalculate }: RecalculateTaxesDialogProps) => {
+export const RecalculateTaxesDialog = ({ open, onOpenChange, employeeCount, payRunId, onRecalculate }: RecalculateTaxesDialogProps) => {
   const [scope, setScope] = useState<"all" | "selected" | "specific">("all");
   const [includePAYE, setIncludePAYE] = useState(true);
   const [includeNSSF, setIncludeNSSF] = useState(true);
@@ -31,17 +34,133 @@ export const RecalculateTaxesDialog = ({ open, onOpenChange, employeeCount, onRe
   const { toast } = useToast();
 
   const handleRecalculate = async () => {
+    if (!payRunId) {
+      toast({
+        title: "Error",
+        description: "No pay run ID provided for recalculation",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setRecalculating(true);
     
-    setTimeout(() => {
-      setRecalculating(false);
+    try {
+      // Fetch current pay items
+      const { data: payItems, error: fetchError } = await supabase
+        .from("pay_items")
+        .select(`
+          *,
+          employees (
+            first_name,
+            middle_name,
+            last_name,
+            email,
+            pay_type,
+            pay_rate,
+            country,
+            employee_type
+          )
+        `)
+        .eq("pay_run_id", payRunId);
+
+      if (fetchError) throw fetchError;
+
+      if (!payItems || payItems.length === 0) {
+        throw new Error("No pay items found for this pay run");
+      }
+
+      // Recalculate each pay item
+      const updatedPayItems = await Promise.all(
+        payItems.map(async (item) => {
+          try {
+            const input: CalculationInput = {
+              employee_id: item.employee_id,
+              pay_run_id: payRunId,
+              pay_rate: item.employees.pay_rate,
+              pay_type: item.employees.pay_type,
+              employee_type: item.employees.employee_type,
+              country: item.employees.country,
+              hours_worked: item.hours_worked,
+              pieces_completed: item.pieces_completed,
+              custom_deductions: [], // We'll fetch these separately if needed
+              benefit_deductions: item.benefit_deductions || 0
+            };
+
+            const result = await PayrollCalculationService.calculatePayroll(input);
+            
+            return {
+              id: item.id,
+              gross_pay: result.gross_pay,
+              tax_deduction: result.paye_tax + result.nssf_employee, // PAYE + NSSF Employee
+              total_deductions: result.total_deductions,
+              net_pay: result.net_pay,
+              employer_contributions: result.employer_contributions,
+            };
+          } catch (error) {
+            console.error(`Failed to recalculate for employee ${item.employee_id}:`, error);
+            // Return original values if calculation fails
+            return {
+              id: item.id,
+              gross_pay: item.gross_pay,
+              tax_deduction: item.tax_deduction,
+              total_deductions: item.total_deductions,
+              net_pay: item.net_pay,
+              employer_contributions: item.employer_contributions,
+            };
+          }
+        })
+      );
+
+      // Update pay items in database
+      const updatePromises = updatedPayItems.map(item => 
+        supabase
+          .from("pay_items")
+          .update({
+            gross_pay: item.gross_pay,
+            tax_deduction: item.tax_deduction,
+            total_deductions: item.total_deductions,
+            net_pay: item.net_pay,
+            employer_contributions: item.employer_contributions,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", item.id)
+      );
+
+      await Promise.all(updatePromises);
+
+      // Update pay run totals
+      const totalGross = updatedPayItems.reduce((sum, item) => sum + item.gross_pay, 0);
+      const totalDeductions = updatedPayItems.reduce((sum, item) => sum + item.total_deductions, 0);
+      const totalNet = updatedPayItems.reduce((sum, item) => sum + item.net_pay, 0);
+
+      await supabase
+        .from("pay_runs")
+        .update({
+          total_gross_pay: totalGross,
+          total_deductions: totalDeductions,
+          total_net_pay: totalNet,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", payRunId);
+
       toast({
         title: "Taxes Recalculated",
-        description: `Successfully recalculated taxes for ${employeeCount} employees`,
+        description: `Successfully recalculated taxes for ${updatedPayItems.length} employees`,
       });
+      
       onRecalculate();
       onOpenChange(false);
-    }, 3000);
+    } catch (error) {
+      console.error("Error recalculating taxes:", error);
+      toast({
+        title: "Recalculation Failed",
+        description: error instanceof Error ? error.message : "Failed to recalculate taxes",
+        variant: "destructive",
+      });
+    } finally {
+      setRecalculating(false);
+    }
   };
 
   return (

@@ -187,7 +187,7 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
               pay_run_id: payRunData.id,
               employee_id: employee.id,
               gross_pay: result.gross_pay,
-              tax_deduction: result.paye_tax,
+              tax_deduction: result.paye_tax + result.nssf_employee, // PAYE + NSSF Employee (statutory deductions)
               benefit_deductions: 0,
               total_deductions: result.total_deductions,
               net_pay: result.net_pay,

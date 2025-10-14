@@ -464,7 +464,7 @@ const calculatePay = (input: CalculationInput): CalculationResult => {
 
   return { 
     gross_pay: grossPay, 
-    paye_tax: calculatedTaxDeduction, 
+    paye_tax: standardDeductions['PAYE'] || 0, 
     total_deductions: totalDeductions, 
     net_pay: netPay,
     nssf_employee: standardDeductions['NSSF Employee'] || standardDeductions['NSSF'] || 0,

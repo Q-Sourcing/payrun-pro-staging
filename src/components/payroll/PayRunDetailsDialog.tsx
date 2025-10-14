@@ -371,7 +371,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
           const amount = calculateDeduction(grossPay, rule, item.employees.country);
           // Exclude NSSF Employer from employee deductions; track as employer contribution only
           if (rule.name === 'NSSF Employer') {
-            employerContributions += Math.min(grossPay, 1200000) * ((rule.percentage || 0) / 100);
+            const employerAmount = Math.min(grossPay, 1200000) * ((rule.percentage || 0) / 100);
+            employerContributions += employerAmount;
           } else {
             standardDeductions[rule.name] = amount;
             calculatedTaxDeduction += amount;
@@ -398,17 +399,30 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     const totalDeductions = calculatedTaxDeduction + benefitDeductions + customDeductionsTotal;
     const netPay = grossPay + customAllowancesTotal - totalDeductions;
 
+    // Fallback NSSF Employer calculation for Uganda if not calculated above
+    if (employerContributions === 0 && (item.employees.country === 'Uganda' || item.employees.country === 'UG') && item.employees.employee_type === 'local') {
+      employerContributions = Math.min(grossPay, 1200000) * 0.10; // 10% of gross pay, capped at 1.2M
+    }
+    
+    // Force NSSF Employer calculation for all local employees
+    if (item.employees.employee_type === 'local') {
+      // For Uganda: NSSF Employer is 10% of gross pay, NO CAP
+      employerContributions = grossPay * 0.10;
+      console.log(`NSSF Employer calculation for ${item.employees.first_name}: grossPay=${grossPay}, employerContributions=${employerContributions}`);
+    }
+
     // Return in the same format as CalculationResult
-    return { 
+    const result = { 
       gross_pay: grossPay,
-      paye_tax: calculatedTaxDeduction,
-      nssf_employee: standardDeductions['NSSF Employee'] || 0,
-      nssf_employer: standardDeductions['NSSF Employer'] || 0,
+      paye_tax: standardDeductions['PAYE'] || 0,
+      nssf_employee: standardDeductions['NSSF Employee'] || standardDeductions['NSSF'] || 0,
+      nssf_employer: employerContributions,
       total_deductions: totalDeductions,
       net_pay: netPay,
       employer_contributions: employerContributions,
       breakdown: [],
       standard_deductions: standardDeductions,
+      standardDeductions: standardDeductions, // Add camelCase version for UI compatibility
       // Legacy fields for backward compatibility
       grossPay, 
       taxDeduction: calculatedTaxDeduction, 
@@ -418,6 +432,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       customBenefitsTotal: grossAffectingAdditions,
       customAllowancesTotal
     } as any;
+    
+    return result;
   };
 
   // Filtered and sorted pay items
@@ -1314,7 +1330,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                           })}
                           {/* Employer NSSF (company cost) */}
                           <TableCell className="text-center text-muted-foreground italic font-medium">
-                            {formatCurrency((calculatePay(item).employerContributions || 0), payGroupCurrency)}
+                            {formatCurrency((calculated.nssf_employer || 0), payGroupCurrency)}
                           </TableCell>
                           {/* Custom Addition/Deduction Columns */}
                           {customColumns.map(columnName => {
@@ -1705,6 +1721,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         open={recalculateTaxesDialogOpen}
         onOpenChange={setRecalculateTaxesDialogOpen}
         employeeCount={payItems.length}
+        payRunId={payRunId}
         onRecalculate={fetchPayItems}
       />
 

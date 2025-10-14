@@ -10,8 +10,7 @@ import { NotificationsSection } from "@/components/settings/NotificationsSection
 import { IntegrationsSection } from "@/components/settings/IntegrationsSection";
 import { DataManagementSection } from "@/components/settings/DataManagementSection";
 import { PayslipDesignerSection } from "@/components/settings/PayslipDesignerSection";
-import { RoleManagement } from "@/components/user-management/RoleManagement";
-import { RoleBasedDashboard } from "@/components/user-management/RoleBasedDashboard";
+import { UserManagement } from "@/components/user-management/UserManagement";
 import { 
   Building2, 
   Users, 
@@ -38,8 +37,7 @@ const Settings = () => {
     { id: "security", label: "Security & Access", icon: Shield },
     { id: "notifications", label: "Notifications", icon: Bell },
     { id: "integrations", label: "Integrations", icon: RefreshCw },
-    { id: "role-management", label: "Role Management", icon: Shield },
-    { id: "role-dashboard", label: "Role Dashboard", icon: Activity },
+    { id: "user-management", label: "User Management", icon: Users },
     { id: "data", label: "Data Management", icon: Database },
     { id: "about", label: "About & Help", icon: Info },
   ];
@@ -64,10 +62,8 @@ const Settings = () => {
         return <NotificationsSection />;
       case "integrations":
         return <IntegrationsSection />;
-      case "role-management":
-        return <RoleManagement currentUser={null as any} />; // Will be properly initialized
-      case "role-dashboard":
-        return <RoleBasedDashboard currentUser={null as any} />; // Will be properly initialized
+      case "user-management":
+        return <UserManagement />;
       case "data":
         return <DataManagementSection />;
       default:
