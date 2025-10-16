@@ -52,6 +52,17 @@ export interface PayslipData {
     taken: number;
     due: number;
   };
+  expatriateDetails?: {
+    isExpatriate: boolean;
+    foreignCurrency: string;
+    foreignAmount: number;
+    localAmount: number;
+    exchangeRate: number;
+    dailyRate: number;
+    daysWorked: number;
+    allowances: number;
+    taxCountry: string;
+  };
 }
 
 export interface PayslipTemplate {
@@ -77,6 +88,7 @@ export interface PayslipTemplateConfig {
       contributions: boolean;
       totals: boolean;
       leave: boolean;
+      expatriateDetails: boolean;
     };
     order: string[];
   };

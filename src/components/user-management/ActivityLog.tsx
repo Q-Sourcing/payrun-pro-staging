@@ -560,3 +560,5 @@ export function ActivityLog({ currentUser }: ActivityLogProps) {
     </div>
   );
 }
+
+

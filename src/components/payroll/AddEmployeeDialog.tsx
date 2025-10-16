@@ -14,6 +14,7 @@ interface PayGroup {
   id: string;
   name: string;
   country: string;
+  type?: string;
 }
 
 interface AddEmployeeDialogProps {
@@ -125,7 +126,7 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
     try {
       const { data, error } = await supabase
         .from("pay_groups")
-        .select("id, name, country")
+        .select("id, name, country, type")
         .order("name");
 
       if (error) throw error;
@@ -334,6 +335,7 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
           country: formData.country,
           pay_frequency: "monthly",
           default_tax_percentage: 0,
+          type: formData.employee_type === 'expatriate' ? 'expatriate' : 'regular',
         })
         .select()
         .single();
@@ -362,9 +364,23 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
     }
   };
 
-  const filteredPayGroups = payGroups.filter(group => 
-    !formData.country || group.country === formData.country
-  );
+  const filteredPayGroups = payGroups.filter(group => {
+    // Filter by country
+    if (formData.country && group.country !== formData.country) {
+      return false;
+    }
+    
+    // Filter by employee type
+    if (formData.employee_type === 'expatriate') {
+      // For expatriates, only show expatriate pay groups
+      return group.type === 'expatriate' || group.name.toLowerCase().includes('expat');
+    } else if (formData.employee_type === 'local') {
+      // For local employees, exclude expatriate pay groups
+      return group.type !== 'expatriate' && !group.name.toLowerCase().includes('expat');
+    }
+    
+    return true;
+  });
 
   const steps = [
     { number: 1, label: "Personal Details" },

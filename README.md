@@ -1,21 +1,66 @@
-# Supabase CLI
+# 🏢 Q-Payroll - Professional Payroll Management System
 
-[![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=main)](https://coveralls.io/github/supabase/cli?branch=main) [![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/supabase-cli/setup-cli/master?style=flat-square&label=Bitbucket%20Canary)](https://bitbucket.org/supabase-cli/setup-cli/pipelines) [![Gitlab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/sweatybridge%2Fsetup-cli?label=Gitlab%20Canary)
-](https://gitlab.com/sweatybridge/setup-cli/-/pipelines)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/your-org/q-payroll) [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![Supabase](https://img.shields.io/badge/Supabase-Powered-green)](https://supabase.com)
 
-[Supabase](https://supabase.io) is an open source Firebase alternative. We're building the features of Firebase using enterprise-grade open source tools.
+**Q-Payroll** is a comprehensive, enterprise-grade payroll management system built with React, TypeScript, and Supabase. It provides advanced features for managing employees, pay groups, payroll processing, and comprehensive reporting.
 
-This repository contains all the functionality for Supabase CLI.
+## ✨ Features
 
-- [x] Running Supabase locally
-- [x] Managing database migrations
-- [x] Creating and deploying Supabase Functions
-- [x] Generating types directly from your database schema
-- [x] Making authenticated HTTP requests to [Management API](https://supabase.com/docs/reference/api/introduction)
+- 🎯 **Multi-PayGroup Assignment System** - Assign employees to multiple pay groups
+- 📄 **Custom Payslip Templates** - Professional, customizable payslip designs
+- 🌍 **Expatriate Payroll Support** - International employee payroll management
+- 🆔 **Enhanced Employee Tracking** - Multiple identification types (National ID, TIN, SSN, Passport)
+- 📊 **Advanced Reporting** - Comprehensive payroll and financial reports
+- 🔒 **Enterprise Security** - Row-level security and audit trails
+- 📱 **Responsive Design** - Works seamlessly on desktop and mobile devices
+
+## 🌍 Environment Commands
+
+### Development & Deployment
+
+- **Run staging locally:**
+  ```bash
+  npm run dev -- --env=staging
+  ```
+
+- **Push schema to staging Supabase:**
+  ```bash
+  npm run db:staging
+  ```
+
+- **Push schema to production Supabase:**
+  ```bash
+  npm run db:prod
+  ```
+
+- **Deploy to Lovable staging:**
+  ```bash
+  npm run deploy:staging
+  ```
+
+- **Deploy to production:**
+  ```bash
+  npm run deploy:prod
+  ```
+
+### Environment Configuration
+
+The application automatically detects the environment based on `NODE_ENV`:
+- **Staging**: `NODE_ENV=staging` → Uses staging Supabase instance
+- **Production**: `NODE_ENV=production` → Uses production Supabase instance
+
+### Supabase CLI Commands
+
+- **Link to staging**: `npm run link:staging`
+- **Link to production**: `npm run link:prod`
+- **Push migrations to staging**: `npm run push:staging`
+- **Push migrations to production**: `npm run push:prod`
+- **Diff staging schema**: `npm run diff:staging`
+- **Diff production schema**: `npm run diff:prod`
 
 ## Getting started
 
-### Install the CLI
+### Prerequisites
 
 Available via [NPM](https://www.npmjs.com) as dev dependency. To install:
 

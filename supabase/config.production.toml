@@ -1,0 +1,5 @@
+# Supabase Production Environment Configuration
+# This file contains the project reference for the PRODUCTION environment
+# This is your live payroll system - use with caution!
+
+project_id = "kctwfgbjmhnfqtxhagib"

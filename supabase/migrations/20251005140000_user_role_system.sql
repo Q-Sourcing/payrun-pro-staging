@@ -122,6 +122,8 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON public.audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON public.audit_logs(action);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON public.audit_logs(resource);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON public.audit_logs(timestamp);
+-- Add result column if it doesn't exist (for compatibility with earlier audit_logs table)
+ALTER TABLE public.audit_logs ADD COLUMN IF NOT EXISTS result VARCHAR(20) CHECK (result IN ('success', 'failure', 'denied'));
 CREATE INDEX IF NOT EXISTS idx_audit_logs_result ON public.audit_logs(result);
 
 CREATE INDEX IF NOT EXISTS idx_permission_cache_user ON public.permission_cache(user_id);
@@ -204,9 +206,9 @@ CREATE POLICY "Admins can view all sessions" ON public.user_sessions
         )
     );
 
--- RLS Policies for audit logs
-CREATE POLICY "Users can view their own audit logs" ON public.audit_logs
-    FOR SELECT USING (auth.uid() = user_id);
+-- RLS Policies for audit logs (handle data type compatibility)
+CREATE POLICY "Users can view their own audit logs" ON public.audit_logs 
+    FOR SELECT USING (auth.uid()::text = user_id);
 
 CREATE POLICY "Admins can view all audit logs" ON public.audit_logs
     FOR ALL USING (

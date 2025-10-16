@@ -1,0 +1,20 @@
+{
+  "timestamp": "2025-10-16T20:26:27.074Z",
+  "environment": "PRODUCTION",
+  "repository": "https://github.com/Q-Sourcing/payrun-pro.git",
+  "branch": "main",
+  "commit": "59c9f72",
+  "expectedLovableProject": "payrun-pro",
+  "expectedSupabaseProject": "kctwfgbjmhnfqtxhagib",
+  "supabaseUrl": "https://kctwfgbjmhnfqtxhagib.supabase.co",
+  "checks": {
+    "repository": true,
+    "branch": true,
+    "supabase": true,
+    "envVars": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjdHdmZ2JqbWhuZnF0eGhhZ2liIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkxMDg2MzMsImV4cCI6MjA3NDY4NDYzM30.TjGDFOBMvKQqP56CDmw9hKrb0Ws06LYLTu5s3Oqho-M",
+    "workflows": true,
+    "envDetection": true,
+    "healthMonitoring": true
+  },
+  "overallStatus": "OPERATIONAL"
+}

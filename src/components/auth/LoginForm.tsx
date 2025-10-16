@@ -10,6 +10,7 @@ import { PasswordStrengthMeter } from './PasswordStrengthMeter';
 import { SocialLoginButtons } from './SocialLoginButtons';
 import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
+import { getEnvironmentLabel, getEnvironmentColor, getEnvironmentIcon } from '@/lib/getEnvironmentLabel';
 
 interface LoginFormProps {
   onSuccess?: () => void;
@@ -46,6 +47,14 @@ export function LoginForm({ onSuccess, onForgotPassword, onRegister }: LoginForm
   const passwordRef = useRef<HTMLInputElement>(null);
   
   const { login, isAuthenticated } = useAuth();
+
+  // Environment detection
+  const envLabel = getEnvironmentLabel();
+  const envColor = getEnvironmentColor(envLabel);
+  const envIcon = getEnvironmentIcon(envLabel);
+
+  // Console log for developers
+  console.log(`🔗 Connected to ${envLabel} environment:`, import.meta.env.VITE_SUPABASE_URL);
 
   // Focus email input on mount
   useEffect(() => {
@@ -162,6 +171,14 @@ export function LoginForm({ onSuccess, onForgotPassword, onRegister }: LoginForm
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4">
+      {/* Environment Badge */}
+      <div
+        className={`absolute top-3 right-3 text-xs px-3 py-1 rounded-full font-semibold shadow-md ${envColor}`}
+        aria-label={`Current environment: ${envLabel}`}
+      >
+        {envIcon} {envLabel}
+      </div>
+
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-pulse" />
@@ -336,6 +353,11 @@ export function LoginForm({ onSuccess, onForgotPassword, onRegister }: LoginForm
                 Create account
               </button>
             </p>
+          </div>
+
+          {/* Footer Connection Info */}
+          <div className="text-center mt-8 text-xs text-gray-500">
+            Connected to {envLabel} Database
           </div>
         </CardContent>
       </Card>

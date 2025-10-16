@@ -7,17 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { createUser, CreateUserRequest } from "@/integrations/supabase/client";
 import { ALL_COUNTRIES } from "@/lib/constants/countries";
 import { log, error as logError } from "@/lib/logger";
 import { UserPlus, Loader2, AlertCircle } from "lucide-react";
-
-interface CreateUserRequest {
-  email: string;
-  password: string;
-  full_name: string;
-  role: string;
-  country: string;
-}
 
 interface CreateUserModalProps {
   onUserCreated?: () => void;
@@ -91,8 +84,7 @@ export const CreateUserModal = ({ onUserCreated }: CreateUserModalProps) => {
     try {
       log(`Attempting to create user: ${formData.email} with role: ${formData.role}`);
       
-      // TODO: Implement actual user creation via Supabase edge function
-      const result = { success: false, message: "User creation not implemented yet" };
+      const result = await createUser(formData);
       
       if (result.success) {
         log(`User created successfully: ${formData.email}`);

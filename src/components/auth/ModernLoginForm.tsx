@@ -4,7 +4,7 @@ import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { log, warn, error as logError, debug } from '@/lib/logger';
+import { log, warn, error, debug } from '@/lib/logger';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Mail, Lock, LogIn } from 'lucide-react';
@@ -15,7 +15,7 @@ export function ModernLoginForm() {
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
+  const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Redirect if already authenticated
@@ -28,18 +28,18 @@ export function ModernLoginForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMsg('');
+    setError('');
     setIsSubmitting(true);
 
     // Validation
     if (!email || !password) {
-      setErrorMsg('Please enter both email and password');
+      setError('Please enter both email and password');
       setIsSubmitting(false);
       return;
     }
 
     if (!email.includes('@')) {
-      setErrorMsg('Please enter a valid email address');
+      setError('Please enter a valid email address');
       setIsSubmitting(false);
       return;
     }
@@ -50,8 +50,8 @@ export function ModernLoginForm() {
       log('Login successful, navigating to dashboard');
       navigate('/');
     } catch (err: any) {
-      logError('Login error:', err);
-      setErrorMsg(err.message || 'Failed to login. Please try again.');
+      error('Login error:', err);
+      setError(err.message || 'Failed to login. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -76,9 +76,9 @@ export function ModernLoginForm() {
         
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-5">
-            {errorMsg && (
+            {error && (
               <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-2">
-                <AlertDescription>{errorMsg}</AlertDescription>
+                <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
 

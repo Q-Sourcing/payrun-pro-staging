@@ -11,6 +11,7 @@ import ReportsTab from "@/components/payroll/ReportsTab";
 import SettingsPage from "./Settings";
 import { ThemeTest } from "@/components/ui/ThemeTest";
 import { Toaster } from "@/components/ui/toaster";
+import { PayGroupsNavigation } from "@/components/navigation/PayGroupsNavigation";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("employees");
@@ -19,7 +20,6 @@ const Index = () => {
 
   const menuItems = [
     { id: "employees", label: "Employees", icon: Users },
-    { id: "paygroups", label: "Pay Groups", icon: Calendar },
     { id: "payruns", label: "Pay Runs", icon: DollarSign },
     { id: "reports", label: "Reports", icon: FileText },
     { id: "theme-test", label: "Theme Preview", icon: Palette },
@@ -62,7 +62,24 @@ const Index = () => {
         {/* Main Navigation */}
         <div className="nav-section">
           <div className="nav-items">
-            {menuItems.slice(0, 4).map((item) => (
+            {menuItems.slice(0, 1).map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`nav-item ${activeTab === item.id ? "active" : ""}`}
+              >
+                <item.icon className="nav-icon" />
+                <span>{item.label}</span>
+              </button>
+            ))}
+            
+                    {/* Pay Groups Navigation */}
+                    <PayGroupsNavigation
+                      isActive={activeTab === "paygroups"}
+                      onNavigate={(path, type) => setActiveTab("paygroups")}
+                    />
+            
+            {menuItems.slice(1, 3).map((item) => (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}

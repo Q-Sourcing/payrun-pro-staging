@@ -30,6 +30,7 @@ import { RemoveCustomItemsDialog } from "./RemoveCustomItemsDialog";
 import { IndividualPayslipDialog } from "./IndividualPayslipDialog";
 import LstDeductionsDialog, { LstDialogEmployee } from "./LstDeductionsDialog";
 import BankScheduleExportDialog from "./BankScheduleExportDialog";
+import { ExpatriatePayRunDetails } from "./ExpatriatePayRunDetails";
 
 interface CustomDeduction {
   id?: string;
@@ -107,6 +108,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
   const [individualPayslipDialogOpen, setIndividualPayslipDialogOpen] = useState(false);
   const [bankScheduleDialogOpen, setBankScheduleDialogOpen] = useState(false);
   const [selectedEmployeeForPayslip, setSelectedEmployeeForPayslip] = useState<{id: string, name: string} | null>(null);
+  const [isExpatriatePayRun, setIsExpatriatePayRun] = useState(false);
+  const [expatriatePayGroup, setExpatriatePayGroup] = useState<any>(null);
   const { toast } = useToast();
   const { canExportBankSchedule } = useBankSchedulePermissions();
 
@@ -118,19 +121,41 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
       setLoading(true);
       try {
-        // Fetch pay group country
+        // Fetch pay run details and check if it's an expatriate pay run
         const { data: payRunData, error: payRunError } = await supabase
           .from("pay_runs")
-          .select("pay_groups(country)")
+          .select(`
+            id,
+            expatriate_pay_group_id,
+            pay_groups(country, name),
+            expatriate_pay_groups(
+              id,
+              name,
+              currency,
+              exchange_rate_to_local,
+              tax_country,
+              default_daily_rate
+            )
+          `)
           .eq("id", payRunId)
           .single();
 
         if (payRunError) throw payRunError;
         if (!isMounted) return;
         
-        const country = (payRunData?.pay_groups as unknown as PayGroup)?.country || "Uganda";
-        setPayGroupCountry(country);
-        setPayGroupCurrency(getCurrencyCodeFromCountry(country));
+        // Check if this is an expatriate pay run
+        if (payRunData?.expatriate_pay_group_id && payRunData?.expatriate_pay_groups) {
+          setIsExpatriatePayRun(true);
+          setExpatriatePayGroup(payRunData.expatriate_pay_groups);
+          setPayGroupCountry(payRunData.expatriate_pay_groups.tax_country);
+          setPayGroupCurrency(getCurrencyCodeFromCountry(payRunData.expatriate_pay_groups.tax_country));
+        } else {
+          setIsExpatriatePayRun(false);
+          setExpatriatePayGroup(null);
+          const country = (payRunData?.pay_groups as unknown as PayGroup)?.country || "Uganda";
+          setPayGroupCountry(country);
+          setPayGroupCurrency(getCurrencyCodeFromCountry(country));
+        }
 
         // Fetch pay items
         const { data, error } = await supabase
@@ -998,7 +1023,20 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
           </DialogDescription>
         </DialogHeader>
 
-        {payItems.length === 0 ? (
+        {isExpatriatePayRun ? (
+          <ExpatriatePayRunDetails
+            payRunId={payRunId || ""}
+            expatriatePayGroup={expatriatePayGroup}
+            employees={payItems.map(item => ({
+              id: item.employee_id,
+              first_name: item.employees.first_name,
+              middle_name: item.employees.middle_name,
+              last_name: item.employees.last_name,
+              email: item.employees.email
+            }))}
+            onUpdate={fetchPayItems}
+          />
+        ) : payItems.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             No pay items found for this pay run
           </div>

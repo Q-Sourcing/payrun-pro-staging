@@ -211,7 +211,7 @@ SELECT
     COUNT(DISTINCT al.id) as recent_activity_count
 FROM public.users u
 LEFT JOIN public.user_sessions s ON u.id = s.user_id AND s.is_active = true
-LEFT JOIN public.audit_logs al ON u.id = al.user_id 
+LEFT JOIN public.audit_logs al ON u.id::text = al.user_id 
     AND al.timestamp >= NOW() - INTERVAL '24 hours'
 WHERE u.role = 'super_admin'
 GROUP BY u.id, u.email, u.first_name, u.last_name, u.role, u.is_active, 

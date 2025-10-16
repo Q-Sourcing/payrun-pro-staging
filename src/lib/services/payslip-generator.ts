@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { PayslipData } from '@/lib/types/payslip';
 import { format } from 'date-fns';
+import { ExpatriatePayrollService } from './expatriate-payroll';
 
 export class PayslipGenerator {
   /**
@@ -309,5 +310,167 @@ export class PayslipGenerator {
         due: 21
       }
     };
+  }
+
+  /**
+   * Generate expatriate payslip data from expatriate pay run and employee information
+   */
+  static async generateExpatriatePayslipData(
+    payRunId: string, 
+    employeeId: string
+  ): Promise<PayslipData> {
+    try {
+      // Fetch expatriate pay run data with all related information
+      const { data: payRunData, error: payRunError } = await supabase
+        .from('pay_runs')
+        .select(`
+          *,
+          expatriate_pay_groups(
+            id,
+            name,
+            currency,
+            exchange_rate_to_local,
+            tax_country,
+            default_daily_rate
+          ),
+          expatriate_pay_run_items(
+            *,
+            employees(
+              id,
+              first_name,
+              middle_name,
+              last_name,
+              email,
+              phone,
+              department,
+              project,
+              bank_name,
+              account_number,
+              nssf_number,
+              tin
+            )
+          )
+        `)
+        .eq('id', payRunId)
+        .single();
+
+      if (payRunError) {
+        console.error('Expatriate PayRun fetch error:', payRunError);
+        throw payRunError;
+      }
+
+      if (!payRunData) {
+        throw new Error('Pay run not found');
+      }
+
+      // Find the specific employee's pay item
+      const employeePayItem = payRunData.expatriate_pay_run_items?.find(
+        (item: any) => item.employee_id === employeeId
+      );
+
+      if (!employeePayItem) {
+        throw new Error('Employee pay item not found');
+      }
+
+      const expatriatePayGroup = payRunData.expatriate_pay_groups;
+      const employee = employeePayItem.employees;
+
+      // Calculate payslip data for expatriate employee
+      const payslipData: PayslipData = {
+        employee: {
+          code: employee.id.substring(0, 8).toUpperCase(),
+          name: `${employee.first_name} ${employee.middle_name ? employee.middle_name + ' ' : ''}${employee.last_name}`,
+          jobTitle: employee.department || 'Expatriate Employee',
+          department: employee.department || 'International',
+          hireDate: format(new Date(), 'yyyy-MM-dd'), // Default to current date
+          nssfNo: employee.nssf_number || 'N/A',
+          tin: employee.tin || 'N/A',
+          bank: {
+            name: employee.bank_name || 'N/A',
+            account: employee.account_number || 'N/A'
+          }
+        },
+        company: {
+          name: 'QSourcing Uganda', // This should come from company settings
+          address: 'Kampala, Uganda',
+          email: 'hr@qsourcing.com',
+          logo: '' // Company logo URL
+        },
+        payPeriod: {
+          start: format(new Date(payRunData.pay_period_start), 'yyyy-MM-dd'),
+          end: format(new Date(payRunData.pay_period_end), 'yyyy-MM-dd'),
+          display: `${format(new Date(payRunData.pay_period_start), 'MMM dd')} - ${format(new Date(payRunData.pay_period_end), 'MMM dd, yyyy')}`
+        },
+        earnings: [
+          {
+            description: `Daily Rate (${employeePayItem.days_worked} days @ ${ExpatriatePayrollService.formatCurrency(employeePayItem.daily_rate, expatriatePayGroup.currency)})`,
+            amount: employeePayItem.daily_rate * employeePayItem.days_worked
+          }
+        ],
+        deductions: [],
+        contributions: {
+          nssf: {
+            company: 0, // NSSF employer contribution in local currency
+            employee: 0, // NSSF employee contribution in local currency
+            total: 0
+          },
+          privatePension: {
+            company: 0,
+            employee: 0,
+            total: 0
+          }
+        },
+        totals: {
+          gross: employeePayItem.gross_local, // Gross in local currency
+          deductions: 0, // Total deductions in local currency
+          net: employeePayItem.net_local // Net in local currency
+        },
+        leave: {
+          taken: 0,
+          due: 0
+        },
+        // Expatriate-specific fields
+        expatriateDetails: {
+          isExpatriate: true,
+          foreignCurrency: expatriatePayGroup.currency,
+          foreignAmount: employeePayItem.net_foreign,
+          localAmount: employeePayItem.net_local,
+          exchangeRate: employeePayItem.exchange_rate,
+          dailyRate: employeePayItem.daily_rate,
+          daysWorked: employeePayItem.days_worked,
+          allowances: employeePayItem.allowances_foreign,
+          taxCountry: employeePayItem.tax_country
+        }
+      };
+
+      // Add allowances if any
+      if (employeePayItem.allowances_foreign > 0) {
+        payslipData.earnings.push({
+          description: 'Allowances',
+          amount: employeePayItem.allowances_foreign
+        });
+      }
+
+      // Calculate deductions based on tax country
+      const grossLocal = employeePayItem.gross_local;
+      const netLocal = employeePayItem.net_local;
+      const totalDeductions = grossLocal - netLocal;
+
+      if (totalDeductions > 0) {
+        payslipData.deductions.push({
+          description: `Tax & Social Security (${employeePayItem.tax_country})`,
+          amount: totalDeductions
+        });
+      }
+
+      // Update totals
+      payslipData.totals.deductions = totalDeductions;
+
+      return payslipData;
+
+    } catch (error) {
+      console.error('Error generating expatriate payslip data:', error);
+      throw error;
+    }
   }
 }

@@ -24,7 +24,7 @@ FOR SELECT TO authenticated USING (true);
 
 -- Create RLS policy for service role to insert audit logs
 CREATE POLICY "Service role can insert audit logs" ON public.pay_calculation_audit_log 
-FOR INSERT TO service_role USING (true);
+FOR INSERT TO service_role WITH CHECK (true);
 
 -- Add comment
 COMMENT ON TABLE public.pay_calculation_audit_log IS 'Audit log for payroll calculations performed by Edge Functions';

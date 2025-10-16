@@ -77,7 +77,7 @@ const userFormSchema = z.object({
   isActive: z.boolean().default(true),
   twoFactorEnabled: z.boolean().default(false),
   sessionTimeout: z.number().min(30).max(1440).default(480),
-  permissions: z.array(z.custom<Permission>()).default([]),
+  permissions: z.array(z.string()).default([]),
   restrictions: z.array(z.string()).default([]),
   sendInvitation: z.boolean().default(true),
   temporaryPassword: z.string().optional(),
@@ -512,7 +512,7 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
                     <div className="flex items-center space-x-2">
                       <Checkbox
                         checked={generatePassword}
-                        onCheckedChange={(checked) => setGeneratePassword(checked === true)}
+                        onCheckedChange={setGeneratePassword}
                       />
                       <Label>Generate temporary password</Label>
                     </div>
@@ -623,3 +623,5 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
     </Dialog>
   );
 }
+
+

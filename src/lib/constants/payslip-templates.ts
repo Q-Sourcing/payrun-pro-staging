@@ -20,7 +20,8 @@ export const DEFAULT_PAYSLIP_TEMPLATES: PayslipTemplate[] = [
           deductions: true,
           contributions: true,
           totals: true,
-          leave: false
+          leave: false,
+          expatriateDetails: false
         },
         order: ['employeeInfo', 'payPeriod', 'earnings', 'deductions', 'contributions', 'totals']
       },
@@ -68,7 +69,8 @@ export const DEFAULT_PAYSLIP_TEMPLATES: PayslipTemplate[] = [
           deductions: true,
           contributions: false,
           totals: true,
-          leave: false
+          leave: false,
+          expatriateDetails: false
         },
         order: ['employeeInfo', 'payPeriod', 'earnings', 'deductions', 'totals']
       },
@@ -116,7 +118,8 @@ export const DEFAULT_PAYSLIP_TEMPLATES: PayslipTemplate[] = [
           deductions: true,
           contributions: true,
           totals: true,
-          leave: true
+          leave: true,
+          expatriateDetails: false
         },
         order: ['employeeInfo', 'payPeriod', 'earnings', 'deductions', 'contributions', 'leave', 'totals']
       },
@@ -161,7 +164,8 @@ export const DEFAULT_PAYSLIP_CONFIG: PayslipTemplateConfig = {
       deductions: true,
       contributions: true,
       totals: true,
-      leave: false
+      leave: false,
+      expatriateDetails: false
     },
     order: ['employeeInfo', 'payPeriod', 'earnings', 'deductions', 'contributions', 'totals']
   },

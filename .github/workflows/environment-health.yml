@@ -1,0 +1,84 @@
+# ==========================================================
+# 🏥 Q-Payroll Weekly Environment Health Check
+# ==========================================================
+# Runs every Monday at 9:00 AM EAT (6:00 AM UTC)
+
+name: Weekly Environment Health Check
+on:
+  schedule:
+    - cron: "0 6 * * 1"  # 9 AM EAT (6 AM UTC)
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  check-env:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Fetch all history for better analysis
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Create health reports directory
+        run: mkdir -p env-health-reports
+
+      - name: Run environment validation
+        run: |
+          echo "🔍 Running environment validation..."
+          node scripts/verifyEnv.cjs > env-health-reports/validation-$(date +%Y%m%d).log 2>&1 || true
+
+      - name: Test Supabase connection
+        run: |
+          echo "🔗 Testing Supabase connection..."
+          node scripts/testSupabaseConnection.cjs > env-health-reports/supabase-$(date +%Y%m%d).log 2>&1 || true
+
+      - name: Generate health report
+        run: |
+          echo "📊 Generating comprehensive health report..."
+          node scripts/sendHealthReport.cjs
+
+      - name: Send email notification
+        if: always()
+        run: |
+          echo "📧 Preparing email notification..."
+          if [ -f email-notification.json ]; then
+            echo "Email notification ready for delivery"
+            echo "To: $(jq -r '.to' email-notification.json)"
+            echo "Subject: $(jq -r '.subject' email-notification.json)"
+          else
+            echo "No email notification generated"
+          fi
+
+      - name: Send Slack notification
+        if: always()
+        run: |
+          echo "💬 Preparing Slack notification..."
+          if [ -f slack-notification.json ]; then
+            echo "Slack notification ready for delivery"
+            echo "Channel: $(jq -r '.channel' slack-notification.json)"
+          else
+            echo "No Slack notification generated"
+          fi
+
+      - name: Commit health reports
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add env-health-reports/
+          git commit -m "chore: weekly environment health check [auto] - $(date +%Y%m%d)" || echo "No changes to commit"
+          git push || echo "Push failed - reports saved locally"
+
+      - name: Summary
+        run: |
+          echo "🏥 Weekly Environment Health Check Complete"
+          echo "📊 Reports generated in env-health-reports/"
+          echo "📅 Date: $(date)"
+          echo "🔗 Repository: $(git config --get remote.origin.url)"
+          echo "🌿 Branch: $(git rev-parse --abbrev-ref HEAD)"

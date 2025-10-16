@@ -15,10 +15,10 @@ export const PayslipTemplate: React.FC<PayslipTemplateProps> = ({
   template,
   className = ''
 }) => {
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number, currency: string = 'UGX') => {
     return new Intl.NumberFormat('en-UG', {
       style: 'currency',
-      currency: 'UGX',
+      currency: currency,
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(amount);
@@ -443,6 +443,181 @@ export const PayslipTemplate: React.FC<PayslipTemplateProps> = ({
     );
   };
 
+  const renderExpatriateDetails = () => {
+    if (!data.expatriateDetails?.isExpatriate) return null;
+
+    const { expatriateDetails } = data;
+
+    return (
+      <div className="payslip-section expatriate-details">
+        <h3 className="section-title" style={{ 
+          color: config.styling.primaryColor,
+          fontSize: config.styling.bodySize,
+          fontFamily: config.styling.fontFamily,
+          fontWeight: config.styling.fontWeight.bold,
+          borderBottom: `2px solid ${config.styling.primaryColor}`,
+          paddingBottom: '8px',
+          marginBottom: '16px'
+        }}>
+          🌍 Expatriate Payroll Details
+        </h3>
+        
+        <div className="expatriate-info-grid" style={{ 
+          display: 'grid', 
+          gridTemplateColumns: '1fr 1fr', 
+          gap: '16px',
+          marginBottom: '16px'
+        }}>
+          <div className="expatriate-info-item">
+            <span className="label" style={{ 
+              color: config.styling.secondaryColor,
+              fontSize: config.styling.smallSize,
+              fontFamily: config.styling.fontFamily,
+              fontWeight: config.styling.fontWeight.medium
+            }}>
+              Daily Rate:
+            </span>
+            <span className="value" style={{ 
+              color: config.styling.textColor,
+              fontSize: config.styling.bodySize,
+              fontFamily: config.styling.fontFamily,
+              fontWeight: config.styling.fontWeight.bold,
+              marginLeft: '8px'
+            }}>
+              {formatCurrency(expatriateDetails.dailyRate, expatriateDetails.foreignCurrency)}
+            </span>
+          </div>
+          
+          <div className="expatriate-info-item">
+            <span className="label" style={{ 
+              color: config.styling.secondaryColor,
+              fontSize: config.styling.smallSize,
+              fontFamily: config.styling.fontFamily,
+              fontWeight: config.styling.fontWeight.medium
+            }}>
+              Days Worked:
+            </span>
+            <span className="value" style={{ 
+              color: config.styling.textColor,
+              fontSize: config.styling.bodySize,
+              fontFamily: config.styling.fontFamily,
+              fontWeight: config.styling.fontWeight.bold,
+              marginLeft: '8px'
+            }}>
+              {expatriateDetails.daysWorked}
+            </span>
+          </div>
+          
+          <div className="expatriate-info-item">
+            <span className="label" style={{ 
+              color: config.styling.secondaryColor,
+              fontSize: config.styling.smallSize,
+              fontFamily: config.styling.fontFamily,
+              fontWeight: config.styling.fontWeight.medium
+            }}>
+              Allowances:
+            </span>
+            <span className="value" style={{ 
+              color: config.styling.textColor,
+              fontSize: config.styling.bodySize,
+              fontFamily: config.styling.fontFamily,
+              fontWeight: config.styling.fontWeight.bold,
+              marginLeft: '8px'
+            }}>
+              {formatCurrency(expatriateDetails.allowances, expatriateDetails.foreignCurrency)}
+            </span>
+          </div>
+          
+          <div className="expatriate-info-item">
+            <span className="label" style={{ 
+              color: config.styling.secondaryColor,
+              fontSize: config.styling.smallSize,
+              fontFamily: config.styling.fontFamily,
+              fontWeight: config.styling.fontWeight.medium
+            }}>
+              Exchange Rate:
+            </span>
+            <span className="value" style={{ 
+              color: config.styling.textColor,
+              fontSize: config.styling.bodySize,
+              fontFamily: config.styling.fontFamily,
+              fontWeight: config.styling.fontWeight.bold,
+              marginLeft: '8px'
+            }}>
+              1 {expatriateDetails.foreignCurrency} = {expatriateDetails.exchangeRate.toLocaleString()} UGX
+            </span>
+          </div>
+        </div>
+
+        <div className="expatriate-currency-comparison" style={{ 
+          backgroundColor: config.styling.backgroundColor === '#ffffff' ? '#f8f9fa' : config.styling.backgroundColor,
+          padding: '16px',
+          borderRadius: '8px',
+          border: `1px solid ${config.styling.borderColor}`
+        }}>
+          <h4 style={{ 
+            color: config.styling.primaryColor,
+            fontSize: config.styling.bodySize,
+            fontFamily: config.styling.fontFamily,
+            fontWeight: config.styling.fontWeight.bold,
+            marginBottom: '12px'
+          }}>
+            💱 Currency Conversion
+          </h4>
+          
+          <div className="currency-row" style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            padding: '8px 0',
+            borderBottom: `1px solid ${config.styling.borderColor}`
+          }}>
+            <span style={{ 
+              color: config.styling.textColor,
+              fontSize: config.styling.bodySize,
+              fontFamily: config.styling.fontFamily,
+              fontWeight: config.styling.fontWeight.medium
+            }}>
+              Net Pay ({expatriateDetails.foreignCurrency}):
+            </span>
+            <span style={{ 
+              color: config.styling.primaryColor,
+              fontSize: config.styling.bodySize,
+              fontFamily: config.styling.fontFamily,
+              fontWeight: config.styling.fontWeight.bold
+            }}>
+              {formatCurrency(expatriateDetails.foreignAmount, expatriateDetails.foreignCurrency)}
+            </span>
+          </div>
+          
+          <div className="currency-row" style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            padding: '8px 0'
+          }}>
+            <span style={{ 
+              color: config.styling.textColor,
+              fontSize: config.styling.bodySize,
+              fontFamily: config.styling.fontFamily,
+              fontWeight: config.styling.fontWeight.medium
+            }}>
+              Net Pay (UGX):
+            </span>
+            <span style={{ 
+              color: config.styling.accentColor,
+              fontSize: config.styling.bodySize,
+              fontFamily: config.styling.fontFamily,
+              fontWeight: config.styling.fontWeight.bold
+            }}>
+              {formatCurrency(expatriateDetails.localAmount, 'UGX')}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderTotals = () => {
     if (!config.layout.sections.totals) return null;
 
@@ -568,6 +743,8 @@ export const PayslipTemplate: React.FC<PayslipTemplateProps> = ({
             return renderLeave();
           case 'totals':
             return renderTotals();
+          case 'expatriateDetails':
+            return renderExpatriateDetails();
           default:
             return null;
         }
