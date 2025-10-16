@@ -8,6 +8,7 @@ import { log, warn, error, debug } from '@/lib/logger';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Mail, Lock, LogIn } from 'lucide-react';
+import { getEnvironmentLabel, getEnvironmentColor, getEnvironmentIcon } from '@/lib/getEnvironmentLabel';
 
 export function ModernLoginForm() {
   const navigate = useNavigate();
@@ -17,6 +18,14 @@ export function ModernLoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Environment detection
+  const envLabel = getEnvironmentLabel();
+  const envColor = getEnvironmentColor(envLabel);
+  const envIcon = getEnvironmentIcon(envLabel);
+
+  // Console log for developers
+  console.log(`🔗 Connected to ${envLabel} environment:`, import.meta.env.VITE_SUPABASE_URL);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -61,6 +70,14 @@ export function ModernLoginForm() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4">
+      {/* Environment Badge */}
+      <div
+        className={`absolute top-3 right-3 text-xs px-3 py-1 rounded-full font-semibold shadow-md ${envColor}`}
+        aria-label={`Current environment: ${envLabel}`}
+      >
+        {envIcon} {envLabel}
+      </div>
+
       <Card className="w-full max-w-md shadow-lg border-border/50">
         <CardHeader className="space-y-3 text-center pb-6">
           <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
@@ -148,6 +165,11 @@ export function ModernLoginForm() {
                 Contact your administrator
               </a>
             </p>
+          </div>
+
+          {/* Footer Connection Info */}
+          <div className="text-center mt-8 text-xs text-gray-500">
+            Connected to {envLabel} Database
           </div>
         </CardContent>
       </Card>
