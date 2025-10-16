@@ -11,6 +11,7 @@ import { SocialLoginButtons } from './SocialLoginButtons';
 import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 import { getEnvironmentLabel, getEnvironmentColor, getEnvironmentIcon } from '@/lib/getEnvironmentLabel';
+import { testEnvironmentDetection } from '@/utils/testEnvironment';
 
 interface LoginFormProps {
   onSuccess?: () => void;
@@ -55,6 +56,9 @@ export function LoginForm({ onSuccess, onForgotPassword, onRegister }: LoginForm
 
   // Console log for developers
   console.log(`🔗 Connected to ${envLabel} environment:`, import.meta.env.VITE_SUPABASE_URL);
+  
+  // Test environment detection
+  testEnvironmentDetection();
 
   // Focus email input on mount
   useEffect(() => {
