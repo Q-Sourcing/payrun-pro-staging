@@ -86,11 +86,11 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
   const refreshSession = async () => {
     try {
       debug('Refreshing session...');
-      const { data, error } = await supabase.auth.refreshSession();
+      const { data, error: refreshError } = await supabase.auth.refreshSession();
       
-      if (error) {
-        error('Session refresh error:', error);
-        throw error;
+      if (refreshError) {
+        error('Session refresh error:', refreshError);
+        throw refreshError;
       }
       
       setSession(data.session);
@@ -163,14 +163,14 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
     try {
       debug('Attempting login for:', email);
       
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data, error: loginError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) {
-        error('Login error:', error);
-        throw error;
+      if (loginError) {
+        error('Login error:', loginError);
+        throw loginError;
       }
 
       log('Login successful:', data.user?.email);
@@ -217,11 +217,11 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
     try {
       debug('Logging out...');
       
-      const { error } = await supabase.auth.signOut();
+      const { error: logoutError } = await supabase.auth.signOut();
       
-      if (error) {
-        error('Logout error:', error);
-        throw error;
+      if (logoutError) {
+        error('Logout error:', logoutError);
+        throw logoutError;
       }
       
       setUser(null);

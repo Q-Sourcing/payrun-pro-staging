@@ -70,12 +70,12 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
 
   const fetchPayGroups = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from("pay_groups")
         .select("*");
 
-      if (error) {
-        error("Error fetching pay groups:", error);
+      if (fetchError) {
+        error("Error fetching pay groups:", fetchError);
         // Fallback to mock data if database fails
         setPayGroups([
           { id: "1", name: "UG Monthly Staff", country: "Uganda", pay_frequency: "monthly" },
@@ -84,8 +84,8 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
       } else {
         setPayGroups(data || []);
       }
-    } catch (error) {
-      error("Database connection failed:", error);
+    } catch (err) {
+      error("Database connection failed:", err);
       // Fallback to mock data
       setPayGroups([
         { id: "1", name: "UG Monthly Staff", country: "Uganda", pay_frequency: "monthly" },

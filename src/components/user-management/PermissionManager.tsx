@@ -41,7 +41,15 @@ interface PermissionGroup {
 
 export function PermissionManager({ currentUser }: PermissionManagerProps) {
   const [selectedRole, setSelectedRole] = useState<UserRole>('employee');
-  const [customPermissions, setCustomPermissions] = useState<Record<UserRole, Permission[]>>({});
+  const [customPermissions, setCustomPermissions] = useState<Record<UserRole, Permission[]>>({
+    super_admin: [],
+    organization_admin: [],
+    ceo_executive: [],
+    payroll_manager: [],
+    employee: [],
+    hr_business_partner: [],
+    finance_controller: []
+  });
   const [isEditing, setIsEditing] = useState(false);
 
   const permissionGroups: PermissionGroup[] = [
@@ -365,7 +373,9 @@ export function PermissionManager({ currentUser }: PermissionManagerProps) {
                       <Checkbox
                         checked={allEnabled}
                         ref={(el) => {
-                          if (el) el.indeterminate = someEnabled;
+                          if (el && 'indeterminate' in el) {
+                            (el as any).indeterminate = someEnabled;
+                          }
                         }}
                         onCheckedChange={(checked) => 
                           handleGroupToggle(group, checked as boolean)
