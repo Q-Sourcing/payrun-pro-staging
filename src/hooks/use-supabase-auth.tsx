@@ -50,7 +50,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
         .single();
 
       if (profileError) {
-        error('Profile fetch error:', profileError);
+        logError('Profile fetch error:', profileError);
         return null;
       }
 
@@ -61,7 +61,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
         .eq('user_id', userId);
 
       if (rolesError) {
-        error('Roles fetch error:', rolesError);
+        logError('Roles fetch error:', rolesError);
       }
 
       const roles = rolesData?.map(r => r.role as UserRole) || [];
@@ -77,7 +77,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
       log('User profile loaded:', userProfile);
       return userProfile;
     } catch (err) {
-      error('Error fetching user profile:', err);
+      logError('Error fetching user profile:', err);
       return null;
     }
   };
@@ -89,7 +89,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
       const { data, error } = await supabase.auth.refreshSession();
       
       if (error) {
-        error('Session refresh error:', error);
+        logError('Session refresh error:', error);
         throw error;
       }
       
@@ -103,7 +103,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
       
       log('Session refreshed successfully');
     } catch (error) {
-      error('Failed to refresh session:', error);
+      logError('Failed to refresh session:', error);
       setSession(null);
       setUser(null);
       setProfile(null);
@@ -186,7 +186,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
         description: `Successfully logged in as ${data.user?.email}`,
       });
     } catch (error: any) {
-      error('Login failed:', error);
+      logError('Login failed:', error);
       
       let errorMessage = 'Invalid email or password';
       
