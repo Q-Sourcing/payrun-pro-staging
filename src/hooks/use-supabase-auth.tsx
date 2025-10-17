@@ -2,7 +2,7 @@ import { useState, useEffect, createContext, useContext, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { log, warn, error, debug } from '@/lib/logger';
+import { log, warn, error as logError, debug } from '@/lib/logger';
 
 export type UserRole = 'super_admin' | 'admin' | 'manager' | 'employee';
 
@@ -169,7 +169,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
       });
 
       if (error) {
-        error('Login error:', error);
+        logError('Login error:', error);
         throw error;
       }
 
@@ -220,7 +220,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
       const { error } = await supabase.auth.signOut();
       
       if (error) {
-        error('Logout error:', error);
+        logError('Logout error:', error);
         throw error;
       }
       
@@ -235,7 +235,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
         description: "You have been successfully logged out.",
       });
     } catch (error) {
-      error('Logout failed:', error);
+      logError('Logout failed:', error);
       toast({
         title: "Logout Failed",
         description: "Failed to logout. Please try again.",
