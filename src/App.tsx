@@ -10,6 +10,27 @@ import { ThemeProvider } from "@/components/ui/theme-provider";
 import { SupabaseAuthProvider, useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import Settings from "./pages/Settings";
 
+// Import existing tab components as pages
+import EmployeesTab from "@/components/payroll/EmployeesTab";
+import PayGroupsTab from "@/components/payroll/PayGroupsTab";
+import PayRunsTab from "@/components/payroll/PayRunsTab";
+import ReportsTab from "@/components/payroll/ReportsTab";
+
+// Import new placeholder pages (will create these)
+import MyEmployees from "./pages/MyEmployees";
+import MyPayGroups from "./pages/MyPayGroups";
+import MyPayRuns from "./pages/MyPayRuns";
+
+// Import Local Payroll subcategory pages (will create these)
+import LocalPayrollMonthly from "./pages/payruns/local/Monthly";
+import LocalPayrollTemporary from "./pages/payruns/local/Temporary";
+import LocalPayrollIntern from "./pages/payruns/local/Intern";
+import LocalPayrollTrainee from "./pages/payruns/local/Trainee";
+import LocalPayrollCasual from "./pages/payruns/local/Casual";
+
+// Import Layout component
+import Layout from "./components/Layout";
+
 const queryClient = new QueryClient();
 
 // Protected route wrapper
@@ -44,23 +65,43 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />
+              
+              {/* Main Layout with Sidebar */}
               <Route
                 path="/"
                 element={
                   <ProtectedRoute>
-                    <Index />
+                    <Layout />
                   </ProtectedRoute>
                 }
-              />
-              <Route
-                path="/settings"
-                element={
-                  <ProtectedRoute>
-                    <Settings />
-                  </ProtectedRoute>
-                }
-              />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              >
+                {/* Default redirect to employees */}
+                <Route index element={<EmployeesTab />} />
+                
+                {/* My Dashboard Routes */}
+                <Route path="my/employees" element={<MyEmployees />} />
+                <Route path="my/paygroups" element={<MyPayGroups />} />
+                <Route path="my/payruns" element={<MyPayRuns />} />
+
+                {/* Core Module Routes */}
+                <Route path="employees" element={<EmployeesTab />} />
+                <Route path="paygroups" element={<PayGroupsTab />} />
+                <Route path="payruns" element={<PayRunsTab />} />
+                <Route path="reports" element={<ReportsTab />} />
+                <Route path="settings" element={<Settings />} />
+
+                {/* Expatriate Payroll Route */}
+                <Route path="payruns/expatriate" element={<PayRunsTab />} />
+
+                {/* Local Payroll Subroutes */}
+                <Route path="payruns/local/monthly" element={<LocalPayrollMonthly />} />
+                <Route path="payruns/local/temporary" element={<LocalPayrollTemporary />} />
+                <Route path="payruns/local/intern" element={<LocalPayrollIntern />} />
+                <Route path="payruns/local/trainee" element={<LocalPayrollTrainee />} />
+                <Route path="payruns/local/casual" element={<LocalPayrollCasual />} />
+              </Route>
+
+              {/* Catch-all route */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
