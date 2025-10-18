@@ -1,0 +1,17 @@
+# Q-Payroll Staging Environment
+# This is the STAGING environment for Q-Payroll
+# Connected to staging Supabase database: sbphmrjoappwlervnbtm.supabase.co
+# Environment: staging
+# Purpose: Development and testing environment
+
+# Key differences from production:
+# - Staging database with test data
+# - Environment indicators show "STAGING"
+# - Safe for development and testing
+# - Connected to staging Supabase project
+
+# When working on this project:
+# - Always remember this is STAGING, not production
+# - Test changes here before deploying to production
+# - Use staging database for all operations
+# - Environment variables are configured for staging
