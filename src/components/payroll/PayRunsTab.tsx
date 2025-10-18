@@ -75,8 +75,8 @@ const PayRunsTab = () => {
       })) || [];
       
       setPayRuns(payRunsWithCount);
-    } catch (error) {
-      error("Error fetching pay runs:", error);
+    } catch (err) {
+      error("Error fetching pay runs:", err);
       toast({
         title: "Error",
         description: "Failed to fetch pay runs",

@@ -121,21 +121,12 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
       setLoading(true);
       try {
-        // Fetch pay run details and check if it's an expatriate pay run
+        // Fetch pay run details
         const { data: payRunData, error: payRunError } = await supabase
           .from("pay_runs")
           .select(`
             id,
-            expatriate_pay_group_id,
-            pay_groups(country, name),
-            expatriate_pay_groups(
-              id,
-              name,
-              currency,
-              exchange_rate_to_local,
-              tax_country,
-              default_daily_rate
-            )
+            pay_groups(country, name)
           `)
           .eq("id", payRunId)
           .single();
@@ -143,19 +134,14 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         if (payRunError) throw payRunError;
         if (!isMounted) return;
         
-        // Check if this is an expatriate pay run
-        if (payRunData?.expatriate_pay_group_id && payRunData?.expatriate_pay_groups) {
-          setIsExpatriatePayRun(true);
-          setExpatriatePayGroup(payRunData.expatriate_pay_groups);
-          setPayGroupCountry(payRunData.expatriate_pay_groups.tax_country);
-          setPayGroupCurrency(getCurrencyCodeFromCountry(payRunData.expatriate_pay_groups.tax_country));
-        } else {
-          setIsExpatriatePayRun(false);
-          setExpatriatePayGroup(null);
-          const country = (payRunData?.pay_groups as unknown as PayGroup)?.country || "Uganda";
-          setPayGroupCountry(country);
-          setPayGroupCurrency(getCurrencyCodeFromCountry(country));
-        }
+        // Set pay group country and currency
+        const country = (payRunData?.pay_groups as unknown as PayGroup)?.country || "Uganda";
+        setPayGroupCountry(country);
+        setPayGroupCurrency(getCurrencyCodeFromCountry(country));
+        
+        // For now, treat all pay runs as regular (non-expatriate)
+        setIsExpatriatePayRun(false);
+        setExpatriatePayGroup(null);
 
         // Fetch pay items
         const { data, error } = await supabase
@@ -196,8 +182,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
         if (!isMounted) return;
         setPayItems(payItemsWithDeductions);
-      } catch (error) {
-        error("Error fetching pay items:", error);
+      } catch (err) {
+        error("Error fetching pay items:", err);
         if (!isMounted) return;
         
         toast({
@@ -275,8 +261,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       );
 
       setPayItems(payItemsWithDeductions);
-    } catch (error) {
-      console.error("Error fetching pay items:", error);
+    } catch (err) {
+      console.error("Error fetching pay items:", err);
       toast({
         title: "Error",
         description: "Failed to fetch pay run details",
@@ -332,8 +318,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
       // Use server-side Edge Function for calculations
       return await PayrollCalculationService.calculatePayroll(input);
-    } catch (error) {
-      error('Error calculating payroll:', error);
+    } catch (err) {
+      error('Error calculating payroll:', err);
       toast({
         title: "Calculation Error",
         description: "Failed to calculate payroll. Using fallback calculation.",
@@ -569,8 +555,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
       setSelectedItems(new Set());
       fetchPayItems();
-    } catch (error) {
-        error("Error updating status:", error);
+    } catch (err) {
+        error("Error updating status:", err);
       toast({
         title: "Error",
         description: "Failed to update status",
@@ -636,8 +622,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       });
 
       fetchPayItems();
-    } catch (error) {
-        error("Error updating pay item:", error);
+    } catch (err) {
+        error("Error updating pay item:", err);
       toast({
         title: "Error",
         description: "Failed to update pay item",
@@ -711,8 +697,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
       fetchPayItems();
       await updatePayRunTotals();
-    } catch (error) {
-        error("Error adding custom deduction:", error);
+    } catch (err) {
+        error("Error adding custom deduction:", err);
       toast({
         title: "Error",
         description: "Failed to add custom item",
@@ -736,8 +722,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       });
 
       fetchPayItems();
-    } catch (error) {
-        error("Error updating status:", error);
+    } catch (err) {
+        error("Error updating status:", err);
       toast({
         title: "Error",
         description: "Failed to update status",
@@ -799,8 +785,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       });
 
       fetchPayItems();
-    } catch (error) {
-        error("Error deleting custom deduction:", error);
+    } catch (err) {
+        error("Error deleting custom deduction:", err);
       toast({
         title: "Error",
         description: "Failed to delete custom deduction",
@@ -859,8 +845,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
       setSelectedItems(new Set());
       fetchPayItems();
-    } catch (error) {
-        error("Error applying bulk addition:", error);
+    } catch (err) {
+        error("Error applying bulk addition:", err);
       toast({
         title: "Error",
         description: "Failed to apply bulk addition",
@@ -895,8 +881,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
       setSelectedItems(new Set());
       fetchPayItems();
-    } catch (error) {
-        error("Error applying bulk deduction:", error);
+    } catch (err) {
+        error("Error applying bulk deduction:", err);
       toast({
         title: "Error",
         description: "Failed to apply bulk deduction",
@@ -949,8 +935,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
       setSelectedItems(new Set());
       fetchPayItems();
-    } catch (error) {
-        error("Error applying bulk update:", error);
+    } catch (err) {
+        error("Error applying bulk update:", err);
       toast({
         title: "Error",
         description: "Failed to apply bulk update",

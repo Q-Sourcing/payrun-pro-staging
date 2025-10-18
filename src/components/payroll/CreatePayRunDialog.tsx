@@ -40,6 +40,7 @@ interface PayGroup {
   name: string;
   country: string;
   pay_frequency: string;
+  type?: string;
 }
 
 interface CreatePayRunDialogProps {
@@ -52,6 +53,8 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
   const [payGroups, setPayGroups] = useState<PayGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
+    payroll_type: "",
+    employee_category: "",
     pay_group_id: "",
     pay_run_date: new Date(),
     pay_period_start: new Date(),
@@ -72,30 +75,50 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
     try {
       const { data, error } = await supabase
         .from("pay_groups")
-        .select("*");
+        .select("id, name, country, pay_frequency, type")
+        .order("name");
 
       if (error) {
         error("Error fetching pay groups:", error);
         // Fallback to mock data if database fails
         setPayGroups([
-          { id: "1", name: "UG Monthly Staff", country: "Uganda", pay_frequency: "monthly" },
-          { id: "2", name: "TEST 2 Uganda", country: "Uganda", pay_frequency: "monthly" }
+          { id: "1", name: "UG Monthly Staff", country: "Uganda", pay_frequency: "monthly", type: "local" },
+          { id: "2", name: "TEST 2 Uganda", country: "Uganda", pay_frequency: "monthly", type: "local" }
         ]);
       } else {
         setPayGroups(data || []);
       }
-    } catch (error) {
-      error("Database connection failed:", error);
+    } catch (err) {
+      error("Database connection failed:", err);
       // Fallback to mock data
       setPayGroups([
-        { id: "1", name: "UG Monthly Staff", country: "Uganda", pay_frequency: "monthly" },
-        { id: "2", name: "TEST 2 Uganda", country: "Uganda", pay_frequency: "monthly" }
+        { id: "1", name: "UG Monthly Staff", country: "Uganda", pay_frequency: "monthly", type: "local" },
+        { id: "2", name: "TEST 2 Uganda", country: "Uganda", pay_frequency: "monthly", type: "local" }
       ]);
     }
   };
 
+  // Filter pay groups based on payroll type and employee category
+  const filteredPayGroups = payGroups.filter(group => {
+    if (formData.payroll_type === "Expatriate") {
+      return group.type === "expatriate";
+    } else if (formData.payroll_type === "Local") {
+      return group.type === "local";
+    }
+    return true;
+  });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.payroll_type) {
+      toast({
+        title: "Error",
+        description: "Please select a payroll type",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (!formData.pay_group_id) {
       toast({
@@ -195,8 +218,8 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
               hours_worked: employee.pay_type === 'hourly' ? 0 : null,
               pieces_completed: employee.pay_type === 'piece_rate' ? 0 : null,
             };
-          } catch (error) {
-            error(`Failed to calculate payroll for employee ${employee.id}:`, error);
+          } catch (err) {
+            error(`Failed to calculate payroll for employee ${employee.id}:`, err);
             // Fallback to simple calculation
             const grossPay = employee.pay_rate || 0;
             const taxDeduction = grossPay * 0.1; // Simple 10% tax for demo
@@ -287,6 +310,54 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
 
         <form onSubmit={handleSubmit} className="space-y-4 modern-dialog-content">
           <div className="space-y-2">
+            <Label htmlFor="payroll_type">Payroll Type *</Label>
+            <Select
+              value={formData.payroll_type}
+              onValueChange={(value) => setFormData({ 
+                ...formData, 
+                payroll_type: value, 
+                employee_category: "",
+                pay_group_id: "" // Reset pay group when type changes
+              })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select payroll type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Local">Local</SelectItem>
+                <SelectItem value="Expatriate">Expatriate</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {formData.payroll_type === "Local" && (
+            <div className="space-y-2">
+              <Label htmlFor="employee_category">Employee Category</Label>
+              <Select
+                value={formData.employee_category}
+                onValueChange={(value) => setFormData({ 
+                  ...formData, 
+                  employee_category: value,
+                  pay_group_id: "" // Reset pay group when category changes
+                })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select employee category (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Categories</SelectItem>
+                  <SelectItem value="Permanent">Permanent</SelectItem>
+                  <SelectItem value="On Contract">On Contract</SelectItem>
+                  <SelectItem value="Temporary">Temporary</SelectItem>
+                  <SelectItem value="Intern">Intern</SelectItem>
+                  <SelectItem value="Trainee">Trainee</SelectItem>
+                  <SelectItem value="Casual">Casual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div className="space-y-2">
             <Label htmlFor="pay_group">Pay Group *</Label>
             <Select
               value={formData.pay_group_id}
@@ -296,12 +367,12 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
                 <SelectValue placeholder="Select pay group" />
               </SelectTrigger>
               <SelectContent>
-                {payGroups.map((group) => (
+                {filteredPayGroups.map((group) => (
                   <SelectItem key={group.id} value={group.id}>
                     <div className="flex flex-col">
                       <span>{group.name}</span>
                       <span className="text-sm text-muted-foreground">
-                        {group.country} - {group.pay_frequency}
+                        {group.country} - {group.pay_frequency} - {group.type || 'local'}
                       </span>
                     </div>
                   </SelectItem>

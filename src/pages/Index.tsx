@@ -12,6 +12,7 @@ import SettingsPage from "./Settings";
 import { ThemeTest } from "@/components/ui/ThemeTest";
 import { Toaster } from "@/components/ui/toaster";
 import { PayGroupsNavigation } from "@/components/navigation/PayGroupsNavigation";
+import { PayRunsNavigation } from "@/components/navigation/PayRunsNavigation";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("employees");
@@ -79,7 +80,13 @@ const Index = () => {
                       onNavigate={(path, type) => setActiveTab("paygroups")}
                     />
             
-            {menuItems.slice(1, 3).map((item) => (
+            {/* Pay Runs Navigation */}
+            <PayRunsNavigation
+              isActive={activeTab === "payruns"}
+              onNavigate={(path, payrollType, employeeCategory) => setActiveTab("payruns")}
+            />
+            
+            {menuItems.slice(2, 3).map((item) => (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}

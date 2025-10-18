@@ -15,6 +15,7 @@ interface PayGroup {
   name: string;
   country: string;
   type?: string;
+  pay_frequency?: string;
 }
 
 interface AddEmployeeDialogProps {
@@ -45,7 +46,9 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
     pay_group_id: "",
     status: "active",
     piece_type: "units",
-    employee_type: "local",
+    employee_type: "Local",
+    employee_category: "",
+    employment_status: "Active",
     bank_name: "",
     bank_branch: "",
     account_number: "",
@@ -73,6 +76,24 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
       generateEmployeeNumber();
     }
   }, [open]);
+
+  // Handle dynamic logic when employee type changes
+  useEffect(() => {
+    if (formData.employee_type === "Expatriate") {
+      // Auto-set pay_type to daily_rate for expatriates
+      setFormData(prev => ({
+        ...prev,
+        pay_type: "daily_rate",
+        employee_category: "" // Hide category field for expatriates
+      }));
+    } else if (formData.employee_type === "Local") {
+      // Reset pay_type to salary for local employees
+      setFormData(prev => ({
+        ...prev,
+        pay_type: prev.pay_type === "daily_rate" ? "salary" : prev.pay_type
+      }));
+    }
+  }, [formData.employee_type]);
 
   const generateEmployeeNumber = async () => {
     try {
@@ -126,7 +147,7 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
     try {
       const { data, error } = await supabase
         .from("pay_groups")
-        .select("id, name, country, type")
+        .select("id, name, country, type, pay_frequency")
         .order("name");
 
       if (error) throw error;
@@ -135,6 +156,16 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
       console.error("Error fetching pay groups:", error);
     }
   };
+
+  // Filter pay groups based on employee type and category
+  const filteredPayGroups = payGroups.filter(group => {
+    if (formData.employee_type === "Expatriate") {
+      return group.type === "expatriate";
+    } else if (formData.employee_type === "Local") {
+      return group.type === "local";
+    }
+    return true;
+  });
 
   const validateStep = (step: number): boolean => {
     switch (step) {
@@ -153,6 +184,14 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
           toast({
             title: "Required Fields",
             description: "Please fill in Pay Rate, Country, and Currency",
+            variant: "destructive",
+          });
+          return false;
+        }
+        if (formData.employee_type === "Local" && !formData.employee_category) {
+          toast({
+            title: "Required Fields",
+            description: "Please select an Employee Category for Local employees",
             variant: "destructive",
           });
           return false;
@@ -216,13 +255,15 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
           tin: formData.tin || null,
           nssf_number: formData.nssf_number || null,
           passport_number: formData.passport_number || null,
-          pay_type: formData.pay_type as "hourly" | "salary" | "piece_rate",
+          pay_type: formData.pay_type as "hourly" | "salary" | "piece_rate" | "daily_rate",
           pay_rate: parseFloat(formData.pay_rate),
           country: formData.country,
           currency: formData.currency,
           pay_group_id: formData.pay_group_id || null,
           status: formData.status as "active" | "inactive",
-          employee_type: formData.employee_type as "local" | "expatriate",
+          employee_type: formData.employee_type,
+          employee_category: formData.employee_category || null,
+          employment_status: formData.employment_status,
           bank_name: formData.bank_name || null,
           bank_branch: formData.bank_branch || null,
           account_number: formData.account_number || null,
@@ -262,7 +303,9 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
         pay_group_id: "",
         status: "active",
         piece_type: "units",
-        employee_type: "local",
+        employee_type: "Local",
+        employee_category: "",
+        employment_status: "Active",
         bank_name: "",
         bank_branch: "",
         account_number: "",
@@ -687,14 +730,16 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
                       <Select
                         value={formData.pay_type}
                         onValueChange={(value) => setFormData({ ...formData, pay_type: value })}
+                        disabled={formData.employee_type === "Expatriate"} // Disable for expatriates (auto-set to daily_rate)
                       >
                         <SelectTrigger className="h-9">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="hourly">Hourly</SelectItem>
-                          <SelectItem value="salary">Salary</SelectItem>
+                          <SelectItem value="salary">Salary (Monthly)</SelectItem>
                           <SelectItem value="piece_rate">Piece Rate</SelectItem>
+                          <SelectItem value="daily_rate">Daily Rate</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -704,6 +749,7 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
                         Pay Rate * 
                         {formData.pay_type === "hourly" && " (hourly)"}
                         {formData.pay_type === "salary" && " (monthly)"}
+                        {formData.pay_type === "daily_rate" && " (daily)"}
                         {formData.pay_type === "piece_rate" && ` (per ${formData.piece_type})`}
                       </Label>
                       <Input
@@ -788,19 +834,63 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
                     <Label htmlFor="employee_type" className="text-xs">Employee Type *</Label>
                     <Select
                       value={formData.employee_type}
-                      onValueChange={(value) => setFormData({ ...formData, employee_type: value })}
+                      onValueChange={(value) => setFormData({ ...formData, employee_type: value, employee_category: "" })}
                     >
                       <SelectTrigger className="h-9">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="local">Local National</SelectItem>
-                        <SelectItem value="expatriate">Expatriate</SelectItem>
+                        <SelectItem value="Local">Local National</SelectItem>
+                        <SelectItem value="Expatriate">Expatriate</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground mt-1">
                       Local nationals follow standard country-specific payroll rules. Expatriates may have different tax treatments.
                     </p>
+                  </div>
+
+                  {/* Employee Category - only show for Local employees */}
+                  {formData.employee_type === "Local" && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="employee_category" className="text-xs">Employee Category *</Label>
+                      <Select
+                        value={formData.employee_category}
+                        onValueChange={(value) => setFormData({ ...formData, employee_category: value })}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Permanent">Permanent</SelectItem>
+                          <SelectItem value="On Contract">On Contract</SelectItem>
+                          <SelectItem value="Temporary">Temporary</SelectItem>
+                          <SelectItem value="Intern">Intern</SelectItem>
+                          <SelectItem value="Trainee">Trainee</SelectItem>
+                          <SelectItem value="Casual">Casual</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Employment Status */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="employment_status" className="text-xs">Employment Status *</Label>
+                    <Select
+                      value={formData.employment_status}
+                      onValueChange={(value) => setFormData({ ...formData, employment_status: value })}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Active">Active</SelectItem>
+                        <SelectItem value="Probation">Probation</SelectItem>
+                        <SelectItem value="Notice Period">Notice Period</SelectItem>
+                        <SelectItem value="Resigned">Resigned</SelectItem>
+                        <SelectItem value="Terminated">Terminated</SelectItem>
+                        <SelectItem value="Deceased">Deceased</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {formData.country && (
