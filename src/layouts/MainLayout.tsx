@@ -1,11 +1,7 @@
-import { ReactNode } from "react";
+import { Outlet } from "react-router-dom";
 import { NavigationSidebar } from "@/components/Sidebar";
 
-interface MainLayoutProps {
-  children: ReactNode;
-}
-
-export default function MainLayout({ children }: MainLayoutProps) {
+export default function MainLayout() {
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-800">
       {/* Sidebar */}
@@ -49,7 +45,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
       {/* Main Content */}
       <main className="ml-64 flex-1 overflow-y-auto px-8 py-6">
-        <div className="max-w-7xl mx-auto w-full">{children}</div>
+        <div className="max-w-7xl mx-auto w-full">
+          <Outlet /> {/* This renders the current page */}
+        </div>
       </main>
     </div>
   );
