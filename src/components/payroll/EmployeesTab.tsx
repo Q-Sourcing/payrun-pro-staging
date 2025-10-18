@@ -190,11 +190,7 @@ const EmployeesTab = () => {
 
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Loading employees...</div>
-      </div>
-    );
+    return <LoadingSkeleton />;
   }
 
   return (
