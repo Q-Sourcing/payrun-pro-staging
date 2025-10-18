@@ -157,15 +157,7 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
     }
   };
 
-  // Filter pay groups based on employee type and category
-  const filteredPayGroups = payGroups.filter(group => {
-    if (formData.employee_type === "Expatriate") {
-      return group.type === "expatriate";
-    } else if (formData.employee_type === "Local") {
-      return group.type === "local";
-    }
-    return true;
-  });
+  // Filter pay groups based on employee type and category (defined later in component)
 
   const validateStep = (step: number): boolean => {
     switch (step) {
@@ -414,10 +406,10 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
     }
     
     // Filter by employee type
-    if (formData.employee_type === 'expatriate') {
+    if (formData.employee_type === 'Expatriate') {
       // For expatriates, only show expatriate pay groups
       return group.type === 'expatriate' || group.name.toLowerCase().includes('expat');
-    } else if (formData.employee_type === 'local') {
+    } else if (formData.employee_type === 'Local') {
       // For local employees, exclude expatriate pay groups
       return group.type !== 'expatriate' && !group.name.toLowerCase().includes('expat');
     }
