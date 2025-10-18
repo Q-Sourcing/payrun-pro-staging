@@ -20,6 +20,7 @@ const AddPayGroupDialog = ({ open, onOpenChange, onPayGroupAdded }: AddPayGroupD
   const [formData, setFormData] = useState({
     name: "",
     country: "",
+    type: "Local",
     pay_frequency: "monthly",
     default_tax_percentage: "",
     description: "",
@@ -37,6 +38,7 @@ const AddPayGroupDialog = ({ open, onOpenChange, onPayGroupAdded }: AddPayGroupD
     { value: "weekly", label: "Weekly" },
     { value: "bi_weekly", label: "Bi-Weekly" },
     { value: "monthly", label: "Monthly" },
+    { value: "Daily Rate", label: "Daily Rate" },
     { value: "custom", label: "Custom" },
   ];
 
@@ -63,11 +65,15 @@ const AddPayGroupDialog = ({ open, onOpenChange, onPayGroupAdded }: AddPayGroupD
 
     setLoading(true);
     try {
+      // Determine if this is an expatriate pay group based on name or type
+      const isExpat = formData.type === "Expatriate" || formData.name.toLowerCase().includes("expat");
+      
       const { error } = await supabase.from("pay_groups").insert([
         {
           name: formData.name,
           country: formData.country,
-          pay_frequency: formData.pay_frequency as "weekly" | "bi_weekly" | "monthly" | "custom",
+          type: isExpat ? "Expatriate" : formData.type,
+          pay_frequency: isExpat ? "Daily Rate" : formData.pay_frequency,
           default_tax_percentage: taxPercentage,
           description: formData.description || null,
         },
@@ -83,6 +89,7 @@ const AddPayGroupDialog = ({ open, onOpenChange, onPayGroupAdded }: AddPayGroupD
       setFormData({
         name: "",
         country: "",
+        type: "Local",
         pay_frequency: "monthly",
         default_tax_percentage: "",
         description: "",
@@ -121,6 +128,32 @@ const AddPayGroupDialog = ({ open, onOpenChange, onPayGroupAdded }: AddPayGroupD
               placeholder="e.g., US Weekly Staff"
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="type">Pay Group Type *</Label>
+            <Select
+              value={formData.type}
+              onValueChange={(value) => {
+                const isExpat = value === "Expatriate";
+                setFormData({ 
+                  ...formData, 
+                  type: value,
+                  pay_frequency: isExpat ? "Daily Rate" : formData.pay_frequency
+                });
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Local">Local</SelectItem>
+                <SelectItem value="Expatriate">Expatriate</SelectItem>
+                <SelectItem value="Contractor">Contractor</SelectItem>
+                <SelectItem value="Intern">Intern</SelectItem>
+                <SelectItem value="Casual">Casual</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -169,6 +202,7 @@ const AddPayGroupDialog = ({ open, onOpenChange, onPayGroupAdded }: AddPayGroupD
               <Select
                 value={formData.pay_frequency}
                 onValueChange={(value) => setFormData({ ...formData, pay_frequency: value })}
+                disabled={formData.type === "Expatriate"}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -179,8 +213,14 @@ const AddPayGroupDialog = ({ open, onOpenChange, onPayGroupAdded }: AddPayGroupD
                       {freq.label}
                     </SelectItem>
                   ))}
+                  <SelectItem value="Daily Rate">Daily Rate</SelectItem>
                 </SelectContent>
               </Select>
+              {formData.type === "Expatriate" && (
+                <div className="text-xs text-muted-foreground">
+                  Expatriate pay groups automatically use Daily Rate
+                </div>
+              )}
             </div>
           </div>
 
