@@ -11,8 +11,7 @@ import ReportsTab from "@/components/payroll/ReportsTab";
 import SettingsPage from "./Settings";
 import { ThemeTest } from "@/components/ui/ThemeTest";
 import { Toaster } from "@/components/ui/toaster";
-import { PayGroupsNavigation } from "@/components/navigation/PayGroupsNavigation";
-import { PayRunsNavigation } from "@/components/navigation/PayRunsNavigation";
+import { Sidebar } from "@/components/Sidebar";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("employees");
@@ -62,58 +61,10 @@ const Index = () => {
 
         {/* Main Navigation */}
         <div className="nav-section">
-          <div className="nav-items">
-            {menuItems.slice(0, 1).map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`nav-item ${activeTab === item.id ? "active" : ""}`}
-              >
-                <item.icon className="nav-icon" />
-                <span>{item.label}</span>
-              </button>
-            ))}
-            
-                    {/* Pay Groups Navigation */}
-                    <PayGroupsNavigation
-                      isActive={activeTab === "paygroups"}
-                      onNavigate={(path, type) => setActiveTab("paygroups")}
-                    />
-            
-            {/* Pay Runs Navigation */}
-            <PayRunsNavigation
-              isActive={activeTab === "payruns"}
-              onNavigate={(path, payrollType, employeeCategory) => setActiveTab("payruns")}
-            />
-            
-            {menuItems.slice(2, 3).map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`nav-item ${activeTab === item.id ? "active" : ""}`}
-              >
-                <item.icon className="nav-icon" />
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Reports Section */}
-        <div className="nav-section">
-          <div className="nav-section-title">Reports</div>
-          <div className="nav-items">
-            {menuItems.slice(4, 6).map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`nav-item ${activeTab === item.id ? "active" : ""}`}
-              >
-                <item.icon className="nav-icon" />
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </div>
+          <Sidebar 
+            activeTab={activeTab}
+            onNavigate={setActiveTab}
+          />
         </div>
 
         {/* Settings Section */}
