@@ -1,12 +1,8 @@
-import { Outlet, useNavigation } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { NavigationSidebar } from "@/components/Sidebar";
-import LoadingSkeleton from "@/components/LoadingSkeleton";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
 export default function MainLayout() {
-  const navigation = useNavigation();
-  const isLoading = navigation.state === "loading";
-
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-800">
       {/* Sidebar */}
@@ -51,29 +47,13 @@ export default function MainLayout() {
       {/* Main Content */}
       <main className="ml-64 flex-1 overflow-y-auto px-8 py-6">
         <div className="max-w-7xl mx-auto w-full">
-          <AnimatePresence mode="wait">
-            {isLoading ? (
-              <motion.div
-                key="loader"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-              >
-                <LoadingSkeleton />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="content"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.35 }}
-              >
-                <Outlet /> {/* This renders the current page */}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35 }}
+          >
+            <Outlet /> {/* This renders the current page */}
+          </motion.div>
         </div>
       </main>
     </div>
