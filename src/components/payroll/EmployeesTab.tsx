@@ -14,6 +14,7 @@ import EditEmployeeDialog from "./EditEmployeeDialog";
 import BulkUploadEmployeesDialog from "./BulkUploadEmployeesDialog";
 import PageHeader from "@/components/PageHeader";
 import TableWrapper from "@/components/TableWrapper";
+import LoadingSkeleton from "@/components/LoadingSkeleton";
 
 interface Employee {
   id: string;
