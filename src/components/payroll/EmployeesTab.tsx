@@ -12,6 +12,8 @@ import { getCurrencyByCode } from "@/lib/constants/countries";
 import AddEmployeeDialog from "./AddEmployeeDialog";
 import EditEmployeeDialog from "./EditEmployeeDialog";
 import BulkUploadEmployeesDialog from "./BulkUploadEmployeesDialog";
+import PageHeader from "@/components/PageHeader";
+import TableWrapper from "@/components/TableWrapper";
 
 interface Employee {
   id: string;
@@ -197,37 +199,37 @@ const EmployeesTab = () => {
 
   return (
     <div className="space-y-6">
-      {/* Action Buttons */}
-      <div className="flex justify-end gap-3">
-        <Button 
-          onClick={generateEmployeeNumbers} 
-          variant="outline"
-          className="btn-secondary"
-          disabled={loading}
-        >
-          <Globe className="h-4 w-4 mr-2" />
-          Fix Employee IDs
-        </Button>
-        <Button 
-          onClick={() => setShowBulkUploadDialog(true)} 
-          variant="outline"
-          className="btn-secondary"
-        >
-          <Upload className="h-4 w-4 mr-2" />
-          Bulk Upload
-        </Button>
-        <Button 
-          onClick={() => setShowAddDialog(true)} 
-          className="btn-primary"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Employee
-        </Button>
-      </div>
-
-      {/* Filters Section */}
-      <div className="card">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <PageHeader
+        title="Employee Directory"
+        subtitle={`${filteredEmployees.length} employee${filteredEmployees.length !== 1 ? 's' : ''} found`}
+        actions={
+          <>
+            <Button 
+              onClick={generateEmployeeNumbers} 
+              variant="outline"
+              disabled={loading}
+            >
+              <Globe className="h-4 w-4 mr-2" />
+              Fix Employee IDs
+            </Button>
+            <Button 
+              onClick={() => setShowBulkUploadDialog(true)} 
+              variant="outline"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Bulk Upload
+            </Button>
+            <Button 
+              onClick={() => setShowAddDialog(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Employee
+            </Button>
+          </>
+        }
+        filters={
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -286,136 +288,115 @@ const EmployeesTab = () => {
               </SelectContent>
             </Select>
           </div>
-        </div>
+        }
+      />
 
       {/* Employees Table */}
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <h3 className="card-title">Employee Directory</h3>
-            <p className="text-sm text-muted-foreground">
-              {filteredEmployees.length} employee{filteredEmployees.length !== 1 ? 's' : ''} found
-            </p>
+      {filteredEmployees.length === 0 ? (
+        <div className="text-center py-16">
+          <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-6">
+            <Search className="h-12 w-12 text-muted-foreground" />
           </div>
+          <h3 className="text-lg font-semibold text-foreground mb-2">No employees found</h3>
+          <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+            {searchTerm || statusFilter !== 'all' || payTypeFilter !== 'all' || prefixFilter !== 'all'
+              ? 'Try adjusting your search criteria to find employees.'
+              : 'Get started by adding your first employee to the system.'
+            }
+          </p>
+          <Button 
+            onClick={() => setShowAddDialog(true)} 
+            className="h-11 px-6 bg-blue-600 hover:bg-blue-700"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Your First Employee
+          </Button>
         </div>
-        <div className="overflow-x-auto">
-          {filteredEmployees.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-6">
-                <Search className="h-12 w-12 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">No employees found</h3>
-              <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-                {searchTerm || statusFilter !== 'all' || payTypeFilter !== 'all' || prefixFilter !== 'all'
-                  ? 'Try adjusting your search criteria to find employees.'
-                  : 'Get started by adding your first employee to the system.'
-                }
-              </p>
-              <Button 
-                onClick={() => setShowAddDialog(true)} 
-                className="h-11 px-6 bg-primary hover:bg-primary/90 text-primary-foreground"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Your First Employee
-              </Button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto h-full">
-              <Table>
-                <TableHeader className="bg-gray-50 dark:bg-muted/50">
-                  <TableRow className="border-b-2 border-gray-200 dark:border-border">
-                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Employee ID</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Name</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Type</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Email</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Pay Type</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Pay Rate</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Country</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Currency</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Pay Group</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Status</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedEmployees.map((employee, index) => (
-                    <TableRow 
-                      key={employee.id}
-                      className={`border-b border-gray-200 dark:border-border hover:bg-blue-50 dark:hover:bg-muted/50 transition-colors ${
-                        index % 2 === 0 ? 'bg-white dark:bg-background' : 'bg-gray-50 dark:bg-muted/20'
+      ) : (
+        <TableWrapper>
+          <Table>
+            <thead className="bg-slate-50 sticky top-0 z-10">
+              <tr>
+                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Employee ID</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Name</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Type</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Email</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Pay Type</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Pay Rate</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Country</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Currency</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Pay Group</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Status</th>
+                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedEmployees.map((employee, index) => (
+                <tr 
+                  key={employee.id}
+                  className="hover:bg-slate-50 border-b border-slate-100"
+                >
+                  <td className="px-4 py-2 text-sm">
+                    <div className="font-medium text-slate-900">
+                      {employee.employee_number || "—"}
+                    </div>
+                  </td>
+                  <td className="px-4 py-2 text-sm">
+                    <div className="font-medium text-slate-900">
+                      {getFullName(employee)}
+                    </div>
+                  </td>
+                  <td className="px-4 py-2 text-sm">
+                    {employee.employee_type === 'expatriate' ? (
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-800 font-medium px-3 py-1 border border-blue-200">
+                        <Globe className="h-3 w-3 mr-1" />
+                        Expat
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 font-medium px-3 py-1">
+                        <Flag className="h-3 w-3 mr-1" />
+                        Local
+                      </Badge>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-sm text-slate-600">{employee.email}</td>
+                  <td className="px-4 py-2 text-sm">
+                    <div className="font-medium text-slate-900">{formatPayType(employee.pay_type)}</div>
+                  </td>
+                  <td className="px-4 py-2 text-sm">
+                    <div className="font-medium text-slate-900">{formatPayRate(employee.pay_rate, employee.pay_type, employee.currency)}</div>
+                  </td>
+                  <td className="px-4 py-2 text-sm text-slate-600">{employee.country}</td>
+                  <td className="px-4 py-2 text-sm text-slate-600">{employee.currency}</td>
+                  <td className="px-4 py-2 text-sm text-slate-600">{employee.pay_groups?.name || "Unassigned"}</td>
+                  <td className="px-4 py-2 text-sm">
+                    <Badge 
+                      variant={employee.status === "active" ? "default" : "secondary"}
+                      className={`font-medium px-3 py-1 ${
+                        employee.status === "active" 
+                          ? "bg-green-100 text-green-800 border border-green-200" 
+                          : "bg-gray-100 text-gray-800 border border-gray-200"
                       }`}
                     >
-                      <TableCell className="px-6 py-4">
-                        <div className="font-medium text-gray-900 dark:text-foreground">
-                          {employee.employee_number || "—"}
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-6 py-4">
-                        <div className="font-medium text-gray-900 dark:text-foreground">
-                          {getFullName(employee)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-6 py-4">
-                        {employee.employee_type === 'expatriate' ? (
-                          <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 font-medium px-3 py-1 border border-blue-200 dark:border-blue-800">
-                            <Globe className="h-3 w-3 mr-1" />
-                            Expat
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800 font-medium px-3 py-1">
-                            <Flag className="h-3 w-3 mr-1" />
-                            Local
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="px-6 py-4">
-                        <div className="text-sm text-gray-600 dark:text-muted-foreground">{employee.email}</div>
-                      </TableCell>
-                      <TableCell className="px-6 py-4">
-                        <div className="font-medium text-gray-900 dark:text-foreground">{formatPayType(employee.pay_type)}</div>
-                      </TableCell>
-                      <TableCell className="px-6 py-4">
-                        <div className="font-medium text-gray-900 dark:text-foreground">{formatPayRate(employee.pay_rate, employee.pay_type, employee.currency)}</div>
-                      </TableCell>
-                      <TableCell className="px-6 py-4">
-                        <div className="text-sm text-gray-600 dark:text-muted-foreground">{employee.country}</div>
-                      </TableCell>
-                      <TableCell className="px-6 py-4">
-                        <div className="text-sm text-gray-600 dark:text-muted-foreground">{employee.currency}</div>
-                      </TableCell>
-                      <TableCell className="px-6 py-4">
-                        <div className="text-sm text-gray-600 dark:text-muted-foreground">{employee.pay_groups?.name || "Unassigned"}</div>
-                      </TableCell>
-                      <TableCell className="px-6 py-4">
-                        <Badge 
-                          variant={employee.status === "active" ? "default" : "secondary"}
-                          className={`font-medium px-3 py-1 ${
-                            employee.status === "active" 
-                              ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300 border border-green-200 dark:border-green-800" 
-                              : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700"
-                          }`}
-                        >
-                          {employee.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-6 py-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
-                          onClick={() => handleEditEmployee(employee)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </div>
-      </div>
+                      {employee.status}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-2 text-sm">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
+                      onClick={() => handleEditEmployee(employee)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </TableWrapper>
+      )}
 
       <AddEmployeeDialog 
         open={showAddDialog} 

@@ -28,8 +28,8 @@ import LocalPayrollIntern from "./pages/payruns/local/Intern";
 import LocalPayrollTrainee from "./pages/payruns/local/Trainee";
 import LocalPayrollCasual from "./pages/payruns/local/Casual";
 
-// Import Layout component
-import Layout from "./components/Layout";
+// Import MainLayout component
+import MainLayout from "./layouts/MainLayout";
 
 const queryClient = new QueryClient();
 
@@ -71,7 +71,7 @@ const App = () => (
                 path="/"
                 element={
                   <ProtectedRoute>
-                    <Layout />
+                    <MainLayout />
                   </ProtectedRoute>
                 }
               >
