@@ -1,0 +1,18 @@
+{
+  "folders": [
+    {
+      "name": "Q-Payroll Staging",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "projectName": "payrun-pro-staging",
+    "environment": "staging",
+    "database": "staging"
+  },
+  "extensions": {
+    "recommendations": [
+      "supabase.supabase"
+    ]
+  }
+}
