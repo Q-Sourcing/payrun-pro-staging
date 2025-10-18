@@ -11,7 +11,7 @@ import ReportsTab from "@/components/payroll/ReportsTab";
 import SettingsPage from "./Settings";
 import { ThemeTest } from "@/components/ui/ThemeTest";
 import { Toaster } from "@/components/ui/toaster";
-import { Sidebar } from "@/components/Sidebar";
+import { NavigationSidebar } from "@/components/Sidebar";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("employees");
@@ -61,7 +61,7 @@ const Index = () => {
 
         {/* Main Navigation */}
         <div className="nav-section">
-          <Sidebar 
+          <NavigationSidebar 
             activeTab={activeTab}
             onNavigate={setActiveTab}
           />

@@ -22,7 +22,7 @@ interface SidebarProps {
   onNavigate: (tab: string) => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onNavigate }) => {
+export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigate }) => {
   const [localOpen, setLocalOpen] = useState(false);
 
   const isActive = (tabId: string) => {
