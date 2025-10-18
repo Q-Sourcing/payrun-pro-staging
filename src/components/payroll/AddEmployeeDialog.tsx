@@ -86,6 +86,9 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
         pay_type: "daily_rate",
         employee_category: "" // Hide category field for expatriates
       }));
+      
+      // Ensure default expatriate pay group exists
+      ensureDefaultExpatPayGroup();
     } else if (formData.employee_type === "Local") {
       // Reset pay_type to salary for local employees
       setFormData(prev => ({
@@ -154,6 +157,40 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
       setPayGroups(data || []);
     } catch (error) {
       console.error("Error fetching pay groups:", error);
+    }
+  };
+
+  const ensureDefaultExpatPayGroup = async () => {
+    try {
+      const { data: existing } = await supabase
+        .from("pay_groups")
+        .select("id")
+        .eq("type", "Expatriate")
+        .limit(1);
+
+      if (!existing || existing.length === 0) {
+        console.log("No Expatriate pay group found, creating one...");
+        const { error } = await supabase.from("pay_groups").insert([
+          {
+            name: "Default Expatriate Pay Group",
+            country: "Uganda",
+            currency: "USD",
+            type: "Expatriate",
+            pay_frequency: "Daily Rate",
+            default_tax_percentage: 0,
+            description: "Auto-created default pay group for expatriate employees",
+          },
+        ]);
+        
+        if (error) {
+          console.error("Error creating default expat pay group:", error);
+        } else {
+          // Refresh pay groups list
+          fetchPayGroups();
+        }
+      }
+    } catch (error) {
+      console.error("Error ensuring default expat pay group:", error);
     }
   };
 
@@ -363,14 +400,17 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
 
     setCreatingPayGroup(true);
     try {
+      // Determine if this is an expatriate pay group
+      const isExpat = formData.employee_type === 'Expatriate' || newPayGroupName.toLowerCase().includes('expat');
+      
       const { data, error } = await supabase
         .from("pay_groups")
         .insert({
           name: newPayGroupName.trim(),
           country: formData.country,
-          pay_frequency: "monthly",
+          pay_frequency: isExpat ? "Daily Rate" : "Monthly",
           default_tax_percentage: 0,
-          type: formData.employee_type === 'expatriate' ? 'expatriate' : 'regular',
+          type: isExpat ? "Expatriate" : "Local",
         })
         .select()
         .single();

@@ -101,9 +101,9 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
   // Filter pay groups based on payroll type and employee category
   const filteredPayGroups = payGroups.filter(group => {
     if (formData.payroll_type === "Expatriate") {
-      return group.type === "expatriate";
+      return group.type === "Expatriate";
     } else if (formData.payroll_type === "Local") {
-      return group.type === "local";
+      return group.type === "Local";
     }
     return true;
   });
