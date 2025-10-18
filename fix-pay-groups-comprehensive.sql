@@ -10,9 +10,24 @@ ALTER TABLE pay_groups
   ADD CONSTRAINT check_pay_groups_type
   CHECK (type IN ('Local', 'Expatriate', 'Contractor', 'Intern', 'Casual'));
 
--- Step 3: Add pay_frequency column if it doesn't exist
+-- Step 3: Add or update pay_frequency column with proper enum values
+-- First, drop the column if it exists as an enum
 ALTER TABLE pay_groups
-  ADD COLUMN IF NOT EXISTS pay_frequency TEXT DEFAULT 'Monthly';
+  DROP COLUMN IF EXISTS pay_frequency;
+
+-- Add it back as TEXT to allow any frequency value
+ALTER TABLE pay_groups
+  ADD COLUMN pay_frequency TEXT DEFAULT 'Monthly';
+
+-- If pay_frequency was an enum, we need to update the enum type
+-- Check if the enum exists and add "Daily Rate" to it
+DO $$ 
+BEGIN
+  -- Add "Daily Rate" to the pay_frequency enum if it doesn't exist
+  IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'pay_frequency') THEN
+    ALTER TYPE pay_frequency ADD VALUE IF NOT EXISTS 'Daily Rate';
+  END IF;
+END $$;
 
 -- Step 4: Update existing records to have proper type values
 -- Set default type for existing records that might be null
