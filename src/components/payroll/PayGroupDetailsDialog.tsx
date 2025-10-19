@@ -103,6 +103,8 @@ const PayGroupDetailsDialog = ({
     switch (payType) {
       case "piece_rate":
         return "Piece Rate";
+      case "daily_rate":
+        return "Daily Rate";
       default:
         return payType.charAt(0).toUpperCase() + payType.slice(1);
     }

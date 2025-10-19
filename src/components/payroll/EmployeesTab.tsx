@@ -107,6 +107,8 @@ const EmployeesTab = () => {
     switch (payType) {
       case "piece_rate":
         return "Piece Rate";
+      case "daily_rate":
+        return "Daily Rate";
       default:
         return payType.charAt(0).toUpperCase() + payType.slice(1);
     }
@@ -257,6 +259,7 @@ const EmployeesTab = () => {
                 <SelectItem value="hourly">Hourly</SelectItem>
                 <SelectItem value="salary">Salary</SelectItem>
                 <SelectItem value="piece_rate">Piece Rate</SelectItem>
+                <SelectItem value="daily_rate">Daily Rate</SelectItem>
               </SelectContent>
             </Select>
 

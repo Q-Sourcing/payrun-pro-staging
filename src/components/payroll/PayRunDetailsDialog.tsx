@@ -348,6 +348,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       baseGrossPay = hoursWorked * payRate;
     } else if (item.employees.pay_type === 'piece_rate') {
       baseGrossPay = piecesCompleted * payRate;
+    } else if (item.employees.pay_type === 'daily_rate') {
+      baseGrossPay = hoursWorked * payRate; // For daily rate, hoursWorked represents days
     } else {
       baseGrossPay = payRate;
     }
@@ -741,6 +743,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         ? `${item.hours_worked || 0} hours`
         : item.employees.pay_type === 'piece_rate'
         ? `${item.pieces_completed || 0} pieces`
+        : item.employees.pay_type === 'daily_rate'
+        ? `${item.hours_worked || 0} days`
         : '-';
       
       return [
@@ -1333,13 +1337,15 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                           <TableCell>
                             <Badge variant="outline">
                               {item.employees.pay_type === 'hourly' ? 'Hourly' : 
-                               item.employees.pay_type === 'piece_rate' ? 'Piece' : 'Salary'}
+                               item.employees.pay_type === 'piece_rate' ? 'Piece' : 
+                               item.employees.pay_type === 'daily_rate' ? 'Daily' : 'Salary'}
                             </Badge>
                           </TableCell>
                           <TableCell>{formatCurrency(item.employees.pay_rate, payGroupCurrency)}</TableCell>
                           <TableCell>
                             {item.employees.pay_type === 'hourly' && `${item.hours_worked || 0} hrs`}
                             {item.employees.pay_type === 'piece_rate' && `${item.pieces_completed || 0} pcs`}
+                            {item.employees.pay_type === 'daily_rate' && `${item.hours_worked || 0} days`}
                             {item.employees.pay_type === 'salary' && '-'}
                           </TableCell>
                           <TableCell className="font-semibold">{formatCurrency(calculated.grossPay, payGroupCurrency)}</TableCell>
@@ -1441,6 +1447,17 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                           />
                                         </div>
                                       )}
+                                      {item.employees.pay_type === 'daily_rate' && (
+                                        <div>
+                                          <Label>Days Worked</Label>
+                                          <Input
+                                            type="number"
+                                            step="0.01"
+                                            value={edits.hours_worked ?? item.hours_worked ?? 0}
+                                            onChange={(e) => handleFieldChange(item.id, 'hours_worked', parseFloat(e.target.value) || 0)}
+                                          />
+                                        </div>
+                                      )}
                                       {item.employees.pay_type === 'piece_rate' && (
                                         <div>
                                           <Label>Pieces Completed</Label>
@@ -1479,6 +1496,11 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                       {item.employees.pay_type === 'hourly' && (
                                         <div className="flex justify-between text-sm text-muted-foreground">
                                           <span>({item.hours_worked || 0} hours × {formatCurrency(item.employees.pay_rate, payGroupCurrency)}/hr)</span>
+                                        </div>
+                                      )}
+                                      {item.employees.pay_type === 'daily_rate' && (
+                                        <div className="flex justify-between text-sm text-muted-foreground">
+                                          <span>({item.hours_worked || 0} days × {formatCurrency(item.employees.pay_rate, payGroupCurrency)}/day)</span>
                                         </div>
                                       )}
                                       {item.employees.pay_type === 'piece_rate' && (

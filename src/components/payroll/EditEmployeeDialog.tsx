@@ -160,7 +160,7 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
           tin: formData.tin || null,
           nssf_number: formData.nssf_number || null,
           passport_number: formData.passport_number || null,
-          pay_type: formData.pay_type as "hourly" | "salary" | "piece_rate",
+          pay_type: formData.pay_type as "hourly" | "salary" | "piece_rate" | "daily_rate",
           pay_rate: parseFloat(formData.pay_rate),
           country: formData.country,
           currency: formData.currency,
@@ -383,6 +383,7 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
                   <SelectItem value="hourly">Hourly</SelectItem>
                   <SelectItem value="salary">Salary</SelectItem>
                   <SelectItem value="piece_rate">Piece Rate</SelectItem>
+                  <SelectItem value="daily_rate">Daily Rate</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -392,6 +393,7 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
                 Pay Rate * 
                 {formData.pay_type === "hourly" && " (hourly)"}
                 {formData.pay_type === "salary" && " (monthly)"}
+                {formData.pay_type === "daily_rate" && " (daily)"}
                 {formData.pay_type === "piece_rate" && ` (per ${formData.piece_type})`}
                 {selectedCurrency && (
                   <span className="text-sm text-muted-foreground ml-1">

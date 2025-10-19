@@ -738,7 +738,7 @@ export type Database = {
       pay_frequency: "weekly" | "bi_weekly" | "monthly" | "custom"
       pay_item_status: "draft" | "pending" | "approved" | "paid"
       pay_run_status: "draft" | "pending_approval" | "approved" | "processed"
-      pay_type: "hourly" | "salary" | "piece_rate"
+      pay_type: "hourly" | "salary" | "piece_rate" | "daily_rate"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -877,7 +877,7 @@ export const Constants = {
       pay_frequency: ["weekly", "bi_weekly", "monthly", "custom"],
       pay_item_status: ["draft", "pending", "approved", "paid"],
       pay_run_status: ["draft", "pending_approval", "approved", "processed"],
-      pay_type: ["hourly", "salary", "piece_rate"],
+      pay_type: ["hourly", "salary", "piece_rate", "daily_rate"],
     },
   },
 } as const
