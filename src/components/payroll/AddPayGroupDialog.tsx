@@ -34,11 +34,12 @@ const AddPayGroupDialog = ({ open, onOpenChange, onPayGroupAdded }: AddPayGroupD
   const suggestedTaxRate = countryDeductions.find(d => d.name === "PAYE")?.percentage || 
                           (countryDeductions.find(d => d.name === "PAYE")?.brackets?.[1]?.rate || 0);
 
+  // Map UI labels to DB enum values where needed
   const frequencies = [
     { value: "weekly", label: "Weekly" },
-    { value: "bi_weekly", label: "Bi-Weekly" },
+    { value: "biweekly", label: "Bi-Weekly" },
     { value: "monthly", label: "Monthly" },
-    { value: "Daily Rate", label: "Daily Rate" },
+    { value: "daily_rate", label: "Daily Rate" },
     { value: "custom", label: "Custom" },
   ];
 
@@ -73,7 +74,8 @@ const AddPayGroupDialog = ({ open, onOpenChange, onPayGroupAdded }: AddPayGroupD
           name: formData.name,
           country: formData.country,
           type: isExpat ? "Expatriate" : formData.type,
-          pay_frequency: isExpat ? "Daily Rate" : formData.pay_frequency,
+          // DB expects enum like daily_rate/biweekly/monthly
+          pay_frequency: isExpat ? "daily_rate" : formData.pay_frequency,
           default_tax_percentage: taxPercentage,
           description: formData.description || null,
         },
@@ -139,7 +141,7 @@ const AddPayGroupDialog = ({ open, onOpenChange, onPayGroupAdded }: AddPayGroupD
                 setFormData({ 
                   ...formData, 
                   type: value,
-                  pay_frequency: isExpat ? "Daily Rate" : formData.pay_frequency
+                  pay_frequency: isExpat ? "daily_rate" : formData.pay_frequency
                 });
               }}
             >
@@ -213,7 +215,6 @@ const AddPayGroupDialog = ({ open, onOpenChange, onPayGroupAdded }: AddPayGroupD
                       {freq.label}
                     </SelectItem>
                   ))}
-                  <SelectItem value="Daily Rate">Daily Rate</SelectItem>
                 </SelectContent>
               </Select>
               {formData.type === "Expatriate" && (

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,13 @@ interface AddEmployeeDialogProps {
 
 const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeDialogProps) => {
   const [currentStep, setCurrentStep] = useState(1);
+  const [formErrors, setFormErrors] = useState<{ [key: string]: boolean }>({});
+  
+  // Refs for auto-scroll and focus
+  const emailRef = useRef<HTMLInputElement>(null);
+  const empIdRef = useRef<HTMLInputElement>(null);
+  const accNoRef = useRef<HTMLInputElement>(null);
+  
   const [formData, setFormData] = useState({
     first_name: "",
     middle_name: "",
@@ -176,7 +183,8 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
             country: "Uganda",
             currency: "USD",
             type: "Expatriate",
-            pay_frequency: "Daily Rate",
+            // DB enum uses snake_case daily_rate for pay_frequency in this project
+            pay_frequency: "daily_rate",
             default_tax_percentage: 0,
             description: "Auto-created default pay group for expatriate employees",
           },
@@ -245,6 +253,8 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
     if (!validateStep(2)) return;
 
     setLoading(true);
+    setFormErrors({}); // Clear any previous errors
+
     try {
       // Validate custom employee number uniqueness if provided
       if (employeeNumberCustomEnabled) {
@@ -290,7 +300,8 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
           currency: formData.currency,
           pay_group_id: formData.pay_group_id || null,
           status: formData.status as "active" | "inactive",
-          employee_type: formData.employee_type,
+          // Map to lowercase to satisfy current DB constraint ('local','expatriate')
+          employee_type: formData.employee_type === "Expatriate" ? "expatriate" : "local",
           employee_category: formData.employee_category || null,
           employment_status: formData.employment_status,
           bank_name: formData.bank_name || null,
@@ -302,10 +313,74 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
         },
       ]);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase insert error:", error);
+
+        // Enhanced duplicate key handling with field highlighting
+        if (error.code === "23505" || error.message?.includes("duplicate key")) {
+          let duplicateField = "value";
+          let refToFocus: React.RefObject<HTMLInputElement> | null = null;
+
+          if (error.message.includes("email") || error.message.includes("employees_email_key")) {
+            duplicateField = "email address";
+            setFormErrors({ email: true });
+            refToFocus = emailRef;
+          } else if (error.message.includes("employee_number") || error.message.includes("employees_employee_number_key")) {
+            duplicateField = "employee ID";
+            setFormErrors({ employee_number: true });
+            refToFocus = empIdRef;
+          } else if (error.message.includes("account_number") || error.message.includes("employees_account_number_key")) {
+            duplicateField = "account number";
+            setFormErrors({ account_number: true });
+            refToFocus = accNoRef;
+          } else if (error.message.includes("phone") || error.message.includes("employees_phone_key")) {
+            duplicateField = "phone number";
+            setFormErrors({ phone: true });
+          } else if (error.message.includes("national_id") || error.message.includes("employees_national_id_key")) {
+            duplicateField = "National ID";
+            setFormErrors({ national_id: true });
+          } else if (error.message.includes("nssf_number") || error.message.includes("employees_nssf_number_key")) {
+            duplicateField = "Social Security Number";
+            setFormErrors({ nssf_number: true });
+          }
+
+          toast({
+            title: `⚠️ Duplicate ${duplicateField}`,
+            description: `The ${duplicateField} already exists. Please use a unique one.`,
+            variant: "destructive",
+          });
+
+          // Scroll + focus to the problematic field
+          if (refToFocus?.current) {
+            refToFocus.current.scrollIntoView({ behavior: "smooth", block: "center" });
+            setTimeout(() => refToFocus?.current?.focus(), 100);
+          }
+
+          setLoading(false);
+          return;
+        }
+
+        if (error.code === "23514") {
+          toast({
+            title: "Invalid data",
+            description: "Please review your entries and try again.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+
+        toast({
+          title: "Error Adding Employee",
+          description: error.message || "An unexpected error occurred. Please try again.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
 
       toast({
-        title: "Success",
+        title: "✅ Success",
         description: "Employee added successfully",
       });
 
@@ -348,30 +423,10 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
       onEmployeeAdded();
       onOpenChange(false);
     } catch (error: any) {
-      console.error("Error adding employee:", error);
-      
-      // Enhanced error handling with specific messages
-      let errorMessage = "Failed to add employee";
-      
-      if (error?.code === "23505") {
-        if (error.message?.includes("employees_email_key")) {
-          errorMessage = "This email address is already registered to another employee";
-        } else if (error.message?.includes("employees_phone_key")) {
-          errorMessage = "This phone number is already registered to another employee";
-        } else if (error.message?.includes("employees_national_id_key")) {
-          errorMessage = "This National ID is already registered to another employee";
-        } else if (error.message?.includes("nssf_number")) {
-          errorMessage = "This Social Security Number is already registered to another employee";
-        } else {
-          errorMessage = "Duplicate entry detected. Please check your data.";
-        }
-      } else if (error?.message) {
-        errorMessage = error.message;
-      }
-      
+      console.error("Unexpected error adding employee:", error);
       toast({
         title: "Error Adding Employee",
-        description: errorMessage,
+        description: "Something went wrong while adding the employee.",
         variant: "destructive",
       });
     } finally {
@@ -558,12 +613,13 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
                   <Label htmlFor="employee_number" className="text-xs">Employee ID * (Auto-generated)</Label>
                   <div className="flex gap-2 items-center">
                     <Input
+                      ref={empIdRef}
                       id="employee_number"
                       placeholder={employeeNumberCustomEnabled ? "Enter custom ID, e.g., EMP-024" : "Auto-generated employee ID"}
                       disabled={!employeeNumberCustomEnabled}
                       value={employeeNumber}
                       onChange={(e) => { setEmployeeNumber(e.target.value); setEmployeeNumberError(""); }}
-                      className="h-9"
+                      className={`h-9 ${formErrors.employee_number ? "border-red-500 focus:ring-red-400" : ""}`}
                     />
                     {employeeNumberCustomEnabled ? (
                       <Button type="button" variant="outline" onClick={() => { setEmployeeNumberCustomEnabled(false); generateEmployeeNumber(); setEmployeeNumberError(""); }}>Use Auto</Button>
@@ -576,6 +632,9 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
                   </div>
                   {employeeNumberError && (
                     <p className="text-xs text-destructive">{employeeNumberError}</p>
+                  )}
+                  {formErrors.employee_number && (
+                    <p className="text-xs text-red-500 mt-1">This employee ID is already registered.</p>
                   )}
                   <p className="text-xs text-muted-foreground">Format: {employeePrefix}-{nextSequence.toString().padStart(3, '0')}. Next ID will be: {employeePrefix}-{(nextSequence + 1).toString().padStart(3, '0')}</p>
                 </div>
@@ -623,13 +682,17 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
                     <div className="space-y-1.5">
                       <Label htmlFor="email" className="text-xs">Email *</Label>
                       <Input
+                        ref={emailRef}
                         id="email"
                         type="email"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         placeholder="email@example.com"
-                        className="h-9"
+                        className={`h-9 ${formErrors.email ? "border-red-500 focus:ring-red-400" : ""}`}
                       />
+                      {formErrors.email && (
+                        <p className="text-xs text-red-500 mt-1">This email is already registered.</p>
+                      )}
                     </div>
 
                     <div className="space-y-1.5">
@@ -657,9 +720,12 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
                           value={formData.phone}
                           onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                           placeholder="752 123 456"
-                          className="flex-1 h-9"
+                          className={`flex-1 h-9 ${formErrors.phone ? "border-red-500 focus:ring-red-400" : ""}`}
                         />
                       </div>
+                      {formErrors.phone && (
+                        <p className="text-xs text-red-500 mt-1">This phone number is already registered.</p>
+                      )}
                     </div>
                   </div>
 
@@ -706,8 +772,11 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
                         value={formData.national_id}
                         onChange={(e) => setFormData({ ...formData, national_id: e.target.value })}
                         placeholder="National ID"
-                        className="h-9"
+                        className={`h-9 ${formErrors.national_id ? "border-red-500 focus:ring-red-400" : ""}`}
                       />
+                      {formErrors.national_id && (
+                        <p className="text-xs text-red-500 mt-1">This National ID is already registered.</p>
+                      )}
                     </div>
 
                     <div className="space-y-1.5">
@@ -730,8 +799,11 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
                         value={formData.nssf_number}
                         onChange={(e) => setFormData({ ...formData, nssf_number: e.target.value })}
                         placeholder="Social Security Number"
-                        className="h-9"
+                        className={`h-9 ${formErrors.nssf_number ? "border-red-500 focus:ring-red-400" : ""}`}
                       />
+                      {formErrors.nssf_number && (
+                        <p className="text-xs text-red-500 mt-1">This Social Security Number is already registered.</p>
+                      )}
                     </div>
 
                     <div className="space-y-1.5">
@@ -998,12 +1070,16 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
                     <div className="space-y-1.5">
                       <Label htmlFor="account_number" className="text-xs">Account Number</Label>
                       <Input
+                        ref={accNoRef}
                         id="account_number"
                         value={formData.account_number}
                         onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
                         placeholder="Account number"
-                        className="h-9"
+                        className={`h-9 ${formErrors.account_number ? "border-red-500 focus:ring-red-400" : ""}`}
                       />
+                      {formErrors.account_number && (
+                        <p className="text-xs text-red-500 mt-1">This account number is already registered.</p>
+                      )}
                     </div>
 
                     <div className="space-y-1.5">
