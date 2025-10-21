@@ -184,13 +184,12 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
 
     setAssigning(true);
     try {
-      // Step 1: Check for duplicates before insert
+      // Step 1: Check for active duplicates before insert
       const { data: existing, error: checkError } = await supabase
         .from('paygroup_employees')
-        .select('id')
+        .select('id, active')
         .eq('employee_id', selectedEmployee)
         .eq('pay_group_id', payGroup.id)
-        .eq('active', true)
         .maybeSingle();
 
       if (checkError) {
@@ -203,7 +202,7 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
         return;
       }
 
-      if (existing) {
+      if (existing && existing.active) {
         const employeeName = availableEmployees.find(emp => emp.id === selectedEmployee);
         const fullName = employeeName ? [employeeName.first_name, employeeName.middle_name, employeeName.last_name].filter(Boolean).join(' ') : 'Employee';
         toast({

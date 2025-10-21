@@ -141,13 +141,12 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
 
     setAssigning(true);
     try {
-      // Step 1: Check for duplicates before insert
+      // Step 1: Check for active duplicates before insert
       const { data: existing, error: checkError } = await supabase
         .from('paygroup_employees')
-        .select('id')
+        .select('id, active')
         .eq('employee_id', selectedEmployee)
         .eq('pay_group_id', targetGroupId)
-        .eq('active', true)
         .maybeSingle();
 
       if (checkError) {
@@ -160,7 +159,7 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
         return;
       }
 
-      if (existing) {
+      if (existing && existing.active) {
         const employeeName = employees.find(emp => emp.id === selectedEmployee)?.first_name || 'Employee';
         toast({
           title: 'Already Assigned',
