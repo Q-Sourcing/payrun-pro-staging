@@ -6,7 +6,15 @@ import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import { supabase } from '@/integrations/supabase/client';
-import { PayGroup } from '@/lib/types/paygroups';
+
+interface SidebarPayGroup {
+  id: string;
+  name: string;
+  type: string;
+  country: string;
+  paygroup_id: string;
+  created_at: string;
+}
 
 interface SidebarProps {
   activeTab: string;
@@ -16,7 +24,7 @@ interface SidebarProps {
 export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigate }) => {
   const [localOpen, setLocalOpen] = useState(false);
   const [payGroupsOpen, setPayGroupsOpen] = useState(false);
-  const [payGroups, setPayGroups] = useState<PayGroup[]>([]);
+  const [payGroups, setPayGroups] = useState<SidebarPayGroup[]>([]);
   const location = useLocation();
 
   const isActive = (path: string) =>
@@ -42,17 +50,40 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
   useEffect(() => {
     const loadPayGroups = async () => {
       try {
-        const { data, error } = await supabase
+        // Load regular pay groups
+        const { data: regularGroups, error: regularError } = await supabase
           .from('pay_groups')
-          .select('id, name, type, paygroup_id, country, currency, status')
-          .eq('status', 'active')
-          .order('name');
+          .select('id, name, type, country, created_at')
+          .order('name', { ascending: true });
 
-        if (error) {
-          console.error('Error loading pay groups:', error);
-        } else {
-          setPayGroups(data || []);
+        // Load expatriate pay groups
+        const { data: expatriateGroups, error: expatriateError } = await supabase
+          .from('expatriate_pay_groups')
+          .select('id, name, paygroup_id, country, currency, created_at')
+          .order('name', { ascending: true });
+
+        if (regularError) {
+          console.error('Error loading regular pay groups:', regularError);
         }
+        if (expatriateError) {
+          console.error('Error loading expatriate pay groups:', expatriateError);
+        }
+
+        // Combine and format the data
+        const allGroups = [
+          ...(regularGroups || []).map(group => ({
+            ...group,
+            type: group.type || 'regular',
+            paygroup_id: group.id // Use id as paygroup_id for regular groups
+          })),
+          ...(expatriateGroups || []).map(group => ({
+            ...group,
+            type: 'expatriate',
+            paygroup_id: group.paygroup_id || group.id
+          }))
+        ];
+
+        setPayGroups(allGroups);
       } catch (error) {
         console.error('Error loading pay groups:', error);
       }
