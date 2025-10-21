@@ -140,9 +140,12 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
       const { data, error } = await query;
       if (error) throw error;
 
-      // Filter out already assigned employees
+      // Filter out already assigned employees and mark them
       const assignedEmployeeIds = employees.map(emp => emp.employee_id);
-      const available = (data || []).filter(emp => !assignedEmployeeIds.includes(emp.id));
+      const available = (data || []).map(emp => ({
+        ...emp,
+        assigned: assignedEmployeeIds.includes(emp.id)
+      })).filter(emp => !emp.assigned);
       
       setAvailableEmployees(available);
     } catch (error) {
@@ -167,6 +170,37 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
 
     setAssigning(true);
     try {
+      // Step 1: Check for duplicates before insert
+      const { data: existing, error: checkError } = await supabase
+        .from('paygroup_employees')
+        .select('id')
+        .eq('employee_id', selectedEmployee)
+        .eq('pay_group_id', payGroup.id)
+        .eq('active', true)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error('Error checking existing assignment:', checkError);
+        toast({
+          title: 'Error',
+          description: 'Unable to verify existing assignment',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (existing) {
+        const employeeName = availableEmployees.find(emp => emp.id === selectedEmployee);
+        const fullName = employeeName ? [employeeName.first_name, employeeName.middle_name, employeeName.last_name].filter(Boolean).join(' ') : 'Employee';
+        toast({
+          title: 'Already Assigned',
+          description: `${fullName} is already assigned to this pay group`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Step 2: Proceed with assignment
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/assign-employee-to-paygroup`, {
         method: 'POST',
         headers: {
@@ -182,12 +216,25 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
       const result = await response.json();
 
       if (!response.ok) {
+        // Catch any DB constraint error (in case of race conditions)
+        if (result?.error?.includes('unique_employee_in_paygroup') || result?.error?.includes('duplicate')) {
+          const employeeName = availableEmployees.find(emp => emp.id === selectedEmployee);
+          const fullName = employeeName ? [employeeName.first_name, employeeName.middle_name, employeeName.last_name].filter(Boolean).join(' ') : 'Employee';
+          toast({
+            title: 'Already Assigned',
+            description: `${fullName} is already assigned to this pay group`,
+            variant: 'destructive',
+          });
+          return;
+        }
         throw new Error(result?.error || 'Assignment failed');
       }
 
+      const employeeName = availableEmployees.find(emp => emp.id === selectedEmployee);
+      const fullName = employeeName ? [employeeName.first_name, employeeName.middle_name, employeeName.last_name].filter(Boolean).join(' ') : 'Employee';
       toast({
         title: 'Success',
-        description: 'Employee assigned to pay group successfully',
+        description: `${fullName} assigned to pay group successfully`,
       });
 
       handleAssignmentSuccess();
@@ -267,6 +314,20 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
             {showAssign ? `Assign Employee to ${payGroup?.name}` : `Employees in ${payGroup?.name}`}
+            {!showAssign && (
+              <AnimatePresence>
+                <motion.span
+                  key={employees.length}
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.8, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="inline-flex items-center justify-center text-xs font-semibold bg-green-100 text-green-700 rounded-full px-2 py-0.5"
+                >
+                  {employees.length}
+                </motion.span>
+              </AnimatePresence>
+            )}
           </DialogTitle>
           <DialogDescription>
             {showAssign 
@@ -299,7 +360,15 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
                 className="flex items-center gap-2"
               >
                 <UserPlus className="h-4 w-4" />
-                Add Employee
+                <motion.span
+                  key="add-employee"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 4 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  Add Employee
+                </motion.span>
               </Button>
             )}
           </div>

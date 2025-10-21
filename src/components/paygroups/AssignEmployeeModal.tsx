@@ -148,6 +148,36 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
 
     setAssigning(true);
     try {
+      // Step 1: Check for duplicates before insert
+      const { data: existing, error: checkError } = await supabase
+        .from('paygroup_employees')
+        .select('id')
+        .eq('employee_id', selectedEmployee)
+        .eq('pay_group_id', targetGroupId)
+        .eq('active', true)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error('Error checking existing assignment:', checkError);
+        toast({
+          title: 'Error',
+          description: 'Unable to verify existing assignment',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (existing) {
+        const employeeName = employees.find(emp => emp.id === selectedEmployee)?.first_name || 'Employee';
+        toast({
+          title: 'Already Assigned',
+          description: `${employeeName} is already assigned to this pay group`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Step 2: Proceed with assignment
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/assign-employee-to-paygroup`, {
         method: 'POST',
         headers: {
@@ -164,12 +194,23 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
       const result = await response.json();
 
       if (!response.ok) {
+        // Catch any DB constraint error (in case of race conditions)
+        if (result?.error?.includes('unique_employee_in_paygroup') || result?.error?.includes('duplicate')) {
+          const employeeName = employees.find(emp => emp.id === selectedEmployee)?.first_name || 'Employee';
+          toast({
+            title: 'Already Assigned',
+            description: `${employeeName} is already assigned to this pay group`,
+            variant: 'destructive',
+          });
+          return;
+        }
         throw new Error(result?.error || 'Assignment failed');
       }
 
+      const employeeName = employees.find(emp => emp.id === selectedEmployee)?.first_name || 'Employee';
       toast({
         title: 'Success',
-        description: 'Employee assigned to pay group successfully',
+        description: `${employeeName} assigned to pay group successfully`,
       });
 
       onSuccess();
