@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Search, Filter, Users, Globe2, Briefcase, GraduationCap } from 'lucide-react';
+import { Plus, Search, Filter, Users, Globe2, Briefcase, GraduationCap, Grid3X3, List } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PayGroupsService } from '@/lib/services/paygroups.service';
@@ -18,6 +18,7 @@ import {
   formatCurrency 
 } from '@/lib/types/paygroups';
 import { PayGroupCard } from '@/components/paygroups/PayGroupCard';
+import { PayGroupsListView } from '@/components/paygroups/PayGroupsListView';
 import { CreatePayGroupModal } from '@/components/paygroups/CreatePayGroupModal';
 import { AssignEmployeeModal } from '@/components/paygroups/AssignEmployeeModal';
 
@@ -31,6 +32,10 @@ export const PayGroupsPage: React.FC = () => {
   const [createModalDefaultType, setCreateModalDefaultType] = useState<PayGroupType | undefined>(undefined);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedGroupForAssignment, setSelectedGroupForAssignment] = useState<PayGroup | undefined>(undefined);
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>(() => {
+    const saved = localStorage.getItem('paygroups-view-mode');
+    return (saved as 'cards' | 'list') || 'cards';
+  });
   const { toast } = useToast();
 
   // Load pay groups and summary
@@ -59,6 +64,11 @@ export const PayGroupsPage: React.FC = () => {
   useEffect(() => {
     loadPayGroups();
   }, []);
+
+  // Persist view mode to localStorage
+  useEffect(() => {
+    localStorage.setItem('paygroups-view-mode', viewMode);
+  }, [viewMode]);
 
   // Filter pay groups based on search and type
   const filteredPayGroups = payGroups.filter(group => {
@@ -140,13 +150,36 @@ export const PayGroupsPage: React.FC = () => {
             Manage different types of pay groups for your organization
           </p>
         </div>
-        <Button 
-          onClick={() => handleOpenCreateModal()}
-          className="bg-blue-600 hover:bg-blue-700"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Create Pay Group
-        </Button>
+        <div className="flex items-center gap-3">
+          {/* View Toggle */}
+          <div className="flex items-center bg-gray-100 rounded-lg p-1">
+            <Button
+              variant={viewMode === 'cards' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('cards')}
+              className="h-8 px-3"
+            >
+              <Grid3X3 className="h-4 w-4 mr-1" />
+              Cards
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+              className="h-8 px-3"
+            >
+              <List className="h-4 w-4 mr-1" />
+              List
+            </Button>
+          </div>
+          <Button 
+            onClick={() => handleOpenCreateModal()}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Create Pay Group
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -274,27 +307,41 @@ export const PayGroupsPage: React.FC = () => {
 
               <AnimatePresence>
                 {groupedPayGroups[type.id]?.length > 0 ? (
-                  <motion.div 
-                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    {groupedPayGroups[type.id].map((group, index) => (
-                      <motion.div
-                        key={group.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                      >
-                        <PayGroupCard 
-                          group={group} 
-                          onUpdate={loadPayGroups}
-                          onAssignEmployee={handleOpenAssignModal}
-                        />
-                      </motion.div>
-                    ))}
-                  </motion.div>
+                  viewMode === 'cards' ? (
+                    <motion.div 
+                      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      {groupedPayGroups[type.id].map((group, index) => (
+                        <motion.div
+                          key={group.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                        >
+                          <PayGroupCard 
+                            group={group} 
+                            onUpdate={loadPayGroups}
+                            onAssignEmployee={handleOpenAssignModal}
+                          />
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      <PayGroupsListView
+                        payGroups={groupedPayGroups[type.id]}
+                        onUpdate={loadPayGroups}
+                        onAssignEmployee={handleOpenAssignModal}
+                      />
+                    </motion.div>
+                  )
                 ) : (
                   <motion.div 
                     className="flex flex-col items-center justify-center py-16 text-center"
@@ -338,26 +385,41 @@ export const PayGroupsPage: React.FC = () => {
 
           <AnimatePresence>
             {filteredPayGroups.length > 0 ? (
-              <motion.div 
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              >
-                {filteredPayGroups.map((group, index) => (
-                  <motion.div
-                    key={group.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                  >
-                    <PayGroupCard 
-                      group={group} 
-                      onUpdate={loadPayGroups}
-                    />
-                  </motion.div>
-                ))}
-              </motion.div>
+              viewMode === 'cards' ? (
+                <motion.div 
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  {filteredPayGroups.map((group, index) => (
+                    <motion.div
+                      key={group.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      <PayGroupCard 
+                        group={group} 
+                        onUpdate={loadPayGroups}
+                        onAssignEmployee={handleOpenAssignModal}
+                      />
+                    </motion.div>
+                  ))}
+                </motion.div>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <PayGroupsListView
+                    payGroups={filteredPayGroups}
+                    onUpdate={loadPayGroups}
+                    onAssignEmployee={handleOpenAssignModal}
+                  />
+                </motion.div>
+              )
             ) : (
               <motion.div 
                 className="text-center py-12"

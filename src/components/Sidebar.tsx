@@ -4,7 +4,9 @@ import {
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from '@/integrations/supabase/client';
+import { PayGroup } from '@/lib/types/paygroups';
 
 interface SidebarProps {
   activeTab: string;
@@ -13,6 +15,8 @@ interface SidebarProps {
 
 export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigate }) => {
   const [localOpen, setLocalOpen] = useState(false);
+  const [payGroupsOpen, setPayGroupsOpen] = useState(false);
+  const [payGroups, setPayGroups] = useState<PayGroup[]>([]);
   const location = useLocation();
 
   const isActive = (path: string) =>
@@ -34,6 +38,40 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
     </motion.div>
   );
 
+  // Load pay groups for dropdown
+  useEffect(() => {
+    const loadPayGroups = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('pay_groups')
+          .select('id, name, type, paygroup_id, country, currency, status')
+          .eq('status', 'active')
+          .order('name');
+
+        if (error) {
+          console.error('Error loading pay groups:', error);
+        } else {
+          setPayGroups(data || []);
+        }
+      } catch (error) {
+        console.error('Error loading pay groups:', error);
+      }
+    };
+
+    loadPayGroups();
+  }, []);
+
+  // Helper function to get type icon
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'regular': return <Users size={14} />;
+      case 'expatriate': return <Globe size={14} />;
+      case 'contractor': return <Briefcase size={14} />;
+      case 'intern': return <GraduationCap size={14} />;
+      default: return <Users size={14} />;
+    }
+  };
+
   return (
     <div className="flex flex-col text-sm pb-10 pl-4 pr-2">
       {/* MY SECTIONS (for future roles) */}
@@ -48,7 +86,49 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
 
       {/* PAY GROUPS */}
       <SectionHeader title="Pay Groups" />
-      <NavItem to="/paygroups" icon={<FolderKanban size={16} />} label="All Pay Groups" />
+      
+      {/* All Pay Groups with dropdown */}
+      <button
+        onClick={() => setPayGroupsOpen(!payGroupsOpen)}
+        className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-md text-slate-700 hover:bg-slate-50"
+      >
+        <span className="flex items-center gap-2">
+          <FolderKanban size={16} /> All Pay Groups
+        </span>
+        <motion.div animate={{ rotate: payGroupsOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
+          <ChevronRight size={14} />
+        </motion.div>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {payGroupsOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="mt-1 space-y-0.5 overflow-hidden"
+          >
+            <motion.div whileHover={{ x: 4 }}>
+              <Link to="/paygroups" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/paygroups")}`}>
+                <FolderKanban size={15} /> All Pay Groups
+              </Link>
+            </motion.div>
+            {payGroups.map((group) => (
+              <motion.div key={group.id} whileHover={{ x: 4 }}>
+                <Link 
+                  to={`/paygroups/${group.id}`} 
+                  className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive(`/paygroups/${group.id}`)}`}
+                >
+                  {getTypeIcon(group.type)}
+                  <span className="truncate">{group.name}</span>
+                  <span className="text-xs text-gray-400 ml-auto">({group.type})</span>
+                </Link>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* PAY RUNS */}
       <SectionHeader title="Pay Runs" />

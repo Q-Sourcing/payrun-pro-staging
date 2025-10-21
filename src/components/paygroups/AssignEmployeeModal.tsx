@@ -85,10 +85,30 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
   const loadEmployees = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Filter employees by the same type as the pay group
+      const payGroupType = presetGroup?.type;
+      let query = supabase
         .from('employees')
         .select('id, first_name, middle_name, last_name, email, department, employee_type')
         .order('first_name');
+
+      // Only show employees that match the pay group type
+      if (payGroupType) {
+        // Map pay group types to employee types
+        const employeeTypeMap: Record<string, string> = {
+          'regular': 'local',
+          'expatriate': 'expatriate', 
+          'contractor': 'contractor',
+          'intern': 'intern'
+        };
+        
+        const employeeType = employeeTypeMap[payGroupType];
+        if (employeeType) {
+          query = query.eq('employee_type', employeeType);
+        }
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setEmployees(data || []);
@@ -106,10 +126,21 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
   };
 
   const handleAssign = async () => {
-    if (!selectedEmployee || !selectedGroup) {
+    if (!selectedEmployee) {
       toast({
         title: 'Validation Error',
-        description: 'Please select both employee and pay group',
+        description: 'Please select an employee to assign',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Use preset group if available, otherwise use selected group
+    const targetGroupId = presetGroup?.id || selectedGroup;
+    if (!targetGroupId) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please select a pay group',
         variant: 'destructive',
       });
       return;
@@ -125,7 +156,7 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
         },
         body: JSON.stringify({
           employee_id: selectedEmployee,
-          pay_group_id: selectedGroup,
+          pay_group_id: targetGroupId,
           notes: notes || undefined
         })
       });
@@ -205,25 +236,26 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
             </Card>
           )}
 
-          {/* Pay Group Selection */}
-          <div className="space-y-2">
-            <Label htmlFor="paygroup">Pay Group *</Label>
-            <Select 
-              value={selectedGroup} 
-              onValueChange={setSelectedGroup}
-              disabled={!!presetGroup}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select pay group" />
-              </SelectTrigger>
-              <SelectContent>
-                {/* This would be populated with actual pay groups */}
-                <SelectItem value={presetGroup?.id || ''}>
-                  {presetGroup?.name || 'Select a pay group'}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Pay Group Selection - Only show if no preset group */}
+          {!presetGroup && (
+            <div className="space-y-2">
+              <Label htmlFor="paygroup">Pay Group *</Label>
+              <Select 
+                value={selectedGroup} 
+                onValueChange={setSelectedGroup}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select pay group" />
+                </SelectTrigger>
+                <SelectContent>
+                  {/* This would be populated with actual pay groups */}
+                  <SelectItem value="">
+                    Select a pay group
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Employee Search */}
           <div className="space-y-2">
@@ -243,6 +275,11 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
           {/* Employee Selection */}
           <div className="space-y-2">
             <Label>Select Employee *</Label>
+            {presetGroup && (
+              <p className="text-sm text-muted-foreground">
+                Showing only {presetGroup.type} employees eligible for this pay group
+              </p>
+            )}
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin" />
@@ -318,7 +355,7 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
           </Button>
           <Button
             onClick={handleAssign}
-            disabled={!selectedEmployee || !selectedGroup || assigning}
+            disabled={!selectedEmployee || (!presetGroup && !selectedGroup) || assigning}
           >
             {assigning ? (
               <>
