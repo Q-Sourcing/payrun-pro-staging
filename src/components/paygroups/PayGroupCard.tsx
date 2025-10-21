@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,11 +34,12 @@ import {
   TrendingUp,
   UserPlus
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { PayGroup, PAYGROUP_TYPES, getCurrencySymbol, formatCurrency } from '@/lib/types/paygroups';
 import { PayGroupsService } from '@/lib/services/paygroups.service';
 import { ViewAssignedEmployeesDialog } from './ViewAssignedEmployeesDialog';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PayGroupCardProps {
   group: PayGroup;
@@ -50,9 +51,58 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showViewEmployeesDialog, setShowViewEmployeesDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [employeeCount, setEmployeeCount] = useState<number>(0);
+  const [loadingCount, setLoadingCount] = useState<boolean>(false);
   const { toast } = useToast();
 
   const typeDefinition = PAYGROUP_TYPES[group.type];
+
+  // Fetch employee count and set up realtime updates
+  useEffect(() => {
+    if (group?.id) {
+      fetchEmployeeCount();
+    }
+
+    // Subscribe to realtime updates for this pay group
+    const subscription = supabase
+      .channel(`paygroup_employees_${group.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'paygroup_employees',
+          filter: `pay_group_id=eq.${group.id}`,
+        },
+        () => {
+          fetchEmployeeCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, [group.id]);
+
+  const fetchEmployeeCount = async () => {
+    setLoadingCount(true);
+    try {
+      const { count, error } = await supabase
+        .from('paygroup_employees')
+        .select('id', { count: 'exact', head: true })
+        .eq('pay_group_id', group.id)
+        .eq('active', true);
+
+      if (!error && count !== null) {
+        setEmployeeCount(count);
+      }
+    } catch (error) {
+      console.error('Error fetching employee count:', error);
+    } finally {
+      setLoadingCount(false);
+    }
+  };
 
   // Get icon for pay group type
   const getTypeIcon = (type: string) => {
@@ -116,8 +166,24 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
                   {getTypeIcon(group.type)}
                 </div>
                 <div>
-                  <CardTitle className="text-lg font-semibold line-clamp-1">
+                  <CardTitle className="text-lg font-semibold line-clamp-1 flex items-center gap-2">
                     {group.name}
+                    <AnimatePresence>
+                      <motion.span
+                        key={employeeCount}
+                        initial={{ scale: 0.7, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.7, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className={`inline-flex items-center justify-center text-xs font-semibold rounded-full px-2 py-0.5 ${
+                          loadingCount
+                            ? "bg-gray-100 text-gray-400"
+                            : "bg-green-100 text-green-700"
+                        }`}
+                      >
+                        {loadingCount ? "..." : employeeCount}
+                      </motion.span>
+                    </AnimatePresence>
                   </CardTitle>
                   <CardDescription className="flex items-center gap-1 mt-1">
                     <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
@@ -366,7 +432,10 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
         open={showViewEmployeesDialog}
         onOpenChange={setShowViewEmployeesDialog}
         payGroup={group}
-        onUpdate={onUpdate}
+        onUpdate={() => {
+          fetchEmployeeCount();
+          onUpdate();
+        }}
       />
     </>
   );
