@@ -1,8 +1,11 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/lib/data/query-client";
+import { RealtimeService } from "@/lib/data/realtime.service";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useEffect } from "react";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
@@ -31,7 +34,7 @@ import LocalPayrollCasual from "./pages/payruns/local/Casual";
 // Import MainLayout component
 import MainLayout from "./layouts/MainLayout";
 
-const queryClient = new QueryClient();
+// Query client is now imported from optimized configuration
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -55,14 +58,25 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider>
-      <SupabaseAuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
+const App = () => {
+  // Initialize realtime subscriptions when app starts
+  useEffect(() => {
+    RealtimeService.initializeRealtimeSubscriptions();
+    
+    // Cleanup on unmount
+    return () => {
+      RealtimeService.cleanupSubscriptions();
+    };
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <SupabaseAuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />
               
@@ -105,10 +119,11 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
-        </TooltipProvider>
-      </SupabaseAuthProvider>
-    </ThemeProvider>
-  </QueryClientProvider>
-);
+          </TooltipProvider>
+        </SupabaseAuthProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
