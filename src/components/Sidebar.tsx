@@ -5,15 +5,13 @@ import {
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
-import { supabase } from '@/integrations/supabase/client';
 
-interface SidebarPayGroup {
+interface SidebarPayGroupType {
   id: string;
   name: string;
   type: string;
-  country: string;
-  paygroup_id: string;
-  created_at: string;
+  description: string;
+  icon: string;
 }
 
 interface SidebarProps {
@@ -24,7 +22,7 @@ interface SidebarProps {
 export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigate }) => {
   const [localOpen, setLocalOpen] = useState(false);
   const [payGroupsOpen, setPayGroupsOpen] = useState(false);
-  const [payGroups, setPayGroups] = useState<SidebarPayGroup[]>([]);
+  const [payGroupTypes, setPayGroupTypes] = useState<SidebarPayGroupType[]>([]);
   const location = useLocation();
 
   const isActive = (path: string) =>
@@ -46,50 +44,49 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
     </motion.div>
   );
 
-  // Load pay groups for dropdown
+  // Load pay group types for dropdown
   useEffect(() => {
-    const loadPayGroups = async () => {
+    const loadPayGroupTypes = async () => {
       try {
-        // Load regular pay groups
-        const { data: regularGroups, error: regularError } = await supabase
-          .from('pay_groups')
-          .select('id, name, type, country, created_at')
-          .order('name', { ascending: true });
-
-        // Load expatriate pay groups
-        const { data: expatriateGroups, error: expatriateError } = await supabase
-          .from('expatriate_pay_groups')
-          .select('id, name, paygroup_id, country, currency, created_at')
-          .order('name', { ascending: true });
-
-        if (regularError) {
-          console.error('Error loading regular pay groups:', regularError);
-        }
-        if (expatriateError) {
-          console.error('Error loading expatriate pay groups:', expatriateError);
-        }
-
-        // Combine and format the data
-        const allGroups = [
-          ...(regularGroups || []).map(group => ({
-            ...group,
-            type: group.type || 'regular',
-            paygroup_id: group.id // Use id as paygroup_id for regular groups
-          })),
-          ...(expatriateGroups || []).map(group => ({
-            ...group,
+        // Define the pay group types we want to show
+        const payGroupTypes = [
+          {
+            id: 'regular',
+            name: 'Regular',
+            type: 'regular',
+            description: 'Standard payroll groups for local employees',
+            icon: 'Users'
+          },
+          {
+            id: 'expatriate', 
+            name: 'Expatriate',
             type: 'expatriate',
-            paygroup_id: group.paygroup_id || group.id
-          }))
+            description: 'Payroll groups for employees paid in foreign currencies',
+            icon: 'Globe'
+          },
+          {
+            id: 'contractor',
+            name: 'Contractor', 
+            type: 'contractor',
+            description: 'Payroll groups for contract workers and freelancers',
+            icon: 'Briefcase'
+          },
+          {
+            id: 'intern',
+            name: 'Intern',
+            type: 'intern', 
+            description: 'Payroll groups for interns and trainees',
+            icon: 'GraduationCap'
+          }
         ];
 
-        setPayGroups(allGroups);
+        setPayGroupTypes(payGroupTypes);
       } catch (error) {
-        console.error('Error loading pay groups:', error);
+        console.error('Error loading pay group types:', error);
       }
     };
 
-    loadPayGroups();
+    loadPayGroupTypes();
   }, []);
 
   // Helper function to get type icon
@@ -145,15 +142,14 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
                 <FolderKanban size={15} /> All Pay Groups
               </Link>
             </motion.div>
-            {payGroups.map((group) => (
-              <motion.div key={group.id} whileHover={{ x: 4 }}>
+            {payGroupTypes.map((type) => (
+              <motion.div key={type.id} whileHover={{ x: 4 }}>
                 <Link 
-                  to={`/paygroups/${group.id}`} 
-                  className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive(`/paygroups/${group.id}`)}`}
+                  to={`/paygroups?type=${type.type}`} 
+                  className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive(`/paygroups?type=${type.type}`)}`}
                 >
-                  {getTypeIcon(group.type)}
-                  <span className="truncate">{group.name}</span>
-                  <span className="text-xs text-gray-400 ml-auto">({group.type})</span>
+                  {getTypeIcon(type.type)}
+                  <span className="truncate">{type.name}</span>
                 </Link>
               </motion.div>
             ))}
