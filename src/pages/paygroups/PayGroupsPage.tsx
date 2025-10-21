@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +24,7 @@ import { CreatePayGroupModal } from '@/components/paygroups/CreatePayGroupModal'
 import { AssignEmployeeModal } from '@/components/paygroups/AssignEmployeeModal';
 
 export const PayGroupsPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [payGroups, setPayGroups] = useState<PayGroup[]>([]);
   const [summary, setSummary] = useState<PayGroupSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,6 +66,16 @@ export const PayGroupsPage: React.FC = () => {
   useEffect(() => {
     loadPayGroups();
   }, []);
+
+  // Handle URL parameters for type filtering
+  useEffect(() => {
+    const typeParam = searchParams.get('type');
+    if (typeParam && Object.keys(PAYGROUP_TYPES).includes(typeParam)) {
+      setSelectedType(typeParam as PayGroupType);
+    } else {
+      setSelectedType('all');
+    }
+  }, [searchParams]);
 
   // Persist view mode to localStorage
   useEffect(() => {
@@ -257,7 +269,15 @@ export const PayGroupsPage: React.FC = () => {
                 className="pl-10"
               />
             </div>
-            <Select value={selectedType} onValueChange={(value: PayGroupType | 'all') => setSelectedType(value)}>
+            <Select value={selectedType} onValueChange={(value: PayGroupType | 'all') => {
+              setSelectedType(value);
+              // Update URL parameters
+              if (value === 'all') {
+                setSearchParams({});
+              } else {
+                setSearchParams({ type: value });
+              }
+            }}>
               <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Filter by type" />
               </SelectTrigger>
