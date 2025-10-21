@@ -23,6 +23,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { PayGroup } from '@/lib/types/paygroups';
 import { supabase } from '@/integrations/supabase/client';
+import { getEmployeeTypeForPayGroup } from '@/lib/utils/paygroup-utils';
 // import { AssignEmployeeModal } from './AssignEmployeeModal';
 
 interface ViewAssignedEmployeesDialogProps {
@@ -64,12 +65,33 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
   const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
 
-  // Load assigned employees
+  // Load assigned employees and set up realtime updates
   useEffect(() => {
     if (open && payGroup?.id) {
       fetchAssignedEmployees();
     }
-  }, [open, payGroup]);
+
+    // Subscribe to realtime updates for this pay group
+    const subscription = supabase
+      .channel(`view_employees_${payGroup?.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'paygroup_employees',
+          filter: `pay_group_id=eq.${payGroup?.id}`,
+        },
+        () => {
+          fetchAssignedEmployees();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, [open, payGroup?.id]);
 
   // Load available employees when switching to assign mode
   useEffect(() => {
@@ -118,15 +140,7 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
 
   const loadAvailableEmployees = async () => {
     try {
-      // Map pay group types to employee types
-      const employeeTypeMap: Record<string, string> = {
-        'regular': 'local',
-        'expatriate': 'expatriate', 
-        'contractor': 'contractor',
-        'intern': 'intern'
-      };
-      
-      const employeeType = employeeTypeMap[payGroup.type];
+      const employeeType = getEmployeeTypeForPayGroup(payGroup.type);
       
       let query = supabase
         .from('employees')

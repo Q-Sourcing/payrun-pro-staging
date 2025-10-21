@@ -27,6 +27,7 @@ import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { PayGroup } from '@/lib/types/paygroups';
 import { supabase } from '@/integrations/supabase/client';
+import { getEmployeeTypeForPayGroup } from '@/lib/utils/paygroup-utils';
 
 interface AssignEmployeeModalProps {
   open: boolean;
@@ -94,15 +95,7 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
 
       // Only show employees that match the pay group type
       if (payGroupType) {
-        // Map pay group types to employee types
-        const employeeTypeMap: Record<string, string> = {
-          'regular': 'local',
-          'expatriate': 'expatriate', 
-          'contractor': 'contractor',
-          'intern': 'intern'
-        };
-        
-        const employeeType = employeeTypeMap[payGroupType];
+        const employeeType = getEmployeeTypeForPayGroup(payGroupType);
         if (employeeType) {
           query = query.eq('employee_type', employeeType);
         }

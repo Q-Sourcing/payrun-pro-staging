@@ -40,6 +40,7 @@ import { PayGroup, PAYGROUP_TYPES, getCurrencySymbol, formatCurrency } from '@/l
 import { PayGroupsService } from '@/lib/services/paygroups.service';
 import { ViewAssignedEmployeesDialog } from './ViewAssignedEmployeesDialog';
 import { supabase } from '@/integrations/supabase/client';
+import { getPayGroupTypeColor, getPayGroupTypeIconClass } from '@/lib/utils/paygroup-utils';
 
 interface PayGroupCardProps {
   group: PayGroup;
@@ -155,25 +156,25 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
   return (
     <>
       <motion.div
-        whileHover={{ y: -2 }}
+        whileHover={{ y: -2, scale: 1.02 }}
         transition={{ duration: 0.2 }}
       >
-        <Card className="h-full hover:shadow-md transition-shadow duration-200 rounded-2xl">
+        <Card className="h-full hover:shadow-md transition-all duration-200 rounded-xl">
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-2xl bg-${typeDefinition.color}-100`}>
+                <div className={`p-2 rounded-xl ${getPayGroupTypeIconClass(group.type)}`}>
                   {getTypeIcon(group.type)}
                 </div>
-                <div>
-                  <CardTitle className="text-lg font-semibold line-clamp-1 flex items-center gap-2">
+                <div className="flex-1">
+                  <CardTitle className="text-base font-semibold line-clamp-1 flex items-center gap-2">
                     {group.name}
                     <AnimatePresence>
                       <motion.span
                         key={employeeCount}
-                        initial={{ scale: 0.7, opacity: 0 }}
+                        initial={{ scale: 0.8, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.7, opacity: 0 }}
+                        exit={{ scale: 0.8, opacity: 0 }}
                         transition={{ duration: 0.2 }}
                         className={`inline-flex items-center justify-center text-xs font-semibold rounded-full px-2 py-0.5 ${
                           loadingCount
@@ -185,21 +186,19 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
                       </motion.span>
                     </AnimatePresence>
                   </CardTitle>
-                  <CardDescription className="flex items-center gap-1 mt-1">
-                    <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
-                      {group.paygroup_id}
-                    </span>
+                  <CardDescription className="text-xs text-gray-500 mt-1">
+                    {group.type} • {group.currency}
                   </CardDescription>
                 </div>
               </div>
               
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <Badge className={getStatusColor(group.status)}>
                   {group.status}
                 </Badge>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                       <MoreVertical className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -226,174 +225,55 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
             </div>
           </CardHeader>
 
-          <CardContent className="space-y-4">
-            {/* Basic Info */}
+          <CardContent className="space-y-3">
+            {/* Essential Info */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-1 text-muted-foreground">
-                  <MapPin className="h-3 w-3" />
-                  Country
-                </span>
+                <span className="text-muted-foreground">Country</span>
                 <span className="font-medium">{group.country}</span>
               </div>
               
               <div className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-1 text-muted-foreground">
-                  <DollarSign className="h-3 w-3" />
-                  Currency
+                <span className="text-muted-foreground">Frequency</span>
+                <span className="font-medium capitalize">
+                  {(group as any).pay_frequency?.replace('-', ' ') || 'N/A'}
                 </span>
-                <Badge variant="outline" className="font-mono">
-                  {group.currency}
-                </Badge>
               </div>
               
               <div className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-1 text-muted-foreground">
-                  <Users className="h-3 w-3" />
-                  Employees
+                <span className="text-muted-foreground">Tax Rate</span>
+                <span className="font-medium">
+                  {(group as any).default_tax_percentage || 0}%
                 </span>
-                <span className="font-medium">{group.employee_count}</span>
               </div>
             </div>
 
-            {/* Type-specific Info */}
-            {group.type === 'regular' && (
-              <div className="space-y-2 pt-2 border-t">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <Calendar className="h-3 w-3" />
-                    Frequency
-                  </span>
-                  <span className="font-medium capitalize">
-                    {(group as any).pay_frequency?.replace('-', ' ') || 'N/A'}
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <TrendingUp className="h-3 w-3" />
-                    Tax Rate
-                  </span>
-                  <span className="font-medium">
-                    {(group as any).default_tax_percentage || 0}%
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {group.type === 'expatriate' && (
-              <div className="space-y-2 pt-2 border-t">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <DollarSign className="h-3 w-3" />
-                    Daily Rate
-                  </span>
-                  <span className="font-medium">
-                    {formatCurrency((group as any).default_daily_rate || 0, group.currency)}
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <Globe2 className="h-3 w-3" />
-                    Exchange Rate
-                  </span>
-                  <span className="font-medium">
-                    1 {group.currency} = {(group as any).exchange_rate_to_local?.toLocaleString() || 0} UGX
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <MapPin className="h-3 w-3" />
-                    Tax Country
-                  </span>
-                  <span className="font-medium">
-                    {(group as any).tax_country || 'N/A'}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {group.type === 'contractor' && (
-              <div className="space-y-2 pt-2 border-t">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <Calendar className="h-3 w-3" />
-                    Duration
-                  </span>
-                  <span className="font-medium">
-                    {(group as any).contract_duration || 0} months
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <DollarSign className="h-3 w-3" />
-                    Hourly Rate
-                  </span>
-                  <span className="font-medium">
-                    {formatCurrency((group as any).default_hourly_rate || 0, group.currency)}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {group.type === 'intern' && (
-              <div className="space-y-2 pt-2 border-t">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <Calendar className="h-3 w-3" />
-                    Duration
-                  </span>
-                  <span className="font-medium">
-                    {(group as any).internship_duration || 0} months
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <DollarSign className="h-3 w-3" />
-                    Stipend
-                  </span>
-                  <span className="font-medium">
-                    {formatCurrency((group as any).stipend_amount || 0, group.currency)}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="pt-2 border-t space-y-2">
+            {/* Icon Actions */}
+            <div className="flex justify-between items-center pt-3 border-t">
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                className="w-full"
                 onClick={() => setShowViewEmployeesDialog(true)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                title="View Employees"
               >
-                <Users className="h-4 w-4 mr-2" />
-                View Employees ({group.employee_count})
+                <Eye className="h-5 w-5 text-gray-600" />
               </Button>
               <Button
-                variant="default"
+                variant="ghost"
                 size="sm"
-                className="w-full"
                 onClick={() => onAssignEmployee?.(group)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                title="Add Employee"
               >
-                <UserPlus className="h-4 w-4 mr-2" />
-                Add Employee
+                <UserPlus className="h-5 w-5 text-blue-600" />
               </Button>
             </div>
 
             {/* Footer */}
-            <div className="pt-2 border-t">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Created {formatDate(group.created_at)}</span>
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                  {typeDefinition.name}
-                </span>
-              </div>
+            <div className="text-xs text-gray-400 flex justify-between items-center">
+              <span>{formatDate(group.created_at)}</span>
+              <span className="capitalize">{group.type} PayGroup</span>
             </div>
           </CardContent>
         </Card>
