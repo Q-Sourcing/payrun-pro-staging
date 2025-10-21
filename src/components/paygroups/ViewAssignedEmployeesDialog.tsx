@@ -270,21 +270,27 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
     
     setRemoving(employeeId);
     try {
+      // Soft delete by setting active to false
       const { error } = await supabase
         .from('paygroup_employees')
-        .update({ active: false })
+        .update({ 
+          active: false,
+          removed_at: new Date().toISOString()
+        })
         .eq('employee_id', employeeId)
         .eq('pay_group_id', payGroup.id);
 
       if (error) throw error;
+
+      // Optimistically update local state
+      setEmployees(prev => prev.filter(emp => emp.employee_id !== employeeId));
 
       toast({
         title: 'Success',
         description: 'Employee removed from pay group',
       });
 
-      // Refresh the list
-      await fetchAssignedEmployees();
+      // Trigger parent update for count refresh
       onUpdate();
     } catch (error) {
       console.error('Error removing employee:', error);
@@ -303,7 +309,7 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
     setShowAssign(false);
     setSelectedEmployee('');
     setSearchQuery('');
-    onUpdate();
+    onUpdate(); // This will trigger parent component to refresh counts
   };
 
   const getFullName = (employee: AssignedEmployee['employees']) => {
@@ -352,7 +358,7 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Toggle Button */}
+          {/* Icon Actions */}
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
               {showAssign && (
@@ -360,10 +366,10 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowAssign(false)}
-                  className="flex items-center gap-2"
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  title="Back to List"
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  Back to List
                 </Button>
               )}
             </div>
@@ -371,18 +377,10 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
             {!showAssign && (
               <Button
                 onClick={() => setShowAssign(true)}
-                className="flex items-center gap-2"
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                title="Add Employee"
               >
                 <UserPlus className="h-4 w-4" />
-                <motion.span
-                  key="add-employee"
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 4 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  Add Employee
-                </motion.span>
               </Button>
             )}
           </div>

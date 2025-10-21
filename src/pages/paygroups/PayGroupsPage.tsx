@@ -163,27 +163,6 @@ export const PayGroupsPage: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {/* View Toggle */}
-          <div className="flex items-center bg-gray-100 rounded-lg p-1">
-            <Button
-              variant={viewMode === 'cards' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('cards')}
-              className="h-8 px-3"
-            >
-              <Grid3X3 className="h-4 w-4 mr-1" />
-              Cards
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('list')}
-              className="h-8 px-3"
-            >
-              <List className="h-4 w-4 mr-1" />
-              List
-            </Button>
-          </div>
           <Button 
             onClick={() => handleOpenCreateModal()}
             className="bg-blue-600 hover:bg-blue-700"
@@ -320,9 +299,33 @@ export const PayGroupsPage: React.FC = () => {
                   </h3>
                   <p className="text-sm text-muted-foreground">{type.description}</p>
                 </div>
-                <Badge variant="secondary">
-                  {groupedPayGroups[type.id]?.length || 0} groups
-                </Badge>
+                <div className="flex items-center gap-3">
+                  <Badge variant="secondary">
+                    {groupedPayGroups[type.id]?.length || 0} groups
+                  </Badge>
+                  {/* View Toggle */}
+                  <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                    <span className="text-xs text-gray-500 mr-2">View as:</span>
+                    <Button
+                      variant={viewMode === 'cards' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setViewMode('cards')}
+                      className="h-7 px-2 text-xs"
+                    >
+                      <Grid3X3 className="h-3 w-3 mr-1" />
+                      Cards
+                    </Button>
+                    <Button
+                      variant={viewMode === 'list' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setViewMode('list')}
+                      className="h-7 px-2 text-xs"
+                    >
+                      <List className="h-3 w-3 mr-1" />
+                      List
+                    </Button>
+                  </div>
+                </div>
               </div>
 
               <AnimatePresence>
