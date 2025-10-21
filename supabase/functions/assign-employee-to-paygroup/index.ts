@@ -35,7 +35,28 @@ serve(async (req) => {
       );
     }
 
-    // First, check if there's an existing record (active or inactive)
+    // First, check if employee is already in another active pay group
+    const { data: existingActiveAssignment, error: activeCheckError } = await supabase
+      .from("paygroup_employees")
+      .select("id, pay_group_id, active")
+      .eq("employee_id", employee_id)
+      .eq("active", true)
+      .maybeSingle();
+
+    if (activeCheckError) {
+      return new Response(
+        JSON.stringify({ error: `Check failed: ${activeCheckError.message}` }), 
+        { 
+          status: 400,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+
+    // Check if there's an existing record for this specific pay group (active or inactive)
     const { data: existingRecord, error: checkError } = await supabase
       .from("paygroup_employees")
       .select("id, active")
@@ -58,9 +79,68 @@ serve(async (req) => {
 
     let data, error;
 
-    if (existingRecord) {
+    if (existingActiveAssignment && existingActiveAssignment.pay_group_id !== pay_group_id) {
+      // Employee is already in another pay group - move them to this one
+      // First, deactivate the current assignment
+      const { error: deactivateError } = await supabase
+        .from("paygroup_employees")
+        .update({ 
+          active: false, 
+          removed_at: new Date().toISOString() 
+        })
+        .eq("id", existingActiveAssignment.id);
+
+      if (deactivateError) {
+        return new Response(
+          JSON.stringify({ error: `Failed to deactivate existing assignment: ${deactivateError.message}` }), 
+          { 
+            status: 400,
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      }
+
+      // Then create or reactivate assignment to the new pay group
+      if (existingRecord) {
+        // Reactivate the existing record for this pay group
+        const { data: reactivatedData, error: reactivateError } = await supabase
+          .from("paygroup_employees")
+          .update({ 
+            active: true,
+            assigned_by,
+            notes,
+            assigned_at: new Date().toISOString(),
+            removed_at: null
+          })
+          .eq("id", existingRecord.id)
+          .select()
+          .single();
+        
+        data = reactivatedData;
+        error = reactivateError;
+      } else {
+        // Create new assignment
+        const { data: newData, error: newError } = await supabase
+          .from("paygroup_employees")
+          .insert([{ 
+            employee_id, 
+            pay_group_id, 
+            assigned_by, 
+            notes,
+            assigned_at: new Date().toISOString()
+          }])
+          .select()
+          .single();
+        
+        data = newData;
+        error = newError;
+      }
+    } else if (existingRecord) {
       if (existingRecord.active) {
-        // Employee is already actively assigned
+        // Employee is already actively assigned to this pay group
         return new Response(
           JSON.stringify({ error: "Employee is already assigned to this pay group" }), 
           { 

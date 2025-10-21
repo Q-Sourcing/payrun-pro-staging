@@ -154,13 +154,52 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
       const { data, error } = await query;
       if (error) throw error;
 
-      // Filter out already assigned employees and mark them
+      // Get all active pay group assignments to check for conflicts
+      const { data: allAssignments, error: assignmentError } = await supabase
+        .from('paygroup_employees')
+        .select(`
+          employee_id,
+          pay_group_id,
+          active,
+          pay_groups (
+            id,
+            name,
+            type
+          ),
+          expatriate_pay_groups (
+            id,
+            name,
+            type
+          )
+        `)
+        .eq('active', true);
+
+      if (assignmentError) throw assignmentError;
+
+      // Create a map of employee_id to their current pay group
+      const employeePayGroupMap = new Map();
+      allAssignments?.forEach(assignment => {
+        const payGroupData = assignment.pay_groups || assignment.expatriate_pay_groups;
+        if (payGroupData) {
+          employeePayGroupMap.set(assignment.employee_id, {
+            id: assignment.pay_group_id,
+            name: payGroupData.name,
+            type: payGroupData.type
+          });
+        }
+      });
+
+      // Filter and mark employees
       const assignedEmployeeIds = employees.map(emp => emp.employee_id);
-      const available = (data || []).map(emp => ({
-        ...emp,
-        assigned: assignedEmployeeIds.includes(emp.id)
-      })).filter(emp => !emp.assigned);
-      
+      const available = (data || []).map(emp => {
+        const currentPayGroup = employeePayGroupMap.get(emp.id);
+        return {
+          ...emp,
+          assigned: assignedEmployeeIds.includes(emp.id),
+          currentPayGroup: currentPayGroup
+        };
+      }).filter(emp => !emp.assigned);
+
       setAvailableEmployees(available);
     } catch (error) {
       console.error('Error loading available employees:', error);
@@ -468,8 +507,11 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
                   {/* Pay Group Info */}
                   <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                     <h4 className="font-medium text-blue-900 mb-1">Assigning to: {payGroup.name}</h4>
-                    <p className="text-sm text-blue-700">
+                    <p className="text-sm text-blue-700 mb-2">
                       Showing only {payGroup.type} employees eligible for this pay group
+                    </p>
+                    <p className="text-xs text-blue-600">
+                      💡 If an employee is already in another pay group, they will be moved to this one automatically.
                     </p>
                   </div>
 
@@ -495,6 +537,11 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
                                 <span className="text-xs text-muted-foreground">
                                   {employee.email} • {employee.employee_type}
                                 </span>
+                                {employee.currentPayGroup && (
+                                  <span className="text-xs text-orange-600 font-medium">
+                                    Currently in: {employee.currentPayGroup.name} ({employee.currentPayGroup.type})
+                                  </span>
+                                )}
                               </div>
                             </SelectItem>
                           ))

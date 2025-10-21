@@ -104,8 +104,50 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
       const { data, error } = await query;
 
       if (error) throw error;
-      setEmployees(data || []);
-      setFilteredEmployees(data || []);
+
+      // Get all active pay group assignments to check for conflicts
+      const { data: allAssignments, error: assignmentError } = await supabase
+        .from('paygroup_employees')
+        .select(`
+          employee_id,
+          pay_group_id,
+          active,
+          pay_groups (
+            id,
+            name,
+            type
+          ),
+          expatriate_pay_groups (
+            id,
+            name,
+            type
+          )
+        `)
+        .eq('active', true);
+
+      if (assignmentError) throw assignmentError;
+
+      // Create a map of employee_id to their current pay group
+      const employeePayGroupMap = new Map();
+      allAssignments?.forEach(assignment => {
+        const payGroupData = assignment.pay_groups || assignment.expatriate_pay_groups;
+        if (payGroupData) {
+          employeePayGroupMap.set(assignment.employee_id, {
+            id: assignment.pay_group_id,
+            name: payGroupData.name,
+            type: payGroupData.type
+          });
+        }
+      });
+
+      // Add current pay group info to employees
+      const employeesWithPayGroupInfo = (data || []).map(emp => ({
+        ...emp,
+        currentPayGroup: employeePayGroupMap.get(emp.id)
+      }));
+
+      setEmployees(employeesWithPayGroupInfo);
+      setFilteredEmployees(employeesWithPayGroupInfo);
     } catch (error) {
       console.error('Error loading employees:', error);
       toast({
@@ -309,9 +351,14 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
           <div className="space-y-2">
             <Label>Select Employee *</Label>
             {presetGroup && (
-              <p className="text-sm text-muted-foreground">
-                Showing only {presetGroup.type} employees eligible for this pay group
-              </p>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">
+                  Showing only {presetGroup.type} employees eligible for this pay group
+                </p>
+                <p className="text-xs text-blue-600">
+                  💡 If an employee is already in another pay group, they will be moved to this one automatically.
+                </p>
+              </div>
             )}
             {loading ? (
               <div className="flex items-center justify-center py-8">
@@ -348,6 +395,11 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
                             {employee.department && (
                               <div className="text-xs text-muted-foreground">
                                 {employee.department}
+                              </div>
+                            )}
+                            {employee.currentPayGroup && (
+                              <div className="text-xs text-orange-600 font-medium mt-1">
+                                Currently in: {employee.currentPayGroup.name} ({employee.currentPayGroup.type})
                               </div>
                             )}
                           </div>
