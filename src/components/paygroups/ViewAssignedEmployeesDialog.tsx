@@ -330,24 +330,37 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            {showAssign ? `Assign Employee to ${payGroup?.name}` : `Employees in ${payGroup?.name}`}
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              <DialogTitle>
+                {showAssign ? `Assign Employee to ${payGroup?.name}` : `Employees in ${payGroup?.name}`}
+                {!showAssign && (
+                  <AnimatePresence>
+                    <motion.span
+                      key={employees.length}
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.8, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="inline-flex items-center justify-center text-xs font-semibold bg-green-100 text-green-700 rounded-full px-2 py-0.5 ml-2"
+                    >
+                      {employees.length}
+                    </motion.span>
+                  </AnimatePresence>
+                )}
+              </DialogTitle>
+            </div>
             {!showAssign && (
-              <AnimatePresence>
-                <motion.span
-                  key={employees.length}
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.8, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="inline-flex items-center justify-center text-xs font-semibold bg-green-100 text-green-700 rounded-full px-2 py-0.5"
-                >
-                  {employees.length}
-                </motion.span>
-              </AnimatePresence>
+              <Button
+                onClick={() => setShowAssign(true)}
+                className="p-2 rounded-full bg-primary text-white hover:bg-primary/90 transition-colors"
+                title="Add Employee"
+              >
+                <UserPlus className="h-4 w-4" />
+              </Button>
             )}
-          </DialogTitle>
+          </div>
           <DialogDescription>
             {showAssign 
               ? 'Select an employee to assign to this pay group'
@@ -357,32 +370,20 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Icon Actions */}
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              {showAssign && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAssign(false)}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                  title="Back to List"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-            
-            {!showAssign && (
+          {/* Back to List Button */}
+          {showAssign && (
+            <div className="flex justify-start">
               <Button
-                onClick={() => setShowAssign(true)}
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAssign(false)}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                title="Add Employee"
+                title="Back to List"
               >
-                <UserPlus className="h-4 w-4" />
+                <ArrowLeft className="h-4 w-4" />
               </Button>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Content */}
           <AnimatePresence mode="wait">
@@ -403,13 +404,9 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
                   <div className="text-center py-8">
                     <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                     <h3 className="text-lg font-medium mb-2">No employees assigned</h3>
-                    <p className="text-muted-foreground mb-4">
+                    <p className="text-muted-foreground">
                       This pay group doesn't have any employees assigned yet.
                     </p>
-                    <Button onClick={() => setShowAssign(true)}>
-                      <UserPlus className="h-4 w-4 mr-2" />
-                      Add First Employee
-                    </Button>
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-[400px] overflow-y-auto">
