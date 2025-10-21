@@ -38,6 +38,7 @@ import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { PayGroup, PAYGROUP_TYPES, getCurrencySymbol, formatCurrency } from '@/lib/types/paygroups';
 import { PayGroupsService } from '@/lib/services/paygroups.service';
+import { ViewAssignedEmployeesDialog } from './ViewAssignedEmployeesDialog';
 
 interface PayGroupCardProps {
   group: PayGroup;
@@ -47,6 +48,7 @@ interface PayGroupCardProps {
 
 export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onAssignEmployee }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showViewEmployeesDialog, setShowViewEmployeesDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const { toast } = useToast();
 
@@ -296,9 +298,18 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
             )}
 
             {/* Actions */}
-            <div className="pt-2 border-t">
+            <div className="pt-2 border-t space-y-2">
               <Button
                 variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setShowViewEmployeesDialog(true)}
+              >
+                <Users className="h-4 w-4 mr-2" />
+                View Employees ({group.employee_count})
+              </Button>
+              <Button
+                variant="default"
                 size="sm"
                 className="w-full"
                 onClick={() => onAssignEmployee?.(group)}
@@ -349,6 +360,14 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* View Employees Dialog */}
+      <ViewAssignedEmployeesDialog
+        open={showViewEmployeesDialog}
+        onOpenChange={setShowViewEmployeesDialog}
+        payGroup={group}
+        onUpdate={onUpdate}
+      />
     </>
   );
 };
