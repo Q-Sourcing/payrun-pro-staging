@@ -105,23 +105,15 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
 
       if (error) throw error;
 
-      // Get all active pay group assignments to check for conflicts
+      // Get all active pay group assignments to check for conflicts using the optimized view
       const { data: allAssignments, error: assignmentError } = await supabase
-        .from('paygroup_employees')
+        .from('paygroup_employees_view')
         .select(`
           employee_id,
           pay_group_id,
           active,
-          pay_groups (
-            id,
-            name,
-            type
-          ),
-          expatriate_pay_groups (
-            id,
-            name,
-            type
-          )
+          pay_group_name,
+          pay_group_type
         `)
         .eq('active', true);
 
@@ -130,14 +122,11 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
       // Create a map of employee_id to their current pay group
       const employeePayGroupMap = new Map();
       allAssignments?.forEach(assignment => {
-        const payGroupData = assignment.pay_groups || assignment.expatriate_pay_groups;
-        if (payGroupData) {
-          employeePayGroupMap.set(assignment.employee_id, {
-            id: assignment.pay_group_id,
-            name: payGroupData.name,
-            type: payGroupData.type
-          });
-        }
+        employeePayGroupMap.set(assignment.employee_id, {
+          id: assignment.pay_group_id,
+          name: assignment.pay_group_name,
+          type: assignment.pay_group_type
+        });
       });
 
       // Add current pay group info to employees
@@ -183,12 +172,13 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
 
     setAssigning(true);
     try {
-      // Step 1: Check for active duplicates before insert
+      // Step 1: Check for active duplicates before insert using the view
       const { data: existing, error: checkError } = await supabase
-        .from('paygroup_employees')
-        .select('id, active')
+        .from('paygroup_employees_view')
+        .select('employee_id, pay_group_id, active')
         .eq('employee_id', selectedEmployee)
         .eq('pay_group_id', targetGroupId)
+        .eq('active', true)
         .maybeSingle();
 
       if (checkError) {
@@ -201,7 +191,7 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
         return;
       }
 
-      if (existing && existing.active) {
+      if (existing) {
         const employeeName = employees.find(emp => emp.id === selectedEmployee)?.first_name || 'Employee';
         toast({
           title: 'Already Assigned',
@@ -228,6 +218,14 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
       const result = await response.json();
 
       if (!response.ok) {
+        console.error('Assignment failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          result: result,
+          employee_id: selectedEmployee,
+          pay_group_id: targetGroupId
+        });
+        
         // Catch any DB constraint error (in case of race conditions)
         if (result?.error?.includes('unique_employee_in_paygroup') || result?.error?.includes('duplicate')) {
           const employeeName = employees.find(emp => emp.id === selectedEmployee)?.first_name || 'Employee';

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -24,6 +24,7 @@ import { useToast } from '@/hooks/use-toast';
 import { PayGroup } from '@/lib/types/paygroups';
 import { supabase } from '@/integrations/supabase/client';
 import { getEmployeeTypeForPayGroup } from '@/lib/utils/paygroup-utils';
+import { usePaygroupRealtimeForGroup } from '@/hooks/usePaygroupRealtime';
 // import { AssignEmployeeModal } from './AssignEmployeeModal';
 
 interface ViewAssignedEmployeesDialogProps {
@@ -65,52 +66,20 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
   const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
 
-  // Load assigned employees and set up realtime updates
-  useEffect(() => {
-    if (open && payGroup?.id) {
-      fetchAssignedEmployees();
-    }
-
-    // Subscribe to realtime updates for this pay group
-    const subscription = supabase
-      .channel(`view_employees_${payGroup?.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'paygroup_employees',
-          filter: `pay_group_id=eq.${payGroup?.id}`,
-        },
-        () => {
-          fetchAssignedEmployees();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
-  }, [open, payGroup?.id]);
-
-  // Load available employees when switching to assign mode
-  useEffect(() => {
-    if (showAssign && payGroup?.id) {
-      loadAvailableEmployees();
-    }
-  }, [showAssign, payGroup]);
-
-  const fetchAssignedEmployees = async () => {
+  // Fetch assigned employees function
+  const fetchAssignedEmployees = useCallback(async () => {
     setLoading(true);
     try {
+      // Query from paygroup_employees table directly with join to employees
       const { data, error } = await supabase
         .from('paygroup_employees')
         .select(`
           id,
           employee_id,
+          pay_group_id,
           assigned_at,
           active,
-          employees (
+          employees!inner (
             id,
             first_name,
             middle_name,
@@ -124,19 +93,69 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
         .eq('active', true)
         .order('assigned_at', { ascending: false });
 
-      if (error) throw error;
-      setEmployees(data || []);
-    } catch (error) {
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+      
+      console.log('Fetched employees:', data);
+      
+      // Transform the data to match the expected interface
+      const transformedData = (data || []).map(item => {
+        const employee = Array.isArray(item.employees) ? item.employees[0] : item.employees;
+        return {
+          id: item.id,
+          employee_id: item.employee_id,
+          assigned_at: item.assigned_at,
+          active: item.active,
+          employees: employee
+        };
+      });
+      
+      setEmployees(transformedData);
+    } catch (error: any) {
       console.error('Error fetching assigned employees:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load assigned employees',
+        description: error?.message || 'Failed to load assigned employees',
         variant: 'destructive',
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [payGroup.id, toast]);
+
+  // Load assigned employees on mount
+  useEffect(() => {
+    if (open && payGroup?.id) {
+      fetchAssignedEmployees();
+    }
+  }, [open, payGroup?.id, fetchAssignedEmployees]);
+
+  // Set up realtime updates for this pay group
+  usePaygroupRealtimeForGroup(payGroup?.id || '', {
+    enabled: open && !!payGroup?.id,
+    refetch: fetchAssignedEmployees,
+    onEmployeeAdded: (payload) => {
+      console.log(`✅ Employee added to ${payGroup?.name}:`, payload);
+      fetchAssignedEmployees();
+    },
+    onEmployeeRemoved: (payload) => {
+      console.log(`❌ Employee removed from ${payGroup?.name}:`, payload);
+      fetchAssignedEmployees();
+    },
+    onEmployeeUpdated: (payload) => {
+      console.log(`🔄 Employee updated in ${payGroup?.name}:`, payload);
+      fetchAssignedEmployees();
+    }
+  });
+
+  // Load available employees when switching to assign mode
+  useEffect(() => {
+    if (showAssign && payGroup?.id) {
+      loadAvailableEmployees();
+    }
+  }, [showAssign, payGroup]);
 
   const loadAvailableEmployees = async () => {
     try {
@@ -154,23 +173,15 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
       const { data, error } = await query;
       if (error) throw error;
 
-      // Get all active pay group assignments to check for conflicts
+      // Get all active pay group assignments to check for conflicts using the optimized view
       const { data: allAssignments, error: assignmentError } = await supabase
-        .from('paygroup_employees')
+        .from('paygroup_employees_view')
         .select(`
           employee_id,
           pay_group_id,
           active,
-          pay_groups (
-            id,
-            name,
-            type
-          ),
-          expatriate_pay_groups (
-            id,
-            name,
-            type
-          )
+          pay_group_name,
+          pay_group_type
         `)
         .eq('active', true);
 
@@ -179,14 +190,11 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
       // Create a map of employee_id to their current pay group
       const employeePayGroupMap = new Map();
       allAssignments?.forEach(assignment => {
-        const payGroupData = assignment.pay_groups || assignment.expatriate_pay_groups;
-        if (payGroupData) {
-          employeePayGroupMap.set(assignment.employee_id, {
-            id: assignment.pay_group_id,
-            name: payGroupData.name,
-            type: payGroupData.type
-          });
-        }
+        employeePayGroupMap.set(assignment.employee_id, {
+          id: assignment.pay_group_id,
+          name: assignment.pay_group_name,
+          type: assignment.pay_group_type
+        });
       });
 
       // Filter and mark employees
@@ -223,12 +231,13 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
 
     setAssigning(true);
     try {
-      // Step 1: Check for active duplicates before insert
+      // Step 1: Check for active duplicates before insert using the view
       const { data: existing, error: checkError } = await supabase
-        .from('paygroup_employees')
-        .select('id, active')
+        .from('paygroup_employees_view')
+        .select('employee_id, pay_group_id, active')
         .eq('employee_id', selectedEmployee)
         .eq('pay_group_id', payGroup.id)
+        .eq('active', true)
         .maybeSingle();
 
       if (checkError) {
@@ -241,7 +250,7 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
         return;
       }
 
-      if (existing && existing.active) {
+      if (existing) {
         const employeeName = availableEmployees.find(emp => emp.id === selectedEmployee);
         const fullName = employeeName ? [employeeName.first_name, employeeName.middle_name, employeeName.last_name].filter(Boolean).join(' ') : 'Employee';
         toast({
@@ -268,6 +277,14 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
       const result = await response.json();
 
       if (!response.ok) {
+        console.error('Assignment failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          result: result,
+          employee_id: selectedEmployee,
+          pay_group_id: payGroup.id
+        });
+        
         // Catch any DB constraint error (in case of race conditions)
         if (result?.error?.includes('unique_employee_in_paygroup') || result?.error?.includes('duplicate')) {
           const employeeName = availableEmployees.find(emp => emp.id === selectedEmployee);
@@ -524,7 +541,7 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
                       </SelectTrigger>
                       <SelectContent>
                         {availableEmployees.length === 0 ? (
-                          <SelectItem value="" disabled>
+                          <SelectItem value="no-employees" disabled>
                             No eligible employees available
                           </SelectItem>
                         ) : (

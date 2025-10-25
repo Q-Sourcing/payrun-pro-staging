@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -41,6 +41,7 @@ import { PayGroupsService } from '@/lib/services/paygroups.service';
 import { ViewAssignedEmployeesDialog } from './ViewAssignedEmployeesDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { getPayGroupTypeColor, getPayGroupTypeIconClass } from '@/lib/utils/paygroup-utils';
+import { usePaygroupRealtimeForGroup } from '@/hooks/usePaygroupRealtime';
 
 interface PayGroupCardProps {
   group: PayGroup;
@@ -58,52 +59,50 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
 
   const typeDefinition = PAYGROUP_TYPES[group.type];
 
-  // Fetch employee count and set up realtime updates
-  useEffect(() => {
-    if (group?.id) {
-      fetchEmployeeCount();
-    }
-
-    // Subscribe to realtime updates for this pay group
-    const subscription = supabase
-      .channel(`paygroup_employees_${group.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'paygroup_employees',
-          filter: `pay_group_id=eq.${group.id}`,
-        },
-        () => {
-          fetchEmployeeCount();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
-  }, [group.id]);
-
-  const fetchEmployeeCount = async () => {
+  // Fetch employee count function
+  const fetchEmployeeCount = useCallback(async () => {
     setLoadingCount(true);
     try {
-      const { count, error } = await supabase
-        .from('paygroup_employees')
-        .select('id', { count: 'exact', head: true })
+      // Use the optimized view for better performance
+      const { data, error } = await supabase
+        .from('paygroup_employees_view')
+        .select('employee_id')
         .eq('pay_group_id', group.id)
         .eq('active', true);
 
-      if (!error && count !== null) {
-        setEmployeeCount(count);
+      if (!error && data) {
+        setEmployeeCount(data.length);
       }
     } catch (error) {
       console.error('Error fetching employee count:', error);
     } finally {
       setLoadingCount(false);
     }
-  };
+  }, [group.id]);
+
+  // Fetch employee count on mount
+  useEffect(() => {
+    if (group?.id) {
+      fetchEmployeeCount();
+    }
+  }, [group.id, fetchEmployeeCount]);
+
+  // Set up realtime updates for this pay group
+  usePaygroupRealtimeForGroup(group.id, {
+    refetch: fetchEmployeeCount,
+    onEmployeeAdded: (payload) => {
+      console.log(`✅ Employee added to ${group.name}:`, payload);
+      fetchEmployeeCount();
+    },
+    onEmployeeRemoved: (payload) => {
+      console.log(`❌ Employee removed from ${group.name}:`, payload);
+      fetchEmployeeCount();
+    },
+    onEmployeeUpdated: (payload) => {
+      console.log(`🔄 Employee updated in ${group.name}:`, payload);
+      fetchEmployeeCount();
+    }
+  });
 
   // Get icon for pay group type
   const getTypeIcon = (type: string) => {
