@@ -68,7 +68,7 @@ sync_database() {
     
     # Apply schema to production
     cd "$PRODUCTION_DIR"
-    supabase link --project-ref ftiqmqrjzebibcixpnll
+    supabase link --project-ref kctwfgbjmhnfqtxhagib
     supabase db push --file /tmp/staging_schema.sql
     
     echo "✅ Database schema sync complete!"
