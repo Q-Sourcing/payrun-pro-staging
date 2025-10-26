@@ -1,0 +1,18 @@
+#!/bin/bash
+
+echo "🟡 Starting Staging Server (Port 8080)"
+echo "====================================="
+
+# Set staging environment
+export VITE_ENVIRONMENT=staging
+export VITE_SUPABASE_URL=https://sbphmrjoappwlervnbtm.supabase.co
+export VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNicGhtcmpvYXBwd2xlcnZuYnRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0NDExNDksImV4cCI6MjA3NjAxNzE0OX0.oxMnsgPnPNGKX8ekvoyN7Xe7J1IRcim4qR_i2_grLYo
+
+echo "Environment: staging"
+echo "Database: sbphmrjoappwlervnbtm.supabase.co"
+echo "Port: 8080"
+echo "Banner: 🧪 STAGING"
+echo ""
+
+# Start staging server
+PORT=8080 npm run dev

@@ -4,8 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "node env-manager.js && vite",
+    "dev:staging": "cp .env.local .env.next && vite",
+    "dev:production": "cp .env.production .env.next && vite",
+    "build": "node env-manager.js && vite build",
+    "build:staging": "cp .env.local .env.next && vite build",
+    "build:production": "cp .env.production .env.next && vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -20,7 +24,15 @@
     "db:staging": "supabase link --project-ref sbphmrjoappwlervnbtm && supabase db push --linked",
     "deploy:staging": "git push origin staging",
     "deploy:prod": "git push origin main",
-    "verify:env": "node scripts/verifyEnvironmentLinks.cjs"
+    "verify:env": "node scripts/verifyEnvironmentLinks.cjs",
+    "env:switch": "node env-manager.js",
+    "env:staging": "cp .env.local .env.next && echo '✅ Switched to staging environment'",
+    "env:production": "cp .env.production .env.next && echo '✅ Switched to production environment'",
+    "start:both": "./scripts/start-both-environments.sh",
+    "verify:banners": "node scripts/verify-banners.js",
+    "stop:servers": "pkill -f 'vite' && echo '✅ All servers stopped'",
+    "migrate:help": "./scripts/migration-helper.sh",
+    "migrate:db": "./scripts/migrate-staging-to-production.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -12,6 +12,7 @@ import Login from "./pages/Login";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { SupabaseAuthProvider, useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import Settings from "./pages/Settings";
+import EnvBanner from "@/components/EnvBanner";
 
 // Import existing tab components as pages
 import EmployeesTab from "@/components/payroll/EmployeesTab";
@@ -61,6 +62,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 const App = () => {
   // Initialize realtime subscriptions when app starts
   useEffect(() => {
+    // Environment verification logging
+    console.log('🌿 Environment:', import.meta.env.VITE_ENVIRONMENT || import.meta.env.NEXT_PUBLIC_ENVIRONMENT || 'unknown');
+    console.log('🔗 Supabase URL:', import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL || 'not configured');
+    console.log('🔧 Vite Mode:', import.meta.env.MODE);
+    
     RealtimeService.initializeRealtimeSubscriptions();
     
     // Cleanup on unmount
@@ -74,6 +80,7 @@ const App = () => {
       <ThemeProvider>
         <SupabaseAuthProvider>
           <TooltipProvider>
+            <EnvBanner />
             <Toaster />
             <Sonner />
             <BrowserRouter>
