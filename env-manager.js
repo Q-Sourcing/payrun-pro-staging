@@ -1,31 +1,18 @@
 import fs from 'fs';
-import { execSync } from 'child_process';
 
 /**
- * Environment Manager for Payroll Project
- * Automatically switches environment based on current Git branch
+ * Environment Manager for Production Repository
+ * Always uses production environment configuration
  * 
- * Branch Mapping:
- * - staging branch → .env.local (staging environment)
- * - main branch → .env.production (production environment)
+ * This repository is dedicated to production environment only
  */
-
-function getCurrentBranch() {
-  try {
-    return execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
-  } catch (error) {
-    console.warn('⚠️  Could not determine Git branch, defaulting to staging');
-    return 'staging';
-  }
-}
 
 function copyEnvironmentFile(sourceFile, targetFile) {
   try {
     if (!fs.existsSync(sourceFile)) {
       console.error(`❌ Environment file not found: ${sourceFile}`);
-      console.log('💡 Please create the environment files:');
-      console.log('   - .env.local (for staging)');
-      console.log('   - .env.production (for production)');
+      console.log('💡 Please create the production environment file:');
+      console.log('   - .env.production (for production environment)');
       process.exit(1);
     }
 
@@ -38,15 +25,14 @@ function copyEnvironmentFile(sourceFile, targetFile) {
 }
 
 function main() {
-  const branch = getCurrentBranch();
-  const targetEnv = branch === 'staging' ? '.env.local' : '.env.production';
+  const sourceEnv = '.env.production';
   const activeEnv = '.env.next';
   
-  console.log(`🔁 Environment Manager - Branch: ${branch}`);
+  console.log(`🔁 Production Environment Manager`);
   
-  if (copyEnvironmentFile(targetEnv, activeEnv)) {
-    console.log(`✅ Environment set for branch: ${branch}`);
-    console.log(`🔗 Using configuration from ${targetEnv}`);
+  if (copyEnvironmentFile(sourceEnv, activeEnv)) {
+    console.log(`✅ Environment set for production`);
+    console.log(`🔗 Using configuration from ${sourceEnv}`);
     
     // Display environment info
     try {
@@ -58,7 +44,7 @@ function main() {
       );
       
       if (envLines.length > 0) {
-        console.log('📋 Environment Configuration:');
+        console.log('📋 Production Environment Configuration:');
         envLines.forEach(line => {
           if (line.trim() && !line.startsWith('#')) {
             console.log(`   ${line}`);

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Environment Banner Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .env-banner {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: bold;
+            z-index: 9999;
+            box-shadow: 0 0 4px rgba(0,0,0,0.15);
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        .staging {
+            background-color: #FCD34D;
+            color: #1F2937;
+            border: 1px solid #F59E0B;
+        }
+        .production {
+            background-color: #10B981;
+            color: white;
+            border: 1px solid #059669;
+        }
+        .development {
+            background-color: #3B82F6;
+            color: white;
+            border: 1px solid #2563EB;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .url {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎨 Environment Banner Test</h1>
+        
+        <div class="test-section">
+            <h2>🟡 Staging Environment Test</h2>
+            <p>Visit this URL to test the staging banner:</p>
+            <div class="url">http://localhost:8080</div>
+            <p>Expected banner: <span class="env-banner staging">🧪 STAGING</span></p>
+            <p>Environment: staging</p>
+            <p>Database: sbphmrjoappwlervnbtm.supabase.co</p>
+        </div>
+
+        <div class="test-section">
+            <h2>🟢 Production Environment Test</h2>
+            <p>Visit this URL to test the production banner:</p>
+            <div class="url">http://localhost:8081</div>
+            <p>Expected banner: <span class="env-banner production">🟢 PRODUCTION</span></p>
+            <p>Environment: production</p>
+            <p>Database: ftiqmqrjzebibcixpnll.supabase.co</p>
+        </div>
+
+        <div class="test-section">
+            <h2>🔧 Development Mode Test</h2>
+            <p>If running in development mode, you should see:</p>
+            <p>Expected banner: <span class="env-banner development">🔧 DEVELOPMENT</span></p>
+        </div>
+
+        <div class="test-section">
+            <h2>🧪 Testing Instructions</h2>
+            <ol>
+                <li>Open <strong>http://localhost:8080</strong> in your browser</li>
+                <li>Look for the yellow "🧪 STAGING" banner in the top-right corner</li>
+                <li>Open <strong>http://localhost:8081</strong> in a new tab</li>
+                <li>Look for the green "🟢 PRODUCTION" banner in the top-right corner</li>
+                <li>Check the browser console for environment logs</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h2>🔍 Troubleshooting</h2>
+            <p>If both show the same banner:</p>
+            <ul>
+                <li>Check browser console for environment variables</li>
+                <li>Verify the servers are running on different ports</li>
+                <li>Clear browser cache and refresh</li>
+                <li>Check that environment variables are set correctly</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Display current environment info
+        console.log('🧪 Environment Banner Test Page');
+        console.log('Current URL:', window.location.href);
+        console.log('Expected banners:');
+        console.log('  - http://localhost:8080 → 🧪 STAGING (yellow)');
+        console.log('  - http://localhost:8081 → 🟢 PRODUCTION (green)');
+    </script>
+</body>
+</html>
