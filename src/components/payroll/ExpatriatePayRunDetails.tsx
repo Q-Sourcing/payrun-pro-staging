@@ -405,6 +405,7 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
             </div>
           </CardContent>
         </Card>
+      </div>
 
       {/* Pay Run Items Table */}
       <Card>
