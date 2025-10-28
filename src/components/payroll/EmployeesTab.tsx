@@ -64,44 +64,40 @@ const EmployeesTab = () => {
 
       const employeeIds = employeesData.map(e => e.id);
 
-      // Fetch pay group info from both sources in parallel
-      const [regularGroups, paygroupAssignments] = await Promise.all([
-        // Get regular pay groups via employees.pay_group_id
-        supabase
-          .from("employees")
-          .select(`
-            id,
-            pay_groups:pay_group_id (name)
-          `)
-          .in('id', employeeIds)
-          .not('pay_group_id', 'is', null),
+      // Simple fetch of employees with their assigned pay groups
+      const { data: employeesWithGroups, error: groupsError } = await supabase
+        .from("employees")
+        .select("id, pay_group_id")
+        .in('id', employeeIds)
+        .not('pay_group_id', 'is', null);
 
-        // Get assignments from paygroup_employees
-        supabase
-          .from("paygroup_employees")
-          .select(`
-            employee_id,
-            pay_groups:pay_group_id (name)
-          `)
-          .in('employee_id', employeeIds)
-          .eq('active', true)
-      ]);
+      if (groupsError) {
+        console.error("Error fetching pay groups:", groupsError);
+      }
+
+      // Get unique pay group IDs
+      const payGroupIds = [...new Set((employeesWithGroups || []).map(e => e.pay_group_id).filter(Boolean))];
+
+      // Fetch pay group names if we have any
+      let payGroupMap = new Map();
+      if (payGroupIds.length > 0) {
+        const { data: payGroups } = await supabase
+          .from("pay_groups")
+          .select("id, name")
+          .in('id', payGroupIds as string[]);
+
+        payGroupMap = new Map((payGroups || []).map(pg => [pg.id, pg]));
+      }
 
       // Merge pay group info
       const enrichedEmployees = employeesData.map(emp => {
-        // Check direct assignment first
-        const directGroup = (regularGroups.data as any)?.find((g: any) => g.id === emp.id);
-        if (directGroup?.pay_groups) {
-          return { ...emp, pay_groups: directGroup.pay_groups };
-        }
+        const empGroup = employeesWithGroups?.find(e => e.id === emp.id);
+        const payGroup = empGroup?.pay_group_id ? payGroupMap.get(empGroup.pay_group_id) : null;
 
-        // Check join table assignment
-        const joinGroup = (paygroupAssignments.data as any)?.find((a: any) => a.employee_id === emp.id);
-        if (joinGroup?.pay_groups) {
-          return { ...emp, pay_groups: joinGroup.pay_groups };
-        }
-
-        return emp;
+        return {
+          ...emp,
+          pay_groups: payGroup || null
+        };
       });
 
       setEmployees(enrichedEmployees);

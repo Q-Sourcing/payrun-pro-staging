@@ -90,64 +90,43 @@ export class EmployeesService {
       if (include_pay_group && employees && employees.length > 0) {
         const employeeIds = employees.map(e => e.id);
 
-        // Fetch from pay_groups via employees.pay_group_id
-        const { data: regularPayGroups } = await supabase
+        // Fetch pay groups for employees with direct assignment
+        const { data: empWithGroups } = await supabase
           .from('employees')
-          .select(`
-            id,
-            pay_groups:pay_group_id (
-              id,
-              name,
-              type
-            )
-          `)
+          .select('id, pay_group_id')
           .in('id', employeeIds)
           .not('pay_group_id', 'is', null);
 
-        // Fetch from paygroup_employees join table
-        const { data: paygroupAssignments } = await supabase
-          .from('paygroup_employees')
-          .select(`
-            employee_id,
-            pay_groups:pay_group_id (
-              id,
-              name,
-              type
-            )
-          `)
-          .in('employee_id', employeeIds)
-          .eq('active', true);
+        // Get unique pay group IDs
+        const payGroupIds = [...new Set((empWithGroups || []).map(e => e.pay_group_id).filter(Boolean))];
 
-        // Merge pay group info
-        transformedData = transformedData.map(emp => {
-          // Check direct assignment first
-          const directAssignment = (regularPayGroups as any)?.find((a: any) => a.id === emp.id);
-          if (directAssignment?.pay_groups) {
-            return {
-              ...emp,
-              current_pay_group: {
-                id: directAssignment.pay_groups.id,
-                name: directAssignment.pay_groups.name,
-                type: directAssignment.pay_groups.type
-              }
-            };
-          }
+        if (payGroupIds.length > 0) {
+          // Fetch pay group details
+          const { data: payGroups } = await supabase
+            .from('pay_groups')
+            .select('id, name, country')
+            .in('id', payGroupIds as string[]);
 
-          // Check join table assignment
-          const joinAssignment = (paygroupAssignments as any)?.find((a: any) => a.employee_id === emp.id);
-          if (joinAssignment?.pay_groups) {
-            return {
-              ...emp,
-              current_pay_group: {
-                id: joinAssignment.pay_groups.id,
-                name: joinAssignment.pay_groups.name,
-                type: joinAssignment.pay_groups.type
-              }
-            };
-          }
-
-          return emp;
-        });
+          // Merge pay group info
+          const payGroupMap = new Map((payGroups || []).map(pg => [pg.id, pg]));
+          
+          transformedData = transformedData.map(emp => {
+            const empGroup = empWithGroups?.find(e => e.id === emp.id);
+            const payGroup = empGroup?.pay_group_id ? payGroupMap.get(empGroup.pay_group_id) : null;
+            
+            if (payGroup) {
+              return {
+                ...emp,
+                current_pay_group: {
+                  id: payGroup.id,
+                  name: payGroup.name,
+                  type: 'local'
+                }
+              };
+            }
+            return emp;
+          });
+        }
       }
 
       return {
