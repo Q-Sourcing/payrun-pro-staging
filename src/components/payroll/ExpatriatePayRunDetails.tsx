@@ -314,201 +314,136 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header with PayGroup Info */}
-      <Card className="border-l-4 border-l-blue-500">
-        <CardHeader>
+    <div className="space-y-3 min-h-0 overflow-auto">
+      {/* Compact Header with PayGroup Info */}
+      <Card className="border-l-4 border-l-primary shadow-sm">
+        <CardHeader className="pb-2">
           <div className="flex items-center gap-2">
-            <Globe className="h-5 w-5 text-blue-600" />
-            <CardTitle className="text-blue-900">{expatriatePayGroup.name}</CardTitle>
-            <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-              🇺🇸 {expatriatePayGroup.currency} → Local
+            <Globe className="h-4 w-4 text-primary" />
+            <CardTitle className="text-base">{expatriatePayGroup.name}</CardTitle>
+            <Badge variant="secondary" className="text-xs">
+              {expatriatePayGroup.currency} → Local
             </Badge>
           </div>
-          <CardDescription>
+          <CardDescription className="text-sm">
             Expatriate PayRun: Daily rate payroll with dual currency calculations
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-4 gap-4 text-sm">
+        <CardContent className="pb-3">
+          <div className="grid grid-cols-4 gap-3 text-xs">
             <div>
-              <Label className="text-muted-foreground">Default Daily Rate</Label>
-              <p className="font-medium">{ExpatriatePayrollService.formatCurrency(expatriatePayGroup.default_daily_rate, expatriatePayGroup.currency)}</p>
+              <Label className="text-muted-foreground text-xs">Default Daily Rate</Label>
+              <p className="font-medium text-sm">{ExpatriatePayrollService.formatCurrency(expatriatePayGroup.default_daily_rate, expatriatePayGroup.currency)}</p>
             </div>
             <div>
-              <Label className="text-muted-foreground">Currency</Label>
-              <p className="font-medium">{expatriatePayGroup.currency}</p>
+              <Label className="text-muted-foreground text-xs">Currency</Label>
+              <p className="font-medium text-sm">{expatriatePayGroup.currency}</p>
             </div>
             <div>
-              <Label className="text-muted-foreground">Tax Country</Label>
-              <p className="font-medium">{expatriatePayGroup.tax_country}</p>
+              <Label className="text-muted-foreground text-xs">Tax Country</Label>
+              <p className="font-medium text-sm">{expatriatePayGroup.tax_country}</p>
             </div>
             <div>
-              <Label className="text-muted-foreground">Employees</Label>
-              <p className="font-medium">{summaryTotals.employeeCount}</p>
+              <Label className="text-muted-foreground text-xs">Employees</Label>
+              <p className="font-medium text-sm">{summaryTotals.employeeCount}</p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Summary Cards - Real-time Animated */}
-      <motion.div
-        key={`${summaryTotals.totalGrossLocal}-${summaryTotals.totalNetLocal}-${summaryTotals.totalGrossForeign}-${summaryTotals.totalNetForeign}`}
-        initial={{ opacity: 0.3 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
-        className="grid grid-cols-4 gap-4"
-      >
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-        >
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-blue-600" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Gross (Foreign)</p>
-                  <p className="text-lg font-semibold">
-                    {ExpatriatePayrollService.formatCurrency(summaryTotals.totalGrossForeign, expatriatePayGroup.currency)}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
-        >
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-blue-600" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Net (Foreign)</p>
-                  <p className="text-lg font-semibold">
-                    {ExpatriatePayrollService.formatCurrency(summaryTotals.totalNetForeign, expatriatePayGroup.currency)}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3, delay: 0.3 }}
-        >
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <ArrowRightLeft className="h-4 w-4 text-green-600" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Net (Local)</p>
-                  <p className="text-lg font-semibold">
-                    {ExpatriatePayrollService.formatCurrency(summaryTotals.totalNetLocal, 'UGX')}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3, delay: 0.4 }}
-        >
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <Calculator className="h-4 w-4 text-purple-600" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Gross (Local)</p>
-                  <p className="text-lg font-semibold">
-                    {ExpatriatePayrollService.formatCurrency(summaryTotals.totalGrossLocal, 'UGX')}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </motion.div>
+      {/* Compact Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <Card className="shadow-sm">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Total Gross (Foreign)</span>
+              <DollarSign className="h-3 w-3 text-primary" />
+            </div>
+            <p className="text-base font-semibold mt-1">
+              {ExpatriatePayrollService.formatCurrency(summaryTotals.totalGrossForeign, expatriatePayGroup.currency)}
+            </p>
+          </CardContent>
+        </Card>
 
-      {/* Additional Summary Cards - Real-time Deductions */}
-      <motion.div
-        key={`deductions-${summaryTotals.totalGrossLocal}-${summaryTotals.totalNetLocal}`}
-        initial={{ opacity: 0.3 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3, delay: 0.1 }}
-        className="grid grid-cols-3 gap-4 mt-4"
-      >
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-        >
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <Calculator className="h-4 w-4 text-orange-600" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Deductions (Local)</p>
-                  <p className="text-lg font-semibold">
-                    {ExpatriatePayrollService.formatCurrency(
-                      summaryTotals.totalGrossLocal - summaryTotals.totalNetLocal,
-                      'UGX'
-                    )}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
-        >
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <Calculator className="h-4 w-4 text-red-600" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Deductions (Foreign)</p>
-                  <p className="text-lg font-semibold">
-                    {ExpatriatePayrollService.formatCurrency(
-                      summaryTotals.totalGrossForeign - summaryTotals.totalNetForeign,
-                      expatriatePayGroup.currency
-                    )}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.3 }}
-        >
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <Globe className="h-4 w-4 text-indigo-600" />
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Employees</p>
-                  <p className="text-lg font-semibold">
-                    {summaryTotals.employeeCount}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </motion.div>
+        <Card className="shadow-sm">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Total Net (Foreign)</span>
+              <DollarSign className="h-3 w-3 text-primary" />
+            </div>
+            <p className="text-base font-semibold mt-1">
+              {ExpatriatePayrollService.formatCurrency(summaryTotals.totalNetForeign, expatriatePayGroup.currency)}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Total Net (Local)</span>
+              <ArrowRightLeft className="h-3 w-3 text-green-600" />
+            </div>
+            <p className="text-base font-semibold mt-1">
+              {ExpatriatePayrollService.formatCurrency(summaryTotals.totalNetLocal, 'UGX')}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Total Gross (Local)</span>
+              <Calculator className="h-3 w-3 text-purple-600" />
+            </div>
+            <p className="text-base font-semibold mt-1">
+              {ExpatriatePayrollService.formatCurrency(summaryTotals.totalGrossLocal, 'UGX')}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Compact Deductions Summary */}
+      <div className="grid grid-cols-3 gap-2">
+        <Card className="shadow-sm">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Deductions (Local)</span>
+              <Calculator className="h-3 w-3 text-orange-600" />
+            </div>
+            <p className="text-base font-semibold mt-1">
+              {ExpatriatePayrollService.formatCurrency(
+                summaryTotals.totalGrossLocal - summaryTotals.totalNetLocal,
+                'UGX'
+              )}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Deductions (Foreign)</span>
+              <Calculator className="h-3 w-3 text-red-600" />
+            </div>
+            <p className="text-base font-semibold mt-1">
+              {ExpatriatePayrollService.formatCurrency(
+                summaryTotals.totalGrossForeign - summaryTotals.totalNetForeign,
+                expatriatePayGroup.currency
+              )}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Total Employees</span>
+              <Globe className="h-3 w-3 text-blue-600" />
+            </div>
+            <p className="text-base font-semibold mt-1">{summaryTotals.employeeCount}</p>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Pay Run Items Table */}
       <Card>
@@ -540,7 +475,7 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
                 <AnimatePresence>
                   {payRunItems.map((item) => {
                     const edits = editingItems[item.employee_id] || {};
-                    const isCalculating = isCalculating[item.employee_id] || false;
+                    const isItemCalculating = isCalculating[item.employee_id] || false;
                     const hasUnsavedChanges = Object.keys(edits).length > 0;
                     
                     // Professional calculations

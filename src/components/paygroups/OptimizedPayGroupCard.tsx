@@ -38,7 +38,7 @@ export default function OptimizedPayGroupCard({
   onEdit,
   onDelete
 }: OptimizedPayGroupCardProps) {
-  // Just show 0 for now - can be enhanced later with proper hook
+  // Simple employee count - will be enhanced with proper query
   const employeeCount = 0;
   const loadingCount = false;
 
@@ -77,7 +77,7 @@ export default function OptimizedPayGroupCard({
                         transition={{ duration: 0.2 }}
                         className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
                       >
-                        {employeeCount} {employeeCount === 1 ? 'employee' : 'employees'}
+                        {employeeCount} employees
                       </motion.span>
                     )}
                   </AnimatePresence>
