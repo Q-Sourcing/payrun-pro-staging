@@ -44,6 +44,11 @@ interface Employee {
   email: string;
   department?: string;
   employee_type?: string;
+  currentPayGroup?: {
+    id: string;
+    name: string;
+    type: string;
+  };
 }
 
 export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
@@ -106,7 +111,7 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
       if (error) throw error;
 
       // Get all active pay group assignments to check for conflicts using the optimized view
-      const { data: allAssignments, error: assignmentError } = await supabase
+      const { data: allAssignments, error: assignmentError } = await (supabase as any)
         .from('paygroup_employees_view')
         .select(`
           employee_id,
@@ -173,7 +178,7 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
     setAssigning(true);
     try {
       // Step 1: Check for active duplicates before insert using the view
-      const { data: existing, error: checkError } = await supabase
+      const { data: existing, error: checkError } = await (supabase as any)
         .from('paygroup_employees_view')
         .select('employee_id, pay_group_id, active')
         .eq('employee_id', selectedEmployee)

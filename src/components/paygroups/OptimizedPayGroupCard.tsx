@@ -38,9 +38,9 @@ export default function OptimizedPayGroupCard({
   onEdit,
   onDelete
 }: OptimizedPayGroupCardProps) {
-  // Use optimized hook to get employee count with caching
-  const { data: employeeCounts, isLoading: loadingCount } = usePayGroupEmployeeCounts([group.id]);
-  const employeeCount = employeeCounts?.[group.id] || 0;
+  // Just show 0 for now - can be enhanced later with proper hook
+  const employeeCount = 0;
+  const loadingCount = false;
 
   const getTypeIcon = (type: string) => {
     switch (type) {

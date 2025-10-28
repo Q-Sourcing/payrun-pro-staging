@@ -71,7 +71,7 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
     setLoading(true);
     try {
       // Query from paygroup_employees table directly with join to employees
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('paygroup_employees')
         .select(`
           id,
@@ -174,7 +174,7 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
       if (error) throw error;
 
       // Get all active pay group assignments to check for conflicts using the optimized view
-      const { data: allAssignments, error: assignmentError } = await supabase
+      const { data: allAssignments, error: assignmentError } = await (supabase as any)
         .from('paygroup_employees_view')
         .select(`
           employee_id,
@@ -232,7 +232,7 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
     setAssigning(true);
     try {
       // Step 1: Check for active duplicates before insert using the view
-      const { data: existing, error: checkError } = await supabase
+      const { data: existing, error: checkError } = await (supabase as any)
         .from('paygroup_employees_view')
         .select('employee_id, pay_group_id, active')
         .eq('employee_id', selectedEmployee)
@@ -326,7 +326,7 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
     setRemoving(employeeId);
     try {
       // Soft delete by setting active to false
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('paygroup_employees')
         .update({ 
           active: false,

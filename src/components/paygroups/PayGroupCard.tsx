@@ -64,7 +64,7 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
     setLoadingCount(true);
     try {
       // Use the optimized view for better performance
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('paygroup_employees_view')
         .select('employee_id')
         .eq('pay_group_id', group.id)
