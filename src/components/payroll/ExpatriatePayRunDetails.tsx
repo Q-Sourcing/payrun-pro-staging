@@ -351,92 +351,60 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
         </CardContent>
       </Card>
 
-      {/* Compact Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <Card className="shadow-sm border border-border rounded-xl">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Total Gross (Foreign)</span>
-              <span className="font-semibold text-base">
+      {/* Compact Summary Cards - Single Row */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mb-3">
+        <Card className="border border-border rounded-lg shadow-sm">
+          <CardContent className="p-2">
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">Total Gross (Foreign)</span>
+              <span className="font-semibold text-sm mt-1">
                 {ExpatriatePayrollService.formatCurrency(summaryTotals.totalGrossForeign, expatriatePayGroup.currency)}
               </span>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border border-border rounded-xl">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Total Net (Foreign)</span>
-              <span className="font-semibold text-base">
+        <Card className="border border-border rounded-lg shadow-sm">
+          <CardContent className="p-2">
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">Total Net (Foreign)</span>
+              <span className="font-semibold text-sm mt-1">
                 {ExpatriatePayrollService.formatCurrency(summaryTotals.totalNetForeign, expatriatePayGroup.currency)}
               </span>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border border-border rounded-xl">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Total Net (Local)</span>
-              <span className="font-semibold text-base">
+        <Card className="border border-border rounded-lg shadow-sm">
+          <CardContent className="p-2">
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">Total Net (Local)</span>
+              <span className="font-semibold text-sm mt-1">
                 {ExpatriatePayrollService.formatCurrency(summaryTotals.totalNetLocal, 'UGX')}
               </span>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border border-border rounded-xl">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Total Gross (Local)</span>
-              <span className="font-semibold text-base">
+        <Card className="border border-border rounded-lg shadow-sm">
+          <CardContent className="p-2">
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">Total Gross (Local)</span>
+              <span className="font-semibold text-sm mt-1">
                 {ExpatriatePayrollService.formatCurrency(summaryTotals.totalGrossLocal, 'UGX')}
               </span>
             </div>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Compact Employee Count */}
-      <div className="grid grid-cols-3 gap-3">
-        <Card className="shadow-sm border border-border rounded-xl">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Total Deductions (Local)</span>
-              <span className="font-semibold text-base">
-                {ExpatriatePayrollService.formatCurrency(
-                  summaryTotals.totalGrossLocal - summaryTotals.totalNetLocal,
-                  'UGX'
-                )}
-              </span>
+        <Card className="border border-border rounded-lg shadow-sm">
+          <CardContent className="p-2">
+            <div className="flex flex-col">
+              <span className="text-xs text-muted-foreground">Total Employees</span>
+              <span className="font-semibold text-sm mt-1">{summaryTotals.employeeCount}</span>
             </div>
           </CardContent>
         </Card>
-
-        <Card className="shadow-sm border border-border rounded-xl">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Total Deductions (Foreign)</span>
-              <span className="font-semibold text-base">
-                {ExpatriatePayrollService.formatCurrency(
-                  summaryTotals.totalGrossForeign - summaryTotals.totalNetForeign,
-                  expatriatePayGroup.currency
-                )}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-sm border border-border rounded-xl">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Total Employees</span>
-              <span className="font-semibold text-base">{summaryTotals.employeeCount}</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Pay Run Items Table */}
       <Card>
@@ -624,3 +592,5 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
     </div>
   );
 };
+
+export default ExpatriatePayRunDetails;

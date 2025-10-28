@@ -138,21 +138,62 @@ export class ExpatriatePayrollService {
 
   /**
    * Get employees assigned to a specific expatriate pay group
-   * Only fetches employees explicitly linked via pay_group_id (no auto-linking)
+   * Hybrid approach: checks both employees.pay_group_id and paygroup_employees table
    */
   static async getEmployeesForPayGroup(payGroupId: string): Promise<any[]> {
-    const { data, error } = await supabase
-      .from('employees')
-      .select('*')
-      .eq('pay_group_id', payGroupId)
-      .eq('employee_type', 'expat');
+    try {
+      // Fetch employees directly linked via employees.pay_group_id
+      const { data: directEmployees, error: directError } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('pay_group_id', payGroupId)
+        .eq('employee_type', 'expat');
 
-    if (error) {
+      if (directError) throw directError;
+
+      // Fetch employees linked via paygroup_employees join table
+      const { data: joinedEmployees, error: joinError } = await supabase
+        .from('paygroup_employees')
+        .select(`
+          employee_id,
+          employees (
+            id,
+            employee_number,
+            first_name,
+            middle_name,
+            last_name,
+            email,
+            phone,
+            pay_type,
+            pay_rate,
+            country,
+            currency,
+            status,
+            employee_type,
+            pay_group_id
+          )
+        `)
+        .eq('pay_group_id', payGroupId)
+        .eq('active', true);
+
+      if (joinError) throw joinError;
+
+      // Flatten join table results
+      const joinedEmployeesList = (joinedEmployees || [])
+        .map(j => j.employees)
+        .filter(e => e && e.employee_type === 'expat');
+
+      // Merge unique employees (avoid duplicates by checking id)
+      const directList = directEmployees || [];
+      const uniqueJoinedEmployees = joinedEmployeesList.filter(
+        je => !directList.some(de => de.id === je.id)
+      );
+
+      return [...directList, ...uniqueJoinedEmployees];
+    } catch (error) {
       console.error('Failed to load expatriates for group:', error);
       return [];
     }
-
-    return data || [];
   }
 
   /**

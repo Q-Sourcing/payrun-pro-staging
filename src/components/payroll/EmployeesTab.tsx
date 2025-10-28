@@ -49,7 +49,7 @@ const EmployeesTab = () => {
 
   const fetchEmployees = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: employeesData, error } = await supabase
         .from("employees")
         .select(`
           *,
@@ -60,7 +60,40 @@ const EmployeesTab = () => {
         .order("first_name");
 
       if (error) throw error;
-      setEmployees(data || []);
+
+      // Fetch paygroup assignments to get pay group info for employees without direct pay_group_id
+      const { data: paygroupAssignments, error: pgError } = await supabase
+        .from("paygroup_employees" as any)
+        .select(`
+          employee_id,
+          pay_group_id,
+          pay_groups (
+            name
+          ),
+          expatriate_pay_groups (
+            name
+          )
+        `)
+        .eq('active', true);
+
+      if (pgError) throw pgError;
+
+      // Merge pay group info from paygroup_employees table
+      const enrichedEmployees = (employeesData || []).map(emp => {
+        const assignment = (paygroupAssignments as any)?.find((a: any) => a.employee_id === emp.id);
+        
+        // If employee doesn't have direct pay_groups link, use assignment data
+        if (!emp.pay_groups && assignment) {
+          return {
+            ...emp,
+            pay_groups: assignment.pay_groups || assignment.expatriate_pay_groups
+          };
+        }
+        
+        return emp;
+      });
+
+      setEmployees(enrichedEmployees);
     } catch (error) {
       console.error("Error fetching employees:", error);
       toast({
