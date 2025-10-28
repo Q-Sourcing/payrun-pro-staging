@@ -19,7 +19,7 @@ import {
   Calendar,
   Percent
 } from 'lucide-react';
-import { usePayGroupEmployeeCounts } from '@/hooks/use-paygroup-employees';
+import { usePayGroupEmployees } from '@/hooks/use-paygroup-employees';
 import { getPayGroupTypeColor, getPayGroupTypeIconClass } from '@/lib/utils/paygroup-utils';
 import type { PayGroup } from '@/lib/types/paygroups';
 
