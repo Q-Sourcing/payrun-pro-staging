@@ -158,9 +158,10 @@ export class ExpatriatePayrollService {
   /**
    * Format currency amount with symbol
    */
-  static formatCurrency(amount: number, currencyCode: string): string {
+  static formatCurrency(amount: number | undefined | null, currencyCode: string): string {
     const symbol = this.getCurrencySymbol(currencyCode);
-    return `${symbol}${amount.toLocaleString()}`;
+    const safeAmount = amount ?? 0;
+    return `${symbol}${safeAmount.toLocaleString()}`;
   }
 
   /**
