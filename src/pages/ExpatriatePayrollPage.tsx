@@ -139,6 +139,17 @@ const ExpatriatePayrollPage = () => {
   };
 
   useEffect(() => {
+    // Auto-sync pay group assignments on page load
+    const syncAssignments = async () => {
+      try {
+        const { syncPayGroupAssignments } = await import('@/lib/data/paygroup-employees.service');
+        await syncPayGroupAssignments();
+      } catch (error) {
+        console.error('Auto-sync error:', error);
+      }
+    };
+    
+    syncAssignments();
     fetchExpatriatePayRuns();
     
     // Set up real-time updates for expatriate pay runs

@@ -290,4 +290,45 @@ export class PayGroupEmployeesService {
       };
     }
   }
+
+  /**
+   * Auto-sync: Update employees.pay_group_id to match paygroup_employees
+   */
+  static async syncPayGroupAssignments(): Promise<{ synced: number; errors: number }> {
+    try {
+      console.log('🔄 Starting auto-sync of pay group assignments...');
+      
+      // Get all active assignments from paygroup_employees
+      const { data: assignments, error } = await supabase
+        .from('paygroup_employees')
+        .select('employee_id, pay_group_id')
+        .eq('active', true);
+
+      if (error) throw error;
+
+      let synced = 0;
+      let errors = 0;
+
+      // Update each employee's pay_group_id
+      for (const assignment of assignments || []) {
+        const { error: updateError } = await supabase
+          .from('employees')
+          .update({ pay_group_id: assignment.pay_group_id })
+          .eq('id', assignment.employee_id);
+
+        if (updateError) {
+          console.error(`Failed to sync employee ${assignment.employee_id}:`, updateError);
+          errors++;
+        } else {
+          synced++;
+        }
+      }
+
+      console.log(`✅ Sync complete: ${synced} synced, ${errors} errors`);
+      return { synced, errors };
+    } catch (error) {
+      console.error('Error during auto-sync:', error);
+      return { synced: 0, errors: 1 };
+    }
+  }
 }

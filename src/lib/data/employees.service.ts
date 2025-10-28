@@ -54,48 +54,10 @@ export class EmployeesService {
     const to = from + safeLimit - 1;
 
     try {
+      // Simple query first
       let query = supabase
         .from('employees')
-        .select(
-          include_pay_group
-            ? `
-              id,
-              first_name,
-              middle_name,
-              last_name,
-              email,
-              employee_type,
-              department,
-              created_at,
-              updated_at,
-              paygroup_employees!inner(
-                active,
-                pay_groups(
-                  id,
-                  name,
-                  type
-                ),
-                expatriate_pay_groups(
-                  id,
-                  name,
-                  type
-                )
-              )
-            `
-            : `
-              id,
-              first_name,
-              middle_name,
-              last_name,
-              email,
-              employee_type,
-              department,
-              created_at,
-              updated_at
-            `,
-          { count: 'exact' }
-        )
-        .eq('paygroup_employees.active', include_pay_group ? true : undefined)
+        .select('*', { count: 'exact' })
         .range(from, to)
         .order('first_name');
 
@@ -108,38 +70,85 @@ export class EmployeesService {
         query = query.eq('employee_type', employee_type);
       }
 
-      const { data, error, count } = await query;
+      const { data: employees, error, count } = await query;
 
       if (error) throw error;
 
-      // Transform data to include current pay group info
-      const transformedData: EmployeeWithPayGroup[] = (data || []).map(emp => {
-        const employee: EmployeeWithPayGroup = {
-          id: emp.id,
-          first_name: emp.first_name,
-          middle_name: emp.middle_name,
-          last_name: emp.last_name,
-          email: emp.email,
-          employee_type: emp.employee_type,
-          department: emp.department,
-          created_at: emp.created_at,
-          updated_at: emp.updated_at
-        };
+      let transformedData: EmployeeWithPayGroup[] = (employees || []).map(emp => ({
+        id: emp.id,
+        first_name: emp.first_name,
+        middle_name: emp.middle_name,
+        last_name: emp.last_name,
+        email: emp.email,
+        employee_type: emp.employee_type,
+        department: emp.department,
+        created_at: emp.created_at,
+        updated_at: emp.updated_at
+      }));
 
-        if (include_pay_group && emp.paygroup_employees?.[0]) {
-          const assignment = emp.paygroup_employees[0];
-          const payGroup = assignment.pay_groups || assignment.expatriate_pay_groups;
-          if (payGroup) {
-            employee.current_pay_group = {
-              id: assignment.pay_groups ? assignment.pay_groups.id : assignment.expatriate_pay_groups.id,
-              name: payGroup.name,
-              type: payGroup.type
+      // If pay group info is needed, fetch it separately
+      if (include_pay_group && employees && employees.length > 0) {
+        const employeeIds = employees.map(e => e.id);
+
+        // Fetch from pay_groups via employees.pay_group_id
+        const { data: regularPayGroups } = await supabase
+          .from('employees')
+          .select(`
+            id,
+            pay_groups:pay_group_id (
+              id,
+              name,
+              type
+            )
+          `)
+          .in('id', employeeIds)
+          .not('pay_group_id', 'is', null);
+
+        // Fetch from paygroup_employees join table
+        const { data: paygroupAssignments } = await supabase
+          .from('paygroup_employees')
+          .select(`
+            employee_id,
+            pay_groups:pay_group_id (
+              id,
+              name,
+              type
+            )
+          `)
+          .in('employee_id', employeeIds)
+          .eq('active', true);
+
+        // Merge pay group info
+        transformedData = transformedData.map(emp => {
+          // Check direct assignment first
+          const directAssignment = (regularPayGroups as any)?.find((a: any) => a.id === emp.id);
+          if (directAssignment?.pay_groups) {
+            return {
+              ...emp,
+              current_pay_group: {
+                id: directAssignment.pay_groups.id,
+                name: directAssignment.pay_groups.name,
+                type: directAssignment.pay_groups.type
+              }
             };
           }
-        }
 
-        return employee;
-      });
+          // Check join table assignment
+          const joinAssignment = (paygroupAssignments as any)?.find((a: any) => a.employee_id === emp.id);
+          if (joinAssignment?.pay_groups) {
+            return {
+              ...emp,
+              current_pay_group: {
+                id: joinAssignment.pay_groups.id,
+                name: joinAssignment.pay_groups.name,
+                type: joinAssignment.pay_groups.type
+              }
+            };
+          }
+
+          return emp;
+        });
+      }
 
       return {
         data: transformedData,
@@ -147,9 +156,9 @@ export class EmployeesService {
         page,
         limit: safeLimit
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching employees:', error);
-      throw new Error(`Failed to fetch employees: ${error.message}`);
+      throw new Error(`Failed to fetch employees: ${error?.message || 'Unknown error'}`);
     }
   }
 

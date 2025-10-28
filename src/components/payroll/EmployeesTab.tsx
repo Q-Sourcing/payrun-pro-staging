@@ -49,47 +49,58 @@ const EmployeesTab = () => {
 
   const fetchEmployees = async () => {
     try {
+      // Fetch all employees
       const { data: employeesData, error } = await supabase
         .from("employees")
-        .select(`
-          *,
-          pay_groups (
-            name
-          )
-        `)
+        .select("*")
         .order("first_name");
 
       if (error) throw error;
 
-      // Fetch paygroup assignments to get pay group info for employees without direct pay_group_id
-      const { data: paygroupAssignments, error: pgError } = await supabase
-        .from("paygroup_employees" as any)
-        .select(`
-          employee_id,
-          pay_group_id,
-          pay_groups (
-            name
-          ),
-          expatriate_pay_groups (
-            name
-          )
-        `)
-        .eq('active', true);
+      if (!employeesData || employeesData.length === 0) {
+        setEmployees([]);
+        return;
+      }
 
-      if (pgError) throw pgError;
+      const employeeIds = employeesData.map(e => e.id);
 
-      // Merge pay group info from paygroup_employees table
-      const enrichedEmployees = (employeesData || []).map(emp => {
-        const assignment = (paygroupAssignments as any)?.find((a: any) => a.employee_id === emp.id);
-        
-        // If employee doesn't have direct pay_groups link, use assignment data
-        if (!emp.pay_groups && assignment) {
-          return {
-            ...emp,
-            pay_groups: assignment.pay_groups || assignment.expatriate_pay_groups
-          };
+      // Fetch pay group info from both sources in parallel
+      const [regularGroups, paygroupAssignments] = await Promise.all([
+        // Get regular pay groups via employees.pay_group_id
+        supabase
+          .from("employees")
+          .select(`
+            id,
+            pay_groups:pay_group_id (name)
+          `)
+          .in('id', employeeIds)
+          .not('pay_group_id', 'is', null),
+
+        // Get assignments from paygroup_employees
+        supabase
+          .from("paygroup_employees")
+          .select(`
+            employee_id,
+            pay_groups:pay_group_id (name)
+          `)
+          .in('employee_id', employeeIds)
+          .eq('active', true)
+      ]);
+
+      // Merge pay group info
+      const enrichedEmployees = employeesData.map(emp => {
+        // Check direct assignment first
+        const directGroup = (regularGroups.data as any)?.find((g: any) => g.id === emp.id);
+        if (directGroup?.pay_groups) {
+          return { ...emp, pay_groups: directGroup.pay_groups };
         }
-        
+
+        // Check join table assignment
+        const joinGroup = (paygroupAssignments.data as any)?.find((a: any) => a.employee_id === emp.id);
+        if (joinGroup?.pay_groups) {
+          return { ...emp, pay_groups: joinGroup.pay_groups };
+        }
+
         return emp;
       });
 
