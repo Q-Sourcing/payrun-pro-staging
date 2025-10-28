@@ -392,7 +392,7 @@ const ExpatriatePayrollPage = () => {
                     <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Pay Group</TableHead>
                     <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Pay Period</TableHead>
                     <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Employees</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Daily Rate</TableHead>
+                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Gross Pay</TableHead>
                     <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Net Pay</TableHead>
                     <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Status</TableHead>
                     <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Actions</TableHead>
@@ -432,7 +432,7 @@ const ExpatriatePayrollPage = () => {
                       </TableCell>
                       <TableCell className="px-6 py-4">
                         <div className="font-medium text-gray-900 dark:text-foreground">
-                          {formatCurrency(payRun.default_daily_rate, payRun.pay_group_master?.currency || 'USD')}
+                          {formatCurrency(payRun.total_gross_pay, payRun)}
                         </div>
                       </TableCell>
                       <TableCell className="px-6 py-4">

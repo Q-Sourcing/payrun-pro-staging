@@ -221,10 +221,8 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
       
       await ExpatriatePayrollService.upsertExpatriatePayRunItem(calculatedItem);
       
-      // Update local state
-      setPayRunItems(prev => prev.map(item => 
-        item.employee_id === employeeId ? calculatedItem : item
-      ));
+      // Refresh items to update totals and summary cards
+      await loadExpatriatePayRunItems();
       
       // Clear editing state
       setEditingItems(prev => {
@@ -238,7 +236,8 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
         description: 'Expatriate pay run item updated successfully'
       });
 
-      onUpdate();
+      // Notify parent to refresh pay run list
+      onUpdate?.();
     } catch (error) {
       toast({
         title: 'Error',
@@ -581,16 +580,17 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
                         {/* Days Worked */}
                         <TableCell>
                           <Input
-                            type="number"
-                            inputMode="decimal"
-                            value={days.toString()}
-                            onChange={(e) =>
+                            type="text"
+                            inputMode="numeric"
+                            value={edits.days_worked !== undefined ? edits.days_worked.toString() : (item.days_worked || '').toString()}
+                            onChange={(e) => {
+                              const sanitized = e.target.value.replace(/[^\d.]/g, '');
                               handleFieldChange(
                                 item.employee_id,
                                 'days_worked',
-                                Number(e.target.value || 0)
-                              )
-                            }
+                                Number(sanitized || 0)
+                              );
+                            }}
                             className="w-24"
                             placeholder="0"
                           />
@@ -606,16 +606,17 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
                         {/* Add. Benefits (FX) */}
                         <TableCell>
                           <Input
-                            type="number"
-                            inputMode="decimal"
-                            value={allowances.toString()}
-                            onChange={(e) =>
+                            type="text"
+                            inputMode="numeric"
+                            value={edits.allowances_foreign !== undefined ? edits.allowances_foreign.toString() : (item.allowances_foreign || '').toString()}
+                            onChange={(e) => {
+                              const sanitized = e.target.value.replace(/[^\d.]/g, '');
                               handleFieldChange(
                                 item.employee_id,
                                 'allowances_foreign',
-                                Number(e.target.value || 0)
-                              )
-                            }
+                                Number(sanitized || 0)
+                              );
+                            }}
                             className="w-28"
                             placeholder="0.00"
                           />
