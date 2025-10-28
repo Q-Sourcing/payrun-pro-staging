@@ -9,6 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Globe, Calculator, DollarSign, ArrowRightLeft, Plus } from "lucide-react";
 import { ExpatriatePayrollService } from "@/lib/services/expatriate-payroll";
 import type { ExpatriateCalculationInput, ExpatriateCalculationResult } from "@/lib/types/expatriate-payroll";
+import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ExpatriatePayRunDetailsProps {
   payRunId: string;
@@ -19,6 +21,10 @@ interface ExpatriatePayRunDetailsProps {
     exchange_rate_to_local: number;
     tax_country: string;
     default_daily_rate: number;
+  };
+  payRunData?: {
+    days_worked: number;
+    exchange_rate: number;
   };
   employees: Array<{
     id: string;
@@ -37,9 +43,10 @@ interface ExpatriatePayRunItem {
   daily_rate: number;
   days_worked: number;
   allowances_foreign: number;
+  gross_foreign: number;
   net_foreign: number;
-  net_local: number;
   gross_local: number;
+  net_local: number;
   currency: string;
   exchange_rate: number;
   tax_country: string;
@@ -55,6 +62,7 @@ interface ExpatriatePayRunItem {
 export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = ({
   payRunId,
   expatriatePayGroup,
+  payRunData,
   employees,
   onUpdate
 }) => {
@@ -64,8 +72,32 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
   const [isCalculating, setIsCalculating] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
 
+  const daysWorked = payRunData?.days_worked ?? 0;
+  const exchangeRate = payRunData?.exchange_rate ?? expatriatePayGroup.exchange_rate_to_local;
+
   useEffect(() => {
     loadExpatriatePayRunItems();
+    
+    // Set up real-time updates for this specific pay run
+    const channel = supabase
+      .channel(`expatriate-payrun-details-${payRunId}`)
+      .on("postgres_changes", 
+        { 
+          event: "*", 
+          schema: "public", 
+          table: "expatriate_pay_run_items",
+          filter: `pay_run_id=eq.${payRunId}`
+        }, 
+        () => {
+          console.log("🔄 Real-time update: expatriate pay run items changed for this pay run");
+          loadExpatriatePayRunItems();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [payRunId]);
 
   const loadExpatriatePayRunItems = async () => {
@@ -89,13 +121,14 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
       employee_id: employee.id,
       pay_run_id: payRunId,
       daily_rate: expatriatePayGroup.default_daily_rate,
-      days_worked: 22, // Default working days
+      days_worked: 0, // Default to 0, user will input
       allowances_foreign: 0,
+      gross_foreign: 0,
       net_foreign: 0,
       net_local: 0,
       gross_local: 0,
       currency: expatriatePayGroup.currency,
-      exchange_rate: expatriatePayGroup.exchange_rate_to_local,
+      exchange_rate: 0, // Default to 0, user will input
       tax_country: expatriatePayGroup.tax_country,
       employee
     };
@@ -119,8 +152,12 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
 
       const result: ExpatriateCalculationResult = await ExpatriatePayrollService.calculateExpatriatePay(input);
 
+      // Calculate gross_foreign manually since it's not in the result
+      const gross_foreign = (updatedItem.daily_rate * updatedItem.days_worked) + updatedItem.allowances_foreign;
+      
       const calculatedItem: ExpatriatePayRunItem = {
         ...updatedItem,
+        gross_foreign: gross_foreign,
         net_foreign: result.net_foreign,
         net_local: result.net_local,
         gross_local: result.gross_local
@@ -144,21 +181,29 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
     const currentItem = payRunItems.find(item => item.employee_id === employeeId);
     if (!currentItem) return;
 
-    const edits = { ...editingItems[employeeId], [field]: value };
+    // Handle empty string values - convert to 0 for calculations
+    const processedValue = value === '' ? 0 : value;
+    const edits = { ...editingItems[employeeId], [field]: processedValue };
     setEditingItems(prev => ({ ...prev, [employeeId]: edits }));
 
-    // Auto-calculate when relevant fields change
-    if (['daily_rate', 'days_worked', 'allowances_foreign'].includes(field)) {
-      const calculatedItem = await calculateExpatriatePay(currentItem, edits);
-      setEditingItems(prev => ({ 
-        ...prev, 
-        [employeeId]: { 
-          ...edits, 
-          net_foreign: calculatedItem.net_foreign,
-          net_local: calculatedItem.net_local,
-          gross_local: calculatedItem.gross_local
-        }
-      }));
+    // Auto-calculate when relevant fields change and all required fields have values
+    if (['daily_rate', 'days_worked', 'allowances_foreign', 'exchange_rate'].includes(field)) {
+      const updatedItem = { ...currentItem, ...edits };
+      
+      // Only calculate if we have the minimum required fields
+      if (updatedItem.daily_rate > 0 && updatedItem.days_worked > 0 && updatedItem.exchange_rate > 0) {
+        const calculatedItem = await calculateExpatriatePay(updatedItem);
+        setEditingItems(prev => ({ 
+          ...prev, 
+          [employeeId]: { 
+            ...edits, 
+            gross_foreign: calculatedItem.gross_foreign,
+            net_foreign: calculatedItem.net_foreign,
+            net_local: calculatedItem.net_local,
+            gross_local: calculatedItem.gross_local
+          }
+        }));
+      }
     }
   };
 
@@ -230,16 +275,36 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
   const summaryTotals = useMemo(() => {
     const items = payRunItems.map(item => {
       const edits = editingItems[item.employee_id] || {};
-      return { ...item, ...edits };
+      const currency = item.currency || expatriatePayGroup.currency;
+      const rate = edits.daily_rate ?? item.daily_rate ?? expatriatePayGroup.default_daily_rate;
+      const days = edits.days_worked ?? item.days_worked ?? 0;
+      const allowances = edits.allowances_foreign ?? item.allowances_foreign ?? 0;
+      const exchange = item.exchange_rate || expatriatePayGroup.exchange_rate_to_local || 1;
+
+      const baseEarningsFX = rate * days;
+      const totalPayFX = baseEarningsFX + allowances;
+      const totalPayLocal = totalPayFX * exchange;
+      const grossLocal = totalPayLocal;
+      const grossFX = totalPayFX;
+
+      return { 
+        ...item, 
+        ...edits,
+        totalPayFX,
+        totalPayLocal,
+        grossLocal,
+        grossFX
+      };
     });
 
     return {
-      totalNetForeign: items.reduce((sum, item) => sum + (item.net_foreign || 0), 0),
-      totalNetLocal: items.reduce((sum, item) => sum + (item.net_local || 0), 0),
-      totalGrossLocal: items.reduce((sum, item) => sum + (item.gross_local || 0), 0),
+      totalGrossForeign: items.reduce((sum, item) => sum + (item.grossFX || 0), 0),
+      totalNetForeign: items.reduce((sum, item) => sum + (item.totalPayFX || 0), 0),
+      totalNetLocal: items.reduce((sum, item) => sum + (item.totalPayLocal || 0), 0),
+      totalGrossLocal: items.reduce((sum, item) => sum + (item.grossLocal || 0), 0),
       employeeCount: items.length
     };
-  }, [payRunItems, editingItems]);
+  }, [payRunItems, editingItems, expatriatePayGroup]);
 
   if (isLoading) {
     return (
@@ -272,8 +337,8 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
               <p className="font-medium">{ExpatriatePayrollService.formatCurrency(expatriatePayGroup.default_daily_rate, expatriatePayGroup.currency)}</p>
             </div>
             <div>
-              <Label className="text-muted-foreground">Exchange Rate</Label>
-              <p className="font-medium">{expatriatePayGroup.exchange_rate_to_local.toLocaleString()}</p>
+              <Label className="text-muted-foreground">Currency</Label>
+              <p className="font-medium">{expatriatePayGroup.currency}</p>
             </div>
             <div>
               <Label className="text-muted-foreground">Tax Country</Label>
@@ -287,48 +352,164 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
         </CardContent>
       </Card>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-blue-600" />
-              <div>
-                <p className="text-sm text-muted-foreground">Total Net (Foreign)</p>
-                <p className="text-lg font-semibold">
-                  {ExpatriatePayrollService.formatCurrency(summaryTotals.totalNetForeign, expatriatePayGroup.currency)}
-                </p>
+      {/* Summary Cards - Real-time Animated */}
+      <motion.div
+        key={`${summaryTotals.totalGrossLocal}-${summaryTotals.totalNetLocal}-${summaryTotals.totalGrossForeign}-${summaryTotals.totalNetForeign}`}
+        initial={{ opacity: 0.3 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="grid grid-cols-4 gap-4"
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+        >
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-blue-600" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Gross (Foreign)</p>
+                  <p className="text-lg font-semibold">
+                    {ExpatriatePayrollService.formatCurrency(summaryTotals.totalGrossForeign, expatriatePayGroup.currency)}
+                  </p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <ArrowRightLeft className="h-4 w-4 text-green-600" />
-              <div>
-                <p className="text-sm text-muted-foreground">Total Net (Local)</p>
-                <p className="text-lg font-semibold">
-                  {ExpatriatePayrollService.formatCurrency(summaryTotals.totalNetLocal, 'UGX')}
-                </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+        >
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-blue-600" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Net (Foreign)</p>
+                  <p className="text-lg font-semibold">
+                    {ExpatriatePayrollService.formatCurrency(summaryTotals.totalNetForeign, expatriatePayGroup.currency)}
+                  </p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Calculator className="h-4 w-4 text-purple-600" />
-              <div>
-                <p className="text-sm text-muted-foreground">Total Gross (Local)</p>
-                <p className="text-lg font-semibold">
-                  {ExpatriatePayrollService.formatCurrency(summaryTotals.totalGrossLocal, 'UGX')}
-                </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3, delay: 0.3 }}
+        >
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <ArrowRightLeft className="h-4 w-4 text-green-600" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Net (Local)</p>
+                  <p className="text-lg font-semibold">
+                    {ExpatriatePayrollService.formatCurrency(summaryTotals.totalNetLocal, 'UGX')}
+                  </p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3, delay: 0.4 }}
+        >
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <Calculator className="h-4 w-4 text-purple-600" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Gross (Local)</p>
+                  <p className="text-lg font-semibold">
+                    {ExpatriatePayrollService.formatCurrency(summaryTotals.totalGrossLocal, 'UGX')}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </motion.div>
+
+      {/* Additional Summary Cards - Real-time Deductions */}
+      <motion.div
+        key={`deductions-${summaryTotals.totalGrossLocal}-${summaryTotals.totalNetLocal}`}
+        initial={{ opacity: 0.3 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3, delay: 0.1 }}
+        className="grid grid-cols-3 gap-4 mt-4"
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+        >
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <Calculator className="h-4 w-4 text-orange-600" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Deductions (Local)</p>
+                  <p className="text-lg font-semibold">
+                    {ExpatriatePayrollService.formatCurrency(
+                      summaryTotals.totalGrossLocal - summaryTotals.totalNetLocal,
+                      'UGX'
+                    )}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+        >
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <Calculator className="h-4 w-4 text-red-600" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Deductions (Foreign)</p>
+                  <p className="text-lg font-semibold">
+                    {ExpatriatePayrollService.formatCurrency(
+                      summaryTotals.totalGrossForeign - summaryTotals.totalNetForeign,
+                      expatriatePayGroup.currency
+                    )}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.3 }}
+        >
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4 text-indigo-600" />
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Employees</p>
+                  <p className="text-lg font-semibold">
+                    {summaryTotals.employeeCount}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </motion.div>
 
       {/* Pay Run Items Table */}
       <Card>
@@ -339,90 +520,156 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Employee</TableHead>
-                <TableHead>Daily Rate</TableHead>
-                <TableHead>Days Worked</TableHead>
-                <TableHead>Allowances</TableHead>
-                <TableHead>Net (Foreign)</TableHead>
-                <TableHead>Net (Local)</TableHead>
-                <TableHead>Gross (Local)</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {payRunItems.map((item) => {
-                const edits = editingItems[item.employee_id] || {};
-                const isCalculating = isCalculating[item.employee_id] || false;
-                const hasUnsavedChanges = Object.keys(edits).length > 0;
+          <div className="overflow-x-auto overflow-y-auto max-h-[70vh] rounded-md border border-gray-200">
+            <Table className="min-w-[1200px] text-sm">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Employee</TableHead>
+                  <TableHead>Base Rate (FX)</TableHead>
+                  <TableHead>Days Worked</TableHead>
+                  <TableHead>Basic Earnings (FX)</TableHead>
+                  <TableHead>Add. Benefits (FX)</TableHead>
+                  <TableHead>Total Pay (FX)</TableHead>
+                  <TableHead>Total Pay (Local)</TableHead>
+                  <TableHead>Gross Pay (Local)</TableHead>
+                  <TableHead>Gross Pay (FX)</TableHead>
+                  <TableHead>Adjustments</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <AnimatePresence>
+                  {payRunItems.map((item) => {
+                    const edits = editingItems[item.employee_id] || {};
+                    const isCalculating = isCalculating[item.employee_id] || false;
+                    const hasUnsavedChanges = Object.keys(edits).length > 0;
+                    
+                    // Professional calculations
+                    const currency = item.currency || expatriatePayGroup.currency;
+                    const rate = (edits.daily_rate ?? item.daily_rate ?? expatriatePayGroup.default_daily_rate) || 0;
+                    const days = (edits.days_worked ?? item.days_worked ?? 0) || 0;
+                    const allowances = (edits.allowances_foreign ?? item.allowances_foreign ?? 0) || 0;
+                    const exchange = item.exchange_rate || expatriatePayGroup.exchange_rate_to_local || 1;
 
-                return (
-                  <TableRow key={item.employee_id}>
-                    <TableCell className="font-medium">
-                      {item.employee?.first_name} {item.employee?.last_name}
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={edits.daily_rate ?? item.daily_rate}
-                        onChange={(e) => handleFieldChange(item.employee_id, 'daily_rate', parseFloat(e.target.value))}
-                        className="w-24"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        value={edits.days_worked ?? item.days_worked}
-                        onChange={(e) => handleFieldChange(item.employee_id, 'days_worked', parseInt(e.target.value))}
-                        className="w-20"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={edits.allowances_foreign ?? item.allowances_foreign}
-                        onChange={(e) => handleFieldChange(item.employee_id, 'allowances_foreign', parseFloat(e.target.value))}
-                        className="w-24"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {isCalculating ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                      ) : (
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                          {ExpatriatePayrollService.formatCurrency(edits.net_foreign ?? item.net_foreign, item.currency)}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="bg-green-50 text-green-700">
-                        {ExpatriatePayrollService.formatCurrency(edits.net_local ?? item.net_local, 'UGX')}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="bg-purple-50 text-purple-700">
-                        {ExpatriatePayrollService.formatCurrency(edits.gross_local ?? item.gross_local, 'UGX')}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        size="sm"
-                        onClick={() => saveExpatriatePayRunItem(item.employee_id)}
-                        disabled={!hasUnsavedChanges || isCalculating}
-                        className="bg-blue-600 hover:bg-blue-700"
+                    const baseEarningsFX = rate * days;
+                    const totalPayFX = baseEarningsFX + allowances;
+                    const totalPayLocal = totalPayFX * exchange;
+                    const grossLocal = totalPayLocal; // Keep simple for now
+                    const grossFX = totalPayFX;
+
+                    return (
+                      <motion.tr
+                        key={item.employee_id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.2 }}
+                        className="border-b border-gray-200 dark:border-border hover:bg-gray-50 dark:hover:bg-muted/50"
                       >
-                        Save
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                        {/* Employee Name */}
+                        <TableCell className="font-medium">
+                          {item.employee?.first_name} {item.employee?.last_name}
+                        </TableCell>
+
+                        {/* Base Rate (FX) */}
+                        <TableCell>
+                          <div className="font-medium text-gray-900 dark:text-foreground">
+                            {ExpatriatePayrollService.formatCurrency(rate, currency)}
+                          </div>
+                        </TableCell>
+
+                        {/* Days Worked */}
+                        <TableCell>
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            value={days.toString()}
+                            onChange={(e) =>
+                              handleFieldChange(
+                                item.employee_id,
+                                'days_worked',
+                                Number(e.target.value || 0)
+                              )
+                            }
+                            className="w-24"
+                            placeholder="0"
+                          />
+                        </TableCell>
+
+                        {/* Basic Earnings (FX) */}
+                        <TableCell>
+                          <div className="font-medium text-gray-900 dark:text-foreground">
+                            {ExpatriatePayrollService.formatCurrency(baseEarningsFX, currency)}
+                          </div>
+                        </TableCell>
+
+                        {/* Add. Benefits (FX) */}
+                        <TableCell>
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            value={allowances.toString()}
+                            onChange={(e) =>
+                              handleFieldChange(
+                                item.employee_id,
+                                'allowances_foreign',
+                                Number(e.target.value || 0)
+                              )
+                            }
+                            className="w-28"
+                            placeholder="0.00"
+                          />
+                        </TableCell>
+
+                        {/* Total Pay (FX) */}
+                        <TableCell>
+                          <div className="font-semibold text-blue-600">
+                            {ExpatriatePayrollService.formatCurrency(totalPayFX, currency)}
+                          </div>
+                        </TableCell>
+
+                        {/* Total Pay (Local) */}
+                        <TableCell>
+                          <div className="font-semibold text-green-600">
+                            {ExpatriatePayrollService.formatCurrency(totalPayLocal, 'UGX')}
+                          </div>
+                        </TableCell>
+
+                        {/* Gross Pay (Local) */}
+                        <TableCell>
+                          <div className="font-semibold text-purple-600">
+                            {ExpatriatePayrollService.formatCurrency(grossLocal, 'UGX')}
+                          </div>
+                        </TableCell>
+
+                        {/* Gross Pay (FX) */}
+                        <TableCell>
+                          <div className="font-semibold text-orange-600">
+                            {ExpatriatePayrollService.formatCurrency(grossFX, currency)}
+                          </div>
+                        </TableCell>
+
+                        {/* Adjustments */}
+                        <TableCell className="text-muted-foreground">—</TableCell>
+
+                        {/* Actions */}
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            disabled={!hasUnsavedChanges}
+                            onClick={() => saveExpatriatePayRunItem(item.employee_id)}
+                            className="bg-blue-600 hover:bg-blue-700"
+                          >
+                            Save
+                          </Button>
+                        </TableCell>
+                      </motion.tr>
+                    );
+                  })}
+                </AnimatePresence>
+              </TableBody>
+            </Table>
+          </div>
 
           {/* Add Employee Button */}
           <div className="mt-4">

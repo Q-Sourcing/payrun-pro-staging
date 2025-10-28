@@ -180,7 +180,7 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
       .from("pay_runs")
       .select(`
         *,
-        pay_groups(name, country),
+        pay_group_master:pay_group_master_id(name, country),
         pay_items(
           *,
           employees(
@@ -213,7 +213,7 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
       custom_deductions: customDeductions?.filter((d: any) => d.pay_item_id === item.id) || []
     }));
 
-    const currency = getCurrencyCodeFromCountry(payRunData.pay_groups.country);
+    const currency = getCurrencyCodeFromCountry(payRunData.pay_group_master.country);
 
     if (formatType === "individual") {
       await generateIndividualPDFs(payRunData, currency);

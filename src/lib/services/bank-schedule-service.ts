@@ -39,7 +39,7 @@ export class BankScheduleService {
         .from('pay_runs')
         .select(`
           *,
-          pay_groups(name, country)
+          pay_group_master:pay_group_master_id(name, country)
         `)
         .eq('id', payRunId)
         .single();

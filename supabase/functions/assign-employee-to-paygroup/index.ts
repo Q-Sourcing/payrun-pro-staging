@@ -122,16 +122,21 @@ serve(async (req) => {
         data = reactivatedData;
         error = reactivateError;
       } else {
-        // Create new assignment
+        // Use upsert to handle any existing records gracefully
+        // The unique constraint is on employee_id only, so we use that for conflict resolution
         const { data: newData, error: newError } = await supabase
           .from("paygroup_employees")
-          .insert([{ 
+          .upsert({ 
             employee_id, 
             pay_group_id, 
             assigned_by, 
             notes,
-            assigned_at: new Date().toISOString()
-          }])
+            assigned_at: new Date().toISOString(),
+            active: true,
+            removed_at: null
+          }, {
+            onConflict: 'employee_id'
+          })
           .select()
           .single();
         
@@ -170,16 +175,21 @@ serve(async (req) => {
         error = reactivateError;
       }
     } else {
-      // Create new assignment
+      // Use upsert to handle any existing records gracefully
+      // The unique constraint is on employee_id only, so we use that for conflict resolution
       const { data: newData, error: newError } = await supabase
         .from("paygroup_employees")
-        .insert([{ 
+        .upsert({ 
           employee_id, 
           pay_group_id, 
           assigned_by, 
           notes,
-          assigned_at: new Date().toISOString()
-        }])
+          assigned_at: new Date().toISOString(),
+          active: true,
+          removed_at: null
+        }, {
+          onConflict: 'employee_id'
+        })
         .select()
         .single();
       

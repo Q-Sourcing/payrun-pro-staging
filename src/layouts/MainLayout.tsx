@@ -6,8 +6,8 @@ export default function MainLayout() {
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-800">
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-slate-200 z-30">
-        <div className="h-full flex flex-col">
+      <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-slate-200 z-30 flex flex-col overflow-hidden">
+        <div className="flex-shrink-0">
           {/* Sidebar Header */}
           <div className="sidebar-header">
             <div className="brand">
@@ -18,16 +18,18 @@ export default function MainLayout() {
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Main Navigation */}
-          <div className="nav-section">
-            <NavigationSidebar 
-              activeTab="employees"
-              onNavigate={() => {}}
-            />
-          </div>
+        {/* Scrollable Navigation Section */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <NavigationSidebar 
+            activeTab="employees"
+            onNavigate={() => {}}
+          />
+        </div>
 
-          {/* Settings Section */}
+        {/* Fixed Settings Section at Bottom */}
+        <div className="flex-shrink-0 border-t border-slate-200">
           <div className="nav-section">
             <div className="nav-items">
               {/* Theme Toggle */}

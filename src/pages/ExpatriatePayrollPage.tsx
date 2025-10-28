@@ -3,15 +3,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { log, warn, error, debug } from "@/lib/logger";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Calendar, DollarSign, Trash2, FileSpreadsheet } from "lucide-react";
+import { Plus, Calendar, DollarSign, Trash2, FileSpreadsheet, Globe } from "lucide-react";
 import { getCurrencyByCode, getCurrencyCodeFromCountry } from "@/lib/constants/countries";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useBankSchedulePermissions } from "@/hooks/use-bank-schedule-permissions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import CreatePayRunDialog from "./CreatePayRunDialog";
-import PayRunDetailsDialog from "./PayRunDetailsDialog";
-import BankScheduleExportDialog from "./BankScheduleExportDialog";
+import CreatePayRunDialog from "@/components/payroll/CreatePayRunDialog";
+import PayRunDetailsDialog from "@/components/payroll/PayRunDetailsDialog";
+import BankScheduleExportDialog from "@/components/payroll/BankScheduleExportDialog";
 import { format } from "date-fns";
 import {
   AlertDialog,
@@ -36,14 +36,14 @@ interface PayRun {
   pay_group_master: {
     name: string;
     country: string;
-    currency?: string;
+    currency: string;
     code?: string;
     type: string;
   };
   pay_items_count?: number;
 }
 
-const PayRunsTab = () => {
+const ExpatriatePayrollPage = () => {
   const [payRuns, setPayRuns] = useState<PayRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -56,76 +56,115 @@ const PayRunsTab = () => {
   const { toast } = useToast();
   const { canExportBankSchedule } = useBankSchedulePermissions();
 
-  const fetchPayRuns = async () => {
+  const fetchExpatriatePayRuns = async (preserveScroll = false) => {
     try {
-      // Check if we're on the expatriate page
-      const isExpatriatePage = window.location.pathname.includes('/expatriate');
+      console.log("🔍 Fetching expatriate pay runs...");
+      const prevScroll = window.scrollY;
+      setLoading(true);
       
-      let data, error;
-      
-      if (isExpatriatePage) {
-        // For expatriate page, fetch pay runs with expatriate pay groups
-        const result = await supabase
-          .from("pay_runs")
-          .select(`
-            *,
-            pay_group_master:pay_group_master_id (
-              name,
-              country,
-              currency,
-              code,
-              type
-            ),
-            pay_items (count)
-          `)
-          .eq("payroll_type", "expatriate")
-          .order("pay_run_date", { ascending: false });
-        
-        data = result.data;
-        error = result.error;
-      } else {
-        // Regular query for all pay runs using pay_group_master
-        const result = await supabase
-          .from("pay_runs")
-          .select(`
-            *,
-            pay_group_master:pay_group_master_id (
-              name,
-              country,
-              currency,
-              code,
-              type
-            ),
-            pay_items (count)
-          `)
-          .order("pay_run_date", { ascending: false });
-        
-        data = result.data;
-        error = result.error;
-      }
+      // Fetch expatriate pay runs using pay_group_master table
+      const { data, error } = await supabase
+        .from("pay_runs")
+        .select(`
+          *,
+          pay_group_master:pay_group_master_id (
+            id,
+            name,
+            country,
+            currency,
+            code,
+            type,
+            source_id,
+            source_table
+          ),
+          expatriate_pay_run_items (
+            gross_local,
+            net_local,
+            employee_id
+          )
+        `)
+        .eq("payroll_type", "expatriate")
+        .order("pay_run_date", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("❌ Error fetching pay runs:", error);
+        throw error;
+      }
       
-      const payRunsWithCount = data?.map(run => ({
-        ...run,
-        pay_items_count: run.pay_items?.[0]?.count || 0
-      })) || [];
+      console.log("✅ Fetched Expatriate PayRuns:", data);
+      
+      // Fetch default daily rates for expatriate pay groups
+      const expatriateGroupIds = data?.map(run => run.pay_group_master?.source_id).filter(Boolean) || [];
+      const { data: expatriateGroups } = await supabase
+        .from("expatriate_pay_groups")
+        .select("id, default_daily_rate, currency")
+        .in("id", expatriateGroupIds);
+
+      const payRunsWithCount = data?.map(run => {
+        // Calculate gross and net pay from expatriate pay run items
+        const grossPay = run.expatriate_pay_run_items?.reduce((sum: number, item: any) => sum + (item.gross_local || 0), 0) || 0;
+        const netPay = run.expatriate_pay_run_items?.reduce((sum: number, item: any) => sum + (item.net_local || 0), 0) || 0;
+        const employeeCount = run.expatriate_pay_run_items?.length || 0;
+        
+        // Find the corresponding expatriate group for default daily rate
+        const expatriateGroup = expatriateGroups?.find(eg => eg.id === run.pay_group_master?.source_id);
+        const defaultDailyRate = expatriateGroup?.default_daily_rate || 0;
+        
+        return {
+          ...run,
+          total_gross_pay: grossPay,
+          total_net_pay: netPay,
+          pay_items_count: employeeCount,
+          default_daily_rate: defaultDailyRate
+        };
+      }) || [];
       
       setPayRuns(payRunsWithCount);
-    } catch (err) {
-      error("Error fetching pay runs:", err);
+      
+      // Restore scroll position if requested
+      if (preserveScroll) {
+        window.scrollTo({ top: prevScroll });
+      }
+    } catch (err: any) {
+      console.error("❌ Unexpected error:", err);
       toast({
         title: "Error",
-        description: "Failed to fetch pay runs",
+        description: err.message || "Failed to fetch expatriate pay runs",
         variant: "destructive",
       });
+      setPayRuns([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchPayRuns();
+    fetchExpatriatePayRuns();
+    
+    // Set up real-time updates for expatriate pay runs
+    const channel = supabase
+      .channel("expatriate-payrun-updates")
+      .on("postgres_changes", 
+        { event: "*", schema: "public", table: "expatriate_pay_run_items" }, 
+        () => {
+          console.log("🔄 Real-time update: expatriate pay run items changed");
+          fetchExpatriatePayRuns(true); // preserveScroll = true
+        }
+      )
+      .on("postgres_changes", 
+        { event: "*", schema: "public", table: "pay_runs" }, 
+        (payload) => {
+          if (payload.new?.payroll_type === "expatriate" || payload.old?.payroll_type === "expatriate") {
+            console.log("🔄 Real-time update: expatriate pay run changed");
+            fetchExpatriatePayRuns(true); // preserveScroll = true
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const getStatusColor = (status: string) => {
@@ -176,50 +215,26 @@ const PayRunsTab = () => {
     setIsDeleting(true);
 
     try {
-      // Add retry logic for network failures
-      let attempts = 0;
-      const maxAttempts = 3;
-      let lastError;
+      const { error } = await supabase
+        .from("pay_runs")
+        .delete()
+        .eq("id", payRunToDelete);
 
-      while (attempts < maxAttempts) {
-        try {
-          const { error } = await supabase
-            .from("pay_runs")
-            .delete()
-            .eq("id", payRunToDelete);
+      if (error) throw error;
 
-          if (error) throw error;
+      toast({
+        title: "Success",
+        description: "Pay run deleted successfully",
+      });
 
-          toast({
-            title: "Success",
-            description: "Pay run deleted successfully",
-          });
-
-          await fetchPayRuns();
-          setShowDeleteDialog(false);
-          setPayRunToDelete(null);
-          return;
-        } catch (err: any) {
-          lastError = err;
-          attempts++;
-          
-          // Only retry on network errors
-          if (err.message?.includes("Failed to fetch") && attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
-            continue;
-          }
-          throw err;
-        }
-      }
-
-      throw lastError;
+      await fetchExpatriatePayRuns();
+      setShowDeleteDialog(false);
+      setPayRunToDelete(null);
     } catch (error: any) {
-      error("Error deleting pay run:", error);
+      console.error("Error deleting pay run:", error);
       toast({
         title: "Error",
-        description: error.message?.includes("Failed to fetch") 
-          ? "Network error. Please check your connection and try again."
-          : "Failed to delete pay run",
+        description: "Failed to delete pay run",
         variant: "destructive",
       });
     } finally {
@@ -230,15 +245,24 @@ const PayRunsTab = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Loading pay runs...</div>
+        <div className="text-lg">Loading expatriate payroll...</div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Action Button */}
-      <div className="flex justify-end">
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
+            <Globe className="h-6 w-6 text-blue-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Expatriate Payroll</h1>
+            <p className="text-muted-foreground">Manage international employee payroll</p>
+          </div>
+        </div>
         <Button 
           onClick={() => setShowCreateDialog(true)} 
           className="btn-primary"
@@ -335,9 +359,9 @@ const PayRunsTab = () => {
       <div className="card">
         <div className="card-header">
           <div>
-            <h3 className="card-title">Pay Run History</h3>
+            <h3 className="card-title">Expatriate Pay Run History</h3>
             <p className="text-sm text-muted-foreground">
-              Track and manage your payroll processing history
+              Track and manage your international payroll processing history
             </p>
           </div>
         </div>
@@ -345,18 +369,18 @@ const PayRunsTab = () => {
           {payRuns.length === 0 ? (
             <div className="text-center py-16">
               <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-6">
-                <Calendar className="h-12 w-12 text-muted-foreground" />
+                <Globe className="h-12 w-12 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">No pay runs found</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-2">No expatriate pay runs found</h3>
               <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-                Get started by creating your first pay run to process employee payments.
+                Get started by creating your first expatriate pay run to process international employee payments.
               </p>
               <Button 
                 onClick={() => setShowCreateDialog(true)} 
                 className="h-11 px-6 bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Create Your First Pay Run
+                Create Your First Expatriate Pay Run
               </Button>
             </div>
           ) : (
@@ -368,7 +392,7 @@ const PayRunsTab = () => {
                     <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Pay Group</TableHead>
                     <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Pay Period</TableHead>
                     <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Employees</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Gross Pay</TableHead>
+                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Daily Rate</TableHead>
                     <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Net Pay</TableHead>
                     <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Status</TableHead>
                     <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Actions</TableHead>
@@ -408,7 +432,7 @@ const PayRunsTab = () => {
                       </TableCell>
                       <TableCell className="px-6 py-4">
                         <div className="font-medium text-gray-900 dark:text-foreground">
-                          {formatCurrency(payRun.total_gross_pay, payRun)}
+                          {formatCurrency(payRun.default_daily_rate, payRun.pay_group_master?.currency || 'USD')}
                         </div>
                       </TableCell>
                       <TableCell className="px-6 py-4">
@@ -473,7 +497,8 @@ const PayRunsTab = () => {
       <CreatePayRunDialog 
         open={showCreateDialog} 
         onOpenChange={setShowCreateDialog}
-        onPayRunCreated={fetchPayRuns}
+        onPayRunCreated={fetchExpatriatePayRuns}
+        payrollType="Expatriate"
       />
 
       {selectedPayRun && (
@@ -487,7 +512,7 @@ const PayRunsTab = () => {
               start: selectedPayRun.pay_period_start,
               end: selectedPayRun.pay_period_end
             }}
-            onPayRunUpdated={fetchPayRuns}
+            onPayRunUpdated={fetchExpatriatePayRuns}
           />
           
           <BankScheduleExportDialog
@@ -524,4 +549,4 @@ const PayRunsTab = () => {
   );
 };
 
-export default PayRunsTab;
+export default ExpatriatePayrollPage;

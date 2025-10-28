@@ -32,6 +32,9 @@ import LocalPayrollIntern from "./pages/payruns/local/Intern";
 import LocalPayrollTrainee from "./pages/payruns/local/Trainee";
 import LocalPayrollCasual from "./pages/payruns/local/Casual";
 
+// Import Expatriate Payroll page
+import ExpatriatePayrollPage from "./pages/ExpatriatePayrollPage";
+
 // Import MainLayout component
 import MainLayout from "./layouts/MainLayout";
 
@@ -112,7 +115,7 @@ const App = () => {
                 <Route path="settings" element={<Settings />} />
 
                 {/* Expatriate Payroll Route */}
-                <Route path="payruns/expatriate" element={<PayRunsTab />} />
+                <Route path="payruns/expatriate" element={<ExpatriatePayrollPage />} />
 
                 {/* Local Payroll Subroutes */}
                 <Route path="payruns/local/monthly" element={<LocalPayrollMonthly />} />

@@ -39,21 +39,25 @@ interface PayGroup {
   id: string;
   name: string;
   country: string;
-  pay_frequency: string;
-  type?: string;
+  currency?: string;
+  code?: string; // Readable code like EXPG-U847
+  type: string; // 'regular', 'expatriate', 'contractor', 'intern'
+  source_table: string; // 'pay_groups', 'expatriate_pay_groups'
+  source_id: string; // UUID from the source table
 }
 
 interface CreatePayRunDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPayRunCreated: () => void;
+  payrollType?: string; // Optional prop to fix type when opened from a specific page
 }
 
-const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRunDialogProps) => {
+const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated, payrollType }: CreatePayRunDialogProps) => {
   const [payGroups, setPayGroups] = useState<PayGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    payroll_type: "",
+    payroll_type: payrollType || "",
     employee_category: "",
     pay_group_id: "",
     pay_run_date: new Date(),
@@ -69,44 +73,82 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
     if (open) {
       fetchPayGroups();
     }
-  }, [open]);
+  }, [open, payrollType]);
 
   const fetchPayGroups = async () => {
     try {
-      const { data, error } = await supabase
-        .from("pay_groups")
-        .select("id, name, country, pay_frequency, type")
-        .order("name");
+      console.log("🔍 Fetching pay groups, payrollType:", payrollType);
+      setLoading(true);
+      
+      let data, error;
+      
+      // Always fetch from pay_group_master table for consistency
+      let query = supabase
+        .from("pay_group_master")
+        .select("id, name, country, currency, code, type, source_table, source_id")
+        .eq("active", true)
+        .order("name", { ascending: true });
+      
+      // Filter by type if payrollType is provided
+      if (payrollType) {
+        const typeMapping = {
+          "expatriate": "expatriate",
+          "local": "regular",
+          "regular": "regular"
+        };
+        const masterType = typeMapping[payrollType.toLowerCase()] || payrollType.toLowerCase();
+        console.log("🔍 Filtering by master type:", masterType);
+        query = query.eq("type", masterType);
+      }
+      
+      const result = await query;
+      data = result.data;
+      error = result.error;
 
       if (error) {
-        error("Error fetching pay groups:", error);
-        // Fallback to mock data if database fails
-        setPayGroups([
-          { id: "1", name: "UG Monthly Staff", country: "Uganda", pay_frequency: "monthly", type: "local" },
-          { id: "2", name: "TEST 2 Uganda", country: "Uganda", pay_frequency: "monthly", type: "local" }
-        ]);
+        console.error("❌ Error fetching pay groups:", error);
+        toast({
+          title: "Error",
+          description: error.message || "Failed to fetch pay groups",
+          variant: "destructive",
+        });
+        setPayGroups([]);
       } else {
+        console.log("✅ Pay groups fetched from pay_group_master:", data);
+        console.table((data || []).map(({ id, name, type, code, country, currency }) => ({ id, name, type, code, country, currency })));
         setPayGroups(data || []);
       }
-    } catch (err) {
-      error("Database connection failed:", err);
-      // Fallback to mock data
-      setPayGroups([
-        { id: "1", name: "UG Monthly Staff", country: "Uganda", pay_frequency: "monthly", type: "local" },
-        { id: "2", name: "TEST 2 Uganda", country: "Uganda", pay_frequency: "monthly", type: "local" }
-      ]);
+    } catch (err: any) {
+      console.error("❌ Database connection failed:", err);
+      toast({
+        title: "Error",
+        description: err.message || "Failed to fetch pay groups",
+        variant: "destructive",
+      });
+      setPayGroups([]);
+    } finally {
+      setLoading(false);
     }
   };
 
   // Filter pay groups based on payroll type and employee category
-  const filteredPayGroups = payGroups.filter(group => {
-    if (formData.payroll_type === "Expatriate") {
-      return group.type === "Expatriate";
-    } else if (formData.payroll_type === "Local") {
-      return group.type === "Local";
+  // If payrollType prop is provided, groups are already filtered by the query
+  const filteredPayGroups = payrollType ? payGroups : payGroups.filter(group => {
+    // Use case-insensitive comparison for type matching
+    const groupType = (group.type || "").toLowerCase();
+    const selectedType = (formData.payroll_type || "").toLowerCase();
+    
+    if (selectedType === "expatriate") {
+      return groupType === "expatriate";
+    } else if (selectedType === "local") {
+      return groupType === "local";
     }
     return true;
   });
+
+  console.log("📊 Fetched PayGroups:", payGroups);
+  console.log("📊 Filtered PayGroups for", formData.payroll_type || payrollType, ":", filteredPayGroups);
+  console.log("📊 Payroll type:", payrollType || formData.payroll_type);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,8 +180,16 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
       return;
     }
 
+
     setLoading(true);
     try {
+      console.log("🚀 Starting pay run creation with formData:", {
+        pay_group_id: formData.pay_group_id,
+        pay_run_date: formData.pay_run_date,
+        pay_period_start: formData.pay_period_start,
+        pay_period_end: formData.pay_period_end
+      });
+
       // Test database connection first
       const { error: testError } = await supabase
         .from("pay_groups")
@@ -150,11 +200,24 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
         throw new Error(`Database connection failed: ${testError.message}`);
       }
 
-      // Create pay run record (without pay_run_id column for now)
+      console.log("✅ Database connection successful");
+
+      // Get the selected pay group from master table
+      const selectedPayGroup = payGroups.find(g => g.id === formData.pay_group_id);
+      console.log("🔍 Selected pay group from master:", selectedPayGroup);
+      
+      if (!selectedPayGroup) {
+        throw new Error("Invalid pay group selected. Please try again.");
+      }
+
+      console.log("📝 Creating pay run record with pay_group_master_id:", selectedPayGroup.id);
+      
+      // Create pay run record using pay_group_master_id
       const { data: payRunData, error: payRunError } = await supabase
         .from("pay_runs")
         .insert({
-          pay_group_id: formData.pay_group_id,
+          pay_group_master_id: selectedPayGroup.id, // Use master table UUID
+          payroll_type: selectedPayGroup.type, // Set the payroll type
           pay_run_date: formData.pay_run_date.toISOString(),
           pay_period_start: formData.pay_period_start.toISOString(),
           pay_period_end: formData.pay_period_end.toISOString(),
@@ -164,21 +227,58 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
         .single();
 
       if (payRunError) {
+        console.error("❌ Error creating pay run:", payRunError);
         throw new Error(`Failed to create pay run: ${payRunError.message}`);
       }
 
-      // Get employees in this pay group
-      const { data: employees, error: employeesError } = await supabase
-        .from("employees")
-        .select("id, pay_rate, pay_type, country, employee_type")
-        .eq("pay_group_id", formData.pay_group_id)
-        .eq("status", "active");
+      console.log("✅ Pay run created:", payRunData.id);
+
+      // Get employees in this pay group using the source table and source_id
+      console.log("🔍 Fetching employees for pay group:", selectedPayGroup.name);
+      console.log("🔍 Source table:", selectedPayGroup.source_table, "Source ID:", selectedPayGroup.source_id);
+      
+      let employees, employeesError;
+      
+      if (selectedPayGroup.type === "expatriate") {
+        // For expatriate groups, fetch from paygroup_employees table using pay_group_master_id
+        const { data: paygroupEmployees, error: paygroupError } = await supabase
+          .from("paygroup_employees")
+          .select(`
+            employee_id,
+            employees (
+              id, pay_rate, pay_type, country, employee_type, status, pay_group_id
+            )
+          `)
+          .eq("pay_group_master_id", selectedPayGroup.id);
+        
+        if (paygroupError) {
+          employeesError = paygroupError;
+          employees = null;
+        } else {
+          employees = paygroupEmployees?.map(pe => pe.employees).filter(Boolean) || [];
+        }
+      } else {
+        // For regular groups, fetch directly from employees table using source_id
+        const result = await supabase
+          .from("employees")
+          .select("id, pay_rate, pay_type, country, employee_type, status, pay_group_id")
+          .eq("pay_group_id", selectedPayGroup.source_id)
+          .eq("status", "active");
+        
+        employees = result.data;
+        employeesError = result.error;
+      }
+
+      console.log("📊 Employees found:", employees);
+      console.log("📊 Employee count:", employees?.length || 0);
 
       if (employeesError) {
+        console.error("❌ Error fetching employees:", employeesError);
         throw new Error(`Failed to fetch employees: ${employeesError.message}`);
       }
 
       if (!employees || employees.length === 0) {
+        console.warn("⚠️ No active employees found in this pay group");
         toast({
           title: "Warning",
           description: "No active employees found in this pay group",
@@ -186,6 +286,8 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
         });
         return;
       }
+
+      console.log("✅ Found", employees.length, "employees for pay run");
 
       // Create pay items for each employee using server-side calculations
       const payItems = await Promise.all(
@@ -287,7 +389,7 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
       onPayRunCreated();
       onOpenChange(false);
     } catch (error: any) {
-      error("Error creating pay run:", error);
+      console.error("Error creating pay run:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to create pay run. Please check your database connection.",
@@ -309,26 +411,36 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 modern-dialog-content">
-          <div className="space-y-2">
-            <Label htmlFor="payroll_type">Payroll Type *</Label>
-            <Select
-              value={formData.payroll_type}
-              onValueChange={(value) => setFormData({ 
-                ...formData, 
-                payroll_type: value, 
-                employee_category: "",
-                pay_group_id: "" // Reset pay group when type changes
-              })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select payroll type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Local">Local</SelectItem>
-                <SelectItem value="Expatriate">Expatriate</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Show Payroll Type dropdown only if not provided as prop */}
+          {!payrollType ? (
+            <div className="space-y-2">
+              <Label htmlFor="payroll_type">Payroll Type *</Label>
+              <Select
+                value={formData.payroll_type}
+                onValueChange={(value) => setFormData({ 
+                  ...formData, 
+                  payroll_type: value, 
+                  employee_category: "",
+                  pay_group_id: "" // Reset pay group when type changes
+                })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select payroll type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Local">Local</SelectItem>
+                  <SelectItem value="Expatriate">Expatriate</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+              <Label htmlFor="payroll_type">Payroll Type</Label>
+              <div className="text-sm text-gray-700 font-semibold mt-1">
+                {payrollType}
+              </div>
+            </div>
+          )}
 
           {formData.payroll_type === "Local" && (
             <div className="space-y-2">
@@ -362,23 +474,38 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
             <Select
               value={formData.pay_group_id}
               onValueChange={(value) => setFormData({ ...formData, pay_group_id: value })}
+              disabled={filteredPayGroups.length === 0}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Select pay group" />
+              <SelectTrigger className={filteredPayGroups.length === 0 ? "text-muted-foreground" : ""}>
+                <SelectValue placeholder={filteredPayGroups.length === 0 ? "No pay groups found" : "Select pay group"} />
               </SelectTrigger>
               <SelectContent>
-                {filteredPayGroups.map((group) => (
-                  <SelectItem key={group.id} value={group.id}>
-                    <div className="flex flex-col">
-                      <span>{group.name}</span>
-                      <span className="text-sm text-muted-foreground">
-                        {group.country} - {group.pay_frequency} - {group.type || 'local'}
-                      </span>
-                    </div>
+                {filteredPayGroups.length === 0 ? (
+                  <SelectItem value="no-groups" disabled>
+                    {formData.payroll_type === "Expatriate" ? "No expatriate pay groups found" : "No pay groups found"}
                   </SelectItem>
-                ))}
+                ) : (
+                  filteredPayGroups.map((group) => (
+                    <SelectItem key={group.id} value={group.id}>
+                      <div className="flex flex-col">
+                        <span>{group.name}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {group.country} - {group.currency || 'UGX'} - {group.type}
+                          {group.code && ` (${group.code})`}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
+            {filteredPayGroups.length === 0 && formData.payroll_type && (
+              <p className="text-sm text-muted-foreground">
+                {formData.payroll_type === "Expatriate" 
+                  ? "No expatriate pay groups are available. Please create one first."
+                  : "No pay groups are available. Please create one first."}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -473,6 +600,7 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated }: CreatePayRu
               </Popover>
             </div>
           </div>
+
 
           <div className="flex justify-end space-x-2 modern-dialog-actions">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="modern-dialog-button-secondary">

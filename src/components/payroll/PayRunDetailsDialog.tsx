@@ -123,13 +123,13 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       try {
         // Fetch pay run details
         const { data: payRunData, error: payRunError } = await supabase
-          .from("pay_runs")
-          .select(`
-            id,
-            pay_groups(country, name)
-          `)
-          .eq("id", payRunId)
-          .single();
+        .from("pay_runs")
+        .select(`
+          id,
+          pay_group_master:pay_group_master_id(country, name)
+        `)
+        .eq("id", payRunId)
+        .single();
 
         if (payRunError) throw payRunError;
         if (!isMounted) return;
@@ -215,12 +215,12 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       // Fetch pay group country
       const { data: payRunData, error: payRunError } = await supabase
         .from("pay_runs")
-        .select("pay_groups(country)")
+        .select("pay_group_master:pay_group_master_id(country)")
         .eq("id", payRunId)
         .single();
 
       if (payRunError) throw payRunError;
-      const country = (payRunData?.pay_groups as unknown as PayGroup)?.country || "Uganda";
+      const country = (payRunData?.pay_group_master as unknown as PayGroup)?.country || "Uganda";
       setPayGroupCountry(country);
       setPayGroupCurrency(getCurrencyCodeFromCountry(country));
 
@@ -1004,16 +1004,18 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-hidden flex flex-col modern-dialog">
-        <DialogHeader className="flex-shrink-0 modern-dialog-header">
-          <DialogTitle className="modern-dialog-title">Pay Run Details - Comprehensive Summary</DialogTitle>
-          <DialogDescription className="modern-dialog-description">
-            Pay Run Date: {format(new Date(payRunDate), 'MMM dd, yyyy')} | 
-            Pay Period: {format(new Date(payPeriod.start), 'MMM dd')} - {format(new Date(payPeriod.end), 'MMM dd, yyyy')}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-[95vw] max-h-[90vh] overflow-y-auto p-0 flex flex-col modern-dialog">
+        <div className="min-h-0 flex flex-col">
+          <DialogHeader className="flex-shrink-0 modern-dialog-header p-6 pb-0">
+            <DialogTitle className="modern-dialog-title">Pay Run Details - Comprehensive Summary</DialogTitle>
+            <DialogDescription className="modern-dialog-description">
+              Pay Run Date: {format(new Date(payRunDate), 'MMM dd, yyyy')} | 
+              Pay Period: {format(new Date(payPeriod.start), 'MMM dd')} - {format(new Date(payPeriod.end), 'MMM dd, yyyy')}
+            </DialogDescription>
+          </DialogHeader>
 
-        {isExpatriatePayRun ? (
+          <div className="flex-1 overflow-y-auto p-6 pt-4">
+            {isExpatriatePayRun ? (
           <ExpatriatePayRunDetails
             payRunId={payRunId || ""}
             expatriatePayGroup={expatriatePayGroup}
@@ -1228,7 +1230,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
             </div>
 
             {/* Main Table */}
-            <div className="flex-1 overflow-auto modern-dialog-table payrun-details-table">
+            <div className="max-h-[70vh] overflow-y-auto px-2 modern-dialog-table payrun-details-table">
               <Table>
                 <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow>
@@ -1696,7 +1698,9 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
               </Table>
             </div>
           </div>
-        )}
+            )}
+          </div>
+        </div>
       </DialogContent>
 
       {/* Bulk Operations Dialogs */}

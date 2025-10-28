@@ -525,6 +525,8 @@ All colors MUST be HSL.
 .nav-section {
   padding: 24px 0;
   border-bottom: 1px solid #f1f5f9;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .nav-section:last-child {

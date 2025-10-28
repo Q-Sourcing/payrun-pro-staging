@@ -17,7 +17,7 @@ export class PayslipGenerator {
         .from('pay_runs')
         .select(`
           *,
-          pay_groups(
+          pay_group_master:pay_group_master_id(
             name,
             country
           ),
@@ -204,7 +204,7 @@ export class PayslipGenerator {
         .from('pay_runs')
         .select(`
           *,
-          pay_groups(
+          pay_group_master:pay_group_master_id(
             name,
             country
           ),
@@ -325,7 +325,7 @@ export class PayslipGenerator {
         .from('pay_runs')
         .select(`
           *,
-          expatriate_pay_groups(
+          expatriate_pay_group_master:pay_group_master_id(
             id,
             name,
             currency,

@@ -70,7 +70,7 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
         .from("pay_runs")
         .select(`
           *,
-          pay_groups(name, country),
+          pay_group_master:pay_group_master_id(name, country),
           pay_items(
             *,
             employees(
@@ -90,7 +90,7 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
 
       if (payRunError) throw payRunError;
 
-      const currency = getCurrencyCodeFromCountry(payRunData.pay_groups.country);
+      const currency = getCurrencyCodeFromCountry(payRunData.pay_group_master.country);
       const payItems = payRunData.pay_items || [];
 
       // Calculate employer contributions (NSSF at 10%)
@@ -219,7 +219,7 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
     yPos += 5;
     doc.text(`Pay Period: ${format(new Date(payRun.pay_period_start), 'MMM dd, yyyy')} - ${format(new Date(payRun.pay_period_end), 'MMM dd, yyyy')}`, 20, yPos);
     yPos += 5;
-    doc.text(`Pay Group: ${payRun.pay_groups.name}`, 20, yPos);
+    doc.text(`Pay Group: ${payRun.pay_group_master.name}`, 20, yPos);
     yPos += 10;
 
     if (companySettings?.include_generated_date) {
@@ -368,7 +368,7 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
       ["Company", companySettings?.company_name || "Q-Payroll Solutions"],
       ["Pay Run Date", format(new Date(payRun.pay_run_date), 'MMM dd, yyyy')],
       ["Pay Period", `${format(new Date(payRun.pay_period_start), 'MMM dd, yyyy')} - ${format(new Date(payRun.pay_period_end), 'MMM dd, yyyy')}`],
-      ["Pay Group", payRun.pay_groups.name],
+      ["Pay Group", payRun.pay_group_master.name],
       [],
       ["EXECUTIVE SUMMARY"],
       ["Total Employees", payItems.length],
@@ -440,7 +440,7 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
     lines.push("PAYROLL BILLING SUMMARY");
     lines.push(`Pay Run Date: ${format(new Date(payRun.pay_run_date), 'MMM dd, yyyy')}`);
     lines.push(`Pay Period: ${format(new Date(payRun.pay_period_start), 'MMM dd, yyyy')} - ${format(new Date(payRun.pay_period_end), 'MMM dd, yyyy')}`);
-    lines.push(`Pay Group: ${payRun.pay_groups.name}`);
+    lines.push(`Pay Group: ${payRun.pay_group_master.name}`);
     lines.push("");
     
     // Executive Summary
