@@ -137,6 +137,25 @@ export class ExpatriatePayrollService {
   }
 
   /**
+   * Get employees assigned to a specific expatriate pay group
+   * Only fetches employees explicitly linked via pay_group_id (no auto-linking)
+   */
+  static async getEmployeesForPayGroup(payGroupId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('employees')
+      .select('*')
+      .eq('pay_group_id', payGroupId)
+      .eq('employee_type', 'expat');
+
+    if (error) {
+      console.error('Failed to load expatriates for group:', error);
+      return [];
+    }
+
+    return data || [];
+  }
+
+  /**
    * Get currency symbol for a currency code
    */
   static getCurrencySymbol(currencyCode: string): string {

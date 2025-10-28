@@ -314,7 +314,7 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
   }
 
   return (
-    <div className="space-y-3 min-h-0 overflow-auto">
+    <div className="space-y-3 min-h-0">
       {/* Compact Header with PayGroup Info */}
       <Card className="border-l-4 border-l-primary shadow-sm">
         <CardHeader className="pb-2">
@@ -352,110 +352,103 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
       </Card>
 
       {/* Compact Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <Card className="shadow-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <Card className="shadow-sm border border-border rounded-xl">
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Total Gross (Foreign)</span>
-              <DollarSign className="h-3 w-3 text-primary" />
+              <span className="text-sm text-muted-foreground">Total Gross (Foreign)</span>
+              <span className="font-semibold text-base">
+                {ExpatriatePayrollService.formatCurrency(summaryTotals.totalGrossForeign, expatriatePayGroup.currency)}
+              </span>
             </div>
-            <p className="text-base font-semibold mt-1">
-              {ExpatriatePayrollService.formatCurrency(summaryTotals.totalGrossForeign, expatriatePayGroup.currency)}
-            </p>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
+        <Card className="shadow-sm border border-border rounded-xl">
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Total Net (Foreign)</span>
-              <DollarSign className="h-3 w-3 text-primary" />
+              <span className="text-sm text-muted-foreground">Total Net (Foreign)</span>
+              <span className="font-semibold text-base">
+                {ExpatriatePayrollService.formatCurrency(summaryTotals.totalNetForeign, expatriatePayGroup.currency)}
+              </span>
             </div>
-            <p className="text-base font-semibold mt-1">
-              {ExpatriatePayrollService.formatCurrency(summaryTotals.totalNetForeign, expatriatePayGroup.currency)}
-            </p>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
+        <Card className="shadow-sm border border-border rounded-xl">
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Total Net (Local)</span>
-              <ArrowRightLeft className="h-3 w-3 text-green-600" />
+              <span className="text-sm text-muted-foreground">Total Net (Local)</span>
+              <span className="font-semibold text-base">
+                {ExpatriatePayrollService.formatCurrency(summaryTotals.totalNetLocal, 'UGX')}
+              </span>
             </div>
-            <p className="text-base font-semibold mt-1">
-              {ExpatriatePayrollService.formatCurrency(summaryTotals.totalNetLocal, 'UGX')}
-            </p>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
+        <Card className="shadow-sm border border-border rounded-xl">
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Total Gross (Local)</span>
-              <Calculator className="h-3 w-3 text-purple-600" />
+              <span className="text-sm text-muted-foreground">Total Gross (Local)</span>
+              <span className="font-semibold text-base">
+                {ExpatriatePayrollService.formatCurrency(summaryTotals.totalGrossLocal, 'UGX')}
+              </span>
             </div>
-            <p className="text-base font-semibold mt-1">
-              {ExpatriatePayrollService.formatCurrency(summaryTotals.totalGrossLocal, 'UGX')}
-            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Compact Deductions Summary */}
-      <div className="grid grid-cols-3 gap-2">
-        <Card className="shadow-sm">
+      {/* Compact Employee Count */}
+      <div className="grid grid-cols-3 gap-3">
+        <Card className="shadow-sm border border-border rounded-xl">
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Deductions (Local)</span>
-              <Calculator className="h-3 w-3 text-orange-600" />
+              <span className="text-sm text-muted-foreground">Total Deductions (Local)</span>
+              <span className="font-semibold text-base">
+                {ExpatriatePayrollService.formatCurrency(
+                  summaryTotals.totalGrossLocal - summaryTotals.totalNetLocal,
+                  'UGX'
+                )}
+              </span>
             </div>
-            <p className="text-base font-semibold mt-1">
-              {ExpatriatePayrollService.formatCurrency(
-                summaryTotals.totalGrossLocal - summaryTotals.totalNetLocal,
-                'UGX'
-              )}
-            </p>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
+        <Card className="shadow-sm border border-border rounded-xl">
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Deductions (Foreign)</span>
-              <Calculator className="h-3 w-3 text-red-600" />
+              <span className="text-sm text-muted-foreground">Total Deductions (Foreign)</span>
+              <span className="font-semibold text-base">
+                {ExpatriatePayrollService.formatCurrency(
+                  summaryTotals.totalGrossForeign - summaryTotals.totalNetForeign,
+                  expatriatePayGroup.currency
+                )}
+              </span>
             </div>
-            <p className="text-base font-semibold mt-1">
-              {ExpatriatePayrollService.formatCurrency(
-                summaryTotals.totalGrossForeign - summaryTotals.totalNetForeign,
-                expatriatePayGroup.currency
-              )}
-            </p>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
+        <Card className="shadow-sm border border-border rounded-xl">
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Total Employees</span>
-              <Globe className="h-3 w-3 text-blue-600" />
+              <span className="text-sm text-muted-foreground">Total Employees</span>
+              <span className="font-semibold text-base">{summaryTotals.employeeCount}</span>
             </div>
-            <p className="text-base font-semibold mt-1">{summaryTotals.employeeCount}</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Pay Run Items Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Expatriate Pay Run Items</CardTitle>
-          <CardDescription>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Expatriate Pay Run Items</CardTitle>
+          <CardDescription className="text-sm">
             Manage daily rates, days worked, and allowances for each employee
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto overflow-y-auto max-h-[75vh] rounded-md border border-gray-200">
-            <Table className="min-w-full text-sm">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto max-h-[60vh] rounded-md">
+            <Table className="text-sm [&_td]:py-2 [&_th]:py-2">
               <TableHeader>
                 <TableRow>
                   <TableHead>Employee</TableHead>
