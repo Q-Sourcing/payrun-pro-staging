@@ -126,7 +126,17 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         .from("pay_runs")
         .select(`
           id,
-          pay_group_master:pay_group_master_id(country, name)
+          payroll_type,
+          pay_group_master_id,
+          pay_group_master:pay_group_master_id(
+            id,
+            name,
+            country,
+            currency,
+            type,
+            source_id,
+            source_table
+          )
         `)
         .eq("id", payRunId)
         .single();
@@ -134,14 +144,31 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         if (payRunError) throw payRunError;
         if (!isMounted) return;
         
-        // Set pay group country and currency
-        const country = (payRunData?.pay_groups as unknown as PayGroup)?.country || "Uganda";
-        setPayGroupCountry(country);
-        setPayGroupCurrency(getCurrencyCodeFromCountry(country));
+        // Check if this is an expatriate pay run
+        const isExpat = payRunData?.payroll_type === 'expatriate' || 
+                        payRunData?.pay_group_master?.type === 'expatriate';
         
-        // For now, treat all pay runs as regular (non-expatriate)
-        setIsExpatriatePayRun(false);
-        setExpatriatePayGroup(null);
+        setIsExpatriatePayRun(isExpat);
+        
+        // If expatriate, fetch the expatriate pay group details
+        if (isExpat && payRunData?.pay_group_master?.source_id) {
+          const { data: expatGroup, error: expatError } = await supabase
+            .from('expatriate_pay_groups')
+            .select('*')
+            .eq('id', payRunData.pay_group_master.source_id)
+            .single();
+          
+          if (!expatError && expatGroup) {
+            setExpatriatePayGroup(expatGroup);
+          }
+        } else {
+          setExpatriatePayGroup(null);
+        }
+        
+        // Set pay group country and currency
+        const country = payRunData?.pay_group_master?.country || "Uganda";
+        setPayGroupCountry(country);
+        setPayGroupCurrency(payRunData?.pay_group_master?.currency || getCurrencyCodeFromCountry(country));
 
         // Fetch pay items
         const { data, error } = await supabase
