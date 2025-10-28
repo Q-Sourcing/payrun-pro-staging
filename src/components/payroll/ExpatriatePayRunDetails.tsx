@@ -519,20 +519,20 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto overflow-y-auto max-h-[70vh] rounded-md border border-gray-200">
-            <Table className="min-w-[1200px] text-sm">
+          <div className="overflow-x-auto overflow-y-auto max-h-[75vh] rounded-md border border-gray-200">
+            <Table className="min-w-full text-sm">
               <TableHeader>
                 <TableRow>
                   <TableHead>Employee</TableHead>
-                  <TableHead>Base Rate (FX)</TableHead>
+                  <TableHead>Normal Rate ({expatriatePayGroup.currency})</TableHead>
                   <TableHead>Days Worked</TableHead>
-                  <TableHead>Basic Earnings (FX)</TableHead>
-                  <TableHead>Add. Benefits (FX)</TableHead>
-                  <TableHead>Total Pay (FX)</TableHead>
-                  <TableHead>Total Pay (Local)</TableHead>
-                  <TableHead>Gross Pay (Local)</TableHead>
-                  <TableHead>Gross Pay (FX)</TableHead>
-                  <TableHead>Adjustments</TableHead>
+                  <TableHead>Base Earnings ({expatriatePayGroup.currency})</TableHead>
+                  <TableHead>Allowances ({expatriatePayGroup.currency})</TableHead>
+                  <TableHead>Net ({expatriatePayGroup.currency})</TableHead>
+                  <TableHead>Net (UGX)</TableHead>
+                  <TableHead>Gross (UGX)</TableHead>
+                  <TableHead>Gross ({expatriatePayGroup.currency})</TableHead>
+                  <TableHead>Payroll Adjustments</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -570,7 +570,7 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
                           {item.employee?.first_name} {item.employee?.last_name}
                         </TableCell>
 
-                        {/* Base Rate (FX) */}
+                        {/* Normal Rate */}
                         <TableCell>
                           <div className="font-medium text-gray-900 dark:text-foreground">
                             {ExpatriatePayrollService.formatCurrency(rate, currency)}
@@ -591,19 +591,19 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
                                 Number(sanitized || 0)
                               );
                             }}
-                            className="w-24"
+                            className="w-20"
                             placeholder="0"
                           />
                         </TableCell>
 
-                        {/* Basic Earnings (FX) */}
+                        {/* Base Earnings */}
                         <TableCell>
                           <div className="font-medium text-gray-900 dark:text-foreground">
                             {ExpatriatePayrollService.formatCurrency(baseEarningsFX, currency)}
                           </div>
                         </TableCell>
 
-                        {/* Add. Benefits (FX) */}
+                        {/* Allowances */}
                         <TableCell>
                           <Input
                             type="text"
@@ -617,41 +617,43 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
                                 Number(sanitized || 0)
                               );
                             }}
-                            className="w-28"
+                            className="w-24"
                             placeholder="0.00"
                           />
                         </TableCell>
 
-                        {/* Total Pay (FX) */}
+                        {/* Net (Foreign) */}
                         <TableCell>
                           <div className="font-semibold text-blue-600">
                             {ExpatriatePayrollService.formatCurrency(totalPayFX, currency)}
                           </div>
                         </TableCell>
 
-                        {/* Total Pay (Local) */}
+                        {/* Net (Local) */}
                         <TableCell>
                           <div className="font-semibold text-green-600">
                             {ExpatriatePayrollService.formatCurrency(totalPayLocal, 'UGX')}
                           </div>
                         </TableCell>
 
-                        {/* Gross Pay (Local) */}
+                        {/* Gross (Local) */}
                         <TableCell>
                           <div className="font-semibold text-purple-600">
                             {ExpatriatePayrollService.formatCurrency(grossLocal, 'UGX')}
                           </div>
                         </TableCell>
 
-                        {/* Gross Pay (FX) */}
+                        {/* Gross (Foreign) */}
                         <TableCell>
                           <div className="font-semibold text-orange-600">
                             {ExpatriatePayrollService.formatCurrency(grossFX, currency)}
                           </div>
                         </TableCell>
 
-                        {/* Adjustments */}
-                        <TableCell className="text-muted-foreground">—</TableCell>
+                        {/* Payroll Adjustments */}
+                        <TableCell className="italic text-muted-foreground text-xs">
+                          Pending
+                        </TableCell>
 
                         {/* Actions */}
                         <TableCell>
