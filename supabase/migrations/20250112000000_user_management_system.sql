@@ -4,7 +4,7 @@
 -- Create user activities table for tracking user actions
 CREATE TABLE IF NOT EXISTS public.user_activities (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    user_id UUID, -- Will add foreign key constraint later when users table exists
     action VARCHAR(100) NOT NULL,
     resource VARCHAR(100) NOT NULL,
     details JSONB DEFAULT '{}',
@@ -29,11 +29,11 @@ CREATE TABLE IF NOT EXISTS public.user_invitations (
         'hr_business_partner',
         'finance_controller'
     )),
-    organization_id UUID REFERENCES public.pay_groups(id) ON DELETE SET NULL,
+    organization_id UUID, -- Will add foreign key constraint later when pay_groups table exists
     department_id VARCHAR(100),
-    manager_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    manager_id UUID, -- Will add foreign key constraint later when users table exists
     permissions JSONB DEFAULT '[]',
-    invited_by UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    invited_by UUID NOT NULL, -- Will add foreign key constraint later when users table exists
     invited_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     expires_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() + INTERVAL '7 days'),
     token VARCHAR(255) UNIQUE NOT NULL,
@@ -45,8 +45,8 @@ CREATE TABLE IF NOT EXISTS public.user_invitations (
 -- Create user management actions table for audit trail
 CREATE TABLE IF NOT EXISTS public.user_management_actions (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    performed_by UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    target_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    performed_by UUID NOT NULL, -- Will add foreign key constraint later when users table exists
+    target_user_id UUID, -- Will add foreign key constraint later when users table exists
     action_type VARCHAR(50) NOT NULL CHECK (action_type IN (
         'create_user',
         'update_user',
@@ -89,70 +89,70 @@ ALTER TABLE public.user_activities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_invitations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_management_actions ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for user_activities
-CREATE POLICY "Users can view their own activities" ON public.user_activities
-    FOR SELECT USING (auth.uid() = user_id);
+-- RLS Policies for user_activities (commented out until users table exists)
+-- CREATE POLICY "Users can view their own activities" ON public.user_activities
+--     FOR SELECT USING (auth.uid() = user_id);
 
-CREATE POLICY "Super admins can view all activities" ON public.user_activities
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM public.users 
-            WHERE id = auth.uid() AND role = 'super_admin'
-        )
-    );
+-- CREATE POLICY "Super admins can view all activities" ON public.user_activities
+--     FOR ALL USING (
+--         EXISTS (
+--             SELECT 1 FROM public.users 
+--             WHERE id = auth.uid() AND role = 'super_admin'
+--         )
+--     );
 
-CREATE POLICY "Organization admins can view organization activities" ON public.user_activities
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM public.users u1, public.users u2
-            WHERE u1.id = auth.uid() 
-            AND u1.role = 'organization_admin'
-            AND u2.id = public.user_activities.user_id
-            AND u1.organization_id = u2.organization_id
-        )
-    );
+-- CREATE POLICY "Organization admins can view organization activities" ON public.user_activities
+--     FOR SELECT USING (
+--         EXISTS (
+--             SELECT 1 FROM public.users u1, public.users u2
+--             WHERE u1.id = auth.uid() 
+--             AND u1.role = 'organization_admin'
+--             AND u2.id = public.user_activities.user_id
+--             AND u1.organization_id = u2.organization_id
+--         )
+--     );
 
--- RLS Policies for user_invitations
-CREATE POLICY "Super admins can manage all invitations" ON public.user_invitations
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM public.users 
-            WHERE id = auth.uid() AND role = 'super_admin'
-        )
-    );
+-- RLS Policies for user_invitations (commented out until users table exists)
+-- CREATE POLICY "Super admins can manage all invitations" ON public.user_invitations
+--     FOR ALL USING (
+--         EXISTS (
+--             SELECT 1 FROM public.users 
+--             WHERE id = auth.uid() AND role = 'super_admin'
+--         )
+--     );
 
-CREATE POLICY "Organization admins can manage organization invitations" ON public.user_invitations
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM public.users 
-            WHERE id = auth.uid() 
-            AND role = 'organization_admin'
-            AND organization_id = (
-                SELECT organization_id FROM public.users 
-                WHERE id = auth.uid()
-            )
-        )
-    );
+-- CREATE POLICY "Organization admins can manage organization invitations" ON public.user_invitations
+--     FOR ALL USING (
+--         EXISTS (
+--             SELECT 1 FROM public.users 
+--             WHERE id = auth.uid() 
+--             AND role = 'organization_admin'
+--             AND organization_id = (
+--                 SELECT organization_id FROM public.users 
+--                 WHERE id = auth.uid()
+--             )
+--         )
+--     );
 
--- RLS Policies for user_management_actions
-CREATE POLICY "Super admins can view all management actions" ON public.user_management_actions
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM public.users 
-            WHERE id = auth.uid() AND role = 'super_admin'
-        )
-    );
+-- RLS Policies for user_management_actions (commented out until users table exists)
+-- CREATE POLICY "Super admins can view all management actions" ON public.user_management_actions
+--     FOR ALL USING (
+--         EXISTS (
+--             SELECT 1 FROM public.users 
+--             WHERE id = auth.uid() AND role = 'super_admin'
+--         )
+--     );
 
-CREATE POLICY "Organization admins can view organization management actions" ON public.user_management_actions
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM public.users u1, public.users u2
-            WHERE u1.id = auth.uid() 
-            AND u1.role = 'organization_admin'
-            AND u2.id = public.user_management_actions.target_user_id
-            AND u1.organization_id = u2.organization_id
-        )
-    );
+-- CREATE POLICY "Organization admins can view organization management actions" ON public.user_management_actions
+--     FOR SELECT USING (
+--         EXISTS (
+--             SELECT 1 FROM public.users u1, public.users u2
+--             WHERE u1.id = auth.uid() 
+--             AND u1.role = 'organization_admin'
+--             AND u2.id = public.user_management_actions.target_user_id
+--             AND u1.organization_id = u2.organization_id
+--         )
+--     );
 
 -- Create function to automatically clean up expired invitations
 CREATE OR REPLACE FUNCTION public.cleanup_expired_invitations()
@@ -248,11 +248,11 @@ CREATE OR REPLACE FUNCTION public.create_user_invitation(
     p_first_name VARCHAR(100),
     p_last_name VARCHAR(100),
     p_role VARCHAR(50),
+    p_invited_by UUID,
     p_organization_id UUID DEFAULT NULL,
     p_department_id VARCHAR(100) DEFAULT NULL,
     p_manager_id UUID DEFAULT NULL,
-    p_permissions JSONB DEFAULT '[]',
-    p_invited_by UUID
+    p_permissions JSONB DEFAULT '[]'
 )
 RETURNS UUID AS $$
 DECLARE
@@ -387,5 +387,5 @@ GRANT EXECUTE ON FUNCTION public.cleanup_expired_invitations() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.log_user_management_action(UUID, UUID, VARCHAR, JSONB, JSONB, INET, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.log_user_activity(UUID, VARCHAR, VARCHAR, JSONB, INET, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.generate_invitation_token() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.create_user_invitation(VARCHAR, VARCHAR, VARCHAR, VARCHAR, UUID, VARCHAR, UUID, JSONB, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_user_invitation(VARCHAR, VARCHAR, VARCHAR, VARCHAR, UUID, UUID, VARCHAR, UUID, JSONB) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.accept_user_invitation(VARCHAR, TEXT) TO authenticated;

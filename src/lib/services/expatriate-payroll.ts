@@ -89,6 +89,7 @@ export class ExpatriatePayrollService {
 
   /**
    * Get expatriate pay run items for a pay run
+   * Now uses the dedicated expatriate_pay_run_items table
    */
   static async getExpatriatePayRunItems(payRunId: string): Promise<any[]> {
     const { data, error } = await supabase
@@ -100,7 +101,8 @@ export class ExpatriatePayrollService {
           first_name,
           middle_name,
           last_name,
-          email
+          email,
+          employee_type
         )
       `)
       .eq('pay_run_id', payRunId)
@@ -112,6 +114,7 @@ export class ExpatriatePayrollService {
 
   /**
    * Create or update expatriate pay run item
+   * Now uses the dedicated expatriate_pay_run_items table
    */
   static async upsertExpatriatePayRunItem(itemData: any): Promise<any> {
     const { data, error } = await supabase
@@ -126,6 +129,7 @@ export class ExpatriatePayrollService {
 
   /**
    * Delete expatriate pay run item
+   * Now uses the dedicated expatriate_pay_run_items table
    */
   static async deleteExpatriatePayRunItem(id: string): Promise<void> {
     const { error } = await supabase

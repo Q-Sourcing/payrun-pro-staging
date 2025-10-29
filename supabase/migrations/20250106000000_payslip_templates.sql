@@ -10,12 +10,12 @@ CREATE TABLE public.payslip_templates (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
--- Create payslip generations log table
+-- Create payslip generations log table (foreign keys will be added later)
 CREATE TABLE public.payslip_generations (
     id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
     template_id UUID REFERENCES public.payslip_templates(id) ON DELETE CASCADE,
-    pay_run_id UUID REFERENCES public.pay_runs(id) ON DELETE CASCADE,
-    employee_id UUID REFERENCES public.employees(id) ON DELETE CASCADE,
+    pay_run_id UUID, -- Will add foreign key constraint later when pay_runs table exists
+    employee_id UUID, -- Will add foreign key constraint later when employees table exists
     generated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     export_format TEXT NOT NULL DEFAULT 'pdf',
     file_size INTEGER,

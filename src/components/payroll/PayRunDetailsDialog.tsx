@@ -192,6 +192,80 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         if (error) throw error;
         if (!isMounted) return;
 
+        // For expatriate pay runs, if no pay items exist, create them using dual-source employee fetch
+        if (isExpat && (!data || data.length === 0) && payRunData?.pay_group_master?.source_id) {
+          console.log("🔄 No pay items found for expatriate pay run, creating from dual-source employee fetch...");
+          
+          try {
+            // Use the dual-source approach to get employees
+            const employees = await ExpatriatePayrollService.getEmployeesForPayGroup(payRunData.pay_group_master.source_id);
+            console.log(`📋 Found ${employees.length} employees for expatriate pay group`);
+            
+            if (employees.length > 0) {
+              // Create initial pay items for each employee
+              const payItemsToCreate = employees.map(emp => ({
+                pay_run_id: payRunId,
+                employee_id: emp.id,
+                gross_pay: 0,
+                tax_deduction: 0,
+                benefit_deductions: 0,
+                total_deductions: 0,
+                net_pay: 0,
+                hours_worked: null,
+                pieces_completed: null,
+                status: 'draft',
+                employer_contributions: 0
+              }));
+
+              const { data: createdItems, error: createError } = await supabase
+                .from("pay_items")
+                .insert(payItemsToCreate)
+                .select(`
+                  *,
+                  employees (
+                    first_name,
+                    middle_name,
+                    last_name,
+                    email,
+                    pay_type,
+                    pay_rate,
+                    country,
+                    employee_type
+                  )
+                `);
+
+              if (createError) {
+                console.error("Error creating pay items:", createError);
+                throw createError;
+              }
+
+              console.log(`✅ Created ${createdItems?.length || 0} pay items for expatriate employees`);
+              
+              // Use the newly created items
+              const payItemsWithDeductions = await Promise.all(
+                (createdItems || []).map(async (item) => {
+                  const { data: customDeductions } = await supabase
+                    .from("pay_item_custom_deductions")
+                    .select("*")
+                    .eq("pay_item_id", item.id);
+
+                  return {
+                    ...item,
+                    customDeductions: customDeductions || [],
+                  };
+                })
+              );
+
+              if (!isMounted) return;
+              setPayItems(payItemsWithDeductions);
+              return;
+            }
+          } catch (createError) {
+            console.error("Error creating pay items for expatriate employees:", createError);
+            // Fall through to show empty state
+          }
+        }
+
         // Fetch custom deductions for each pay item
         const payItemsWithDeductions = await Promise.all(
           (data || []).map(async (item) => {

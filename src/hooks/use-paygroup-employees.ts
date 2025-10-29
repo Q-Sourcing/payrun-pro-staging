@@ -115,13 +115,23 @@ export function useAssignEmployee() {
 
       return result;
     },
-    onSuccess: (_, { employeeId, payGroupId }) => {
+    onSuccess: async (_, { employeeId, payGroupId }) => {
+      // Sync the employee's pay_group_id to match the assignment
+      try {
+        const { PayGroupEmployeesService } = await import('@/lib/data/paygroup-employees.service');
+        await PayGroupEmployeesService.syncEmployeeAssignment(employeeId, payGroupId);
+      } catch (syncError) {
+        console.warn('Failed to sync employee assignment:', syncError);
+        // Don't fail the whole operation if sync fails
+      }
+
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: queryKeys.payGroupEmployees.byPayGroup(payGroupId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.payGroupEmployees.byEmployee(employeeId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.payGroupEmployees.currentPayGroup(employeeId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.payGroupEmployees.stats() });
       queryClient.invalidateQueries({ queryKey: queryKeys.payGroups.all }); // For employee counts
+      queryClient.invalidateQueries({ queryKey: ['employees'] }); // For employee directory
       
       toast({
         title: 'Success',

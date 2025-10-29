@@ -293,30 +293,27 @@ export class PayGroupEmployeesService {
 
   /**
    * Auto-sync: Update employees.pay_group_id to match active assignments
-   * Note: Simplified version that doesn't rely on TypeScript knowing about paygroup_employees table
+   * This ensures both sources of truth are in sync
    */
   static async syncPayGroupAssignments(): Promise<{ synced: number; errors: number }> {
     try {
       console.log('🔄 Starting auto-sync of pay group assignments...');
       
-      // Using raw query to avoid TypeScript errors
-      const { data: assignments, error } = await supabase.rpc('exec_raw_sql', {
-        query: `
-          SELECT employee_id, pay_group_id 
-          FROM paygroup_employees 
-          WHERE active = true
-        `
-      }) as { data: any[], error: any };
+      // Get all active assignments from paygroup_employees table
+      const { data: assignments, error } = await supabase
+        .from('paygroup_employees')
+        .select('employee_id, pay_group_id')
+        .eq('active', true);
 
       if (error) {
-        console.warn('Sync skipped - table may not exist:', error);
+        console.warn('Sync skipped - paygroup_employees table may not exist:', error);
         return { synced: 0, errors: 0 };
       }
 
       let synced = 0;
       let errors = 0;
 
-      // Update each employee's pay_group_id
+      // Update each employee's pay_group_id to match their active assignment
       for (const assignment of assignments || []) {
         const { error: updateError } = await supabase
           .from('employees')
@@ -336,6 +333,96 @@ export class PayGroupEmployeesService {
     } catch (error) {
       console.error('Error during auto-sync:', error);
       return { synced: 0, errors: 0 };
+    }
+  }
+
+  /**
+   * Sync a specific employee's pay_group_id after assignment
+   */
+  static async syncEmployeeAssignment(employeeId: string, payGroupId: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('employees')
+        .update({ pay_group_id: payGroupId })
+        .eq('id', employeeId);
+
+      if (error) {
+        console.error(`Failed to sync employee ${employeeId}:`, error);
+        return false;
+      }
+
+      console.log(`✅ Synced employee ${employeeId} to pay group ${payGroupId}`);
+      return true;
+    } catch (error) {
+      console.error('Error syncing employee assignment:', error);
+      return false;
+    }
+  }
+
+  /**
+   * One-time sync for all existing assignments
+   * This should be run once to fix existing data inconsistencies
+   */
+  static async syncAllExistingAssignments(): Promise<{ synced: number; errors: number; details: string[] }> {
+    try {
+      console.log('🔄 Starting one-time sync of all existing assignments...');
+      
+      // Get all active assignments from paygroup_employees table
+      const { data: assignments, error } = await supabase
+        .from('paygroup_employees')
+        .select(`
+          employee_id, 
+          pay_group_id,
+          employees!inner(
+            id,
+            first_name,
+            last_name,
+            email,
+            pay_group_id
+          )
+        `)
+        .eq('active', true);
+
+      if (error) {
+        console.warn('Sync skipped - paygroup_employees table may not exist:', error);
+        return { synced: 0, errors: 0, details: ['Table not found'] };
+      }
+
+      let synced = 0;
+      let errors = 0;
+      const details: string[] = [];
+
+      // Update each employee's pay_group_id to match their active assignment
+      for (const assignment of assignments || []) {
+        const employee = assignment.employees;
+        const currentPayGroupId = employee.pay_group_id;
+        const assignedPayGroupId = assignment.pay_group_id;
+
+        // Only update if they don't match
+        if (currentPayGroupId !== assignedPayGroupId) {
+          const { error: updateError } = await supabase
+            .from('employees')
+            .update({ pay_group_id: assignedPayGroupId })
+            .eq('id', assignment.employee_id);
+
+          if (updateError) {
+            console.error(`Failed to sync employee ${assignment.employee_id}:`, updateError);
+            errors++;
+            details.push(`❌ ${employee.first_name} ${employee.last_name}: ${updateError.message}`);
+          } else {
+            synced++;
+            details.push(`✅ ${employee.first_name} ${employee.last_name}: ${currentPayGroupId || 'NULL'} → ${assignedPayGroupId}`);
+          }
+        } else {
+          details.push(`⏭️ ${employee.first_name} ${employee.last_name}: Already synced (${assignedPayGroupId})`);
+        }
+      }
+
+      console.log(`✅ One-time sync complete: ${synced} synced, ${errors} errors`);
+      return { synced, errors, details };
+    } catch (error) {
+      console.error('Error during one-time sync:', error);
+      return { synced: 0, errors: 0, details: [`Error: ${error.message}`] };
     }
   }
 }
