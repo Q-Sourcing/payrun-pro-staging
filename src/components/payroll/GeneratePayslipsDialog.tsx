@@ -26,9 +26,10 @@ interface GeneratePayslipsDialogProps {
   onOpenChange: (open: boolean) => void;
   employeeCount: number;
   payRunId: string;
+  selectedEmployeeIds?: string[];
 }
 
-export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payRunId }: GeneratePayslipsDialogProps) => {
+export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payRunId, selectedEmployeeIds }: GeneratePayslipsDialogProps) => {
   const [formatType, setFormatType] = useState<"individual" | "combined" | "email" | "print">("individual");
   const [includeLogo, setIncludeLogo] = useState(true);
   const [includeBreakdown, setIncludeBreakdown] = useState(true);
@@ -110,9 +111,13 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
         await generatePayslipsWithLegacySystem();
       }
       
+      const actualCount = selectedEmployeeIds && selectedEmployeeIds.length > 0 
+        ? selectedEmployeeIds.length 
+        : employeeCount;
+      
       toast({
         title: "Payslips Generated",
-        description: `Successfully generated ${employeeCount} payslips`,
+        description: `Successfully generated ${actualCount} payslips`,
       });
       
       onOpenChange(false);
@@ -137,17 +142,78 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
       console.log('Template:', selectedTemplate);
       console.log('Template Config:', templateConfig);
       
+      // Detect if this is an expatriate pay run
+      let isExpatriatePayRun = false;
+      try {
+        const { data: payRunData } = await supabase
+          .from('pay_runs')
+          .select('payroll_type, pay_group_master:pay_group_master_id(type)')
+          .eq('id', payRunId)
+          .single();
+        
+        isExpatriatePayRun = payRunData?.payroll_type === 'expatriate' || 
+                            (payRunData?.pay_group_master as any)?.type === 'expatriate';
+        
+        // Also check if there are any expatriate pay run items
+        if (!isExpatriatePayRun) {
+          const { data: expatItems } = await supabase
+            .from('expatriate_pay_run_items')
+            .select('id')
+            .eq('pay_run_id', payRunId)
+            .limit(1);
+          
+          if (expatItems && expatItems.length > 0) {
+            isExpatriatePayRun = true;
+          }
+        }
+      } catch (error) {
+        console.warn('Could not determine pay run type, defaulting to regular:', error);
+      }
+      
       let payslipsData: PayslipData[];
       
       try {
-        // Try to get real data from the database
-        payslipsData = await PayslipGenerator.generateAllPayslipsData(payRunId);
-        console.log('Generated payslips data from database:', payslipsData.length, 'payslips');
+        console.log('🔍 Generating payslips for pay run:', payRunId, 'isExpatriate:', isExpatriatePayRun);
+        
+        // Use appropriate method based on pay run type
+        if (isExpatriatePayRun) {
+          payslipsData = await PayslipGenerator.generateAllExpatriatePayslipsData(payRunId);
+          console.log('✅ Generated expatriate payslips data from database:', payslipsData.length, 'payslips for pay run', payRunId);
+        } else {
+          payslipsData = await PayslipGenerator.generateAllPayslipsData(payRunId);
+          console.log('✅ Generated payslips data from database:', payslipsData.length, 'payslips for pay run', payRunId);
+        }
+        
+        // Validate that payslips were generated
+        if (!payslipsData || payslipsData.length === 0) {
+          throw new Error(`No payslips could be generated for pay run ${payRunId}`);
+        }
+
+        // Filter by selected employees if provided
+        if (selectedEmployeeIds && selectedEmployeeIds.length > 0) {
+          console.log('🔍 Filtering payslips for selected employees:', selectedEmployeeIds);
+          const originalCount = payslipsData.length;
+          
+          // Create a set of employee codes from selected IDs (first 8 chars uppercase)
+          const selectedEmployeeCodes = new Set(
+            selectedEmployeeIds.map(id => id.substring(0, 8).toUpperCase())
+          );
+          
+          payslipsData = payslipsData.filter(p => {
+            // Match by employee code (derived from first 8 chars of employee ID)
+            const employeeCode = p.employee?.code;
+            return employeeCode && selectedEmployeeCodes.has(employeeCode);
+          });
+          console.log(`✅ Filtered from ${originalCount} to ${payslipsData.length} payslips`);
+          
+          if (payslipsData.length === 0) {
+            throw new Error('No payslips found for the selected employees');
+          }
+        }
       } catch (dbError) {
-        console.warn('Database query failed, using sample data for testing:', dbError);
-        // Fallback to sample data for testing
-        payslipsData = [PayslipGenerator.generateSamplePayslipData()];
-        console.log('Using sample data:', payslipsData.length, 'payslips');
+        console.error('❌ Database query failed for pay run', payRunId, ':', dbError);
+        // Don't silently fall back to sample data - throw the error instead
+        throw new Error(`Failed to generate payslips for pay run ${payRunId}: ${dbError instanceof Error ? dbError.message : String(dbError)}`);
       }
       
       if (formatType === "individual") {
@@ -665,7 +731,7 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
             Generate Employee Payslips
           </DialogTitle>
           <DialogDescription>
-            Create professional payslips for {employeeCount} employees
+            Create professional payslips for {selectedEmployeeIds && selectedEmployeeIds.length > 0 ? selectedEmployeeIds.length : employeeCount} employees
           </DialogDescription>
         </DialogHeader>
 
@@ -890,7 +956,11 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Employees:</span>
-                <span className="font-semibold">All {employeeCount} employees selected</span>
+                <span className="font-semibold">
+                  {selectedEmployeeIds && selectedEmployeeIds.length > 0 
+                    ? `${selectedEmployeeIds.length} employee${selectedEmployeeIds.length === 1 ? '' : 's'} selected`
+                    : `All ${employeeCount} employees selected`}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Design System:</span>
