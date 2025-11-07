@@ -1133,7 +1133,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
               Pay Run Date: {format(new Date(payRunDate), 'MMM dd, yyyy')} | 
               Pay Period: {format(new Date(payPeriod.start), 'MMM dd')} - {format(new Date(payPeriod.end), 'MMM dd, yyyy')}
               {payRunData?.category && payRunData?.sub_type && (
-                <> | Category: {payRunData.category} > {payRunData.sub_type}{payRunData.pay_frequency ? ` > ${payRunData.pay_frequency}` : ''}</>
+                <> | Category: {payRunData.category} {'>'} {payRunData.sub_type}{payRunData.pay_frequency ? ` > ${payRunData.pay_frequency}` : ''}</>
               )}
             </DialogDescription>
           </DialogHeader>
