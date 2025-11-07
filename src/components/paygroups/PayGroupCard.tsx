@@ -42,6 +42,14 @@ import { ViewAssignedEmployeesDialog } from './ViewAssignedEmployeesDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { getPayGroupTypeColor, getPayGroupTypeIconClass } from '@/lib/utils/paygroup-utils';
 import { usePaygroupRealtimeForGroup } from '@/hooks/usePaygroupRealtime';
+import { ExpatriatePayrollService } from '@/lib/services/expatriate-payroll';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { ExpatriatePayGroup } from '@/lib/types/expatriate-payroll';
+import { EXPATRIATE_CURRENCIES, SUPPORTED_TAX_COUNTRIES } from '@/lib/types/expatriate-payroll';
 
 interface PayGroupCardProps {
   group: PayGroup;
@@ -52,6 +60,9 @@ interface PayGroupCardProps {
 export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onAssignEmployee }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showViewEmployeesDialog, setShowViewEmployeesDialog] = useState(false);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [expatriateDetails, setExpatriateDetails] = useState<ExpatriatePayGroup | null>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [employeeCount, setEmployeeCount] = useState<number>(0);
   const [loadingCount, setLoadingCount] = useState<boolean>(false);
@@ -152,6 +163,47 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
     });
   };
 
+  // Load expatriate pay group details
+  const loadExpatriateDetails = async () => {
+    if (group.type !== 'expatriate') return;
+    
+    setLoadingDetails(true);
+    try {
+      const details = await ExpatriatePayrollService.getExpatriatePayGroup(group.id);
+      setExpatriateDetails(details);
+    } catch (error: any) {
+      console.error('Error loading expatriate details:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to load pay group details',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  // Handle view details (Eye icon) or Edit
+  const handleViewDetails = () => {
+    if (group.type === 'expatriate') {
+      setShowDetailsDialog(true);
+      loadExpatriateDetails();
+    } else {
+      // For non-expatriate groups, show employees dialog
+      setShowViewEmployeesDialog(true);
+    }
+  };
+
+  // Handle edit
+  const handleEdit = () => {
+    if (group.type === 'expatriate') {
+      setShowDetailsDialog(true);
+      loadExpatriateDetails();
+    }
+    // For other types, the Edit button in dropdown should trigger edit modal
+    // This is handled by parent component
+  };
+
   return (
     <>
       <motion.div
@@ -202,7 +254,7 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleEdit}>
                       <Edit className="h-4 w-4 mr-2" />
                       Edit
                     </DropdownMenuItem>
@@ -248,9 +300,9 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowViewEmployeesDialog(true)}
+                onClick={handleViewDetails}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                title="View Employees"
+                title={group.type === 'expatriate' ? 'View Pay Group Details' : 'View Employees'}
               >
                 <Eye className="h-5 w-5 text-gray-600" />
               </Button>
@@ -312,6 +364,246 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
           onUpdate();
         }}
       />
+
+      {/* Expatriate Pay Group Details Dialog */}
+      {group.type === 'expatriate' && (
+        <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Expatriate Pay Group Details</DialogTitle>
+              <DialogDescription>
+                View and edit expatriate pay group settings
+              </DialogDescription>
+            </DialogHeader>
+            {loadingDetails ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : expatriateDetails ? (
+              <ExpatriatePayGroupDetailsView
+                payGroup={expatriateDetails}
+                onClose={() => setShowDetailsDialog(false)}
+                onUpdate={() => {
+                  loadExpatriateDetails();
+                  onUpdate();
+                }}
+              />
+            ) : (
+              <div className="py-4 text-center text-muted-foreground">
+                Failed to load pay group details
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
     </>
+  );
+};
+
+// Expatriate Pay Group Details View Component
+const ExpatriatePayGroupDetailsView: React.FC<{
+  payGroup: ExpatriatePayGroup;
+  onClose: () => void;
+  onUpdate: () => void;
+}> = ({ payGroup, onClose, onUpdate }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({
+    name: payGroup.name,
+    country: payGroup.country,
+    currency: payGroup.currency,
+    exchange_rate_to_local: payGroup.exchange_rate_to_local,
+    tax_country: payGroup.tax_country,
+    notes: payGroup.notes || ''
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
+
+  // Update formData when payGroup changes
+  useEffect(() => {
+    if (!isEditing) {
+      setFormData({
+        name: payGroup.name,
+        country: payGroup.country,
+        currency: payGroup.currency,
+        exchange_rate_to_local: payGroup.exchange_rate_to_local,
+        tax_country: payGroup.tax_country,
+        notes: payGroup.notes || ''
+      });
+    }
+  }, [payGroup, isEditing]);
+
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+      await ExpatriatePayrollService.updateExpatriatePayGroup(payGroup.id, formData);
+      toast({
+        title: 'Success',
+        description: 'Pay group updated successfully'
+      });
+      setIsEditing(false);
+      onUpdate();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update pay group',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4 py-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Pay Group Name</Label>
+          {isEditing ? (
+            <Input
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            />
+          ) : (
+            <p className="font-medium text-sm mt-1">{payGroup.name}</p>
+          )}
+        </div>
+        <div>
+          <Label>Country</Label>
+          {isEditing ? (
+            <Input
+              value={formData.country}
+              onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+            />
+          ) : (
+            <p className="font-medium text-sm mt-1">{payGroup.country}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Currency</Label>
+          {isEditing ? (
+            <Select
+              value={formData.currency}
+              onValueChange={(value) => setFormData({ ...formData, currency: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {EXPATRIATE_CURRENCIES.map((currency) => (
+                  <SelectItem key={currency.code} value={currency.code}>
+                    {currency.symbol} {currency.code} - {currency.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <p className="font-medium text-sm mt-1">
+              {ExpatriatePayrollService.getCurrencySymbol(payGroup.currency)} {payGroup.currency}
+            </p>
+          )}
+        </div>
+        <div>
+          <Label>Exchange Rate to Local</Label>
+          {isEditing ? (
+            <Input
+              type="number"
+              step="0.0001"
+              value={formData.exchange_rate_to_local}
+              onChange={(e) => setFormData({ ...formData, exchange_rate_to_local: parseFloat(e.target.value) || 0 })}
+            />
+          ) : (
+            <p className="font-medium text-sm mt-1">
+              1 {payGroup.currency} = {payGroup.exchange_rate_to_local.toLocaleString()} UGX
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Tax Country</Label>
+          {isEditing ? (
+            <Select
+              value={formData.tax_country}
+              onValueChange={(value) => setFormData({ ...formData, tax_country: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SUPPORTED_TAX_COUNTRIES.map((country) => (
+                  <SelectItem key={country.code} value={country.code}>
+                    {country.name} ({country.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <p className="font-medium text-sm mt-1">{payGroup.tax_country}</p>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <Label>Notes</Label>
+        {isEditing ? (
+          <Textarea
+            value={formData.notes}
+            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+            rows={3}
+          />
+        ) : (
+          <p className="font-medium text-sm mt-1">{payGroup.notes || 'No notes'}</p>
+        )}
+      </div>
+
+      <DialogFooter>
+        <div className="flex justify-between items-center w-full">
+          <div className="text-sm text-muted-foreground">
+            Created: {new Date(payGroup.created_at).toLocaleDateString()}
+            {payGroup.updated_at !== payGroup.created_at && (
+              <span className="ml-2">
+                • Updated: {new Date(payGroup.updated_at).toLocaleDateString()}
+              </span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            {isEditing ? (
+              <>
+                <Button variant="outline" onClick={() => {
+                  setIsEditing(false);
+                  setFormData({
+                    name: payGroup.name,
+                    country: payGroup.country,
+                    currency: payGroup.currency,
+                    exchange_rate_to_local: payGroup.exchange_rate_to_local,
+                    tax_country: payGroup.tax_country,
+                    notes: payGroup.notes || ''
+                  });
+                }} disabled={isSaving}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSave} disabled={isSaving}>
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={onClose}>
+                  Close
+                </Button>
+                <Button onClick={() => setIsEditing(true)}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </DialogFooter>
+    </div>
   );
 };

@@ -1,18 +1,15 @@
 import fs from 'fs';
 
 /**
- * Environment Manager for Production Repository
- * Always uses production environment configuration
- * 
- * This repository is dedicated to production environment only
+ * Environment Manager
+ * Prefer environment-specific files in development; keep production on .env.production
  */
 
 function copyEnvironmentFile(sourceFile, targetFile) {
   try {
     if (!fs.existsSync(sourceFile)) {
       console.error(`❌ Environment file not found: ${sourceFile}`);
-      console.log('💡 Please create the production environment file:');
-      console.log('   - .env.production (for production environment)');
+      console.log('💡 Create one of: .env.staging, .env.development, or .env.production');
       process.exit(1);
     }
 
@@ -25,16 +22,26 @@ function copyEnvironmentFile(sourceFile, targetFile) {
 }
 
 function main() {
-  const sourceEnv = '.env.production';
+  const isDev = process.env.NODE_ENV !== 'production';
+
+  // Resolve source env file: prefer staging in dev, then development, fallback to production
+  let sourceEnv = '.env.production';
+  if (isDev) {
+    if (fs.existsSync('.env.staging')) {
+      sourceEnv = '.env.staging';
+    } else if (fs.existsSync('.env.development')) {
+      sourceEnv = '.env.development';
+    }
+  }
+
   const activeEnv = '.env.next';
   
-  console.log(`🔁 Production Environment Manager`);
+  console.log(`🔁 Environment Manager (${isDev ? 'dev' : 'prod'})`);
+  console.log(`🔗 Using configuration from ${sourceEnv}`);
   
   if (copyEnvironmentFile(sourceEnv, activeEnv)) {
-    console.log(`✅ Environment set for production`);
-    console.log(`🔗 Using configuration from ${sourceEnv}`);
-    
-    // Display environment info
+    console.log(`✅ Environment set from ${sourceEnv}`);
+    // Display key env lines
     try {
       const envContent = fs.readFileSync(activeEnv, 'utf8');
       const envLines = envContent.split('\n').filter(line => 
@@ -42,18 +49,15 @@ function main() {
         line.includes('VITE_SUPABASE_URL') ||
         line.includes('NEXT_PUBLIC_ENVIRONMENT')
       );
-      
       if (envLines.length > 0) {
-        console.log('📋 Production Environment Configuration:');
+        console.log('📋 Active Environment Configuration:');
         envLines.forEach(line => {
           if (line.trim() && !line.startsWith('#')) {
             console.log(`   ${line}`);
           }
         });
       }
-    } catch (error) {
-      // Ignore errors reading env file for display
-    }
+    } catch {}
   } else {
     process.exit(1);
   }

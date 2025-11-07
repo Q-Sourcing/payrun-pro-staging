@@ -3,10 +3,12 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { log, warn, error as logError, debug } from '@/lib/logger';
+import { JWTClaimsService, UserContext } from '@/lib/services/auth/jwt-claims';
+import { UserProfileService, UserProfile } from '@/lib/services/auth/user-profiles';
 
-export type UserRole = 'super_admin' | 'admin' | 'manager' | 'employee';
+export type UserRole = 'super_admin' | 'org_admin' | 'user';
 
-export interface UserProfile {
+export interface LegacyUserProfile {
   id: string;
   email: string;
   first_name: string | null;
@@ -23,6 +25,11 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
+  // New JWT claims integration
+  userContext: UserContext | null;
+  claims: any;
+  isTokenExpired: boolean;
+  timeUntilExpiration: number | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,45 +43,21 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [userContext, setUserContext] = useState<UserContext | null>(null);
+  const [claims, setClaims] = useState<any>(null);
 
-  // Fetch user profile and roles
+  // Fetch user profile and roles using new system
   const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
     try {
       debug('Fetching user profile for:', userId);
       
-      // Fetch profile
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (profileError) {
-        logError('Profile fetch error:', profileError);
-        return null;
-      }
-
-      // Fetch roles
-      const { data: rolesData, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId);
-
-      if (rolesError) {
-        logError('Roles fetch error:', rolesError);
-      }
-
-      const roles = rolesData?.map(r => r.role as UserRole) || [];
-
-      const userProfile: UserProfile = {
-        id: profileData.id,
-        email: profileData.email,
-        first_name: profileData.first_name,
-        last_name: profileData.last_name,
-        roles,
-      };
-
+      // Use the new UserProfileService
+      const userProfile = await UserProfileService.getCurrentProfile();
+      
+      if (userProfile) {
       log('User profile loaded:', userProfile);
+      }
+      
       return userProfile;
     } catch (err) {
       logError('Error fetching user profile:', err);
@@ -123,6 +106,12 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          // Update JWT claims and user context
+          const jwtClaims = JWTClaimsService.getCurrentClaims();
+          const userContext = JWTClaimsService.getCurrentUserContext();
+          setClaims(jwtClaims);
+          setUserContext(userContext);
+          
           // Defer profile fetching to avoid blocking auth state change
           setTimeout(async () => {
             const userProfile = await fetchUserProfile(session.user.id);
@@ -130,6 +119,8 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
           }, 0);
         } else {
           setProfile(null);
+          setClaims(null);
+          setUserContext(null);
         }
         
         setIsLoading(false);
@@ -144,7 +135,16 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
       setUser(session?.user ?? null);
       
       if (session?.user) {
+        // Update JWT claims and user context
+        const jwtClaims = JWTClaimsService.getCurrentClaims();
+        const userContext = JWTClaimsService.getCurrentUserContext();
+        setClaims(jwtClaims);
+        setUserContext(userContext);
+        
         fetchUserProfile(session.user.id).then(setProfile);
+      } else {
+        setClaims(null);
+        setUserContext(null);
       }
       
       setIsLoading(false);
@@ -255,6 +255,11 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
     login,
     logout,
     refreshSession,
+    // New JWT claims integration
+    userContext,
+    claims,
+    isTokenExpired: JWTClaimsService.isTokenExpired(),
+    timeUntilExpiration: JWTClaimsService.getTimeUntilExpiration(),
   };
 
   return (

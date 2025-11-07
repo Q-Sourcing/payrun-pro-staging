@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Search, Filter, Users, Globe2, Briefcase, GraduationCap, Grid3X3, List } from 'lucide-react';
+import { Plus, Search, Filter, Users, Globe2, Briefcase, GraduationCap, Grid3X3, List, ChevronRight, ChevronDown, Building2, FolderTree } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PayGroupsService } from '@/lib/services/paygroups.service';
@@ -16,12 +15,17 @@ import {
   PayGroupType, 
   PAYGROUP_TYPES,
   getCurrencySymbol,
-  formatCurrency 
+  formatCurrency,
+  PayGroupCategory,
+  HeadOfficeSubType,
+  ProjectsSubType,
+  ManpowerFrequency
 } from '@/lib/types/paygroups';
 import { PayGroupCard } from '@/components/paygroups/PayGroupCard';
 import { PayGroupsListView } from '@/components/paygroups/PayGroupsListView';
 import { CreatePayGroupModal } from '@/components/paygroups/CreatePayGroupModal';
 import { AssignEmployeeModal } from '@/components/paygroups/AssignEmployeeModal';
+import { cn } from '@/lib/utils';
 
 export const PayGroupsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -38,6 +42,17 @@ export const PayGroupsPage: React.FC = () => {
     const saved = localStorage.getItem('paygroups-view-mode');
     return (saved as 'cards' | 'list') || 'cards';
   });
+  
+  // Hierarchical expansion state
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
+    head_office: true,
+    projects: true
+  });
+  const [expandedSubTypes, setExpandedSubTypes] = useState<Record<string, boolean>>({
+    'projects.manpower': true,
+    'projects.ippms': true
+  });
+  
   const { toast } = useToast();
 
   // Load pay groups and summary
@@ -82,22 +97,45 @@ export const PayGroupsPage: React.FC = () => {
     localStorage.setItem('paygroups-view-mode', viewMode);
   }, [viewMode]);
 
-  // Filter pay groups based on search and type
+  // Filter pay groups based on search
   const filteredPayGroups = payGroups.filter(group => {
     const matchesSearch = group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          group.country.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = selectedType === 'all' || group.type === selectedType;
-    return matchesSearch && matchesType;
+    return matchesSearch;
   });
 
-  // Group pay groups by type for display
+  // Group pay groups hierarchically
   const groupedPayGroups = filteredPayGroups.reduce((acc, group) => {
-    if (!acc[group.type]) {
-      acc[group.type] = [];
+    const category = group.category || 'head_office';
+    const subType = group.sub_type || 'regular';
+    
+    if (!acc[category]) {
+      acc[category] = {};
     }
-    acc[group.type].push(group);
+    
+    if (category === 'projects' && subType === 'manpower') {
+      const freq = group.pay_frequency || 'monthly';
+      if (!acc[category][subType]) {
+        acc[category][subType] = { daily: [], bi_weekly: [], monthly: [] };
+      }
+      acc[category][subType][freq as ManpowerFrequency].push(group);
+    } else {
+      if (!acc[category][subType]) {
+        acc[category][subType] = [];
+      }
+      acc[category][subType].push(group);
+    }
+    
     return acc;
-  }, {} as Record<PayGroupType, PayGroup[]>);
+  }, {} as Record<PayGroupCategory, Record<string, PayGroup[] | { daily: PayGroup[]; bi_weekly: PayGroup[]; monthly: PayGroup[] }>>);
+
+  const toggleCategory = (category: PayGroupCategory) => {
+    setExpandedCategories(prev => ({ ...prev, [category]: !prev[category] }));
+  };
+
+  const toggleSubType = (key: string) => {
+    setExpandedSubTypes(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   // Handle create pay group success
   const handleCreateSuccess = () => {
@@ -133,15 +171,24 @@ export const PayGroupsPage: React.FC = () => {
     });
   };
 
-  // Get icon for pay group type
-  const getTypeIcon = (type: PayGroupType) => {
-    switch (type) {
-      case 'regular': return <Users className="h-4 w-4" />;
-      case 'expatriate': return <Globe2 className="h-4 w-4" />;
-      case 'contractor': return <Briefcase className="h-4 w-4" />;
-      case 'intern': return <GraduationCap className="h-4 w-4" />;
-      default: return <Users className="h-4 w-4" />;
-    }
+  // Get icon for category/sub_type
+  const getCategoryIcon = (category: PayGroupCategory) => {
+    return category === 'head_office' ? <Building2 className="h-4 w-4" /> : <FolderTree className="h-4 w-4" />;
+  };
+
+  const getSubTypeLabel = (subType: string): string => {
+    const labels: Record<string, string> = {
+      'regular': 'Regular',
+      'expatriate': 'Expatriate',
+      'interns': 'Interns',
+      'manpower': 'Manpower',
+      'ippms': 'IPPMS',
+      'daily': 'Daily',
+      'bi_weekly': 'Bi-weekly',
+      'monthly': 'Monthly',
+      'piece_rate': 'Piece Rate'
+    };
+    return labels[subType] || subType;
   };
 
   if (loading) {
@@ -248,224 +295,398 @@ export const PayGroupsPage: React.FC = () => {
                 className="pl-10"
               />
             </div>
-            <Select value={selectedType} onValueChange={(value: PayGroupType | 'all') => {
-              setSelectedType(value);
-              // Update URL parameters
-              if (value === 'all') {
-                setSearchParams({});
-              } else {
-                setSearchParams({ type: value });
-              }
-            }}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Filter by type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                {Object.values(PAYGROUP_TYPES).map(type => (
-                  <SelectItem key={type.id} value={type.id}>
-                    <div className="flex items-center gap-2">
-                      <span>{type.icon}</span>
-                      <span>{type.name}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* View Toggle */}
+            <div className="flex items-center bg-gray-100 rounded-lg p-1">
+              <span className="text-xs text-gray-500 mr-2">View as:</span>
+              <Button
+                variant={viewMode === 'cards' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('cards')}
+                className="h-7 px-2 text-xs"
+              >
+                <Grid3X3 className="h-3 w-3 mr-1" />
+                Cards
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className="h-7 px-2 text-xs"
+              >
+                <List className="h-3 w-3 mr-1" />
+                List
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Pay Groups Display */}
-      {selectedType === 'all' ? (
-        // Show all types in tabs
-        <Tabs defaultValue={Object.keys(PAYGROUP_TYPES)[0]} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            {Object.values(PAYGROUP_TYPES).map(type => (
-              <TabsTrigger key={type.id} value={type.id} className="flex items-center gap-2">
-                {getTypeIcon(type.id)}
-                <span className="hidden sm:inline">{type.name.split(' ')[0]}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          {Object.values(PAYGROUP_TYPES).map(type => (
-            <TabsContent key={type.id} value={type.id} className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    {getTypeIcon(type.id)}
-                    {type.name}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">{type.description}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Badge variant="secondary">
-                    {groupedPayGroups[type.id]?.length || 0} groups
-                  </Badge>
-                  {/* View Toggle */}
-                  <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                    <span className="text-xs text-gray-500 mr-2">View as:</span>
-                    <Button
-                      variant={viewMode === 'cards' ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setViewMode('cards')}
-                      className="h-7 px-2 text-xs"
-                    >
-                      <Grid3X3 className="h-3 w-3 mr-1" />
-                      Cards
-                    </Button>
-                    <Button
-                      variant={viewMode === 'list' ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setViewMode('list')}
-                      className="h-7 px-2 text-xs"
-                    >
-                      <List className="h-3 w-3 mr-1" />
-                      List
-                    </Button>
-                  </div>
-                </div>
+      {/* Hierarchical Pay Groups Display */}
+      <div className="space-y-4">
+        {/* Head Office Category */}
+        <Card>
+          <CardHeader>
+            <button
+              onClick={() => toggleCategory('head_office')}
+              className="flex items-center justify-between w-full text-left"
+            >
+              <div className="flex items-center gap-2">
+                {expandedCategories.head_office ? (
+                  <ChevronDown className="h-5 w-5" />
+                ) : (
+                  <ChevronRight className="h-5 w-5" />
+                )}
+                {getCategoryIcon('head_office')}
+                <CardTitle>Head Office</CardTitle>
+                <Badge variant="secondary">
+                  {(groupedPayGroups.head_office?.regular?.length || 0) +
+                   (Array.isArray(groupedPayGroups.head_office?.expatriate) ? groupedPayGroups.head_office.expatriate.length : 0) +
+                   (Array.isArray(groupedPayGroups.head_office?.interns) ? groupedPayGroups.head_office.interns.length : 0)} groups
+                </Badge>
               </div>
-
-              <AnimatePresence>
-                {groupedPayGroups[type.id]?.length > 0 ? (
-                  viewMode === 'cards' ? (
-                    <motion.div 
-                      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                    >
-                      {groupedPayGroups[type.id].map((group, index) => (
-                        <motion.div
-                          key={group.id}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.1 }}
-                        >
+            </button>
+          </CardHeader>
+          <AnimatePresence>
+            {expandedCategories.head_office && (
+              <CardContent className="space-y-4">
+                {/* Regular */}
+                {Array.isArray(groupedPayGroups.head_office?.regular) && groupedPayGroups.head_office.regular.length > 0 && (
+                  <div className="ml-6 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-blue-500" />
+                      <h4 className="font-semibold">Regular</h4>
+                      <Badge variant="outline">{groupedPayGroups.head_office.regular.length}</Badge>
+                    </div>
+                    {viewMode === 'cards' ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ml-6">
+                        {groupedPayGroups.head_office.regular.map((group) => (
                           <PayGroupCard 
+                            key={group.id}
                             group={group} 
                             onUpdate={loadPayGroups}
                             onAssignEmployee={handleOpenAssignModal}
                           />
-                        </motion.div>
-                      ))}
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                    >
+                        ))}
+                      </div>
+                    ) : (
                       <PayGroupsListView
-                        payGroups={groupedPayGroups[type.id]}
+                        payGroups={groupedPayGroups.head_office.regular}
                         onUpdate={loadPayGroups}
                         onAssignEmployee={handleOpenAssignModal}
                       />
-                    </motion.div>
-                  )
-                ) : (
-                  <motion.div 
-                    className="flex flex-col items-center justify-center py-16 text-center"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                  >
-                    <div className="mb-4">
-                      {getTypeIcon(type.id)}
-                    </div>
-                    <h3 className="text-lg font-medium mb-2">No {type.name.toLowerCase()} found</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      {type.description}
-                    </p>
-                    <Button 
-                      onClick={() => handleOpenCreateModal(type.id)}
-                      variant="default"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create {type.name.split(' ')[0]} Pay Group
-                    </Button>
-                  </motion.div>
+                    )}
+                  </div>
                 )}
-              </AnimatePresence>
-            </TabsContent>
-          ))}
-        </Tabs>
-      ) : (
-        // Show filtered results
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                {getTypeIcon(selectedType)}
-                {PAYGROUP_TYPES[selectedType].name}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {filteredPayGroups.length} pay groups found
-              </p>
-            </div>
-          </div>
 
-          <AnimatePresence>
-            {filteredPayGroups.length > 0 ? (
-              viewMode === 'cards' ? (
-                <motion.div 
-                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  {filteredPayGroups.map((group, index) => (
-                    <motion.div
-                      key={group.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                    >
-                      <PayGroupCard 
-                        group={group} 
+                {/* Expatriate */}
+                {Array.isArray(groupedPayGroups.head_office?.expatriate) && groupedPayGroups.head_office.expatriate.length > 0 && (
+                  <div className="ml-6 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Globe2 className="h-4 w-4 text-emerald-500" />
+                      <h4 className="font-semibold">Expatriate</h4>
+                      <Badge variant="outline">{groupedPayGroups.head_office.expatriate.length}</Badge>
+                    </div>
+                    {viewMode === 'cards' ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ml-6">
+                        {groupedPayGroups.head_office.expatriate.map((group) => (
+                          <PayGroupCard 
+                            key={group.id}
+                            group={group} 
+                            onUpdate={loadPayGroups}
+                            onAssignEmployee={handleOpenAssignModal}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <PayGroupsListView
+                        payGroups={groupedPayGroups.head_office.expatriate}
                         onUpdate={loadPayGroups}
                         onAssignEmployee={handleOpenAssignModal}
                       />
-                    </motion.div>
-                  ))}
-                </motion.div>
-              ) : (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  <PayGroupsListView
-                    payGroups={filteredPayGroups}
-                    onUpdate={loadPayGroups}
-                    onAssignEmployee={handleOpenAssignModal}
-                  />
-                </motion.div>
-              )
-            ) : (
-              <motion.div 
-                className="text-center py-12"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-              >
-                <div className="text-4xl mb-4">🔍</div>
-                <h3 className="text-lg font-medium mb-2">No pay groups found</h3>
-                <p className="text-muted-foreground mb-4">
-                  Try adjusting your search criteria or create a new pay group.
-                </p>
-                <Button 
-                  onClick={() => handleOpenCreateModal()}
-                  variant="outline"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Pay Group
-                </Button>
-              </motion.div>
+                    )}
+                  </div>
+                )}
+
+                {/* Interns */}
+                {Array.isArray(groupedPayGroups.head_office?.interns) && groupedPayGroups.head_office.interns.length > 0 && (
+                  <div className="ml-6 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <GraduationCap className="h-4 w-4 text-purple-500" />
+                      <h4 className="font-semibold">Interns</h4>
+                      <Badge variant="outline">{groupedPayGroups.head_office.interns.length}</Badge>
+                    </div>
+                    {viewMode === 'cards' ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ml-6">
+                        {groupedPayGroups.head_office.interns.map((group) => (
+                          <PayGroupCard 
+                            key={group.id}
+                            group={group} 
+                            onUpdate={loadPayGroups}
+                            onAssignEmployee={handleOpenAssignModal}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <PayGroupsListView
+                        payGroups={groupedPayGroups.head_office.interns}
+                        onUpdate={loadPayGroups}
+                        onAssignEmployee={handleOpenAssignModal}
+                      />
+                    )}
+                  </div>
+                )}
+              </CardContent>
             )}
           </AnimatePresence>
-        </div>
-      )}
+        </Card>
+
+        {/* Projects Category */}
+        <Card>
+          <CardHeader>
+            <button
+              onClick={() => toggleCategory('projects')}
+              className="flex items-center justify-between w-full text-left"
+            >
+              <div className="flex items-center gap-2">
+                {expandedCategories.projects ? (
+                  <ChevronDown className="h-5 w-5" />
+                ) : (
+                  <ChevronRight className="h-5 w-5" />
+                )}
+                {getCategoryIcon('projects')}
+                <CardTitle>Projects</CardTitle>
+                <Badge variant="secondary">
+                  {(groupedPayGroups.projects?.manpower && typeof groupedPayGroups.projects.manpower === 'object' 
+                    ? (groupedPayGroups.projects.manpower.daily.length + groupedPayGroups.projects.manpower.bi_weekly.length + groupedPayGroups.projects.manpower.monthly.length)
+                    : 0) +
+                   (Array.isArray(groupedPayGroups.projects?.ippms) ? groupedPayGroups.projects.ippms.length : 0) +
+                   (Array.isArray(groupedPayGroups.projects?.expatriate) ? groupedPayGroups.projects.expatriate.length : 0)} groups
+                </Badge>
+              </div>
+            </button>
+          </CardHeader>
+          <AnimatePresence>
+            {expandedCategories.projects && (
+              <CardContent className="space-y-4">
+                {/* Manpower */}
+                {groupedPayGroups.projects?.manpower && typeof groupedPayGroups.projects.manpower === 'object' && (
+                  <div className="ml-6 space-y-3">
+                    <button
+                      onClick={() => toggleSubType('projects.manpower')}
+                      className="flex items-center gap-2 w-full text-left"
+                    >
+                      {expandedSubTypes['projects.manpower'] ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                      <Briefcase className="h-4 w-4 text-orange-500" />
+                      <h4 className="font-semibold">Manpower</h4>
+                      <Badge variant="outline">
+                        {groupedPayGroups.projects.manpower.daily.length + 
+                         groupedPayGroups.projects.manpower.bi_weekly.length + 
+                         groupedPayGroups.projects.manpower.monthly.length}
+                      </Badge>
+                    </button>
+                    <AnimatePresence>
+                      {expandedSubTypes['projects.manpower'] && (
+                        <div className="ml-6 space-y-4">
+                          {/* Daily */}
+                          {groupedPayGroups.projects.manpower.daily.length > 0 && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">Daily</span>
+                                <Badge variant="outline" className="text-xs">
+                                  {groupedPayGroups.projects.manpower.daily.length}
+                                </Badge>
+                              </div>
+                              {viewMode === 'cards' ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ml-4">
+                                  {groupedPayGroups.projects.manpower.daily.map((group) => (
+                                    <PayGroupCard 
+                                      key={group.id}
+                                      group={group} 
+                                      onUpdate={loadPayGroups}
+                                      onAssignEmployee={handleOpenAssignModal}
+                                    />
+                                  ))}
+                                </div>
+                              ) : (
+                                <PayGroupsListView
+                                  payGroups={groupedPayGroups.projects.manpower.daily}
+                                  onUpdate={loadPayGroups}
+                                  onAssignEmployee={handleOpenAssignModal}
+                                />
+                              )}
+                            </div>
+                          )}
+
+                          {/* Bi-weekly */}
+                          {groupedPayGroups.projects.manpower.bi_weekly.length > 0 && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">Bi-weekly</span>
+                                <Badge variant="outline" className="text-xs">
+                                  {groupedPayGroups.projects.manpower.bi_weekly.length}
+                                </Badge>
+                              </div>
+                              {viewMode === 'cards' ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ml-4">
+                                  {groupedPayGroups.projects.manpower.bi_weekly.map((group) => (
+                                    <PayGroupCard 
+                                      key={group.id}
+                                      group={group} 
+                                      onUpdate={loadPayGroups}
+                                      onAssignEmployee={handleOpenAssignModal}
+                                    />
+                                  ))}
+                                </div>
+                              ) : (
+                                <PayGroupsListView
+                                  payGroups={groupedPayGroups.projects.manpower.bi_weekly}
+                                  onUpdate={loadPayGroups}
+                                  onAssignEmployee={handleOpenAssignModal}
+                                />
+                              )}
+                            </div>
+                          )}
+
+                          {/* Monthly */}
+                          {groupedPayGroups.projects.manpower.monthly.length > 0 && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">Monthly</span>
+                                <Badge variant="outline" className="text-xs">
+                                  {groupedPayGroups.projects.manpower.monthly.length}
+                                </Badge>
+                              </div>
+                              {viewMode === 'cards' ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ml-4">
+                                  {groupedPayGroups.projects.manpower.monthly.map((group) => (
+                                    <PayGroupCard 
+                                      key={group.id}
+                                      group={group} 
+                                      onUpdate={loadPayGroups}
+                                      onAssignEmployee={handleOpenAssignModal}
+                                    />
+                                  ))}
+                                </div>
+                              ) : (
+                                <PayGroupsListView
+                                  payGroups={groupedPayGroups.projects.manpower.monthly}
+                                  onUpdate={loadPayGroups}
+                                  onAssignEmployee={handleOpenAssignModal}
+                                />
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
+
+                {/* IPPMS */}
+                {Array.isArray(groupedPayGroups.projects?.ippms) && groupedPayGroups.projects.ippms.length > 0 && (
+                  <div className="ml-6 space-y-3">
+                    <button
+                      onClick={() => toggleSubType('projects.ippms')}
+                      className="flex items-center gap-2 w-full text-left"
+                    >
+                      {expandedSubTypes['projects.ippms'] ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                      <Briefcase className="h-4 w-4 text-green-500" />
+                      <h4 className="font-semibold">IPPMS</h4>
+                      <Badge variant="outline">{groupedPayGroups.projects.ippms.length}</Badge>
+                    </button>
+                    <AnimatePresence>
+                      {expandedSubTypes['projects.ippms'] && (
+                        <div className="ml-6 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">Piece Rate</span>
+                          </div>
+                          {viewMode === 'cards' ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ml-4">
+                              {groupedPayGroups.projects.ippms.map((group) => (
+                                <PayGroupCard 
+                                  key={group.id}
+                                  group={group} 
+                                  onUpdate={loadPayGroups}
+                                  onAssignEmployee={handleOpenAssignModal}
+                                />
+                              ))}
+                            </div>
+                          ) : (
+                            <PayGroupsListView
+                              payGroups={groupedPayGroups.projects.ippms}
+                              onUpdate={loadPayGroups}
+                              onAssignEmployee={handleOpenAssignModal}
+                            />
+                          )}
+                        </div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
+
+                {/* Projects Expatriate */}
+                {Array.isArray(groupedPayGroups.projects?.expatriate) && groupedPayGroups.projects.expatriate.length > 0 && (
+                  <div className="ml-6 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Globe2 className="h-4 w-4 text-emerald-500" />
+                      <h4 className="font-semibold">Expatriate</h4>
+                      <Badge variant="outline">{groupedPayGroups.projects.expatriate.length}</Badge>
+                    </div>
+                    {viewMode === 'cards' ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ml-6">
+                        {groupedPayGroups.projects.expatriate.map((group) => (
+                          <PayGroupCard 
+                            key={group.id}
+                            group={group} 
+                            onUpdate={loadPayGroups}
+                            onAssignEmployee={handleOpenAssignModal}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <PayGroupsListView
+                        payGroups={groupedPayGroups.projects.expatriate}
+                        onUpdate={loadPayGroups}
+                        onAssignEmployee={handleOpenAssignModal}
+                      />
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            )}
+          </AnimatePresence>
+        </Card>
+
+        {/* Empty State */}
+        {filteredPayGroups.length === 0 && (
+          <motion.div 
+            className="text-center py-12"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <div className="text-4xl mb-4">🔍</div>
+            <h3 className="text-lg font-medium mb-2">No pay groups found</h3>
+            <p className="text-muted-foreground mb-4">
+              Try adjusting your search criteria or create a new pay group.
+            </p>
+            <Button 
+              onClick={() => handleOpenCreateModal()}
+              variant="outline"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Create Pay Group
+            </Button>
+          </motion.div>
+        )}
+      </div>
 
       {/* Create Pay Group Modal */}
       <CreatePayGroupModal

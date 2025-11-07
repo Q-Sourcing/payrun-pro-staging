@@ -56,10 +56,12 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
   const [templateConfig, setTemplateConfig] = useState<PayslipTemplateConfig | null>(null);
   const [generating, setGenerating] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
+  const [isExpatriatePayRun, setIsExpatriatePayRun] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     if (open) {
+      checkPayRunType();
       fetchEmployees();
       loadTemplateConfig();
       
@@ -70,7 +72,9 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
         setTimeout(async () => {
           try {
             setGenerating(true);
-            const data = await PayslipGenerator.generatePayslipData(payRunId, initialEmployeeId);
+            const data = isExpatriatePayRun
+              ? await PayslipGenerator.generateExpatriatePayslipData(payRunId, initialEmployeeId)
+              : await PayslipGenerator.generatePayslipData(payRunId, initialEmployeeId);
             setPayslipData(data);
           } catch (error) {
             console.error('Error generating payslip data:', error);
@@ -85,7 +89,7 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
         }, 500);
       }
     }
-  }, [open, payRunId, initialEmployeeId]);
+  }, [open, payRunId, initialEmployeeId, isExpatriatePayRun]);
 
   useEffect(() => {
     loadTemplateConfig();
@@ -93,10 +97,13 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
 
   const fetchEmployees = async () => {
     try {
-      const { data: payRunData, error } = await supabase
-        .from('pay_runs')
-        .select(`
-          pay_items(
+      let employeeList: Employee[] = [];
+      
+      if (isExpatriatePayRun) {
+        // Fetch employees from expatriate pay run items
+        const { data: expatItems, error: expatError } = await supabase
+          .from('expatriate_pay_run_items')
+          .select(`
             *,
             employees(
               id,
@@ -106,25 +113,58 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
               email,
               department
             )
-          )
-        `)
-        .eq('id', payRunId)
-        .single();
+          `)
+          .eq('pay_run_id', payRunId);
 
-      if (error) throw error;
+        if (expatError) throw expatError;
 
-      const employeeList = payRunData.pay_items.map((item: any) => ({
-        id: item.employee_id,
-        name: [
-          item.employees.first_name,
-          item.employees.middle_name,
-          item.employees.last_name
-        ].filter(Boolean).join(' '),
-        email: item.employees.email,
-        department: item.employees.department,
-        gross_pay: Number(item.gross_pay || 0),
-        net_pay: Number(item.net_pay || 0)
-      }));
+        employeeList = (expatItems || []).map((item: any) => ({
+          id: item.employee_id,
+          name: [
+            item.employees.first_name,
+            item.employees.middle_name,
+            item.employees.last_name
+          ].filter(Boolean).join(' '),
+          email: item.employees.email,
+          department: item.employees.department,
+          gross_pay: Number(item.gross_foreign || 0),
+          net_pay: Number(item.net_foreign || 0)
+        }));
+      } else {
+        // Fetch employees from regular pay items
+        const { data: payRunData, error } = await supabase
+          .from('pay_runs')
+          .select(`
+            pay_items(
+              *,
+              employees(
+                id,
+                first_name,
+                middle_name,
+                last_name,
+                email,
+                department
+              )
+            )
+          `)
+          .eq('id', payRunId)
+          .single();
+
+        if (error) throw error;
+
+        employeeList = (payRunData.pay_items || []).map((item: any) => ({
+          id: item.employee_id,
+          name: [
+            item.employees.first_name,
+            item.employees.middle_name,
+            item.employees.last_name
+          ].filter(Boolean).join(' '),
+          email: item.employees.email,
+          department: item.employees.department,
+          gross_pay: Number(item.gross_pay || 0),
+          net_pay: Number(item.net_pay || 0)
+        }));
+      }
 
       setEmployees(employeeList);
 
@@ -151,12 +191,46 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
     }
   };
 
+  const checkPayRunType = async () => {
+    try {
+      const { data: payRunData } = await supabase
+        .from('pay_runs')
+        .select('payroll_type, pay_group_master:pay_group_master_id(type)')
+        .eq('id', payRunId)
+        .single();
+      
+      const isExpat = payRunData?.payroll_type === 'expatriate' || 
+                     (payRunData?.pay_group_master as any)?.type === 'expatriate';
+      
+      // Also check if there are any expatriate pay run items
+      if (!isExpat) {
+        const { data: expatItems } = await supabase
+          .from('expatriate_pay_run_items')
+          .select('id')
+          .eq('pay_run_id', payRunId)
+          .limit(1);
+        
+        if (expatItems && expatItems.length > 0) {
+          setIsExpatriatePayRun(true);
+          return;
+        }
+      }
+      
+      setIsExpatriatePayRun(isExpat);
+    } catch (error) {
+      console.warn('Could not determine pay run type:', error);
+      setIsExpatriatePayRun(false);
+    }
+  };
+
   const generatePayslipData = async () => {
     if (!selectedEmployee) return;
 
     try {
       setGenerating(true);
-      const data = await PayslipGenerator.generatePayslipData(payRunId, selectedEmployee);
+      const data = isExpatriatePayRun
+        ? await PayslipGenerator.generateExpatriatePayslipData(payRunId, selectedEmployee)
+        : await PayslipGenerator.generatePayslipData(payRunId, selectedEmployee);
       setPayslipData(data);
     } catch (error) {
       console.error('Error generating payslip data:', error);

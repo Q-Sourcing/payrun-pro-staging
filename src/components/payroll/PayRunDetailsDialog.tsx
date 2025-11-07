@@ -31,6 +31,7 @@ import { IndividualPayslipDialog } from "./IndividualPayslipDialog";
 import LstDeductionsDialog, { LstDialogEmployee } from "./LstDeductionsDialog";
 import BankScheduleExportDialog from "./BankScheduleExportDialog";
 import { ExpatriatePayRunDetails } from "./ExpatriatePayRunDetails";
+import { ExpatriatePayrollService } from '@/lib/services/expatriate-payroll';
 
 interface CustomDeduction {
   id?: string;
@@ -110,6 +111,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
   const [selectedEmployeeForPayslip, setSelectedEmployeeForPayslip] = useState<{id: string, name: string} | null>(null);
   const [isExpatriatePayRun, setIsExpatriatePayRun] = useState(false);
   const [expatriatePayGroup, setExpatriatePayGroup] = useState<any>(null);
+  const [assignedExpatEmployees, setAssignedExpatEmployees] = useState<any[]>([]);
+  const [payRunData, setPayRunData] = useState<any>(null);
   const { toast } = useToast();
   const { canExportBankSchedule } = useBankSchedulePermissions();
 
@@ -127,6 +130,9 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         .select(`
           id,
           payroll_type,
+          category,
+          sub_type,
+          pay_frequency,
           pay_group_master_id,
           pay_group_master:pay_group_master_id(
             id,
@@ -134,6 +140,9 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
             country,
             currency,
             type,
+            category,
+            sub_type,
+            pay_frequency,
             source_id,
             source_table
           )
@@ -143,6 +152,8 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
         if (payRunError) throw payRunError;
         if (!isMounted) return;
+        
+        setPayRunData(payRunData);
         
         // Check if this is an expatriate pay run
         const isExpat = payRunData?.payroll_type === 'expatriate' || 
@@ -160,9 +171,18 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
           
           if (!expatError && expatGroup) {
             setExpatriatePayGroup(expatGroup);
+            // fetch assigned employees by pay group membership (not by type)
+            try {
+              const assigned = await ExpatriatePayrollService.getEmployeesForPayGroup(payRunData.pay_group_master.source_id);
+              setAssignedExpatEmployees(assigned || []);
+            } catch (e) {
+              console.error('Failed to load assigned expat employees:', e);
+              setAssignedExpatEmployees([]);
+            }
           }
         } else {
           setExpatriatePayGroup(null);
+          setAssignedExpatEmployees([]);
         }
         
         // Set pay group country and currency
@@ -1112,23 +1132,26 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
             <DialogDescription className="modern-dialog-description">
               Pay Run Date: {format(new Date(payRunDate), 'MMM dd, yyyy')} | 
               Pay Period: {format(new Date(payPeriod.start), 'MMM dd')} - {format(new Date(payPeriod.end), 'MMM dd, yyyy')}
+              {payRunData?.category && payRunData?.sub_type && (
+                <> | Category: {payRunData.category} > {payRunData.sub_type}{payRunData.pay_frequency ? ` > ${payRunData.pay_frequency}` : ''}</>
+              )}
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto p-6 pt-4">
             {isExpatriatePayRun ? (
+              expatriatePayGroup ? (
           <ExpatriatePayRunDetails
             payRunId={payRunId || ""}
             expatriatePayGroup={expatriatePayGroup}
-            employees={payItems.map(item => ({
-              id: item.employee_id,
-              first_name: item.employees.first_name,
-              middle_name: item.employees.middle_name,
-              last_name: item.employees.last_name,
-              email: item.employees.email
-            }))}
+                  employees={assignedExpatEmployees}
             onUpdate={fetchPayItems}
           />
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  Loading expatriate pay group details...
+                </div>
+              )
         ) : payItems.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             No pay items found for this pay run

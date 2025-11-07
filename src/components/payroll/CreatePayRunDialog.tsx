@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useOrg } from '@/lib/tenant/OrgContext';
 
 // Function to generate payrun ID
 const generatePayrunId = (payGroupName: string): string => {
@@ -51,9 +52,22 @@ interface CreatePayRunDialogProps {
   onOpenChange: (open: boolean) => void;
   onPayRunCreated: () => void;
   payrollType?: string; // Optional prop to fix type when opened from a specific page
+  defaultCategory?: string; // New: category filter
+  defaultSubType?: string; // New: sub_type filter
+  defaultPayFrequency?: string; // New: pay_frequency filter
+  onSuccess?: () => void; // Alias for onPayRunCreated
 }
 
-const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated, payrollType }: CreatePayRunDialogProps) => {
+const CreatePayRunDialog = ({ 
+  open, 
+  onOpenChange, 
+  onPayRunCreated, 
+  payrollType,
+  defaultCategory,
+  defaultSubType,
+  defaultPayFrequency,
+  onSuccess
+}: CreatePayRunDialogProps) => {
   const [payGroups, setPayGroups] = useState<PayGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -63,8 +77,14 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated, payrollType }
     pay_run_date: new Date(),
     pay_period_start: new Date(),
     pay_period_end: new Date(),
+    category: defaultCategory || "",
+    sub_type: defaultSubType || "",
+    pay_frequency: defaultPayFrequency || "",
   });
   const { toast } = useToast();
+  const { organizationId } = useOrg();
+
+  const handleSuccess = onSuccess || onPayRunCreated;
 
   const selectedPayGroup = payGroups.find(group => group.id === formData.pay_group_id);
   const generatedId = selectedPayGroup ? generatePayrunId(selectedPayGroup.name) : "";
@@ -72,8 +92,15 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated, payrollType }
   useEffect(() => {
     if (open) {
       fetchPayGroups();
+      // Reset form with defaults
+      setFormData(prev => ({
+        ...prev,
+        category: defaultCategory || "",
+        sub_type: defaultSubType || "",
+        pay_frequency: defaultPayFrequency || "",
+      }));
     }
-  }, [open, payrollType]);
+  }, [open, payrollType, defaultCategory, defaultSubType, defaultPayFrequency]);
 
   const fetchPayGroups = async () => {
     try {
@@ -89,7 +116,20 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated, payrollType }
         .eq("active", true)
         .order("name", { ascending: true });
       
-      // Filter by type if payrollType is provided
+      // Filter by category/sub_type/pay_frequency if provided
+      if (defaultCategory) {
+        query = query.eq("category", defaultCategory);
+      }
+      
+      if (defaultSubType) {
+        query = query.eq("sub_type", defaultSubType);
+      }
+      
+      if (defaultPayFrequency) {
+        query = query.eq("pay_frequency", defaultPayFrequency);
+      }
+      
+      // Filter by type if payrollType is provided (legacy support)
       if (payrollType) {
         const typeMapping = {
           "expatriate": "expatriate",
@@ -217,7 +257,8 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated, payrollType }
         .from("pay_runs")
         .insert({
           pay_group_master_id: selectedPayGroup.id, // Use master table UUID
-          payroll_type: selectedPayGroup.type, // Set the payroll type
+          payroll_type: selectedPayGroup.type === 'expatriate' ? 'expatriate' : 'local',
+          organization_id: organizationId || null,
           pay_run_date: formData.pay_run_date.toISOString(),
           pay_period_start: formData.pay_period_start.toISOString(),
           pay_period_end: formData.pay_period_end.toISOString(),
@@ -308,15 +349,20 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated, payrollType }
 
             const result = await PayrollCalculationService.calculatePayroll(input);
             
+            const grossPay = Number(result.gross_pay ?? 0)
+            const taxDeduction = Number(result.tax_deduction ?? 0)
+            const totalDeductions = Number(result.total_deductions ?? taxDeduction)
+            const netPay = Number(result.net_pay ?? (grossPay - totalDeductions))
             return {
+              organization_id: organizationId || null,
               pay_run_id: payRunData.id,
               employee_id: employee.id,
-              gross_pay: result.gross_pay,
-              tax_deduction: result.paye_tax + result.nssf_employee, // PAYE + NSSF Employee (statutory deductions)
-              benefit_deductions: 0,
-              total_deductions: result.total_deductions,
-              net_pay: result.net_pay,
-              employer_contributions: result.employer_contributions,
+              gross_pay: grossPay,
+              tax_deduction: taxDeduction,
+              benefit_deductions: Number(result.benefit_deductions ?? 0),
+              total_deductions: totalDeductions,
+              net_pay: netPay,
+              employer_contributions: Number(result.employer_contributions ?? 0),
               hours_worked: employee.pay_type === 'hourly' ? 0 : null,
               pieces_completed: employee.pay_type === 'piece_rate' ? 0 : null,
             };
@@ -329,6 +375,7 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated, payrollType }
             const netPay = grossPay - totalDeductions;
 
             return {
+              organization_id: organizationId || null,
               pay_run_id: payRunData.id,
               employee_id: employee.id,
               gross_pay: grossPay,
@@ -387,6 +434,7 @@ const CreatePayRunDialog = ({ open, onOpenChange, onPayRunCreated, payrollType }
         pay_period_end: new Date(),
       });
       onPayRunCreated();
+      handleSuccess();
       onOpenChange(false);
     } catch (error: any) {
       console.error("Error creating pay run:", error);

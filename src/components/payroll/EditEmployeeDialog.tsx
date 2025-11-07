@@ -28,6 +28,7 @@ interface Employee {
   pay_group_id?: string | null;
   status: string;
   employee_type: string;
+  employee_type_id?: string | null;
 }
 
 interface EditEmployeeDialogProps {
@@ -66,6 +67,8 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
     department: "",
   });
   const [payGroups, setPayGroups] = useState<PayGroup[]>([]);
+  const [employeeTypes, setEmployeeTypes] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedEmployeeTypeId, setSelectedEmployeeTypeId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -117,6 +120,28 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
     }
   }, [open, employee]);
 
+  // Load employee types whenever dialog opens
+  useEffect(() => {
+    const loadEmployeeTypes = async () => {
+      const { data, error } = await supabase
+        .from('employee_types')
+        .select('id, name')
+        .order('name');
+      if (!error && data) {
+        setEmployeeTypes(data);
+        if (employee) {
+          const match =
+            data.find(t => t.id === (employee as any).employee_type_id) ||
+            data.find(t => t.name.toLowerCase() === (employee.employee_type || '').toLowerCase());
+          if (match) {
+            setSelectedEmployeeTypeId(match.id);
+          }
+        }
+      }
+    };
+    if (open) loadEmployeeTypes();
+  }, [open, employee]);
+
   const fetchPayGroups = async () => {
     try {
       const { data, error } = await supabase
@@ -166,7 +191,8 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
           currency: formData.currency,
           pay_group_id: formData.pay_group_id || null,
           status: formData.status as "active" | "inactive",
-          employee_type: formData.employee_type as "local" | "expatriate",
+          employee_type: (employeeTypes.find(t => t.id === selectedEmployeeTypeId)?.name || formData.employee_type)?.toLowerCase() as "local" | "expatriate",
+          employee_type_id: selectedEmployeeTypeId || null,
           bank_name: formData.bank_name || null,
           bank_branch: formData.bank_branch || null,
           account_number: formData.account_number || null,
@@ -593,15 +619,20 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
             <div className="space-y-2">
               <Label htmlFor="employee_type">Employee Type *</Label>
               <Select
-                value={formData.employee_type}
-                onValueChange={(value) => setFormData({ ...formData, employee_type: value })}
+                value={selectedEmployeeTypeId}
+                onValueChange={(value) => {
+                  setSelectedEmployeeTypeId(value);
+                  const name = employeeTypes.find(t => t.id === value)?.name || '';
+                  setFormData({ ...formData, employee_type: name.toLowerCase() });
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="local">Local National</SelectItem>
-                  <SelectItem value="expatriate">Expatriate</SelectItem>
+                  {employeeTypes.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

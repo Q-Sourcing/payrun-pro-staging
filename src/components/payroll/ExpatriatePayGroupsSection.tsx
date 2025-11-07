@@ -25,7 +25,6 @@ export const ExpatriatePayGroupsSection: React.FC = () => {
     country: '',
     currency: 'USD',
     exchange_rate_to_local: 0,
-    default_daily_rate: 0,
     tax_country: 'UG',
     notes: ''
   });
@@ -88,7 +87,6 @@ export const ExpatriatePayGroupsSection: React.FC = () => {
       country: payGroup.country,
       currency: payGroup.currency,
       exchange_rate_to_local: payGroup.exchange_rate_to_local,
-      default_daily_rate: payGroup.default_daily_rate,
       tax_country: payGroup.tax_country,
       notes: payGroup.notes || ''
     });
@@ -118,7 +116,6 @@ export const ExpatriatePayGroupsSection: React.FC = () => {
       country: '',
       currency: 'USD',
       exchange_rate_to_local: 0,
-      default_daily_rate: 0,
       tax_country: 'UG',
       notes: ''
     });
@@ -224,22 +221,6 @@ export const ExpatriatePayGroupsSection: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="daily_rate">Default Daily Rate *</Label>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="daily_rate"
-                        type="number"
-                        step="0.01"
-                        value={formData.default_daily_rate}
-                        onChange={(e) => setFormData({ ...formData, default_daily_rate: parseFloat(e.target.value) })}
-                        placeholder="e.g., 150"
-                        className="pl-10"
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div>
                     <Label htmlFor="tax_country">Tax Country *</Label>
                     <Select
                       value={formData.tax_country}
@@ -300,7 +281,6 @@ export const ExpatriatePayGroupsSection: React.FC = () => {
                 <TableHead>Name</TableHead>
                 <TableHead>Country</TableHead>
                 <TableHead>Currency</TableHead>
-                <TableHead>Daily Rate</TableHead>
                 <TableHead>Exchange Rate</TableHead>
                 <TableHead>Tax Country</TableHead>
                 <TableHead>Actions</TableHead>
@@ -315,9 +295,6 @@ export const ExpatriatePayGroupsSection: React.FC = () => {
                     <Badge variant="outline" className="bg-blue-50 text-blue-700">
                       {ExpatriatePayrollService.getCurrencySymbol(payGroup.currency)} {payGroup.currency}
                     </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {ExpatriatePayrollService.formatCurrency(payGroup.default_daily_rate, payGroup.currency)}
                   </TableCell>
                   <TableCell>
                     {payGroup.exchange_rate_to_local.toLocaleString()}

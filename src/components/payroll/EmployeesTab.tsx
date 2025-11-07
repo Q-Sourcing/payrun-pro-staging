@@ -30,6 +30,8 @@ interface Employee {
   currency: string;
   status: string;
   employee_type: string;
+  employee_type_id?: string | null;
+  employee_type_name?: string; // resolved from employee_types
   pay_groups?: { name: string };
 }
 
@@ -46,9 +48,17 @@ const EmployeesTab = () => {
   const [showBulkUploadDialog, setShowBulkUploadDialog] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const { toast } = useToast();
+  const [companyName, setCompanyName] = useState<string | null>(null);
 
   const fetchEmployees = async () => {
     try {
+      // Load company/org context (best-effort)
+      const { data: cs } = await supabase
+        .from('company_settings')
+        .select('company_name')
+        .maybeSingle();
+      setCompanyName(cs?.company_name || null);
+
       // Fetch all employees
       const { data: employeesData, error } = await supabase
         .from("employees")
@@ -63,6 +73,17 @@ const EmployeesTab = () => {
       }
 
       const employeeIds = employeesData.map(e => e.id);
+      const typeIds = [...new Set((employeesData as any[]).map(e => e.employee_type_id).filter(Boolean))] as string[];
+
+      // Load employee types for FK resolution
+      let typeMap = new Map<string, string>();
+      if (typeIds.length > 0) {
+        const { data: types } = await supabase
+          .from('employee_types')
+          .select('id, name')
+          .in('id', typeIds);
+        typeMap = new Map((types || []).map(t => [t.id, t.name]));
+      }
 
       // Simple fetch of employees with their assigned pay groups
       const { data: employeesWithGroups, error: groupsError } = await supabase
@@ -89,14 +110,16 @@ const EmployeesTab = () => {
         payGroupMap = new Map((payGroups || []).map(pg => [pg.id, pg]));
       }
 
-      // Merge pay group info
-      const enrichedEmployees = employeesData.map(emp => {
+      // Merge pay group info and resolve employee type from table
+      const enrichedEmployees = employeesData.map((emp: any) => {
         const empGroup = employeesWithGroups?.find(e => e.id === emp.id);
         const payGroup = empGroup?.pay_group_id ? payGroupMap.get(empGroup.pay_group_id) : null;
+        const resolvedTypeName = emp.employee_type_id ? (typeMap.get(emp.employee_type_id) || null) : null;
 
         return {
           ...emp,
-          pay_groups: payGroup || null
+          pay_groups: payGroup || null,
+          employee_type_name: resolvedTypeName || emp.employee_type
         };
       });
 
@@ -240,7 +263,7 @@ const EmployeesTab = () => {
     <div className="space-y-6">
       <PageHeader
         title="Employee Directory"
-        subtitle={`${filteredEmployees.length} employee${filteredEmployees.length !== 1 ? 's' : ''} found`}
+        subtitle={`${filteredEmployees.length} employee${filteredEmployees.length !== 1 ? 's' : ''} found${companyName ? ` • ${companyName}` : ''}`}
         actions={
           <>
             <Button 
@@ -387,15 +410,15 @@ const EmployeesTab = () => {
                     </div>
                   </td>
                   <td className="px-4 py-2 text-sm">
-                    {employee.employee_type === 'expatriate' ? (
+                    {String((employee.employee_type_name || employee.employee_type || '')).toLowerCase().includes('expat') ? (
                       <Badge variant="secondary" className="bg-blue-100 text-blue-800 font-medium px-3 py-1 border border-blue-200">
                         <Globe className="h-3 w-3 mr-1" />
-                        Expat
+                        {employee.employee_type_name || 'Expatriate'}
                       </Badge>
                     ) : (
                       <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 font-medium px-3 py-1">
                         <Flag className="h-3 w-3 mr-1" />
-                        Local
+                        {employee.employee_type_name || 'Local'}
                       </Badge>
                     )}
                   </td>

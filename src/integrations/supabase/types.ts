@@ -433,6 +433,7 @@ export type Database = {
           account_type: string | null
           bank_branch: string | null
           bank_name: string | null
+          category: string | null
           country: string
           created_at: string
           currency: string | null
@@ -451,6 +452,7 @@ export type Database = {
           national_id: string | null
           nssf_number: string | null
           passport_number: string | null
+          pay_frequency: string | null
           pay_group_id: string | null
           pay_rate: number
           pay_type: Database["public"]["Enums"]["pay_type"]
@@ -458,6 +460,7 @@ export type Database = {
           project: string | null
           social_security_number: string | null
           status: string
+          sub_type: string | null
           tin: string | null
           updated_at: string
           user_id: string | null
@@ -997,73 +1000,88 @@ export type Database = {
       pay_group_master: {
         Row: {
           active: boolean
+          category: string | null
           code: string | null
           country: string | null
           created_at: string
           currency: string | null
           id: string
           name: string
+          pay_frequency: string | null
           source_id: string
           source_table: string
+          sub_type: string | null
           type: string
         }
         Insert: {
           active?: boolean
+          category?: string | null
           code?: string | null
           country?: string | null
           created_at?: string
           currency?: string | null
           id?: string
           name: string
+          pay_frequency?: string | null
           source_id: string
           source_table: string
+          sub_type?: string | null
           type: string
         }
         Update: {
           active?: boolean
+          category?: string | null
           code?: string | null
           country?: string | null
           created_at?: string
           currency?: string | null
           id?: string
           name?: string
+          pay_frequency?: string | null
           source_id?: string
           source_table?: string
+          sub_type?: string | null
           type?: string
         }
         Relationships: []
       }
       pay_groups: {
         Row: {
+          category: string | null
           country: string
           created_at: string
           default_tax_percentage: number
           description: string | null
           id: string
           name: string
-          pay_frequency: Database["public"]["Enums"]["pay_frequency"]
+          pay_frequency: string | null
+          sub_type: string | null
           type: Database["public"]["Enums"]["pay_group_type"]
           updated_at: string
         }
         Insert: {
+          category?: string | null
           country: string
           created_at?: string
           default_tax_percentage?: number
           description?: string | null
           id?: string
           name: string
-          pay_frequency?: Database["public"]["Enums"]["pay_frequency"]
+          pay_frequency?: string | null
+          sub_type?: string | null
           type?: Database["public"]["Enums"]["pay_group_type"]
           updated_at?: string
         }
         Update: {
+          category?: string | null
           country?: string
           created_at?: string
           default_tax_percentage?: number
           description?: string | null
           id?: string
           name?: string
-          pay_frequency?: Database["public"]["Enums"]["pay_frequency"]
+          pay_frequency?: string | null
+          sub_type?: string | null
           type?: Database["public"]["Enums"]["pay_group_type"]
           updated_at?: string
         }
@@ -1187,11 +1205,13 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          category: string | null
           created_at: string
           created_by: string | null
           days_worked: number | null
           exchange_rate: number | null
           id: string
+          pay_frequency: string | null
           pay_group_id: string | null
           pay_group_master_id: string | null
           pay_period_end: string
@@ -1200,6 +1220,7 @@ export type Database = {
           pay_run_id: string | null
           payroll_type: string | null
           status: Database["public"]["Enums"]["pay_run_status"]
+          sub_type: string | null
           total_deductions: number | null
           total_gross_pay: number | null
           total_net_pay: number | null
@@ -1208,11 +1229,13 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          category?: string | null
           created_at?: string
           created_by?: string | null
           days_worked?: number | null
           exchange_rate?: number | null
           id?: string
+          pay_frequency?: string | null
           pay_group_id?: string | null
           pay_group_master_id?: string | null
           pay_period_end: string
@@ -1221,6 +1244,7 @@ export type Database = {
           pay_run_id?: string | null
           payroll_type?: string | null
           status?: Database["public"]["Enums"]["pay_run_status"]
+          sub_type?: string | null
           total_deductions?: number | null
           total_gross_pay?: number | null
           total_net_pay?: number | null
@@ -1229,11 +1253,13 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          category?: string | null
           created_at?: string
           created_by?: string | null
           days_worked?: number | null
           exchange_rate?: number | null
           id?: string
+          pay_frequency?: string | null
           pay_group_id?: string | null
           pay_group_master_id?: string | null
           pay_period_end?: string
@@ -1242,6 +1268,7 @@ export type Database = {
           pay_run_id?: string | null
           payroll_type?: string | null
           status?: Database["public"]["Enums"]["pay_run_status"]
+          sub_type?: string | null
           total_deductions?: number | null
           total_gross_pay?: number | null
           total_net_pay?: number | null

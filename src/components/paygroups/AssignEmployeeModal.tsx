@@ -91,16 +91,24 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
   const loadEmployees = async () => {
     setLoading(true);
     try {
-      // Filter employees by the same type as the pay group
-      const payGroupType = presetGroup?.type;
+      // Filter employees by category/sub_type to match the pay group
       let query = supabase
         .from('employees')
-        .select('id, first_name, middle_name, last_name, email, department, employee_type')
+        .select('id, first_name, middle_name, last_name, email, department, employee_type, category, sub_type, pay_frequency')
         .order('first_name');
 
-      // Only show employees that match the pay group type
-      if (payGroupType) {
-        const employeeType = getEmployeeTypeForPayGroup(payGroupType);
+      // Filter by category and sub_type if preset group has them
+      if (presetGroup?.category && presetGroup?.sub_type) {
+        query = query.eq('category', presetGroup.category);
+        query = query.eq('sub_type', presetGroup.sub_type);
+        
+        // For manpower, also filter by pay_frequency
+        if (presetGroup.sub_type === 'manpower' && presetGroup.pay_frequency) {
+          query = query.eq('pay_frequency', presetGroup.pay_frequency);
+        }
+      } else if (presetGroup?.type) {
+        // Fallback to old type-based filtering for backward compatibility
+        const employeeType = getEmployeeTypeForPayGroup(presetGroup.type);
         if (employeeType) {
           query = query.eq('employee_type', employeeType);
         }
@@ -356,7 +364,9 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
             {presetGroup && (
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">
-                  Showing only {presetGroup.type} employees eligible for this pay group
+                  Showing employees matching: {presetGroup.category && presetGroup.sub_type 
+                    ? `${presetGroup.category} > ${presetGroup.sub_type}${presetGroup.pay_frequency ? ` > ${presetGroup.pay_frequency}` : ''}`
+                    : presetGroup.type}
                 </p>
                 <p className="text-xs text-blue-600">
                   💡 If an employee is already in another pay group, they will be moved to this one automatically.

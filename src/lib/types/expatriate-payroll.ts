@@ -13,19 +13,32 @@ export interface ExpatriatePayGroup {
   updated_at: string;
 }
 
+export interface ExpatriateAllowance {
+  id: string;
+  expatriate_pay_run_item_id: string;
+  name: string;
+  amount: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ExpatriatePayRunItem {
   id: string;
   employee_id: string;
   pay_run_id: string;
   daily_rate: number;
   days_worked: number;
-  allowances_foreign: number;
+  allowances_foreign: number; // Deprecated - kept for backward compatibility, use allowances array instead
   net_foreign: number;
   net_local: number;
   gross_local: number;
+  gross_foreign?: number;
   currency: string;
   exchange_rate: number;
+  exchange_rate_to_local?: number;
   tax_country: string;
+  notes?: string;
+  allowances?: ExpatriateAllowance[]; // Array of named allowances
   created_at: string;
   updated_at: string;
 }

@@ -9,6 +9,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ALL_COUNTRIES, CURRENCIES, PIECE_RATE_TYPES, getCurrencyByCode } from "@/lib/constants/countries";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CascadingOrgSelectors, CascadingSelectorValue } from '@/components/common/CascadingOrgSelectors';
+import { useOrg } from '@/lib/tenant/OrgContext';
+import { PayGroupCategory, HeadOfficeSubType, ProjectsSubType, ManpowerFrequency, getSubTypesForCategory, requiresPayFrequency, getDefaultPayType } from '@/lib/types/paygroups';
 
 interface PayGroup {
   id: string;
@@ -61,6 +64,9 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
     account_number: "",
     account_type: "",
     department: "",
+    category: "" as PayGroupCategory | "",
+    sub_type: "" as HeadOfficeSubType | ProjectsSubType | "",
+    pay_frequency: "" as ManpowerFrequency | "",
   });
   const [payGroups, setPayGroups] = useState<PayGroup[]>([]);
   const [loading, setLoading] = useState(false);
@@ -73,6 +79,14 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
   const [newPayGroupName, setNewPayGroupName] = useState("");
   const [creatingPayGroup, setCreatingPayGroup] = useState(false);
   const { toast } = useToast();
+  const { organizationId } = useOrg();
+  const [selectorValue, setSelectorValue] = useState<CascadingSelectorValue>({
+    companyId: '',
+    orgUnitId: '',
+    employeeTypeId: '',
+    payGroupId: '',
+    countryId: ''
+  });
 
   const selectedCurrency = formData.currency ? getCurrencyByCode(formData.currency) : null;
 
@@ -84,10 +98,22 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
     }
   }, [open]);
 
-  // Handle dynamic logic when employee type changes
+  // Handle dynamic logic when category/sub_type changes
   useEffect(() => {
-    if (formData.employee_type === "Expatriate") {
-      // Auto-set pay_type to daily_rate for expatriates
+    if (formData.category && formData.sub_type) {
+      // Auto-set pay_type based on sub_type
+      const defaultPayType = getDefaultPayType(formData.category, formData.sub_type, formData.pay_frequency as ManpowerFrequency);
+      setFormData(prev => ({
+        ...prev,
+        pay_type: defaultPayType
+      }));
+    }
+  }, [formData.category, formData.sub_type, formData.pay_frequency]);
+
+  // Handle dynamic logic when employee type changes (legacy support)
+  useEffect(() => {
+    if (formData.employee_type === "Expatriate" && !formData.category) {
+      // Auto-set pay_type to daily_rate for expatriates (legacy)
       setFormData(prev => ({
         ...prev,
         pay_type: "daily_rate",
@@ -96,14 +122,26 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
       
       // Ensure default expatriate pay group exists
       ensureDefaultExpatPayGroup();
-    } else if (formData.employee_type === "Local") {
-      // Reset pay_type to salary for local employees
+    } else if (formData.employee_type === "Local" && !formData.category) {
+      // Reset pay_type to salary for local employees (legacy)
       setFormData(prev => ({
         ...prev,
         pay_type: prev.pay_type === "daily_rate" ? "salary" : prev.pay_type
       }));
     }
   }, [formData.employee_type]);
+
+  // Update formData based on selector changes
+  useEffect(() => {
+    setFormData(current => ({
+      ...current,
+      company_id: selectorValue.companyId || undefined,
+      org_unit_id: selectorValue.orgUnitId || undefined,
+      employee_type_id: selectorValue.employeeTypeId || undefined,
+      pay_group_id: selectorValue.payGroupId || '',
+      country: selectorValue.countryId || '',
+    }));
+  }, [selectorValue]);
 
   const generateEmployeeNumber = async () => {
     try {
@@ -157,7 +195,7 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
     try {
       const { data, error } = await supabase
         .from("pay_groups")
-        .select("id, name, country, type, pay_frequency")
+        .select("id, name, country, type, pay_frequency, category, sub_type")
         .order("name");
 
       if (error) throw error;
@@ -250,6 +288,16 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
   };
 
   const handleSubmit = async () => {
+    // Ensure cascading selectors are all filled
+    if (!organizationId || !selectorValue.companyId || !selectorValue.orgUnitId || !selectorValue.employeeTypeId) {
+      toast({
+        title: "Required Fields",
+        description: "Please select Company, Org Unit, and Employee Type.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!validateStep(2)) return;
 
     setLoading(true);
@@ -310,6 +358,14 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
           account_type: formData.account_type || null,
           department: formData.department || null,
           employee_number: employeeNumber.trim() || null,
+          organization_id: organizationId,
+          company_id: selectorValue.companyId,
+          org_unit_id: selectorValue.orgUnitId,
+          employee_type_id: selectorValue.employeeTypeId,
+          pay_group_id: selectorValue.payGroupId || null,
+          category: formData.category || null,
+          sub_type: formData.sub_type || null,
+          pay_frequency: formData.pay_frequency || null,
         },
       ]);
 
@@ -415,6 +471,9 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
         account_number: "",
         account_type: "",
         department: "",
+        category: "",
+        sub_type: "",
+        pay_frequency: "",
       });
       setEmployeeNumber("");
       setEmployeeNumberCustomEnabled(false);
@@ -500,13 +559,28 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
       return false;
     }
     
-    // Filter by employee type
-    if (formData.employee_type === 'Expatriate') {
-      // For expatriates, only show expatriate pay groups
-      return group.type === 'expatriate' || group.name.toLowerCase().includes('expat');
-    } else if (formData.employee_type === 'Local') {
-      // For local employees, exclude expatriate pay groups
-      return group.type !== 'expatriate' && !group.name.toLowerCase().includes('expat');
+    // Filter by category/sub_type/pay_frequency if set
+    if (formData.category && group.category !== formData.category) {
+      return false;
+    }
+    
+    if (formData.sub_type && group.sub_type !== formData.sub_type) {
+      return false;
+    }
+    
+    if (formData.pay_frequency && group.pay_frequency !== formData.pay_frequency) {
+      return false;
+    }
+    
+    // Legacy filtering by employee type (fallback)
+    if (!formData.category) {
+      if (formData.employee_type === 'Expatriate') {
+        // For expatriates, only show expatriate pay groups
+        return group.type === 'expatriate' || group.name.toLowerCase().includes('expat');
+      } else if (formData.employee_type === 'Local') {
+        // For local employees, exclude expatriate pay groups
+        return group.type !== 'expatriate' && !group.name.toLowerCase().includes('expat');
+      }
     }
     
     return true;
@@ -825,16 +899,100 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
           {/* Step 2: Employment Details */}
           {currentStep === 2 && (
             <div className="space-y-4">
+              <CascadingOrgSelectors
+                value={selectorValue}
+                onChange={partial => setSelectorValue(val => ({ ...val, ...partial }))}
+                mode="employee"
+                requiredFields={["companyId", "orgUnitId", "employeeTypeId"]}
+              />
+
               <div>
                 <h3 className="text-sm font-semibold text-primary mb-3 uppercase tracking-wide">Employment Information</h3>
                 <div className="space-y-3">
+                  {/* Category and Sub-type Selection */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="category" className="text-xs">Category</Label>
+                      <Select
+                        value={formData.category}
+                        onValueChange={(value: PayGroupCategory) => {
+                          setFormData({ 
+                            ...formData, 
+                            category: value, 
+                            sub_type: "", // Reset sub_type when category changes
+                            pay_frequency: "" // Reset pay_frequency when category changes
+                          });
+                        }}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="head_office">Head Office</SelectItem>
+                          <SelectItem value="projects">Projects</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {formData.category && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="sub_type" className="text-xs">Sub-type</Label>
+                        <Select
+                          value={formData.sub_type}
+                          onValueChange={(value: HeadOfficeSubType | ProjectsSubType) => {
+                            setFormData({ 
+                              ...formData, 
+                              sub_type: value,
+                              pay_frequency: value !== 'manpower' ? "" : formData.pay_frequency // Reset if not manpower
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Select sub-type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {getSubTypesForCategory(formData.category).map(subType => (
+                              <SelectItem key={subType} value={subType}>
+                                {subType === 'regular' ? 'Regular' :
+                                 subType === 'expatriate' ? 'Expatriate' :
+                                 subType === 'interns' ? 'Interns' :
+                                 subType === 'manpower' ? 'Manpower' :
+                                 subType === 'ippms' ? 'IPPMS' :
+                                 subType}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+
+                  {requiresPayFrequency(formData.category, formData.sub_type) && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="pay_frequency" className="text-xs">Pay Frequency</Label>
+                      <Select
+                        value={formData.pay_frequency}
+                        onValueChange={(value: ManpowerFrequency) => setFormData({ ...formData, pay_frequency: value })}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select pay frequency" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="daily">Daily</SelectItem>
+                          <SelectItem value="bi_weekly">Bi-weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
                       <Label htmlFor="pay_type" className="text-xs">Pay Type *</Label>
                       <Select
                         value={formData.pay_type}
                         onValueChange={(value) => setFormData({ ...formData, pay_type: value })}
-                        disabled={formData.employee_type === "Expatriate"} // Disable for expatriates (auto-set to daily_rate)
+                        disabled={formData.employee_type === "Expatriate" || (formData.sub_type === "expatriate") || (formData.sub_type === "regular")} // Disable for expatriates and regular (auto-set)
                       >
                         <SelectTrigger className="h-9">
                           <SelectValue />
@@ -846,6 +1004,12 @@ const AddEmployeeDialog = ({ open, onOpenChange, onEmployeeAdded }: AddEmployeeD
                           <SelectItem value="daily_rate">Daily Rate</SelectItem>
                         </SelectContent>
                       </Select>
+                      {formData.sub_type === "regular" && (
+                        <p className="text-xs text-muted-foreground mt-1">Pay Type is automatically set to Monthly for Regular employees</p>
+                      )}
+                      {formData.sub_type === "expatriate" && (
+                        <p className="text-xs text-muted-foreground mt-1">Pay Type is automatically set to Daily Rate for Expatriates</p>
+                      )}
                     </div>
 
                     <div className="space-y-1.5">

@@ -37,7 +37,13 @@ import {
   SUPPORTED_CURRENCIES,
   TAX_COUNTRIES,
   getCountryByCode,
-  getCurrencyByCode
+  getCurrencyByCode,
+  PayGroupCategory,
+  HeadOfficeSubType,
+  ProjectsSubType,
+  ManpowerFrequency,
+  getSubTypesForCategory,
+  requiresPayFrequency
 } from '@/lib/types/paygroups';
 import { PayGroupsService } from '@/lib/services/paygroups.service';
 
@@ -55,14 +61,20 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
   defaultType,
 }) => {
   const [selectedType, setSelectedType] = useState<PayGroupType>(defaultType || 'regular');
+  const [selectedCategory, setSelectedCategory] = useState<PayGroupCategory | ''>('');
+  const [selectedSubType, setSelectedSubType] = useState<HeadOfficeSubType | ProjectsSubType | ''>('');
+  const [selectedPayFrequency, setSelectedPayFrequency] = useState<ManpowerFrequency | ''>('');
+  
   const [formData, setFormData] = useState<PayGroupFormData>({
     name: '',
     type: defaultType || 'regular',
+    category: undefined,
+    sub_type: undefined,
+    pay_frequency: undefined,
     country: '',
     currency: 'UGX',
     status: 'active',
     notes: '',
-    pay_frequency: 'monthly',
     default_tax_percentage: 30,
     exchange_rate_to_local: 3800,
     tax_country: '',
@@ -81,14 +93,19 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
   useEffect(() => {
     if (open) {
       setSelectedType(defaultType || 'regular');
+      setSelectedCategory('');
+      setSelectedSubType('');
+      setSelectedPayFrequency('');
       setFormData({
         name: '',
         type: defaultType || 'regular',
+        category: undefined,
+        sub_type: undefined,
+        pay_frequency: undefined,
         country: '',
         currency: 'UGX',
         status: 'active',
         notes: '',
-        pay_frequency: 'monthly',
         default_tax_percentage: 30,
         exchange_rate_to_local: 3800,
         tax_country: '',
@@ -102,6 +119,16 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
       setGeneratedPayGroupId('');
     }
   }, [open, defaultType]);
+
+  // Update formData when category/sub_type/pay_frequency changes
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      category: selectedCategory || undefined,
+      sub_type: selectedSubType || undefined,
+      pay_frequency: selectedPayFrequency || undefined
+    }));
+  }, [selectedCategory, selectedSubType, selectedPayFrequency]);
 
   // Update form data when type changes
   useEffect(() => {
@@ -249,6 +276,85 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Category and Sub-type Selection */}
+          <div className="space-y-4">
+            <Label className="text-base font-medium">Category & Sub-type</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {renderField(
+                'category',
+                'Category',
+                <Select 
+                  value={selectedCategory} 
+                  onValueChange={(value: PayGroupCategory) => {
+                    setSelectedCategory(value);
+                    setSelectedSubType(''); // Reset sub_type when category changes
+                    setSelectedPayFrequency(''); // Reset pay_frequency when category changes
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="head_office">Head Office</SelectItem>
+                    <SelectItem value="projects">Projects</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+
+              {selectedCategory && (
+                renderField(
+                  'sub_type',
+                  'Sub-type',
+                  <Select 
+                    value={selectedSubType} 
+                    onValueChange={(value: HeadOfficeSubType | ProjectsSubType) => {
+                      setSelectedSubType(value);
+                      if (value !== 'manpower') {
+                        setSelectedPayFrequency(''); // Reset pay_frequency if not manpower
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select sub-type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getSubTypesForCategory(selectedCategory).map(subType => (
+                        <SelectItem key={subType} value={subType}>
+                          {subType === 'regular' ? 'Regular' :
+                           subType === 'expatriate' ? 'Expatriate' :
+                           subType === 'interns' ? 'Interns' :
+                           subType === 'manpower' ? 'Manpower' :
+                           subType === 'ippms' ? 'IPPMS' :
+                           subType}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )
+              )}
+
+              {requiresPayFrequency(selectedCategory, selectedSubType) && (
+                renderField(
+                  'pay_frequency',
+                  'Pay Frequency',
+                  <Select 
+                    value={selectedPayFrequency} 
+                    onValueChange={(value: ManpowerFrequency) => setSelectedPayFrequency(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select pay frequency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="bi_weekly">Bi-weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )
+              )}
+            </div>
+          </div>
+
           {/* Pay Group Type Selection */}
           <div className="space-y-4">
             <Label className="text-base font-medium">Pay Group Type</Label>

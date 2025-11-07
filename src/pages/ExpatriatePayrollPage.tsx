@@ -62,7 +62,6 @@ const ExpatriatePayrollPage = () => {
       const prevScroll = window.scrollY;
       setLoading(true);
       
-      // Fetch expatriate pay runs using pay_group_master table
       const { data, error } = await supabase
         .from("pay_runs")
         .select(`
@@ -90,26 +89,67 @@ const ExpatriatePayrollPage = () => {
         console.error("❌ Error fetching pay runs:", error);
         throw error;
       }
-      
       console.log("✅ Fetched Expatriate PayRuns:", data);
       
-      // Fetch default daily rates for expatriate pay groups
+      // Batch fetch default daily rates for expatriate groups
       const expatriateGroupIds = data?.map(run => run.pay_group_master?.source_id).filter(Boolean) || [];
-      const { data: expatriateGroups } = await supabase
+      let expatriateGroups: any[] | null = null;
+      if (expatriateGroupIds.length === 1) {
+        // Use eq().single() for one id to avoid in().400 errors on some PostgREST setups
+        const { data: single } = await supabase
+          .from("expatriate_pay_groups")
+          .select("id, default_daily_rate, currency")
+          .eq("id", expatriateGroupIds[0])
+          .single();
+        expatriateGroups = single ? [single] : [];
+      } else if (expatriateGroupIds.length > 1) {
+        const { data: many } = await supabase
         .from("expatriate_pay_groups")
         .select("id, default_daily_rate, currency")
         .in("id", expatriateGroupIds);
+        expatriateGroups = many || [];
+      } else {
+        expatriateGroups = [];
+      }
+
+      // Batch fetch employee counts from employee_pay_groups (new) with graceful fallback to legacy table
+      let countsByGroup = new Map<string, number>();
+      if (expatriateGroupIds.length > 0) {
+        try {
+          const { data: countsNew, error: errNew } = await supabase
+            .from('employee_pay_groups')
+            .select('pay_group_id')
+            .in('pay_group_id', expatriateGroupIds)
+          if (!errNew) {
+            (countsNew || []).forEach((row: any) => {
+              const id = row.pay_group_id; countsByGroup.set(id, (countsByGroup.get(id) || 0) + 1)
+            })
+          }
+        } catch {}
+        if (countsByGroup.size === 0) {
+          try {
+            const { data: countsLegacy, error: errLegacy } = await supabase
+              .from('paygroup_employees')
+              .select('pay_group_id')
+              .in('pay_group_id', expatriateGroupIds)
+            if (!errLegacy) {
+              (countsLegacy || []).forEach((row: any) => {
+                const id = row.pay_group_id; countsByGroup.set(id, (countsByGroup.get(id) || 0) + 1)
+              })
+            }
+          } catch {}
+        }
+      }
 
       const payRunsWithCount = data?.map(run => {
-        // Calculate gross and net pay from expatriate pay run items
         const grossPay = run.expatriate_pay_run_items?.reduce((sum: number, item: any) => sum + (item.gross_local || 0), 0) || 0;
         const netPay = run.expatriate_pay_run_items?.reduce((sum: number, item: any) => sum + (item.net_local || 0), 0) || 0;
-        const employeeCount = run.expatriate_pay_run_items?.length || 0;
-        
-        // Find the corresponding expatriate group for default daily rate
+        let employeeCount = run.expatriate_pay_run_items?.length || 0;
+        if (employeeCount === 0 && run?.pay_group_master?.source_id) {
+          employeeCount = countsByGroup.get(run.pay_group_master.source_id) || 0;
+        }
         const expatriateGroup = expatriateGroups?.find(eg => eg.id === run.pay_group_master?.source_id);
         const defaultDailyRate = expatriateGroup?.default_daily_rate || 0;
-        
         return {
           ...run,
           total_gross_pay: grossPay,
@@ -120,11 +160,7 @@ const ExpatriatePayrollPage = () => {
       }) || [];
       
       setPayRuns(payRunsWithCount);
-      
-      // Restore scroll position if requested
-      if (preserveScroll) {
-        window.scrollTo({ top: prevScroll });
-      }
+      if (preserveScroll) window.scrollTo({ top: prevScroll });
     } catch (err: any) {
       console.error("❌ Unexpected error:", err);
       toast({
@@ -139,13 +175,16 @@ const ExpatriatePayrollPage = () => {
   };
 
   useEffect(() => {
-    // Auto-sync pay group assignments on page load
+    // Auto-sync pay group assignments on page load (best-effort)
     const syncAssignments = async () => {
       try {
-        const { syncPayGroupAssignments } = await import('@/lib/data/paygroup-employees.service');
-        await syncPayGroupAssignments();
+        const mod: any = await import('@/lib/data/paygroup-employees.service')
+        const fn = mod?.syncPayGroupAssignments
+        if (typeof fn === 'function') {
+          await fn()
+        }
       } catch (error) {
-        console.error('Auto-sync error:', error);
+        console.error('Auto-sync error (non-fatal):', error)
       }
     };
     

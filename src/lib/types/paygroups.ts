@@ -2,6 +2,13 @@
 
 export type PayGroupType = 'regular' | 'expatriate' | 'contractor' | 'intern';
 
+// New hierarchy types
+export type PayGroupCategory = 'head_office' | 'projects';
+export type HeadOfficeSubType = 'regular' | 'expatriate' | 'interns';
+export type ProjectsSubType = 'manpower' | 'ippms' | 'expatriate';
+export type ManpowerFrequency = 'daily' | 'bi_weekly' | 'monthly';
+export type IppmsType = 'piece_rate';
+
 export interface PayGroupTypeDefinition {
   id: PayGroupType;
   name: string;
@@ -36,6 +43,9 @@ export interface BasePayGroup {
   paygroup_id: string; // Auto-generated ID like EXPG-U001
   name: string;
   type: PayGroupType;
+  category?: PayGroupCategory; // New: head_office or projects
+  sub_type?: HeadOfficeSubType | ProjectsSubType; // New: sub-type based on category
+  pay_frequency?: ManpowerFrequency; // New: only for projects.manpower
   country: string;
   currency: string;
   status: 'active' | 'inactive';
@@ -77,13 +87,15 @@ export type PayGroup = RegularPayGroup | ExpatriatePayGroup | ContractorPayGroup
 export interface PayGroupFormData {
   name: string;
   type: PayGroupType;
+  category?: PayGroupCategory; // New: head_office or projects
+  sub_type?: HeadOfficeSubType | ProjectsSubType; // New: sub-type based on category
+  pay_frequency?: ManpowerFrequency | string; // New: for projects.manpower, or legacy for regular paygroups
   country: string;
   currency: string;
   status: 'active' | 'inactive';
   notes?: string;
   
   // Regular PayGroup fields
-  pay_frequency?: string;
   default_tax_percentage?: number;
   
   // Expatriate PayGroup fields
@@ -268,4 +280,38 @@ export const getCurrencySymbol = (code: string): string => {
 export const formatCurrency = (amount: number, currencyCode: string): string => {
   const symbol = getCurrencySymbol(currencyCode);
   return `${symbol}${amount.toLocaleString()}`;
+};
+
+// Helper functions for category/sub_type validation
+export const getSubTypesForCategory = (category: PayGroupCategory): Array<HeadOfficeSubType | ProjectsSubType> => {
+  if (category === 'head_office') {
+    return ['regular', 'expatriate', 'interns'];
+  } else {
+    return ['manpower', 'ippms', 'expatriate'];
+  }
+};
+
+export const requiresPayFrequency = (category?: PayGroupCategory, subType?: string): boolean => {
+  return category === 'projects' && subType === 'manpower';
+};
+
+export const getDefaultPayType = (category?: PayGroupCategory, subType?: string, payFrequency?: ManpowerFrequency): string => {
+  if (subType === 'regular') return 'salary';
+  if (subType === 'expatriate') return 'daily_rate';
+  if (subType === 'interns') return 'salary';
+  if (subType === 'manpower') {
+    if (payFrequency === 'daily') return 'daily_rate';
+    return 'salary'; // bi_weekly and monthly
+  }
+  if (subType === 'ippms') return 'piece_rate';
+  return 'salary'; // default
+};
+
+export const isValidCategorySubType = (category: PayGroupCategory, subType: string): boolean => {
+  if (category === 'head_office') {
+    return ['regular', 'expatriate', 'interns'].includes(subType);
+  } else if (category === 'projects') {
+    return ['manpower', 'ippms', 'expatriate'].includes(subType);
+  }
+  return false;
 };

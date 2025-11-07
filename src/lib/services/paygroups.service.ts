@@ -7,7 +7,11 @@ import type {
   RegularPayGroup,
   ExpatriatePayGroup,
   ContractorPayGroup,
-  InternPayGroup
+  InternPayGroup,
+  PayGroupCategory,
+  HeadOfficeSubType,
+  ProjectsSubType,
+  ManpowerFrequency
 } from '@/lib/types/paygroups';
 import { generatePayGroupId } from '@/lib/types/paygroups';
 
@@ -45,6 +49,9 @@ export class PayGroupsService {
         paygroup_id: `REGP-${group.country.substring(0, 1)}${group.id.substring(0, 3)}`,
         name: group.name,
         type: 'regular' as const,
+        category: group.category,
+        sub_type: group.sub_type,
+        pay_frequency: group.pay_frequency,
         country: group.country,
         currency: 'UGX', // Default for regular groups
         status: 'active' as const,
@@ -52,7 +59,6 @@ export class PayGroupsService {
         created_at: group.created_at,
         updated_at: group.updated_at,
         notes: group.description,
-        pay_frequency: group.pay_frequency,
         default_tax_percentage: group.default_tax_percentage
       }));
 
@@ -61,6 +67,8 @@ export class PayGroupsService {
         paygroup_id: `EXPG-${group.country.substring(0, 1)}${group.id.substring(0, 3)}`,
         name: group.name,
         type: 'expatriate' as const,
+        category: group.category, // Will be set from pay_group_master or default
+        sub_type: group.sub_type, // Will be set from pay_group_master or default
         country: group.country,
         currency: group.currency,
         status: 'active' as const,
@@ -78,6 +86,62 @@ export class PayGroupsService {
       console.error('Error fetching pay groups:', error);
       throw new Error(`Failed to fetch pay groups: ${error.message}`);
     }
+  }
+
+  /**
+   * Get pay groups by category and sub_type
+   */
+  static async getPayGroupsByCategory(
+    category: PayGroupCategory,
+    subType?: HeadOfficeSubType | ProjectsSubType,
+    payFrequency?: ManpowerFrequency
+  ): Promise<PayGroup[]> {
+    const allGroups = await this.getPayGroups();
+    return allGroups.filter(group => {
+      if (group.category !== category) return false;
+      if (subType && group.sub_type !== subType) return false;
+      if (payFrequency && group.pay_frequency !== payFrequency) return false;
+      return true;
+    });
+  }
+
+  /**
+   * Get pay groups grouped by category and sub_type
+   */
+  static async getPayGroupsGrouped(): Promise<{
+    head_office: {
+      regular: PayGroup[];
+      expatriate: PayGroup[];
+      interns: PayGroup[];
+    };
+    projects: {
+      manpower: {
+        daily: PayGroup[];
+        bi_weekly: PayGroup[];
+        monthly: PayGroup[];
+      };
+      ippms: PayGroup[];
+      expatriate: PayGroup[];
+    };
+  }> {
+    const allGroups = await this.getPayGroups();
+    
+    return {
+      head_office: {
+        regular: allGroups.filter(g => g.category === 'head_office' && g.sub_type === 'regular'),
+        expatriate: allGroups.filter(g => g.category === 'head_office' && g.sub_type === 'expatriate'),
+        interns: allGroups.filter(g => g.category === 'head_office' && g.sub_type === 'interns')
+      },
+      projects: {
+        manpower: {
+          daily: allGroups.filter(g => g.category === 'projects' && g.sub_type === 'manpower' && g.pay_frequency === 'daily'),
+          bi_weekly: allGroups.filter(g => g.category === 'projects' && g.sub_type === 'manpower' && g.pay_frequency === 'bi_weekly'),
+          monthly: allGroups.filter(g => g.category === 'projects' && g.sub_type === 'manpower' && g.pay_frequency === 'monthly')
+        },
+        ippms: allGroups.filter(g => g.category === 'projects' && g.sub_type === 'ippms'),
+        expatriate: allGroups.filter(g => g.category === 'projects' && g.sub_type === 'expatriate')
+      }
+    };
   }
 
   /**
@@ -123,6 +187,8 @@ export class PayGroupsService {
           .insert([{
             name: formData.name,
             country: formData.country,
+            category: formData.category || 'head_office',
+            sub_type: formData.sub_type || 'regular',
             pay_frequency: formData.pay_frequency,
             default_tax_percentage: formData.default_tax_percentage,
             description: formData.notes
@@ -140,6 +206,9 @@ export class PayGroupsService {
           paygroup_id,
           name: data.name,
           type: 'regular',
+          category: data.category,
+          sub_type: data.sub_type,
+          pay_frequency: data.pay_frequency,
           country: data.country,
           currency: 'UGX',
           status: 'active',
@@ -147,12 +216,15 @@ export class PayGroupsService {
           created_at: data.created_at,
           updated_at: data.updated_at,
           notes: data.description,
-          pay_frequency: data.pay_frequency,
           default_tax_percentage: data.default_tax_percentage
         } as RegularPayGroup;
       } 
       
       if (formData.type === 'expatriate') {
+        // Determine category based on formData or default to head_office
+        const category = formData.category || 'head_office';
+        const subType = formData.sub_type || 'expatriate';
+        
         const { data, error } = await supabase
           .from('expatriate_pay_groups')
           .insert([{
@@ -172,11 +244,25 @@ export class PayGroupsService {
           throw new Error(this.getValidationErrorMessage(error));
         }
 
+        // Update pay_group_master with category/sub_type if it exists
+        if (data.id) {
+          await supabase
+            .from('pay_group_master')
+            .update({
+              category,
+              sub_type: subType
+            })
+            .eq('source_table', 'expatriate_pay_groups')
+            .eq('source_id', data.id);
+        }
+
         return {
           id: data.id,
           paygroup_id: data.paygroup_id,
           name: data.name,
           type: 'expatriate',
+          category,
+          sub_type: subType,
           country: data.country,
           currency: data.currency,
           status: 'active',
@@ -211,6 +297,8 @@ export class PayGroupsService {
           .update({
             name: formData.name,
             country: formData.country,
+            category: formData.category,
+            sub_type: formData.sub_type,
             pay_frequency: formData.pay_frequency,
             default_tax_percentage: formData.default_tax_percentage,
             description: formData.notes
@@ -229,6 +317,9 @@ export class PayGroupsService {
           paygroup_id: `REGP-${data.country.substring(0, 1)}${data.id.substring(0, 3)}`,
           name: data.name,
           type: 'regular',
+          category: data.category,
+          sub_type: data.sub_type,
+          pay_frequency: data.pay_frequency,
           country: data.country,
           currency: 'UGX',
           status: 'active',
@@ -236,12 +327,14 @@ export class PayGroupsService {
           created_at: data.created_at,
           updated_at: data.updated_at,
           notes: data.description,
-          pay_frequency: data.pay_frequency,
           default_tax_percentage: data.default_tax_percentage
         } as RegularPayGroup;
       }
 
       if (type === 'expatriate') {
+        const category = formData.category;
+        const subType = formData.sub_type;
+        
         const { data, error } = await supabase
           .from('expatriate_pay_groups')
           .update({
@@ -262,11 +355,25 @@ export class PayGroupsService {
           throw new Error(this.getValidationErrorMessage(error));
         }
 
+        // Update pay_group_master with category/sub_type if provided
+        if (category && subType) {
+          await supabase
+            .from('pay_group_master')
+            .update({
+              category,
+              sub_type: subType
+            })
+            .eq('source_table', 'expatriate_pay_groups')
+            .eq('source_id', id);
+        }
+
         return {
           id: data.id,
           paygroup_id: `EXPG-${data.country.substring(0, 1)}${data.id.substring(0, 3)}`,
           name: data.name,
           type: 'expatriate',
+          category: category || 'head_office',
+          sub_type: subType || 'expatriate',
           country: data.country,
           currency: data.currency,
           status: 'active',
