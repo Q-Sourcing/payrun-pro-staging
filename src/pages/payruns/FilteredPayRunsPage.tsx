@@ -41,6 +41,17 @@ interface FilteredPayRunsPageProps {
   description: string;
 }
 
+// Helper function to map subType to payrollType
+const getPayrollTypeFromSubType = (subType?: string): string | undefined => {
+  if (!subType) return undefined;
+  const mapping: Record<string, string> = {
+    'regular': 'Local',
+    'expatriate': 'Expatriate',
+    'interns': 'Local',
+  };
+  return mapping[subType.toLowerCase()];
+};
+
 const FilteredPayRunsPage: React.FC<FilteredPayRunsPageProps> = ({
   category,
   subType,
@@ -54,6 +65,9 @@ const FilteredPayRunsPage: React.FC<FilteredPayRunsPageProps> = ({
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [selectedPayRun, setSelectedPayRun] = useState<PayRun | null>(null);
   const { toast } = useToast();
+
+  // Determine payroll type from subType
+  const payrollType = getPayrollTypeFromSubType(subType);
 
   useEffect(() => {
     fetchPayRuns();
@@ -213,6 +227,7 @@ const FilteredPayRunsPage: React.FC<FilteredPayRunsPageProps> = ({
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         onSuccess={fetchPayRuns}
+        payrollType={payrollType}
         defaultCategory={category}
         defaultSubType={subType}
         defaultPayFrequency={payFrequency}

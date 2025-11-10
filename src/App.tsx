@@ -61,6 +61,9 @@ import ExpatriatePayrollPage from "./pages/ExpatriatePayrollPage";
 
 // Import Admin page
 import { Admin } from "./pages/Admin";
+import SuperAdmin from "./pages/SuperAdmin";
+import { SecuritySettingsPage } from "./pages/SecuritySettings";
+import { AdminSecurityDashboard } from "./pages/AdminSecurityDashboard";
 
 // Import MainLayout component
 import MainLayout from "./layouts/MainLayout";
@@ -175,6 +178,9 @@ const App = () => {
                 
                 <Route path="reports" element={<ReportsTab />} />
                 <Route path="settings" element={<Settings />} />
+                <Route path="settings/security" element={<SecuritySettingsPage />} />
+                <Route path="admin/super-admin" element={<SuperAdmin />} />
+                <Route path="admin/security" element={<AdminSecurityDashboard />} />
 
                 {/* Expatriate Payroll Route */}
                 <Route path="payruns/expatriate" element={<ExpatriatePayrollPage />} />

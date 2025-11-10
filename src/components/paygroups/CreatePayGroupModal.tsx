@@ -60,7 +60,38 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
   onSuccess,
   defaultType,
 }) => {
-  const [selectedType, setSelectedType] = useState<PayGroupType>(defaultType || 'regular');
+  // Lock selectedType to defaultType if provided and valid, otherwise use 'regular'
+  const getInitialType = (): PayGroupType => {
+    try {
+      if (defaultType && PAYGROUP_TYPES && typeof PAYGROUP_TYPES === 'object' && PAYGROUP_TYPES[defaultType]) {
+        return defaultType;
+      }
+    } catch (e) {
+      console.error('Error getting initial type:', e);
+    }
+    return 'regular';
+  };
+  
+  const [selectedType, setSelectedType] = useState<PayGroupType>(() => {
+    try {
+      return getInitialType();
+    } catch (e) {
+      console.error('Error initializing selectedType:', e);
+      return 'regular';
+    }
+  });
+  
+  // Ensure selectedType stays locked to defaultType when provided and valid
+  useEffect(() => {
+    try {
+      if (defaultType && typeof PAYGROUP_TYPES !== 'undefined' && PAYGROUP_TYPES[defaultType] && selectedType !== defaultType) {
+        setSelectedType(defaultType);
+      }
+    } catch (e) {
+      console.error('Error in useEffect for defaultType:', e);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultType]); // Removed selectedType from dependencies to prevent infinite loop
   const [selectedCategory, setSelectedCategory] = useState<PayGroupCategory | ''>('');
   const [selectedSubType, setSelectedSubType] = useState<HeadOfficeSubType | ProjectsSubType | ''>('');
   const [selectedPayFrequency, setSelectedPayFrequency] = useState<ManpowerFrequency | ''>('');
@@ -92,23 +123,24 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
   // Reset form when modal opens/closes
   useEffect(() => {
     if (open) {
-      setSelectedType(defaultType || 'regular');
+      const initialType = defaultType || 'regular';
+      setSelectedType(initialType);
       setSelectedCategory('');
       setSelectedSubType('');
       setSelectedPayFrequency('');
       setFormData({
         name: '',
-        type: defaultType || 'regular',
+        type: initialType,
         category: undefined,
         sub_type: undefined,
         pay_frequency: undefined,
         country: '',
-        currency: 'UGX',
+        currency: initialType === 'expatriate' ? 'USD' : 'UGX',
         status: 'active',
         notes: '',
         default_tax_percentage: 30,
         exchange_rate_to_local: 3800,
-        tax_country: '',
+        tax_country: initialType === 'expatriate' || initialType === 'contractor' ? 'UG' : '',
         contract_duration: 12,
         default_hourly_rate: 25,
         internship_duration: 6,
@@ -132,15 +164,16 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
 
   // Update form data when type changes
   useEffect(() => {
+    const typeToUse = defaultType || selectedType;
     setFormData(prev => ({
       ...prev,
-      type: selectedType,
+      type: typeToUse,
       // Set default currency based on type
-      currency: selectedType === 'expatriate' ? 'USD' : 'UGX',
+      currency: typeToUse === 'expatriate' ? 'USD' : 'UGX',
       // Set default tax country for expatriate/contractor
-      tax_country: selectedType === 'expatriate' || selectedType === 'contractor' ? 'UG' : ''
+      tax_country: typeToUse === 'expatriate' || typeToUse === 'contractor' ? 'UG' : ''
     }));
-  }, [selectedType]);
+  }, [selectedType, defaultType]);
 
   // Auto-generate PayGroup ID when name changes
   useEffect(() => {
@@ -217,12 +250,14 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
   };
 
   // Get icon for pay group type
-  const getTypeIcon = (type: PayGroupType) => {
+  const getTypeIcon = (type?: PayGroupType) => {
+    if (!type) return <HelpCircle className="h-4 w-4" />;
     switch (type) {
       case 'regular': return <Users className="h-4 w-4" />;
       case 'expatriate': return <Globe2 className="h-4 w-4" />;
       case 'contractor': return <Briefcase className="h-4 w-4" />;
       case 'intern': return <GraduationCap className="h-4 w-4" />;
+      default: return <HelpCircle className="h-4 w-4" />;
     }
   };
 
@@ -258,18 +293,18 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {defaultType ? (
+            {defaultType && typeof PAYGROUP_TYPES !== 'undefined' && PAYGROUP_TYPES[defaultType] ? (
               <>
                 {getTypeIcon(defaultType)}
-                Create {PAYGROUP_TYPES[defaultType].name}
+                Create {PAYGROUP_TYPES[defaultType]?.name || 'Pay Group'}
               </>
             ) : (
               'Create New Pay Group'
             )}
           </DialogTitle>
           <DialogDescription>
-            {defaultType 
-              ? `Set up a new ${PAYGROUP_TYPES[defaultType].name.toLowerCase()} for your organization.`
+            {defaultType && typeof PAYGROUP_TYPES !== 'undefined' && PAYGROUP_TYPES[defaultType]
+              ? `Set up a new ${PAYGROUP_TYPES[defaultType]?.name?.toLowerCase() || 'pay group'} for your organization.`
               : 'Set up a new pay group for your organization. Choose the type that best fits your needs.'
             }
           </DialogDescription>
@@ -355,51 +390,69 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
             </div>
           </div>
 
-          {/* Pay Group Type Selection */}
-          <div className="space-y-4">
-            <Label className="text-base font-medium">Pay Group Type</Label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {Object.values(PAYGROUP_TYPES).map((type) => (
-                <motion.div
-                  key={type.id}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Card 
-                    className={`cursor-pointer transition-all ${
-                      selectedType === type.id 
-                        ? 'ring-2 ring-blue-500 bg-blue-50' 
-                        : 'hover:bg-gray-50'
-                    }`}
-                    onClick={() => setSelectedType(type.id)}
+          {/* Pay Group Type Selection - Only show if defaultType is not provided or invalid */}
+          {!defaultType || typeof PAYGROUP_TYPES === 'undefined' || !PAYGROUP_TYPES[defaultType] ? (
+            <div className="space-y-4">
+              <Label className="text-base font-medium">Pay Group Type</Label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {PAYGROUP_TYPES && Object.values(PAYGROUP_TYPES).map((type) => (
+                  <motion.div
+                    key={type.id}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    <CardContent className="p-4 text-center">
-                      <div className="mb-2">
-                        {getTypeIcon(type.id)}
-                      </div>
-                      <h3 className="font-medium text-sm">{type.name.split(' ')[0]}</h3>
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                        {type.description}
-                      </p>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
+                    <Card 
+                      className={`cursor-pointer transition-all ${
+                        selectedType === type.id 
+                          ? 'ring-2 ring-blue-500 bg-blue-50' 
+                          : 'hover:bg-gray-50'
+                      }`}
+                      onClick={() => setSelectedType(type.id)}
+                    >
+                      <CardContent className="p-4 text-center">
+                        <div className="mb-2">
+                          {getTypeIcon(type.id)}
+                        </div>
+                        <h3 className="font-medium text-sm">{type.name.split(' ')[0]}</h3>
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                          {type.description}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+              <Label className="text-base font-medium">Pay Group Type</Label>
+              <div className="flex items-center gap-2 mt-2">
+                {getTypeIcon(defaultType)}
+                <span className="text-sm text-gray-700 font-semibold">
+                  {PAYGROUP_TYPES[defaultType]?.name || defaultType}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {PAYGROUP_TYPES[defaultType]?.description || ''}
+              </p>
+            </div>
+          )}
 
           {/* Form Fields */}
           <Tabs value={selectedType} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              {Object.values(PAYGROUP_TYPES).map((type) => (
-                <TabsTrigger key={type.id} value={type.id} className="flex items-center gap-2">
-                  {getTypeIcon(type.id)}
-                  <span className="hidden sm:inline">{type.name.split(' ')[0]}</span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
+            {/* Hide TabsList when defaultType is provided and valid - only show the selected type */}
+            {(!defaultType || typeof PAYGROUP_TYPES === 'undefined' || !PAYGROUP_TYPES[defaultType]) && (
+              <TabsList className="grid w-full grid-cols-4">
+                {PAYGROUP_TYPES && Object.values(PAYGROUP_TYPES).map((type) => (
+                  <TabsTrigger key={type.id} value={type.id} className="flex items-center gap-2">
+                    {getTypeIcon(type.id)}
+                    <span className="hidden sm:inline">{type.name.split(' ')[0]}</span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            )}
 
-            {Object.values(PAYGROUP_TYPES).map((type) => (
+            {PAYGROUP_TYPES && Object.values(PAYGROUP_TYPES).map((type) => (
               <TabsContent key={type.id} value={type.id} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Basic Information */}

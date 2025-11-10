@@ -72,7 +72,6 @@ const CreatePayRunDialog = ({
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     payroll_type: payrollType || "",
-    employee_category: "",
     pay_group_id: "",
     pay_run_date: new Date(),
     pay_period_start: new Date(),
@@ -95,6 +94,7 @@ const CreatePayRunDialog = ({
       // Reset form with defaults
       setFormData(prev => ({
         ...prev,
+        payroll_type: payrollType || prev.payroll_type || "",
         category: defaultCategory || "",
         sub_type: defaultSubType || "",
         pay_frequency: defaultPayFrequency || "",
@@ -468,7 +468,6 @@ const CreatePayRunDialog = ({
                 onValueChange={(value) => setFormData({ 
                   ...formData, 
                   payroll_type: value, 
-                  employee_category: "",
                   pay_group_id: "" // Reset pay group when type changes
                 })}
               >
@@ -490,33 +489,6 @@ const CreatePayRunDialog = ({
             </div>
           )}
 
-          {formData.payroll_type === "Local" && (
-            <div className="space-y-2">
-              <Label htmlFor="employee_category">Employee Category</Label>
-              <Select
-                value={formData.employee_category}
-                onValueChange={(value) => setFormData({ 
-                  ...formData, 
-                  employee_category: value,
-                  pay_group_id: "" // Reset pay group when category changes
-                })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select employee category (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Categories</SelectItem>
-                  <SelectItem value="Permanent">Permanent</SelectItem>
-                  <SelectItem value="On Contract">On Contract</SelectItem>
-                  <SelectItem value="Temporary">Temporary</SelectItem>
-                  <SelectItem value="Intern">Intern</SelectItem>
-                  <SelectItem value="Trainee">Trainee</SelectItem>
-                  <SelectItem value="Casual">Casual</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
           <div className="space-y-2">
             <Label htmlFor="pay_group">Pay Group *</Label>
             <Select
@@ -525,7 +497,17 @@ const CreatePayRunDialog = ({
               disabled={filteredPayGroups.length === 0}
             >
               <SelectTrigger className={filteredPayGroups.length === 0 ? "text-muted-foreground" : ""}>
-                <SelectValue placeholder={filteredPayGroups.length === 0 ? "No pay groups found" : "Select pay group"} />
+                {selectedPayGroup ? (
+                  <div className="flex flex-col items-start w-full">
+                    <span className="font-medium">{selectedPayGroup.name}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {selectedPayGroup.country} - {selectedPayGroup.currency || 'UGX'} - {selectedPayGroup.type}
+                      {selectedPayGroup.code && ` (${selectedPayGroup.code})`}
+                    </span>
+                  </div>
+                ) : (
+                  <SelectValue placeholder={filteredPayGroups.length === 0 ? "No pay groups found" : "Select pay group"} />
+                )}
               </SelectTrigger>
               <SelectContent>
                 {filteredPayGroups.length === 0 ? (

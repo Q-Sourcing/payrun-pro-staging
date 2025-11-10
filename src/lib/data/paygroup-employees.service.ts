@@ -1,4 +1,19 @@
 import { supabase } from '@/integrations/supabase/client';
+import { z } from 'zod';
+
+// Validation schemas
+const assignEmployeeSchema = z.object({
+  employee_id: z.string().uuid('Invalid employee ID'),
+  pay_group_id: z.string().uuid('Invalid pay group ID'),
+  pay_group_master_id: z.string().uuid('Invalid pay group master ID').optional(),
+  notes: z.string().max(1000, 'Notes are too long').optional(),
+  assigned_by: z.string().uuid('Invalid user ID').optional(),
+});
+
+const updateAssignmentSchema = assignEmployeeSchema.partial().extend({
+  id: z.string().uuid('Invalid assignment ID'),
+  active: z.boolean().optional(),
+});
 
 export interface PayGroupEmployee {
   id: string;
@@ -424,5 +439,260 @@ export class PayGroupEmployeesService {
       console.error('Error during one-time sync:', error);
       return { synced: 0, errors: 0, details: [`Error: ${error.message}`] };
     }
+  }
+
+  /**
+   * Assign an employee to a pay group
+   */
+  static async assignEmployee(data: {
+    employee_id: string;
+    pay_group_id: string;
+    pay_group_master_id?: string;
+    notes?: string;
+    assigned_by?: string;
+  }): Promise<PayGroupEmployee> {
+    try {
+      // Validate input
+      const validatedData = assignEmployeeSchema.parse(data);
+
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Check if employee is already assigned to this pay group
+      const existing = await supabase
+        .from('paygroup_employees')
+        .select('id, active')
+        .eq('employee_id', validatedData.employee_id)
+        .eq('pay_group_id', validatedData.pay_group_id)
+        .single();
+
+      if (existing.data) {
+        // If exists but inactive, reactivate it
+        if (!existing.data.active) {
+          const { data: reactivated, error: reactivateError } = await supabase
+            .from('paygroup_employees')
+            .update({
+              active: true,
+              assigned_at: new Date().toISOString(),
+              removed_at: null,
+              assigned_by: validatedData.assigned_by || user?.id,
+              notes: validatedData.notes,
+            })
+            .eq('id', existing.data.id)
+            .select()
+            .single();
+
+          if (reactivateError) throw reactivateError;
+
+          // Sync employee pay_group_id
+          await this.syncEmployeeAssignment(validatedData.employee_id, validatedData.pay_group_id);
+
+          // Return the reactivated assignment
+          const result = await this.getPayGroupEmployees({ pay_group_id: validatedData.pay_group_id, employee_id: validatedData.employee_id, limit: 1 });
+          return result.data[0];
+        } else {
+          throw new Error('Employee is already assigned to this pay group');
+        }
+      }
+
+      // Deactivate any other active assignments for this employee
+      await supabase
+        .from('paygroup_employees')
+        .update({
+          active: false,
+          removed_at: new Date().toISOString(),
+        })
+        .eq('employee_id', validatedData.employee_id)
+        .eq('active', true);
+
+      // Create new assignment
+      const { data: assignment, error } = await supabase
+        .from('paygroup_employees')
+        .insert({
+          employee_id: validatedData.employee_id,
+          pay_group_id: validatedData.pay_group_id,
+          pay_group_master_id: validatedData.pay_group_master_id,
+          active: true,
+          assigned_at: new Date().toISOString(),
+          assigned_by: validatedData.assigned_by || user?.id,
+          notes: validatedData.notes,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Sync employee pay_group_id
+      await this.syncEmployeeAssignment(validatedData.employee_id, validatedData.pay_group_id);
+
+      // Return the full assignment with relations
+      const result = await this.getPayGroupEmployees({ pay_group_id: validatedData.pay_group_id, employee_id: validatedData.employee_id, limit: 1 });
+      return result.data[0];
+    } catch (error: any) {
+      console.error('Error assigning employee:', error);
+      if (error.issues) {
+        throw new Error(error.issues.map((issue: any) => issue.message).join(', '));
+      }
+      throw new Error(`Failed to assign employee: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Unassign an employee from a pay group
+   */
+  static async unassignEmployee(assignmentId: string): Promise<void> {
+    try {
+      // Get the assignment
+      const { data: assignment, error: fetchError } = await supabase
+        .from('paygroup_employees')
+        .select('employee_id, pay_group_id')
+        .eq('id', assignmentId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!assignment) throw new Error('Assignment not found');
+
+      // Soft delete by setting active to false
+      const { error } = await supabase
+        .from('paygroup_employees')
+        .update({
+          active: false,
+          removed_at: new Date().toISOString(),
+        })
+        .eq('id', assignmentId);
+
+      if (error) throw error;
+
+      // Clear employee's pay_group_id
+      await supabase
+        .from('employees')
+        .update({ pay_group_id: null })
+        .eq('id', assignment.employee_id);
+    } catch (error: any) {
+      console.error('Error unassigning employee:', error);
+      throw new Error(`Failed to unassign employee: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Update an assignment
+   */
+  static async updateAssignment(id: string, data: {
+    pay_group_id?: string;
+    pay_group_master_id?: string;
+    notes?: string;
+    active?: boolean;
+  }): Promise<PayGroupEmployee> {
+    try {
+      // Validate input
+      const validatedData = updateAssignmentSchema.parse({ ...data, id });
+
+      // Check if assignment exists
+      const existing = await supabase
+        .from('paygroup_employees')
+        .select('employee_id, pay_group_id')
+        .eq('id', id)
+        .single();
+
+      if (existing.error || !existing.data) {
+        throw new Error('Assignment not found');
+      }
+
+      // Prepare update data
+      const updateData: any = {};
+
+      if (validatedData.pay_group_id !== undefined) updateData.pay_group_id = validatedData.pay_group_id;
+      if (validatedData.pay_group_master_id !== undefined) updateData.pay_group_master_id = validatedData.pay_group_master_id;
+      if (validatedData.notes !== undefined) updateData.notes = validatedData.notes;
+      if (validatedData.active !== undefined) {
+        updateData.active = validatedData.active;
+        if (validatedData.active) {
+          updateData.removed_at = null;
+        } else {
+          updateData.removed_at = new Date().toISOString();
+        }
+      }
+
+      const { data: updated, error } = await supabase
+        .from('paygroup_employees')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Sync employee pay_group_id if pay_group_id changed
+      if (validatedData.pay_group_id !== undefined && validatedData.active !== false) {
+        await this.syncEmployeeAssignment(existing.data.employee_id, validatedData.pay_group_id);
+      }
+
+      // Return the full assignment with relations
+      const result = await this.getPayGroupEmployees({ 
+        pay_group_id: updated.pay_group_id, 
+        employee_id: updated.employee_id, 
+        limit: 1 
+      });
+      return result.data[0];
+    } catch (error: any) {
+      console.error('Error updating assignment:', error);
+      if (error.issues) {
+        throw new Error(error.issues.map((issue: any) => issue.message).join(', '));
+      }
+      throw new Error(`Failed to update assignment: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Bulk assign employees to a pay group
+   */
+  static async bulkAssignEmployees(
+    employeeIds: string[],
+    payGroupId: string,
+    options?: { notes?: string; assigned_by?: string }
+  ): Promise<{ success: number; errors: number; details: string[] }> {
+    let success = 0;
+    let errors = 0;
+    const details: string[] = [];
+
+    for (const employeeId of employeeIds) {
+      try {
+        await this.assignEmployee({
+          employee_id: employeeId,
+          pay_group_id: payGroupId,
+          notes: options?.notes,
+          assigned_by: options?.assigned_by,
+        });
+        success++;
+        details.push(`✅ Employee ${employeeId} assigned successfully`);
+      } catch (error: any) {
+        errors++;
+        details.push(`❌ Employee ${employeeId}: ${error.message}`);
+      }
+    }
+
+    return { success, errors, details };
+  }
+
+  /**
+   * Bulk unassign employees from a pay group
+   */
+  static async bulkUnassignEmployees(assignmentIds: string[]): Promise<{ success: number; errors: number; details: string[] }> {
+    let success = 0;
+    let errors = 0;
+    const details: string[] = [];
+
+    for (const assignmentId of assignmentIds) {
+      try {
+        await this.unassignEmployee(assignmentId);
+        success++;
+        details.push(`✅ Assignment ${assignmentId} removed successfully`);
+      } catch (error: any) {
+        errors++;
+        details.push(`❌ Assignment ${assignmentId}: ${error.message}`);
+      }
+    }
+
+    return { success, errors, details };
   }
 }

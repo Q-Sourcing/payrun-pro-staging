@@ -10,7 +10,11 @@ import { NotificationsSection } from "@/components/settings/NotificationsSection
 import { IntegrationsSection } from "@/components/settings/IntegrationsSection";
 import { DataManagementSection } from "@/components/settings/DataManagementSection";
 import { PayslipDesignerSection } from "@/components/settings/PayslipDesignerSection";
+import { SystemSettingsSection } from "@/components/settings/SystemSettingsSection";
 import { UserManagement } from "@/components/user-management/UserManagement";
+import { SettingsSectionGuard } from "@/components/settings/SettingsSectionGuard";
+import { useUserRole } from "@/hooks/use-user-role";
+import { ROLE_DEFINITIONS } from "@/lib/types/roles";
 import { 
   Building2, 
   Users, 
@@ -22,50 +26,200 @@ import {
   Database, 
   Info,
   Activity,
-  FileText
+  FileText,
+  Settings as SettingsIcon
 } from "lucide-react";
 
 const Settings = () => {
   const [activeSection, setActiveSection] = useState("theme");
+  const { role, isSuperAdmin } = useUserRole();
 
-  const menuItems = [
-    { id: "company", label: "Company Settings", icon: Building2 },
-    { id: "employee", label: "Employee Settings", icon: Users },
-    { id: "payroll", label: "Payroll Settings", icon: DollarSign },
-    { id: "payslip-designer", label: "Payslip Designer", icon: FileText },
-    { id: "theme", label: "Display & Theme", icon: Palette },
-    { id: "security", label: "Security & Access", icon: Shield },
-    { id: "notifications", label: "Notifications", icon: Bell },
-    { id: "integrations", label: "Integrations", icon: RefreshCw },
-    { id: "user-management", label: "User Management", icon: Users },
-    { id: "data", label: "Data Management", icon: Database },
-    { id: "about", label: "About & Help", icon: Info },
+  // Define menu items with role requirements
+  const allMenuItems = [
+    { 
+      id: "company", 
+      label: "Company Settings", 
+      icon: Building2,
+      requiredRole: 'organization_admin' as const,
+      requiredPermission: 'organization_configuration'
+    },
+    { 
+      id: "employee", 
+      label: "Employee Settings", 
+      icon: Users,
+      requiredRole: 'hr_business_partner' as const,
+      requiredPermission: 'view_organization_employees'
+    },
+    { 
+      id: "payroll", 
+      label: "Payroll Settings", 
+      icon: DollarSign,
+      requiredRole: 'payroll_manager' as const,
+      requiredPermission: 'process_payroll'
+    },
+    { 
+      id: "payslip-designer", 
+      label: "Payslip Designer", 
+      icon: FileText,
+      requiredRole: 'payroll_manager' as const,
+      requiredPermission: 'process_payroll'
+    },
+    { 
+      id: "theme", 
+      label: "Display & Theme", 
+      icon: Palette,
+      requiredRole: 'employee' as const // Everyone can access theme
+    },
+    { 
+      id: "security", 
+      label: "Security & Access", 
+      icon: Shield,
+      requiredRole: 'organization_admin' as const,
+      requiredPermission: 'organization_configuration'
+    },
+    { 
+      id: "notifications", 
+      label: "Notifications", 
+      icon: Bell,
+      requiredRole: 'employee' as const // Everyone can access notifications
+    },
+    { 
+      id: "integrations", 
+      label: "Integrations", 
+      icon: RefreshCw,
+      requiredRole: 'organization_admin' as const,
+      requiredPermission: 'manage_integrations'
+    },
+    { 
+      id: "user-management", 
+      label: "User Management", 
+      icon: Users,
+      requiredRole: 'organization_admin' as const,
+      requiredPermission: 'manage_organization_users'
+    },
+    { 
+      id: "system", 
+      label: "System Settings", 
+      icon: SettingsIcon,
+      requiredRole: 'super_admin' as const,
+      requiredPermission: 'system_configuration'
+    },
+    { 
+      id: "data", 
+      label: "Data Management", 
+      icon: Database,
+      requiredRole: 'organization_admin' as const,
+      requiredPermission: 'export_data'
+    },
+    { 
+      id: "about", 
+      label: "About & Help", 
+      icon: Info,
+      requiredRole: 'employee' as const // Everyone can access about
+    },
   ];
+
+  // Filter menu items based on user role
+  const menuItems = allMenuItems.filter(item => {
+    if (isSuperAdmin) return true; // Super admin sees everything
+    
+    if (!role) return false;
+    
+    const roleDef = ROLE_DEFINITIONS[role];
+    const requiredRoleDef = ROLE_DEFINITIONS[item.requiredRole];
+    
+    // Check role level
+    if (roleDef.level < requiredRoleDef.level) {
+      return false;
+    }
+    
+    // Check permission if specified
+    if (item.requiredPermission && !roleDef.permissions.includes(item.requiredPermission as any)) {
+      return false;
+    }
+    
+    return true;
+  });
 
   const renderSection = () => {
     switch (activeSection) {
       case "company":
-        return <CompanySettingsSection />;
+        return (
+          <SettingsSectionGuard requiredRole="organization_admin" requiredPermission="organization_configuration">
+            <CompanySettingsSection />
+          </SettingsSectionGuard>
+        );
       case "employee":
-        return <EmployeeSettingsSection />;
+        return (
+          <SettingsSectionGuard requiredRole="hr_business_partner" requiredPermission="view_organization_employees">
+            <EmployeeSettingsSection />
+          </SettingsSectionGuard>
+        );
       case "payslip-designer":
-        return <PayslipDesignerSection />;
+        return (
+          <SettingsSectionGuard requiredRole="payroll_manager" requiredPermission="process_payroll">
+            <PayslipDesignerSection />
+          </SettingsSectionGuard>
+        );
       case "theme":
         return <ThemeSettings />;
       case "about":
         return <AboutSection />;
       case "payroll":
-        return <PayrollSettingsSection />;
+        return (
+          <SettingsSectionGuard requiredRole="payroll_manager" requiredPermission="process_payroll">
+            <PayrollSettingsSection />
+          </SettingsSectionGuard>
+        );
       case "security":
-        return <SecuritySettingsSection />;
+        return (
+          <SettingsSectionGuard requiredRole="organization_admin" requiredPermission="organization_configuration">
+            <div className="space-y-4">
+              <SecuritySettingsSection />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Account Security & Lockout</CardTitle>
+                  <CardDescription>
+                    Manage account lockout settings and view security events
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <a href="/settings/security">
+                    <Button variant="outline" className="w-full">
+                      Open Security Dashboard
+                    </Button>
+                  </a>
+                </CardContent>
+              </Card>
+            </div>
+          </SettingsSectionGuard>
+        );
       case "notifications":
         return <NotificationsSection />;
       case "integrations":
-        return <IntegrationsSection />;
+        return (
+          <SettingsSectionGuard requiredRole="organization_admin" requiredPermission="manage_integrations">
+            <IntegrationsSection />
+          </SettingsSectionGuard>
+        );
       case "user-management":
-        return <UserManagement />;
+        return (
+          <SettingsSectionGuard requiredRole="organization_admin" requiredPermission="manage_organization_users">
+            <UserManagement />
+          </SettingsSectionGuard>
+        );
+      case "system":
+        return (
+          <SettingsSectionGuard requiredRole="super_admin" requiredPermission="system_configuration">
+            <SystemSettingsSection />
+          </SettingsSectionGuard>
+        );
       case "data":
-        return <DataManagementSection />;
+        return (
+          <SettingsSectionGuard requiredRole="organization_admin" requiredPermission="export_data">
+            <DataManagementSection />
+          </SettingsSectionGuard>
+        );
       default:
         return <ThemeSettings />;
     }

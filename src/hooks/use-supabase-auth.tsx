@@ -5,6 +5,7 @@ import { toast } from '@/hooks/use-toast';
 import { log, warn, error as logError, debug } from '@/lib/logger';
 import { JWTClaimsService, UserContext } from '@/lib/services/auth/jwt-claims';
 import { UserProfileService, UserProfile } from '@/lib/services/auth/user-profiles';
+import { AuthLogger } from '@/lib/services/auth/auth-logger';
 
 export type UserRole = 'super_admin' | 'org_admin' | 'user';
 
@@ -156,47 +157,77 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
     };
   }, []);
 
-  // Login function
+  // Login function - Uses secure-login Edge Function
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     
     try {
       debug('Attempting login for:', email);
       
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      // Call secure-login Edge Function
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/secure-login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
       });
 
-      if (error) {
-        logError('Login error:', error);
-        throw error;
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        // Generic error message (no disclosure of account status)
+        const errorMessage = result.message || 'Invalid email or password';
+        logError('Login error:', errorMessage);
+        
+        toast({
+          title: "Login Failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        
+        throw new Error(errorMessage);
       }
 
-      log('Login successful:', data.user?.email);
-      
-      // Fetch user profile after successful login
-      if (data.user) {
-        const userProfile = await fetchUserProfile(data.user.id);
+      // Set session manually since Edge Function returns session data
+      if (result.session && result.user) {
+        // Set the session in Supabase client
+        await supabase.auth.setSession({
+          access_token: result.session.access_token,
+          refresh_token: result.session.refresh_token,
+        });
+
+        setSession(result.session);
+        setUser(result.user);
+
+        // Update JWT claims
+        const jwtClaims = JWTClaimsService.getCurrentClaims();
+        const userContext = JWTClaimsService.getCurrentUserContext();
+        setClaims(jwtClaims);
+        setUserContext(userContext);
+
+        // Fetch user profile after successful login
+        const userProfile = await fetchUserProfile(result.user.id);
         setProfile(userProfile);
-      }
 
-      toast({
-        title: "Welcome back!",
-        description: `Successfully logged in as ${data.user?.email}`,
-      });
+        log('Login successful:', result.user.email);
+
+        toast({
+          title: "Welcome back!",
+          description: `Successfully logged in as ${result.user.email}`,
+        });
+      } else {
+        throw new Error('Invalid response from login service');
+      }
     } catch (error: any) {
       logError('Login failed:', error);
       
-      let errorMessage = 'Invalid email or password';
-      
-      if (error.message?.includes('Invalid login credentials')) {
-        errorMessage = 'Invalid email or password. Please try again.';
-      } else if (error.message?.includes('Email not confirmed')) {
-        errorMessage = 'Please confirm your email address before logging in.';
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
+      // Always show generic error message
+      const errorMessage = error.message || 'Invalid email or password';
       
       toast({
         title: "Login Failed",
@@ -210,12 +241,37 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  // Logout function
+  // Logout function - Logs logout event
   const logout = async () => {
     setIsLoading(true);
     
     try {
       debug('Logging out...');
+      
+      const currentUserId = user?.id;
+      const currentUserEmail = user?.email;
+
+      // Log logout event before signing out
+      if (currentUserId) {
+        try {
+          // Get user's organization
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('organization_id')
+            .eq('id', currentUserId)
+            .single();
+
+          await AuthLogger.log({
+            user_id: currentUserId,
+            org_id: profile?.organization_id || undefined,
+            event_type: 'logout',
+            success: true,
+          });
+        } catch (logError) {
+          console.error('Error logging logout event:', logError);
+          // Don't fail logout if logging fails
+        }
+      }
       
       const { error } = await supabase.auth.signOut();
       
@@ -227,6 +283,8 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
       setUser(null);
       setProfile(null);
       setSession(null);
+      setClaims(null);
+      setUserContext(null);
       
       log('Logout successful');
       

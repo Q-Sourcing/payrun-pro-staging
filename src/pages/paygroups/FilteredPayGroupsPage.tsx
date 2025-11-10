@@ -1,9 +1,6 @@
-import React from 'react';
-import { useParams } from 'react-router-dom';
-import { PayGroupsPage } from '@/pages/paygroups/PayGroupsPage';
+import React, { useState, useEffect } from 'react';
 import { PayGroupsService } from '@/lib/services/paygroups.service';
-import { PayGroup, PayGroupCategory, HeadOfficeSubType, ProjectsSubType, ManpowerFrequency } from '@/lib/types/paygroups';
-import { useState, useEffect } from 'react';
+import { PayGroup, PayGroupType, PayGroupCategory, HeadOfficeSubType, ProjectsSubType, ManpowerFrequency } from '@/lib/types/paygroups';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PayGroupCard } from '@/components/paygroups/PayGroupCard';
 import { Button } from '@/components/ui/button';
@@ -20,6 +17,17 @@ interface FilteredPayGroupsPageProps {
   description: string;
 }
 
+// Helper function to map subType to PayGroupType
+const getPayGroupTypeFromSubType = (subType?: string): PayGroupType | undefined => {
+  if (!subType) return undefined;
+  const mapping: Record<string, PayGroupType> = {
+    'regular': 'regular',
+    'expatriate': 'expatriate',
+    'interns': 'intern',
+  };
+  return mapping[subType.toLowerCase()];
+};
+
 const FilteredPayGroupsPage: React.FC<FilteredPayGroupsPageProps> = ({
   category,
   subType,
@@ -33,6 +41,9 @@ const FilteredPayGroupsPage: React.FC<FilteredPayGroupsPageProps> = ({
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<PayGroup | undefined>();
   const { toast } = useToast();
+
+  // Determine pay group type from subType
+  const defaultType = getPayGroupTypeFromSubType(subType);
 
   useEffect(() => {
     loadPayGroups();
@@ -125,6 +136,7 @@ const FilteredPayGroupsPage: React.FC<FilteredPayGroupsPageProps> = ({
         open={showCreateModal}
         onOpenChange={setShowCreateModal}
         onSuccess={handleCreateSuccess}
+        defaultType={defaultType}
       />
 
       <AssignEmployeeModal

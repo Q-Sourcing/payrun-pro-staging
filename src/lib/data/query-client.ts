@@ -67,4 +67,35 @@ export const queryKeys = {
     detail: (id: string) => [...queryKeys.payRuns.details(), id] as const,
     summary: () => [...queryKeys.payRuns.all, 'summary'] as const,
   },
+  
+  // Pay item queries
+  payItems: {
+    all: ['payItems'] as const,
+    lists: () => [...queryKeys.payItems.all, 'list'] as const,
+    list: (filters: Record<string, any>) => [...queryKeys.payItems.lists(), filters] as const,
+    details: () => [...queryKeys.payItems.all, 'detail'] as const,
+    detail: (id: string) => [...queryKeys.payItems.details(), id] as const,
+    byPayRun: (payRunId: string) => [...queryKeys.payItems.all, 'byPayRun', payRunId] as const,
+    byEmployee: (employeeId: string) => [...queryKeys.payItems.all, 'byEmployee', employeeId] as const,
+  },
+  
+  // Benefits queries
+  benefits: {
+    all: ['benefits'] as const,
+    lists: () => [...queryKeys.benefits.all, 'list'] as const,
+    list: (filters: Record<string, any>) => [...queryKeys.benefits.lists(), filters] as const,
+    details: () => [...queryKeys.benefits.all, 'detail'] as const,
+    detail: (id: string) => [...queryKeys.benefits.details(), id] as const,
+    byCountry: (country: string) => [...queryKeys.benefits.all, 'byCountry', country] as const,
+  },
+  
+  // Users queries
+  users: {
+    all: ['users'] as const,
+    lists: () => [...queryKeys.users.all, 'list'] as const,
+    list: (filters: Record<string, any>) => [...queryKeys.users.lists(), filters] as const,
+    details: () => [...queryKeys.users.all, 'detail'] as const,
+    detail: (id: string) => [...queryKeys.users.details(), id] as const,
+    byRole: (role: string) => [...queryKeys.users.all, 'byRole', role] as const,
+  },
 } as const;

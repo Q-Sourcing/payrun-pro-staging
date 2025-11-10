@@ -27,6 +27,7 @@ const navigation = [
   { name: 'Overview', href: '/admin', icon: BarChart3 },
   { name: 'Organizations', href: '/admin/organizations', icon: Building2 },
   { name: 'Users', href: '/admin/users', icon: Users },
+  { name: 'Security', href: '/admin/security', icon: Shield },
   { name: 'System Settings', href: '/admin/system-settings', icon: Settings },
   { name: 'Global Reports', href: '/admin/global-reports', icon: BarChart3 },
   { name: 'Activity Log', href: '/admin/activity-log', icon: Activity },

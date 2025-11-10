@@ -18,9 +18,10 @@ interface SidebarPayGroupType {
 interface SidebarProps {
   activeTab: string;
   onNavigate: (tab: string) => void;
+  collapsed?: boolean;
 }
 
-export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigate }) => {
+export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigate, collapsed = false }) => {
   const [localOpen, setLocalOpen] = useState(false);
   const [payGroupsOpen, setPayGroupsOpen] = useState(false);
   const [headOfficeOpen, setHeadOfficeOpen] = useState(false);
@@ -39,16 +40,24 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
       ? "bg-blue-50 text-blue-700 font-semibold"
       : "text-slate-700 hover:bg-slate-50 hover:text-blue-700";
 
-  const SectionHeader = ({ title }: { title: string }) => (
-    <div className="tracking-wider text-xs font-semibold text-slate-500 uppercase px-4 mt-6 mb-1">
-      {title}
-    </div>
-  );
+  const SectionHeader = ({ title }: { title: string }) => {
+    if (collapsed) return null;
+    return (
+      <div className="tracking-wider text-xs font-semibold text-slate-500 uppercase px-4 mt-6 mb-1">
+        {title}
+      </div>
+    );
+  };
 
   const NavItem = ({ to, icon, label }: { to: string; icon: JSX.Element; label: string }) => (
-    <motion.div whileHover={{ x: 4 }}>
-      <Link to={to} className={`flex items-center gap-2 px-3.5 py-2.5 rounded-md ${isActive(to)}`}>
-        {icon} {label}
+    <motion.div whileHover={{ x: collapsed ? 0 : 4 }}>
+      <Link 
+        to={to} 
+        className={`flex items-center gap-2 px-3.5 py-2.5 rounded-md ${isActive(to)} ${collapsed ? 'justify-center' : ''}`}
+        title={collapsed ? label : undefined}
+      >
+        {icon} 
+        {!collapsed && <span>{label}</span>}
       </Link>
     </motion.div>
   );
@@ -129,284 +138,314 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
       <NavItem to="/paygroups" icon={<FolderKanban size={16} />} label="All Pay Groups" />
       
       {/* Head Office */}
-      <button
-        onClick={() => setHeadOfficeOpen(!headOfficeOpen)}
-        className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-md text-slate-700 hover:bg-slate-50"
-      >
-        <span className="flex items-center gap-2">
-          <Building2 size={16} /> Head Office
-        </span>
-        <motion.div animate={{ rotate: headOfficeOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
-          <ChevronRight size={14} />
-        </motion.div>
-      </button>
-
-      <AnimatePresence initial={false}>
-        {headOfficeOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: "easeInOut" }}
-            className="mt-1 space-y-0.5 overflow-hidden"
+      {collapsed ? (
+        <NavItem to="/paygroups/head-office/regular" icon={<Building2 size={16} />} label="Head Office" />
+      ) : (
+        <>
+          <button
+            onClick={() => setHeadOfficeOpen(!headOfficeOpen)}
+            className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-md text-slate-700 hover:bg-slate-50"
           >
-            <motion.div whileHover={{ x: 4 }}>
-              <Link to="/paygroups/head-office/regular" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/paygroups/head-office/regular")}`}>
-                <Users size={15} /> Regular
-              </Link>
+            <span className="flex items-center gap-2">
+              <Building2 size={16} /> Head Office
+            </span>
+            <motion.div animate={{ rotate: headOfficeOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
+              <ChevronRight size={14} />
             </motion.div>
-            <motion.div whileHover={{ x: 4 }}>
-              <Link to="/paygroups/head-office/expatriate" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/paygroups/head-office/expatriate")}`}>
-                <Globe size={15} /> Expatriate
-              </Link>
-            </motion.div>
-            <motion.div whileHover={{ x: 4 }}>
-              <Link to="/paygroups/head-office/interns" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/paygroups/head-office/interns")}`}>
-                <GraduationCap size={15} /> Interns
-              </Link>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {headOfficeOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: "easeInOut" }}
+                className="mt-1 space-y-0.5 overflow-hidden"
+              >
+                <motion.div whileHover={{ x: 4 }}>
+                  <Link to="/paygroups/head-office/regular" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/paygroups/head-office/regular")}`}>
+                    <Users size={15} /> Regular
+                  </Link>
+                </motion.div>
+                <motion.div whileHover={{ x: 4 }}>
+                  <Link to="/paygroups/head-office/expatriate" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/paygroups/head-office/expatriate")}`}>
+                    <Globe size={15} /> Expatriate
+                  </Link>
+                </motion.div>
+                <motion.div whileHover={{ x: 4 }}>
+                  <Link to="/paygroups/head-office/interns" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/paygroups/head-office/interns")}`}>
+                    <GraduationCap size={15} /> Interns
+                  </Link>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </>
+      )}
 
       {/* Projects */}
-      <button
-        onClick={() => setProjectsOpen(!projectsOpen)}
-        className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-md text-slate-700 hover:bg-slate-50"
-      >
-        <span className="flex items-center gap-2">
-          <FolderTree size={16} /> Projects
-        </span>
-        <motion.div animate={{ rotate: projectsOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
-          <ChevronRight size={14} />
-        </motion.div>
-      </button>
-
-      <AnimatePresence initial={false}>
-        {projectsOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: "easeInOut" }}
-            className="mt-1 space-y-0.5 overflow-hidden"
+      {collapsed ? (
+        <NavItem to="/paygroups/projects/expatriate" icon={<FolderTree size={16} />} label="Projects" />
+      ) : (
+        <>
+          <button
+            onClick={() => setProjectsOpen(!projectsOpen)}
+            className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-md text-slate-700 hover:bg-slate-50"
           >
-            {/* Manpower */}
-            <button
-              onClick={() => setManpowerOpen(!manpowerOpen)}
-              className="flex items-center justify-between w-full pl-7 pr-3 py-1.5 rounded-md text-slate-700 hover:bg-slate-50"
-            >
-              <span className="flex items-center gap-2">
-                <Briefcase size={15} /> Manpower
-              </span>
-              <motion.div animate={{ rotate: manpowerOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
-                <ChevronRight size={12} />
-              </motion.div>
-            </button>
-            <AnimatePresence initial={false}>
-              {manpowerOpen && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.25, ease: "easeInOut" }}
-                  className="mt-1 space-y-0.5 overflow-hidden"
-                >
-                  <motion.div whileHover={{ x: 4 }}>
-                    <Link to="/paygroups/projects/manpower/daily" className={`flex items-center gap-2 pl-11 pr-3 py-1.5 rounded-md ${isActive("/paygroups/projects/manpower/daily")}`}>
-                      <Calendar size={14} /> Daily
-                    </Link>
-                  </motion.div>
-                  <motion.div whileHover={{ x: 4 }}>
-                    <Link to="/paygroups/projects/manpower/bi-weekly" className={`flex items-center gap-2 pl-11 pr-3 py-1.5 rounded-md ${isActive("/paygroups/projects/manpower/bi-weekly")}`}>
-                      <Calendar size={14} /> Bi-weekly
-                    </Link>
-                  </motion.div>
-                  <motion.div whileHover={{ x: 4 }}>
-                    <Link to="/paygroups/projects/manpower/monthly" className={`flex items-center gap-2 pl-11 pr-3 py-1.5 rounded-md ${isActive("/paygroups/projects/manpower/monthly")}`}>
-                      <Calendar size={14} /> Monthly
-                    </Link>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* IPPMS */}
-            <button
-              onClick={() => setIppmsOpen(!ippmsOpen)}
-              className="flex items-center justify-between w-full pl-7 pr-3 py-1.5 rounded-md text-slate-700 hover:bg-slate-50"
-            >
-              <span className="flex items-center gap-2">
-                <Package size={15} /> IPPMS
-              </span>
-              <motion.div animate={{ rotate: ippmsOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
-                <ChevronRight size={12} />
-              </motion.div>
-            </button>
-            <AnimatePresence initial={false}>
-              {ippmsOpen && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.25, ease: "easeInOut" }}
-                  className="mt-1 space-y-0.5 overflow-hidden"
-                >
-                  <motion.div whileHover={{ x: 4 }}>
-                    <Link to="/paygroups/projects/ippms/piece-rate" className={`flex items-center gap-2 pl-11 pr-3 py-1.5 rounded-md ${isActive("/paygroups/projects/ippms/piece-rate")}`}>
-                      <Package size={14} /> Piece Rate
-                    </Link>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Projects Expatriate */}
-            <motion.div whileHover={{ x: 4 }}>
-              <Link to="/paygroups/projects/expatriate" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/paygroups/projects/expatriate")}`}>
-                <Globe size={15} /> Expatriate
-              </Link>
+            <span className="flex items-center gap-2">
+              <FolderTree size={16} /> Projects
+            </span>
+            <motion.div animate={{ rotate: projectsOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
+              <ChevronRight size={14} />
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {projectsOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: "easeInOut" }}
+                className="mt-1 space-y-0.5 overflow-hidden"
+              >
+                {/* Manpower */}
+                <button
+                  onClick={() => setManpowerOpen(!manpowerOpen)}
+                  className="flex items-center justify-between w-full pl-7 pr-3 py-1.5 rounded-md text-slate-700 hover:bg-slate-50"
+                >
+                  <span className="flex items-center gap-2">
+                    <Briefcase size={15} /> Manpower
+                  </span>
+                  <motion.div animate={{ rotate: manpowerOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
+                    <ChevronRight size={12} />
+                  </motion.div>
+                </button>
+                <AnimatePresence initial={false}>
+                  {manpowerOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: "easeInOut" }}
+                      className="mt-1 space-y-0.5 overflow-hidden"
+                    >
+                      <motion.div whileHover={{ x: 4 }}>
+                        <Link to="/paygroups/projects/manpower/daily" className={`flex items-center gap-2 pl-11 pr-3 py-1.5 rounded-md ${isActive("/paygroups/projects/manpower/daily")}`}>
+                          <Calendar size={14} /> Daily
+                        </Link>
+                      </motion.div>
+                      <motion.div whileHover={{ x: 4 }}>
+                        <Link to="/paygroups/projects/manpower/bi-weekly" className={`flex items-center gap-2 pl-11 pr-3 py-1.5 rounded-md ${isActive("/paygroups/projects/manpower/bi-weekly")}`}>
+                          <Calendar size={14} /> Bi-weekly
+                        </Link>
+                      </motion.div>
+                      <motion.div whileHover={{ x: 4 }}>
+                        <Link to="/paygroups/projects/manpower/monthly" className={`flex items-center gap-2 pl-11 pr-3 py-1.5 rounded-md ${isActive("/paygroups/projects/manpower/monthly")}`}>
+                          <Calendar size={14} /> Monthly
+                        </Link>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* IPPMS */}
+                <button
+                  onClick={() => setIppmsOpen(!ippmsOpen)}
+                  className="flex items-center justify-between w-full pl-7 pr-3 py-1.5 rounded-md text-slate-700 hover:bg-slate-50"
+                >
+                  <span className="flex items-center gap-2">
+                    <Package size={15} /> IPPMS
+                  </span>
+                  <motion.div animate={{ rotate: ippmsOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
+                    <ChevronRight size={12} />
+                  </motion.div>
+                </button>
+                <AnimatePresence initial={false}>
+                  {ippmsOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: "easeInOut" }}
+                      className="mt-1 space-y-0.5 overflow-hidden"
+                    >
+                      <motion.div whileHover={{ x: 4 }}>
+                        <Link to="/paygroups/projects/ippms/piece-rate" className={`flex items-center gap-2 pl-11 pr-3 py-1.5 rounded-md ${isActive("/paygroups/projects/ippms/piece-rate")}`}>
+                          <Package size={14} /> Piece Rate
+                        </Link>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Projects Expatriate */}
+                <motion.div whileHover={{ x: 4 }}>
+                  <Link to="/paygroups/projects/expatriate" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/paygroups/projects/expatriate")}`}>
+                    <Globe size={15} /> Expatriate
+                  </Link>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </>
+      )}
 
       {/* PAY RUNS */}
       <SectionHeader title="Pay Runs" />
       <NavItem to="/payruns" icon={<DollarSign size={16} />} label="All Pay Runs" />
       
       {/* Head Office Pay Runs */}
-      <button
-        onClick={() => setPayRunsHeadOfficeOpen(!payRunsHeadOfficeOpen)}
-        className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-md text-slate-700 hover:bg-slate-50"
-      >
-        <span className="flex items-center gap-2">
-          <Building2 size={16} /> Head Office
-        </span>
-        <motion.div animate={{ rotate: payRunsHeadOfficeOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
-          <ChevronRight size={14} />
-        </motion.div>
-      </button>
-      <AnimatePresence initial={false}>
-        {payRunsHeadOfficeOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: "easeInOut" }}
-            className="mt-1 space-y-0.5 overflow-hidden"
+      {collapsed ? (
+        <NavItem to="/payruns/head-office/regular" icon={<Building2 size={16} />} label="Head Office" />
+      ) : (
+        <>
+          <button
+            onClick={() => setPayRunsHeadOfficeOpen(!payRunsHeadOfficeOpen)}
+            className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-md text-slate-700 hover:bg-slate-50"
           >
-            <NavItem to="/payruns/head-office/regular" icon={<Users size={15} />} label="Regular" />
-            <NavItem to="/payruns/head-office/expatriate" icon={<Globe size={15} />} label="Expatriate" />
-            <NavItem to="/payruns/head-office/interns" icon={<GraduationCap size={15} />} label="Interns" />
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <span className="flex items-center gap-2">
+              <Building2 size={16} /> Head Office
+            </span>
+            <motion.div animate={{ rotate: payRunsHeadOfficeOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
+              <ChevronRight size={14} />
+            </motion.div>
+          </button>
+          <AnimatePresence initial={false}>
+            {payRunsHeadOfficeOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: "easeInOut" }}
+                className="mt-1 space-y-0.5 overflow-hidden"
+              >
+                <NavItem to="/payruns/head-office/regular" icon={<Users size={15} />} label="Regular" />
+                <NavItem to="/payruns/head-office/expatriate" icon={<Globe size={15} />} label="Expatriate" />
+                <NavItem to="/payruns/head-office/interns" icon={<GraduationCap size={15} />} label="Interns" />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </>
+      )}
 
       {/* Projects Pay Runs */}
-      <button
-        onClick={() => setPayRunsProjectsOpen(!payRunsProjectsOpen)}
-        className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-md text-slate-700 hover:bg-slate-50"
-      >
-        <span className="flex items-center gap-2">
-          <FolderTree size={16} /> Projects
-        </span>
-        <motion.div animate={{ rotate: payRunsProjectsOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
-          <ChevronRight size={14} />
-        </motion.div>
-      </button>
-      <AnimatePresence initial={false}>
-        {payRunsProjectsOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: "easeInOut" }}
-            className="mt-1 space-y-0.5 overflow-hidden"
+      {collapsed ? (
+        <NavItem to="/payruns/projects/expatriate" icon={<FolderTree size={16} />} label="Projects" />
+      ) : (
+        <>
+          <button
+            onClick={() => setPayRunsProjectsOpen(!payRunsProjectsOpen)}
+            className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-md text-slate-700 hover:bg-slate-50"
           >
-            {/* Manpower Pay Runs */}
-            <button
-              onClick={() => setPayRunsManpowerOpen(!payRunsManpowerOpen)}
-              className="flex items-center justify-between w-full pl-7 pr-3 py-1.5 rounded-md text-slate-700 hover:bg-slate-50"
-            >
-              <span className="flex items-center gap-2">
-                <Briefcase size={15} /> Manpower
-              </span>
-              <motion.div animate={{ rotate: payRunsManpowerOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
-                <ChevronRight size={12} />
-              </motion.div>
-            </button>
-            <AnimatePresence initial={false}>
-              {payRunsManpowerOpen && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.25, ease: "easeInOut" }}
-                  className="mt-1 space-y-0.5 overflow-hidden"
+            <span className="flex items-center gap-2">
+              <FolderTree size={16} /> Projects
+            </span>
+            <motion.div animate={{ rotate: payRunsProjectsOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
+              <ChevronRight size={14} />
+            </motion.div>
+          </button>
+          <AnimatePresence initial={false}>
+            {payRunsProjectsOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: "easeInOut" }}
+                className="mt-1 space-y-0.5 overflow-hidden"
+              >
+                {/* Manpower Pay Runs */}
+                <button
+                  onClick={() => setPayRunsManpowerOpen(!payRunsManpowerOpen)}
+                  className="flex items-center justify-between w-full pl-7 pr-3 py-1.5 rounded-md text-slate-700 hover:bg-slate-50"
                 >
-                  <NavItem to="/payruns/projects/manpower/daily" icon={<Calendar size={14} />} label="Daily" />
-                  <NavItem to="/payruns/projects/manpower/bi-weekly" icon={<Calendar size={14} />} label="Bi-weekly" />
-                  <NavItem to="/payruns/projects/manpower/monthly" icon={<Calendar size={14} />} label="Monthly" />
-                </motion.div>
-              )}
-            </AnimatePresence>
-            <NavItem to="/payruns/projects/ippms" icon={<Package size={15} />} label="IPPMS" />
-            <NavItem to="/payruns/projects/expatriate" icon={<Globe size={15} />} label="Expatriate" />
-          </motion.div>
-        )}
-      </AnimatePresence>
+                  <span className="flex items-center gap-2">
+                    <Briefcase size={15} /> Manpower
+                  </span>
+                  <motion.div animate={{ rotate: payRunsManpowerOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
+                    <ChevronRight size={12} />
+                  </motion.div>
+                </button>
+                <AnimatePresence initial={false}>
+                  {payRunsManpowerOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: "easeInOut" }}
+                      className="mt-1 space-y-0.5 overflow-hidden"
+                    >
+                      <NavItem to="/payruns/projects/manpower/daily" icon={<Calendar size={14} />} label="Daily" />
+                      <NavItem to="/payruns/projects/manpower/bi-weekly" icon={<Calendar size={14} />} label="Bi-weekly" />
+                      <NavItem to="/payruns/projects/manpower/monthly" icon={<Calendar size={14} />} label="Monthly" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                <NavItem to="/payruns/projects/ippms" icon={<Package size={15} />} label="IPPMS" />
+                <NavItem to="/payruns/projects/expatriate" icon={<Globe size={15} />} label="Expatriate" />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </>
+      )}
 
       {/* LOCAL PAYROLL */}
-      <button
-        onClick={() => setLocalOpen(!localOpen)}
-        className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-md text-slate-700 hover:bg-slate-50"
-      >
-        <span className="flex items-center gap-2">
-          <Users size={16} /> Local Payroll
-        </span>
-        <motion.div animate={{ rotate: localOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
-          <ChevronRight size={14} />
-        </motion.div>
-      </button>
-
-      <AnimatePresence initial={false}>
-        {localOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: "easeInOut" }}
-            className="mt-1 space-y-0.5 overflow-hidden"
+      {collapsed ? (
+        <NavItem to="/payruns/local/monthly" icon={<Users size={16} />} label="Local" />
+      ) : (
+        <>
+          <button
+            onClick={() => setLocalOpen(!localOpen)}
+            className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-md text-slate-700 hover:bg-slate-50"
           >
-            <motion.div whileHover={{ x: 4 }}>
-              <Link to="/payruns/local/monthly" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/payruns/local/monthly")}`}>
-                <Briefcase size={15} /> Monthly Payroll
-              </Link>
+            <span className="flex items-center gap-2">
+              <Users size={16} /> Local Payroll
+            </span>
+            <motion.div animate={{ rotate: localOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
+              <ChevronRight size={14} />
             </motion.div>
-            <motion.div whileHover={{ x: 4 }}>
-              <Link to="/payruns/local/temporary" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/payruns/local/temporary")}`}>
-                <Clock3 size={15} /> Temporary
-              </Link>
-            </motion.div>
-            <motion.div whileHover={{ x: 4 }}>
-              <Link to="/payruns/local/intern" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/payruns/local/intern")}`}>
-                <GraduationCap size={15} /> Intern
-              </Link>
-            </motion.div>
-            <motion.div whileHover={{ x: 4 }}>
-              <Link to="/payruns/local/trainee" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/payruns/local/trainee")}`}>
-                <UserSquare size={15} /> Trainee
-              </Link>
-            </motion.div>
-            <motion.div whileHover={{ x: 4 }}>
-              <Link to="/payruns/local/casual" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/payruns/local/casual")}`}>
-                <Timer size={15} /> Casual
-              </Link>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {localOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: "easeInOut" }}
+                className="mt-1 space-y-0.5 overflow-hidden"
+              >
+                <motion.div whileHover={{ x: 4 }}>
+                  <Link to="/payruns/local/monthly" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/payruns/local/monthly")}`}>
+                    <Briefcase size={15} /> Monthly Payroll
+                  </Link>
+                </motion.div>
+                <motion.div whileHover={{ x: 4 }}>
+                  <Link to="/payruns/local/temporary" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/payruns/local/temporary")}`}>
+                    <Clock3 size={15} /> Temporary
+                  </Link>
+                </motion.div>
+                <motion.div whileHover={{ x: 4 }}>
+                  <Link to="/payruns/local/intern" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/payruns/local/intern")}`}>
+                    <GraduationCap size={15} /> Intern
+                  </Link>
+                </motion.div>
+                <motion.div whileHover={{ x: 4 }}>
+                  <Link to="/payruns/local/trainee" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/payruns/local/trainee")}`}>
+                    <UserSquare size={15} /> Trainee
+                  </Link>
+                </motion.div>
+                <motion.div whileHover={{ x: 4 }}>
+                  <Link to="/payruns/local/casual" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/payruns/local/casual")}`}>
+                    <Timer size={15} /> Casual
+                  </Link>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </>
+      )}
 
       {/* REPORTS */}
       <SectionHeader title="Reports" />
