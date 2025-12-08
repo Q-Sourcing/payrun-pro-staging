@@ -4,7 +4,7 @@ export interface MultiTenantPayRun {
   id: string
   organization_id: string
   company_id?: string
-  org_unit_id?: string
+  company_unit_id?: string
   employee_type_id?: string
   pay_group_id?: string
   pay_period_start: string
@@ -24,9 +24,9 @@ export interface MultiTenantPayRun {
   company?: {
     name: string
   }
-  org_unit?: {
+  company_unit?: {
     name: string
-    kind: 'head_office' | 'project'
+    kind?: 'head_office' | 'project' | null
   }
   employee_type?: {
     code: string
@@ -78,7 +78,7 @@ export interface MultiTenantPayRunItem {
 export interface CreatePayRunData {
   organization_id: string
   company_id?: string
-  org_unit_id?: string
+  company_unit_id?: string
   employee_type_id?: string
   pay_group_id?: string
   pay_period_start: string
@@ -111,7 +111,7 @@ export class MultiTenantPayrollService {
         id,
         organization_id,
         company_id,
-        org_unit_id,
+        company_unit_id,
         employee_type_id,
         pay_group_id,
         pay_period_start,
@@ -126,7 +126,7 @@ export class MultiTenantPayrollService {
         updated_at,
         organization:organizations(name),
         company:companies(name),
-        org_unit:org_units(name, kind),
+        company_unit:company_units(name, kind),
         employee_type:employee_types(code, name, pay_basis),
         pay_group:pay_groups(name, currency, pay_frequency)
       `)
@@ -149,7 +149,7 @@ export class MultiTenantPayrollService {
         id,
         organization_id,
         company_id,
-        org_unit_id,
+        company_unit_id,
         employee_type_id,
         pay_group_id,
         pay_period_start,
@@ -164,7 +164,7 @@ export class MultiTenantPayrollService {
         updated_at,
         organization:organizations(name),
         company:companies(name),
-        org_unit:org_units(name, kind),
+        company_unit:company_units(name, kind),
         employee_type:employee_types(code, name, pay_basis),
         pay_group:pay_groups(name, currency, pay_frequency)
       `)
@@ -188,7 +188,7 @@ export class MultiTenantPayrollService {
         id,
         organization_id,
         company_id,
-        org_unit_id,
+        company_unit_id,
         employee_type_id,
         pay_group_id,
         pay_period_start,
@@ -203,7 +203,7 @@ export class MultiTenantPayrollService {
         updated_at,
         organization:organizations(name),
         company:companies(name),
-        org_unit:org_units(name, kind),
+        company_unit:company_units(name, kind),
         employee_type:employee_types(code, name, pay_basis),
         pay_group:pay_groups(name, currency, pay_frequency)
       `)

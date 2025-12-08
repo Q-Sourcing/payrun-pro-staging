@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { logAuditEvent, extractIpAddress, extractUserAgent } from '../_shared/audit-logger.ts'
+import { validateRequest, UpdateUserRequestSchema, DeleteUserRequestSchema } from '../_shared/validation-schemas.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -120,11 +122,27 @@ serve(async (req) => {
     const userRole = userRoles.role
     const isAdmin = userRole === 'admin' || userRole === 'super_admin'
 
+    // Extract IP and user agent for audit logging
+    const ipAddress = extractIpAddress(req)
+    const userAgent = extractUserAgent(req)
+
     if (!isAdmin) {
+      // Log denied access attempt
+      await logAuditEvent(supabaseAdmin, {
+        user_id: currentUser.id,
+        action: 'user.update',
+        resource: 'users',
+        details: { attempted_action: 'update', reason: 'insufficient_permissions' },
+        ip_address: ipAddress,
+        user_agent: userAgent,
+        result: 'denied',
+      })
+
       return new Response(
         JSON.stringify({ 
           success: false, 
-          message: 'Insufficient permissions. Admin role required.' 
+          message: 'Insufficient permissions. Admin role required.',
+          code: 'PERMISSION_DENIED'
         }),
         { 
           status: 403, 
@@ -138,13 +156,26 @@ serve(async (req) => {
 
     // Handle UPDATE request
     if (req.method === 'PUT' || req.method === 'PATCH') {
-      const body: UpdateUserRequest = await req.json()
+      let body: UpdateUserRequest
+      try {
+        const rawBody = await req.json()
+        body = validateRequest(UpdateUserRequestSchema, rawBody)
+      } catch (validationError) {
+        await logAuditEvent(supabaseAdmin, {
+          user_id: currentUser.id,
+          action: 'user.update',
+          resource: 'users',
+          details: { error: validationError instanceof Error ? validationError.message : 'Validation failed' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'failure',
+        })
 
-      if (!body.id) {
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'User ID is required' 
+            message: validationError instanceof Error ? validationError.message : 'Invalid request data',
+            code: 'VALIDATION_ERROR'
           } as UpdateUserResponse),
           { 
             status: 400, 
@@ -161,10 +192,21 @@ serve(async (req) => {
         .single()
 
       if (fetchError || !existingProfile) {
+        await logAuditEvent(supabaseAdmin, {
+          user_id: currentUser.id,
+          action: 'user.update',
+          resource: 'users',
+          details: { target_user_id: body.id, error: 'User not found' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'failure',
+        })
+
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'User not found' 
+            message: 'User not found',
+            code: 'NOT_FOUND'
           } as UpdateUserResponse),
           { 
             status: 404, 
@@ -192,10 +234,22 @@ serve(async (req) => {
 
       if (profileError) {
         console.error('Error updating profile:', profileError)
+        
+        await logAuditEvent(supabaseAdmin, {
+          user_id: currentUser.id,
+          action: 'user.update',
+          resource: 'users',
+          details: { target_user_id: body.id, error: profileError.message },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'failure',
+        })
+
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'Failed to update user profile: ' + profileError.message 
+            message: 'Failed to update user profile: ' + profileError.message,
+            code: 'UPDATE_ERROR'
           } as UpdateUserResponse),
           { 
             status: 400, 
@@ -208,10 +262,21 @@ serve(async (req) => {
       if (body.role !== undefined) {
         // Only super_admin can change roles
         if (userRole !== 'super_admin') {
+          await logAuditEvent(supabaseAdmin, {
+            user_id: currentUser.id,
+            action: 'user.update',
+            resource: 'users',
+            details: { target_user_id: body.id, attempted_action: 'change_role', reason: 'insufficient_permissions' },
+            ip_address: ipAddress,
+            user_agent: userAgent,
+            result: 'denied',
+          })
+
           return new Response(
             JSON.stringify({ 
               success: false, 
-              message: 'Only super admin can change user roles' 
+              message: 'Only super admin can change user roles',
+              code: 'PERMISSION_DENIED'
             } as UpdateUserResponse),
             { 
               status: 403, 
@@ -227,10 +292,22 @@ serve(async (req) => {
 
         if (roleUpdateError) {
           console.error('Error updating role:', roleUpdateError)
+          
+          await logAuditEvent(supabaseAdmin, {
+            user_id: currentUser.id,
+            action: 'user.update',
+            resource: 'users',
+            details: { target_user_id: body.id, attempted_action: 'change_role', error: roleUpdateError.message },
+            ip_address: ipAddress,
+            user_agent: userAgent,
+            result: 'failure',
+          })
+
           return new Response(
             JSON.stringify({ 
               success: false, 
-              message: 'Failed to update user role: ' + roleUpdateError.message 
+              message: 'Failed to update user role: ' + roleUpdateError.message,
+              code: 'UPDATE_ERROR'
             } as UpdateUserResponse),
             { 
               status: 400, 
@@ -249,10 +326,22 @@ serve(async (req) => {
 
         if (authUpdateError) {
           console.error('Error updating auth user:', authUpdateError)
+          
+          await logAuditEvent(supabaseAdmin, {
+            user_id: currentUser.id,
+            action: 'user.update',
+            resource: 'users',
+            details: { target_user_id: body.id, attempted_action: 'change_email', error: authUpdateError.message },
+            ip_address: ipAddress,
+            user_agent: userAgent,
+            result: 'failure',
+          })
+
           return new Response(
             JSON.stringify({ 
               success: false, 
-              message: 'Failed to update user email: ' + authUpdateError.message 
+              message: 'Failed to update user email: ' + authUpdateError.message,
+              code: 'UPDATE_ERROR'
             } as UpdateUserResponse),
             { 
               status: 400, 
@@ -284,6 +373,25 @@ serve(async (req) => {
         sessionTimeout: body.session_timeout || 480,
       }
 
+      // Log successful update
+      await logAuditEvent(supabaseAdmin, {
+        user_id: currentUser.id,
+        action: 'user.update',
+        resource: 'users',
+        details: { 
+          target_user_id: body.id,
+          changes: {
+            email: body.email !== undefined ? { old: existingProfile.email, new: body.email } : undefined,
+            first_name: body.first_name !== undefined ? { old: existingProfile.first_name, new: body.first_name } : undefined,
+            last_name: body.last_name !== undefined ? { old: existingProfile.last_name, new: body.last_name } : undefined,
+            role: body.role !== undefined ? { old: existingProfile.role, new: body.role } : undefined,
+          }
+        },
+        ip_address: ipAddress,
+        user_agent: userAgent,
+        result: 'success',
+      })
+
       console.log(`User updated successfully: ${body.id} by ${currentUser.email}`)
 
       return new Response(
@@ -301,13 +409,26 @@ serve(async (req) => {
 
     // Handle DELETE request
     if (req.method === 'DELETE') {
-      const body: DeleteUserRequest = await req.json()
+      let body: DeleteUserRequest
+      try {
+        const rawBody = await req.json()
+        body = validateRequest(DeleteUserRequestSchema, rawBody)
+      } catch (validationError) {
+        await logAuditEvent(supabaseAdmin, {
+          user_id: currentUser.id,
+          action: 'user.delete',
+          resource: 'users',
+          details: { error: validationError instanceof Error ? validationError.message : 'Validation failed' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'failure',
+        })
 
-      if (!body.id) {
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'User ID is required' 
+            message: validationError instanceof Error ? validationError.message : 'Invalid request data',
+            code: 'VALIDATION_ERROR'
           } as DeleteUserResponse),
           { 
             status: 400, 
@@ -318,10 +439,21 @@ serve(async (req) => {
 
       // Prevent self-deletion
       if (body.id === currentUser.id) {
+        await logAuditEvent(supabaseAdmin, {
+          user_id: currentUser.id,
+          action: 'user.delete',
+          resource: 'users',
+          details: { target_user_id: body.id, reason: 'self_deletion_prevented' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'denied',
+        })
+
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'Cannot delete your own account' 
+            message: 'Cannot delete your own account',
+            code: 'SELF_DELETION_DENIED'
           } as DeleteUserResponse),
           { 
             status: 400, 
@@ -332,10 +464,21 @@ serve(async (req) => {
 
       // Only super_admin can hard delete
       if (body.hard_delete && userRole !== 'super_admin') {
+        await logAuditEvent(supabaseAdmin, {
+          user_id: currentUser.id,
+          action: 'user.delete',
+          resource: 'users',
+          details: { target_user_id: body.id, attempted_action: 'hard_delete', reason: 'insufficient_permissions' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'denied',
+        })
+
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'Only super admin can perform hard delete' 
+            message: 'Only super admin can perform hard delete',
+            code: 'PERMISSION_DENIED'
           } as DeleteUserResponse),
           { 
             status: 403, 
@@ -350,10 +493,22 @@ serve(async (req) => {
         
         if (deleteError) {
           console.error('Error deleting user:', deleteError)
+          
+          await logAuditEvent(supabaseAdmin, {
+            user_id: currentUser.id,
+            action: 'user.delete',
+            resource: 'users',
+            details: { target_user_id: body.id, delete_type: 'hard', error: deleteError.message },
+            ip_address: ipAddress,
+            user_agent: userAgent,
+            result: 'failure',
+          })
+
           return new Response(
             JSON.stringify({ 
               success: false, 
-              message: 'Failed to delete user: ' + deleteError.message 
+              message: 'Failed to delete user: ' + deleteError.message,
+              code: 'DELETE_ERROR'
             } as DeleteUserResponse),
             { 
               status: 400, 
@@ -361,6 +516,17 @@ serve(async (req) => {
             }
           )
         }
+
+        // Log successful hard delete
+        await logAuditEvent(supabaseAdmin, {
+          user_id: currentUser.id,
+          action: 'user.delete',
+          resource: 'users',
+          details: { target_user_id: body.id, delete_type: 'hard' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'success',
+        })
 
         console.log(`User hard deleted: ${body.id} by ${currentUser.email}`)
 
@@ -382,10 +548,22 @@ serve(async (req) => {
 
         if (banError) {
           console.error('Error banning user:', banError)
+          
+          await logAuditEvent(supabaseAdmin, {
+            user_id: currentUser.id,
+            action: 'user.delete',
+            resource: 'users',
+            details: { target_user_id: body.id, delete_type: 'soft', error: banError.message },
+            ip_address: ipAddress,
+            user_agent: userAgent,
+            result: 'failure',
+          })
+
           return new Response(
             JSON.stringify({ 
               success: false, 
-              message: 'Failed to deactivate user: ' + banError.message 
+              message: 'Failed to deactivate user: ' + banError.message,
+              code: 'DELETE_ERROR'
             } as DeleteUserResponse),
             { 
               status: 400, 
@@ -393,6 +571,17 @@ serve(async (req) => {
             }
           )
         }
+
+        // Log successful soft delete
+        await logAuditEvent(supabaseAdmin, {
+          user_id: currentUser.id,
+          action: 'user.delete',
+          resource: 'users',
+          details: { target_user_id: body.id, delete_type: 'soft' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'success',
+        })
 
         console.log(`User soft deleted (banned): ${body.id} by ${currentUser.email}`)
 
@@ -422,10 +611,51 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Unexpected error in manage-users function:', error)
+    
+    // Try to log the error (but don't fail if logging fails)
+    try {
+      const ipAddress = extractIpAddress(req)
+      const userAgent = extractUserAgent(req)
+      const authHeader = req.headers.get('Authorization')
+      const token = authHeader?.replace('Bearer ', '')
+      
+      if (token) {
+        const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+        if (serviceRoleKey) {
+          const supabaseAdmin = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            serviceRoleKey,
+            {
+              auth: {
+                autoRefreshToken: false,
+                persistSession: false
+              }
+            }
+          )
+          
+          const { data: { user } } = await supabaseAdmin.auth.getUser(token)
+          if (user) {
+            await logAuditEvent(supabaseAdmin, {
+              user_id: user.id,
+              action: 'user.operation',
+              resource: 'users',
+              details: { error: error instanceof Error ? error.message : 'Unknown error', method: req.method },
+              ip_address: ipAddress,
+              user_agent: userAgent,
+              result: 'failure',
+            })
+          }
+        }
+      }
+    } catch (logError) {
+      console.error('Failed to log error:', logError)
+    }
+    
     return new Response(
       JSON.stringify({ 
         success: false, 
-        message: 'Internal server error: ' + (error instanceof Error ? error.message : 'Unknown error') 
+        message: 'Internal server error: ' + (error instanceof Error ? error.message : 'Unknown error'),
+        code: 'INTERNAL_ERROR'
       }),
       { 
         status: 500, 

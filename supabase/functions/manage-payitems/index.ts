@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { logAuditEvent, extractIpAddress, extractUserAgent } from '../_shared/audit-logger.ts'
+import { validateRequest, CreatePayItemRequestSchema, UpdatePayItemRequestSchema, DeletePayItemRequestSchema } from '../_shared/validation-schemas.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -168,11 +170,27 @@ serve(async (req) => {
     const role = userRole.role
     const canManagePayItems = ['finance', 'admin', 'super_admin'].includes(role)
 
+    // Extract IP and user agent for audit logging
+    const ipAddress = extractIpAddress(req)
+    const userAgent = extractUserAgent(req)
+
     if (!canManagePayItems) {
+      // Log denied access attempt
+      await logAuditEvent(supabaseAdmin, {
+        user_id: user.id,
+        action: 'payitem.operation',
+        resource: 'pay_items',
+        details: { attempted_action: req.method, reason: 'insufficient_permissions' },
+        ip_address: ipAddress,
+        user_agent: userAgent,
+        result: 'denied',
+      })
+
       return new Response(
         JSON.stringify({ 
           success: false, 
-          message: 'Insufficient permissions. Finance, Admin, or Super Admin role required.' 
+          message: 'Insufficient permissions. Finance, Admin, or Super Admin role required.',
+          code: 'PERMISSION_DENIED'
         } as PayItemResponse),
         { 
           status: 403, 
@@ -183,14 +201,26 @@ serve(async (req) => {
 
     // Handle CREATE request
     if (req.method === 'POST') {
-      const body: CreatePayItemRequest = await req.json()
+      let body: CreatePayItemRequest
+      try {
+        const rawBody = await req.json()
+        body = validateRequest(CreatePayItemRequestSchema, rawBody)
+      } catch (validationError) {
+        await logAuditEvent(supabaseAdmin, {
+          user_id: user.id,
+          action: 'payitem.create',
+          resource: 'pay_items',
+          details: { error: validationError instanceof Error ? validationError.message : 'Validation failed' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'failure',
+        })
 
-      // Validate required fields
-      if (!body.pay_run_id || !body.employee_id) {
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'pay_run_id and employee_id are required' 
+            message: validationError instanceof Error ? validationError.message : 'Invalid request data',
+            code: 'VALIDATION_ERROR'
           } as PayItemResponse),
           { 
             status: 400, 
@@ -207,10 +237,21 @@ serve(async (req) => {
         .single()
 
       if (payRunError || !payRun) {
+        await logAuditEvent(supabaseAdmin, {
+          user_id: user.id,
+          action: 'payitem.create',
+          resource: 'pay_items',
+          details: { pay_run_id: body.pay_run_id, error: 'Pay run not found' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'failure',
+        })
+
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'Pay run not found' 
+            message: 'Pay run not found',
+            code: 'NOT_FOUND'
           } as PayItemResponse),
           { 
             status: 404, 
@@ -220,10 +261,21 @@ serve(async (req) => {
       }
 
       if (payRun.status === 'processed') {
+        await logAuditEvent(supabaseAdmin, {
+          user_id: user.id,
+          action: 'payitem.create',
+          resource: 'pay_items',
+          details: { pay_run_id: body.pay_run_id, status: payRun.status, reason: 'processed_payrun_protection' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'denied',
+        })
+
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'Cannot add pay items to processed pay runs' 
+            message: 'Cannot add pay items to processed pay runs',
+            code: 'PROCESSED_PAYRUN_PROTECTION'
           } as PayItemResponse),
           { 
             status: 400, 
@@ -259,11 +311,28 @@ serve(async (req) => {
 
       if (error) {
         console.error('Error creating pay item:', error)
+        
+        await logAuditEvent(supabaseAdmin, {
+          user_id: user.id,
+          action: 'payitem.create',
+          resource: 'pay_items',
+          details: { 
+            pay_run_id: body.pay_run_id, 
+            employee_id: body.employee_id,
+            error: error.message,
+            error_code: error.code
+          },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'failure',
+        })
+
         if (error.code === '23505') {
           return new Response(
             JSON.stringify({ 
               success: false, 
-              message: 'A pay item for this employee already exists in this pay run' 
+              message: 'A pay item for this employee already exists in this pay run',
+              code: 'DUPLICATE_PAY_ITEM'
             } as PayItemResponse),
             { 
               status: 400, 
@@ -274,7 +343,8 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'Failed to create pay item: ' + error.message 
+            message: 'Failed to create pay item: ' + error.message,
+            code: 'CREATE_ERROR'
           } as PayItemResponse),
           { 
             status: 400, 
@@ -290,6 +360,23 @@ serve(async (req) => {
         console.error('Error updating pay run totals:', totalsError)
         // Don't fail the request, but log the error
       }
+
+      // Log successful creation
+      await logAuditEvent(supabaseAdmin, {
+        user_id: user.id,
+        action: 'payitem.create',
+        resource: 'pay_items',
+        details: { 
+          pay_item_id: payItem.id,
+          pay_run_id: body.pay_run_id,
+          employee_id: body.employee_id,
+          gross_pay: payItem.gross_pay,
+          net_pay: payItem.net_pay
+        },
+        ip_address: ipAddress,
+        user_agent: userAgent,
+        result: 'success',
+      })
 
       console.log(`Pay item created: ${payItem.id} by ${user.email}`)
 
@@ -308,13 +395,26 @@ serve(async (req) => {
 
     // Handle UPDATE request
     if (req.method === 'PUT' || req.method === 'PATCH') {
-      const body: UpdatePayItemRequest = await req.json()
+      let body: UpdatePayItemRequest
+      try {
+        const rawBody = await req.json()
+        body = validateRequest(UpdatePayItemRequestSchema, rawBody)
+      } catch (validationError) {
+        await logAuditEvent(supabaseAdmin, {
+          user_id: user.id,
+          action: 'payitem.update',
+          resource: 'pay_items',
+          details: { error: validationError instanceof Error ? validationError.message : 'Validation failed' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'failure',
+        })
 
-      if (!body.id) {
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'Pay item ID is required' 
+            message: validationError instanceof Error ? validationError.message : 'Invalid request data',
+            code: 'VALIDATION_ERROR'
           } as PayItemResponse),
           { 
             status: 400, 
@@ -331,10 +431,21 @@ serve(async (req) => {
         .single()
 
       if (fetchError || !existing) {
+        await logAuditEvent(supabaseAdmin, {
+          user_id: user.id,
+          action: 'payitem.update',
+          resource: 'pay_items',
+          details: { pay_item_id: body.id, error: 'Pay item not found' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'failure',
+        })
+
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'Pay item not found' 
+            message: 'Pay item not found',
+            code: 'NOT_FOUND'
           } as PayItemResponse),
           { 
             status: 404, 
@@ -345,10 +456,21 @@ serve(async (req) => {
 
       // Check if pay run is processed
       if (existing.pay_runs?.status === 'processed') {
+        await logAuditEvent(supabaseAdmin, {
+          user_id: user.id,
+          action: 'payitem.update',
+          resource: 'pay_items',
+          details: { pay_item_id: body.id, pay_run_id: existing.pay_run_id, status: existing.pay_runs.status, reason: 'processed_payrun_protection' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'denied',
+        })
+
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'Cannot update pay items in processed pay runs' 
+            message: 'Cannot update pay items in processed pay runs',
+            code: 'PROCESSED_PAYRUN_PROTECTION'
           } as PayItemResponse),
           { 
             status: 400, 
@@ -388,10 +510,22 @@ serve(async (req) => {
 
       if (updateError) {
         console.error('Error updating pay item:', updateError)
+        
+        await logAuditEvent(supabaseAdmin, {
+          user_id: user.id,
+          action: 'payitem.update',
+          resource: 'pay_items',
+          details: { pay_item_id: body.id, error: updateError.message },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'failure',
+        })
+
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'Failed to update pay item: ' + updateError.message 
+            message: 'Failed to update pay item: ' + updateError.message,
+            code: 'UPDATE_ERROR'
           } as PayItemResponse),
           { 
             status: 400, 
@@ -407,6 +541,22 @@ serve(async (req) => {
         console.error('Error updating pay run totals:', totalsError)
         // Don't fail the request, but log the error
       }
+
+      // Log successful update
+      await logAuditEvent(supabaseAdmin, {
+        user_id: user.id,
+        action: 'payitem.update',
+        resource: 'pay_items',
+        details: { 
+          pay_item_id: body.id,
+          pay_run_id: existing.pay_run_id,
+          employee_id: existing.employee_id,
+          changes: Object.keys(updateData).filter(k => k !== 'updated_at')
+        },
+        ip_address: ipAddress,
+        user_agent: userAgent,
+        result: 'success',
+      })
 
       console.log(`Pay item updated: ${body.id} by ${user.email}`)
 
@@ -425,13 +575,26 @@ serve(async (req) => {
 
     // Handle DELETE request
     if (req.method === 'DELETE') {
-      const body: DeletePayItemRequest = await req.json()
+      let body: DeletePayItemRequest
+      try {
+        const rawBody = await req.json()
+        body = validateRequest(DeletePayItemRequestSchema, rawBody)
+      } catch (validationError) {
+        await logAuditEvent(supabaseAdmin, {
+          user_id: user.id,
+          action: 'payitem.delete',
+          resource: 'pay_items',
+          details: { error: validationError instanceof Error ? validationError.message : 'Validation failed' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'failure',
+        })
 
-      if (!body.id) {
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'Pay item ID is required' 
+            message: validationError instanceof Error ? validationError.message : 'Invalid request data',
+            code: 'VALIDATION_ERROR'
           } as PayItemResponse),
           { 
             status: 400, 
@@ -448,10 +611,21 @@ serve(async (req) => {
         .single()
 
       if (fetchError || !existing) {
+        await logAuditEvent(supabaseAdmin, {
+          user_id: user.id,
+          action: 'payitem.delete',
+          resource: 'pay_items',
+          details: { pay_item_id: body.id, error: 'Pay item not found' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'failure',
+        })
+
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'Pay item not found' 
+            message: 'Pay item not found',
+            code: 'NOT_FOUND'
           } as PayItemResponse),
           { 
             status: 404, 
@@ -462,10 +636,21 @@ serve(async (req) => {
 
       // Check if pay run is processed
       if (existing.pay_runs?.status === 'processed') {
+        await logAuditEvent(supabaseAdmin, {
+          user_id: user.id,
+          action: 'payitem.delete',
+          resource: 'pay_items',
+          details: { pay_item_id: body.id, pay_run_id: existing.pay_run_id, status: existing.pay_runs.status, reason: 'processed_payrun_protection' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'denied',
+        })
+
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'Cannot delete pay items from processed pay runs' 
+            message: 'Cannot delete pay items from processed pay runs',
+            code: 'PROCESSED_PAYRUN_PROTECTION'
           } as PayItemResponse),
           { 
             status: 400, 
@@ -483,10 +668,22 @@ serve(async (req) => {
 
       if (deleteError) {
         console.error('Error deleting pay item:', deleteError)
+        
+        await logAuditEvent(supabaseAdmin, {
+          user_id: user.id,
+          action: 'payitem.delete',
+          resource: 'pay_items',
+          details: { pay_item_id: body.id, error: deleteError.message },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'failure',
+        })
+
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'Failed to delete pay item: ' + deleteError.message 
+            message: 'Failed to delete pay item: ' + deleteError.message,
+            code: 'DELETE_ERROR'
           } as PayItemResponse),
           { 
             status: 400, 
@@ -502,6 +699,17 @@ serve(async (req) => {
         console.error('Error updating pay run totals:', totalsError)
         // Don't fail the request, but log the error
       }
+
+      // Log successful deletion
+      await logAuditEvent(supabaseAdmin, {
+        user_id: user.id,
+        action: 'payitem.delete',
+        resource: 'pay_items',
+        details: { pay_item_id: body.id, pay_run_id: payRunId },
+        ip_address: ipAddress,
+        user_agent: userAgent,
+        result: 'success',
+      })
 
       console.log(`Pay item deleted: ${body.id} by ${user.email}`)
 
@@ -530,10 +738,51 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Unexpected error in manage-payitems function:', error)
+    
+    // Try to log the error (but don't fail if logging fails)
+    try {
+      const ipAddress = extractIpAddress(req)
+      const userAgent = extractUserAgent(req)
+      const authHeader = req.headers.get('Authorization')
+      const token = authHeader?.replace('Bearer ', '')
+      
+      if (token) {
+        const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+        if (serviceRoleKey) {
+          const supabaseAdmin = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            serviceRoleKey,
+            {
+              auth: {
+                autoRefreshToken: false,
+                persistSession: false
+              }
+            }
+          )
+          
+          const { data: { user } } = await supabaseAdmin.auth.getUser(token)
+          if (user) {
+            await logAuditEvent(supabaseAdmin, {
+              user_id: user.id,
+              action: 'payitem.operation',
+              resource: 'pay_items',
+              details: { error: error instanceof Error ? error.message : 'Unknown error', method: req.method },
+              ip_address: ipAddress,
+              user_agent: userAgent,
+              result: 'failure',
+            })
+          }
+        }
+      }
+    } catch (logError) {
+      console.error('Failed to log error:', logError)
+    }
+    
     return new Response(
       JSON.stringify({ 
         success: false, 
-        message: 'Internal server error: ' + (error instanceof Error ? error.message : 'Unknown error') 
+        message: 'Internal server error: ' + (error instanceof Error ? error.message : 'Unknown error'),
+        code: 'INTERNAL_ERROR'
       } as PayItemResponse),
       { 
         status: 500, 

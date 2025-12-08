@@ -296,7 +296,7 @@ export class PayGroupsDataService {
           default_tax_percentage: validatedData.default_tax_percentage,
           description: validatedData.notes,
           category: validatedData.category,
-          sub_type: validatedData.sub_type,
+          employee_type: validatedData.employee_type,
           type: 'regular',
         };
 
@@ -314,7 +314,7 @@ export class PayGroupsDataService {
           name: payGroup.name,
           type: 'regular',
           category: payGroup.category,
-          sub_type: payGroup.sub_type,
+          employee_type: payGroup.employee_type,
           pay_frequency: payGroup.pay_frequency,
           country: payGroup.country,
           currency: 'UGX',
@@ -336,7 +336,7 @@ export class PayGroupsDataService {
           notes: validatedData.notes,
           paygroup_id: paygroupId,
           category: validatedData.category,
-          sub_type: validatedData.sub_type,
+          employee_type: validatedData.employee_type,
         };
 
         const { data: payGroup, error } = await supabase
@@ -353,7 +353,7 @@ export class PayGroupsDataService {
           name: payGroup.name,
           type: 'expatriate',
           category: payGroup.category,
-          sub_type: payGroup.sub_type,
+          employee_type: payGroup.employee_type,
           country: payGroup.country,
           currency: payGroup.currency || 'USD',
           status: 'active',
@@ -403,7 +403,7 @@ export class PayGroupsDataService {
         if (validatedData.default_tax_percentage !== undefined) updateData.default_tax_percentage = validatedData.default_tax_percentage;
         if (validatedData.notes !== undefined) updateData.description = validatedData.notes;
         if (validatedData.category !== undefined) updateData.category = validatedData.category;
-        if (validatedData.sub_type !== undefined) updateData.sub_type = validatedData.sub_type;
+        if (validatedData.employee_type !== undefined) updateData.employee_type = validatedData.employee_type;
         if (validatedData.status !== undefined) {
           // Handle status if needed (might need a status column)
         }
@@ -432,7 +432,7 @@ export class PayGroupsDataService {
         if (validatedData.tax_country !== undefined) updateData.tax_country = validatedData.tax_country;
         if (validatedData.notes !== undefined) updateData.notes = validatedData.notes;
         if (validatedData.category !== undefined) updateData.category = validatedData.category;
-        if (validatedData.sub_type !== undefined) updateData.sub_type = validatedData.sub_type;
+        if (validatedData.employee_type !== undefined) updateData.employee_type = validatedData.employee_type;
 
         const { data: payGroup, error } = await supabase
           .from('expatriate_pay_groups')

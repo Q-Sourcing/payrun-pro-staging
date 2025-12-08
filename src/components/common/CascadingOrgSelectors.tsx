@@ -1,12 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useOrg } from '@/lib/tenant/OrgContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { CreateCompanyUnitDialog } from '@/components/company-units/CreateCompanyUnitDialog';
+import { CreateDepartmentDialog } from '@/components/departments/CreateDepartmentDialog';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { ALL_COUNTRIES } from '@/lib/constants/countries';
+import { useOrg } from '@/lib/tenant/OrgContext';
 
 export interface CascadingSelectorValue {
   countryId?: string;
   companyId?: string;
-  orgUnitId?: string;
+  companyUnitId?: string;
+  departmentId?: string;
   employeeTypeId?: string;
   payGroupId?: string;
 }
@@ -25,114 +33,363 @@ interface CascadingOrgSelectorsProps {
 export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
   value, onChange, mode, disabledFields = [], requiredFields = [], className = ''
 }) => {
-  const { organizationId } = useOrg();
   // Data
   const [countries, setCountries] = useState<Array<{ id: string; name: string }>>([]);
   const [companies, setCompanies] = useState<Array<{ id: string; name: string; country_id: string }>>([]);
-  const [orgUnits, setOrgUnits] = useState<Array<{ id: string; name: string; company_id: string; kind: string }>>([]);
+  const [companyUnits, setCompanyUnits] = useState<Array<{ id: string; name: string; company_id: string }>>([]);
+  const [departments, setDepartments] = useState<Array<{ id: string; name: string; company_unit_id: string }>>([]);
   const [employeeTypes, setEmployeeTypes] = useState<Array<{ id: string; name: string }>>([]);
   const [payGroups, setPayGroups] = useState<Array<{ id: string; name: string }>>([]);
+  const { organizationId } = useOrg();
 
   // Loading
   const [loading, setLoading] = useState<{ [k: string]: boolean }>({});
+  const [showCreateCompanyUnit, setShowCreateCompanyUnit] = useState(false);
+  const [showCreateDepartment, setShowCreateDepartment] = useState(false);
 
   // Load global countries & employee types once
   useEffect(() => {
     let cancelled = false;
     async function loadGlobals() {
       setLoading(l => ({ ...l, countries: true, employeeTypes: true }));
-      const [countryRes, typeRes] = await Promise.all([
-        supabase.from('countries').select('id, name').order('name'),
-        supabase.from('employee_types').select('id, name').order('name')
-      ]);
-      if (!cancelled) {
-        setCountries(countryRes.data || []);
-        setEmployeeTypes(typeRes.data || []);
-        setLoading(l => ({ ...l, countries: false, employeeTypes: false }));
+      try {
+        const [countryRes, typeRes] = await Promise.all([
+          supabase.from('countries').select('id, name').order('name'),
+          supabase.from('employee_types').select('id, name').order('name')
+        ]);
+        if (!cancelled) {
+          // Handle countries - use fallback if table doesn't exist or is empty
+          if (countryRes.error || !countryRes.data || countryRes.data.length === 0) {
+            console.log('Countries table not found or empty, using fallback');
+            // Use constant countries as fallback, mapping code to id
+            const fallbackCountries = ALL_COUNTRIES.map(c => ({
+              id: c.code,
+              name: c.name
+            }));
+            setCountries(fallbackCountries);
+          } else {
+            setCountries(countryRes.data);
+          }
+          setEmployeeTypes(typeRes.data || []);
+          setLoading(l => ({ ...l, countries: false, employeeTypes: false }));
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Error loading globals:', error);
+          // Use fallback countries
+          const fallbackCountries = ALL_COUNTRIES.map(c => ({
+            id: c.code,
+            name: c.name
+          }));
+          setCountries(fallbackCountries);
+          setEmployeeTypes([]);
+          setLoading(l => ({ ...l, countries: false, employeeTypes: false }));
+        }
       }
     }
     loadGlobals();
     return () => { cancelled = true };
   }, []);
 
-  // Load companies when org changes
+  // Load companies and auto-select default company
   useEffect(() => {
     let cancelled = false;
-    if (!organizationId) return;
     setLoading(l => ({ ...l, companies: true }));
-    supabase.from('companies')
-      .select('id, name, country_id')
-      .eq('organization_id', organizationId)
-      .order('name')
-      .then(r => {
+
+    async function loadCompaniesAndDefault() {
+      try {
+        console.log('Loading companies - querying companies table');
+        // Load companies for current organization if available
+        let query = supabase
+          .from('companies')
+          .select('id, name, country_id')
+          .order('name') as any;
+        if (organizationId) {
+          query = query.eq('organization_id', organizationId);
+        }
+        const { data: companiesData, error: companiesError } = await query;
+
+        if (cancelled) return;
+
+        if (companiesError) {
+          console.error('Error loading companies - details:', {
+            message: companiesError.message,
+            code: companiesError.code,
+            details: companiesError.details,
+            hint: companiesError.hint,
+            fullError: companiesError
+          });
+
+          // Log specific error types
+          if (companiesError.code === 'PGRST301' || companiesError.message?.includes('permission denied')) {
+            console.error('RLS Policy Error: Companies table may have RLS enabled without proper policies');
+          } else if (companiesError.code === '42P01') {
+            console.error('Table Not Found Error: Companies table does not exist');
+          } else if (companiesError.code === 'PGRST116') {
+            console.error('Schema Error: Companies table schema mismatch');
+          }
+
+          setCompanies([]);
+          setLoading(l => ({ ...l, companies: false }));
+          return;
+        }
+
+        console.log('Companies query result:', {
+          count: companiesData?.length || 0,
+          data: companiesData,
+          hasData: !!companiesData,
+          isArray: Array.isArray(companiesData)
+        });
+
+        // Prefer active company, then organization's default company if available
+        if (companiesData && companiesData.length > 0) {
+          let companyToSelect = companiesData[0];
+          const storedActive = typeof window !== 'undefined' ? localStorage.getItem('active_company_id') : null;
+          if (storedActive) {
+            const active = companiesData.find(c => c.id === storedActive);
+            if (active) companyToSelect = active;
+          }
+          // if (organizationId) {
+          //   const { data: orgMeta, error: orgError } = await supabase
+          //     .from('organizations')
+          //     .select('default_company_id')
+          //     .eq('id', organizationId)
+          //     .single();
+          //   if (!orgError && orgMeta?.default_company_id) {
+          //     const preferred = companiesData.find(c => c.id === orgMeta.default_company_id);
+          //     if (preferred) {
+          //       companyToSelect = preferred;
+          //     }
+          //   }
+          // }
+
+          // Auto-select preferred company if not already selected
+          if (!value.companyId && companyToSelect) {
+            console.log('Auto-selecting company:', companyToSelect.name, companyToSelect.id);
+            onChange({ companyId: companyToSelect.id });
+          } else if (value.companyId) {
+            console.log('Company already selected:', value.companyId);
+          } else {
+            console.log('No company to select, companies available:', companiesData.length);
+          }
+        } else {
+          console.warn('No companies found in database. This may indicate:', {
+            issue: 'Companies table is empty or migrations have not been run',
+            suggestion: 'Check if GWAZU company migration has been executed',
+            migrationFiles: [
+              '20250112000006_create_gwazu_company.sql',
+              '20250119174630_ensure_gwazu_company_and_org_units.sql',
+              '20250120000000_fix_companies_rls.sql'
+            ],
+            troubleshooting: 'Run verify_companies_migration.sql in Supabase Dashboard to diagnose the issue'
+          });
+
+          // If user is authenticated and no companies found, this might be an RLS issue
+          // Log additional context for debugging
+          console.warn('Additional context:', {
+            userAuthenticated: !!supabase.auth.getSession(),
+            tableExists: 'Check Supabase Dashboard',
+            rlsEnabled: 'Check verify_companies_migration.sql results'
+          });
+        }
+
+        setCompanies(companiesData || []);
+      } catch (error) {
         if (!cancelled) {
-          setCompanies(r.data || []);
+          console.error('Exception loading companies:', error);
+          console.error('Exception details:', {
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+          });
+          setCompanies([]);
+        }
+      } finally {
+        if (!cancelled) {
           setLoading(l => ({ ...l, companies: false }));
         }
-      });
-    return () => { cancelled = true };
-  }, [organizationId]);
-
-  // Load org units when companyId changes
-  useEffect(() => {
-    let cancelled = false;
-    if (!value.companyId) { setOrgUnits([]); return; }
-    setLoading(l => ({ ...l, orgUnits: true }));
-    supabase.from('org_units')
-      .select('id, name, company_id, kind')
-      .eq('company_id', value.companyId)
-      .order('name')
-      .then(r => {
-        if (!cancelled) {
-          setOrgUnits(r.data || []);
-          setLoading(l => ({ ...l, orgUnits: false }));
-        }
-      });
-    return () => { cancelled = true };
-  }, [value.companyId]);
-
-  // Load pay groups: org-scoped, filterable by orgUnit and/or employeeType
-  useEffect(() => {
-    let cancelled = false;
-    if (!organizationId) { setPayGroups([]); return; }
-    setLoading(l => ({ ...l, payGroups: true }));
-    let query = supabase.from('pay_groups').select('id, name, org_unit_id, employee_type_id').eq('organization_id', organizationId);
-    if (value.orgUnitId) query = query.eq('org_unit_id', value.orgUnitId);
-    if (value.employeeTypeId) query = query.eq('employee_type_id', value.employeeTypeId);
-    query.order('name').then(r => {
-      if (!cancelled) {
-        setPayGroups(r.data || []);
-        setLoading(l => ({ ...l, payGroups: false }));
       }
-    });
+    }
+
+    loadCompaniesAndDefault();
     return () => { cancelled = true };
-  }, [organizationId, value.orgUnitId, value.employeeTypeId]);
+  }, [value.companyId, onChange, organizationId]);
+
+  // Load company units when companyId changes
+  useEffect(() => {
+    let cancelled = false;
+
+    // Get companyId - use selected or first available
+    const companyIdToUse = value.companyId || companies[0]?.id;
+
+    console.log('Company units effect - companyIdToUse:', companyIdToUse, 'value.companyId:', value.companyId, 'companies:', companies.length);
+
+    if (!companyIdToUse) {
+      console.log('No company ID found, clearing company units');
+      setCompanyUnits([]);
+      setLoading(l => ({ ...l, companyUnits: false }));
+      return;
+    }
+
+    setLoading(l => ({ ...l, companyUnits: true }));
+
+    (async () => {
+      try {
+        console.log('Fetching company units for company:', companyIdToUse);
+        const { data, error } = await supabase
+          .from('company_units')
+          .select('id, name, company_id')
+          .eq('company_id', companyIdToUse)
+          .order('name');
+
+        if (!cancelled) {
+          if (error) {
+            console.error('Error loading company units:', error);
+            console.error('Error details:', {
+              message: error.message,
+              code: error.code,
+              details: error.details,
+              hint: error.hint,
+              fullError: error
+            });
+
+            // Log specific error types
+            if (error.code === 'PGRST301' || error.message?.includes('permission denied')) {
+              console.error('RLS Policy Error: Company units table may have RLS enabled without proper policies');
+            } else if (error.code === '42P01') {
+              console.error('Table Not Found Error: Company units table does not exist. Run migration: 20250119200000_rename_org_units_to_company_units.sql');
+            } else if (error.code === 'PGRST116') {
+              console.error('Schema Error: Company units table schema mismatch');
+            }
+
+            setCompanyUnits([]);
+          } else {
+            console.log('Successfully loaded company units:', data?.length || 0, 'units:', data);
+            setCompanyUnits(data || []);
+          }
+          setLoading(l => ({ ...l, companyUnits: false }));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Exception loading company units:', err);
+          setCompanyUnits([]);
+          setLoading(l => ({ ...l, companyUnits: false }));
+        }
+      }
+    })();
+    return () => { cancelled = true };
+  }, [value.companyId, companies]);
+
+  // Load departments when companyUnitId changes
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!value.companyUnitId) {
+      setDepartments([]);
+      setLoading(l => ({ ...l, departments: false }));
+      return;
+    }
+
+    setLoading(l => ({ ...l, departments: true }));
+
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('departments')
+          .select('id, name, company_unit_id')
+          .eq('company_unit_id', value.companyUnitId)
+          .order('name');
+
+        if (!cancelled) {
+          if (error) {
+            console.error('Error loading departments:', error);
+            setDepartments([]);
+          } else {
+            setDepartments(data || []);
+          }
+          setLoading(l => ({ ...l, departments: false }));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Exception loading departments:', err);
+          setDepartments([]);
+          setLoading(l => ({ ...l, departments: false }));
+        }
+      }
+    })();
+    return () => { cancelled = true };
+  }, [value.companyUnitId]);
+
+  // Load pay groups: filterable by companyUnit and/or employeeType
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(l => ({ ...l, payGroups: true }));
+
+    (async () => {
+      try {
+        // Only select columns that exist - company_unit_id and employee_type_id may not exist
+        let query: any = supabase.from('pay_groups').select('id, name');
+
+        // Try to filter by company_unit_id if it exists and is provided
+        if (value.companyUnitId) {
+          query = query.eq('company_unit_id', value.companyUnitId);
+        }
+
+        // Try to filter by employee_type_id if it exists and is provided
+        if (value.employeeTypeId) {
+          query = query.eq('employee_type_id', value.employeeTypeId);
+        }
+
+        const { data, error } = await query.order('name');
+
+        if (!cancelled) {
+          if (error) {
+            console.error('Error loading pay groups:', error);
+            setPayGroups([]);
+          } else {
+            setPayGroups(data || []);
+          }
+          setLoading(l => ({ ...l, payGroups: false }));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Exception loading pay groups:', err);
+          setPayGroups([]);
+          setLoading(l => ({ ...l, payGroups: false }));
+        }
+      }
+    })();
+
+    return () => { cancelled = true };
+  }, [value.companyUnitId, value.employeeTypeId]);
 
   // State-resets: when upstream selector changes, reset downstreams
   useEffect(() => {
-    // If companyId is cleared, also clear orgUnitId and payGroupId
-    if (!value.companyId && (value.orgUnitId || value.payGroupId)) {
-      onChange({ orgUnitId: undefined, payGroupId: undefined });
+    // If companyId is cleared, also clear companyUnitId, departmentId, and payGroupId
+    if (!value.companyId && (value.companyUnitId || value.departmentId || value.payGroupId)) {
+      onChange({ companyUnitId: undefined, departmentId: undefined, payGroupId: undefined });
     }
-    // If orgUnitId is cleared, also clear payGroupId
-    if (!value.orgUnitId && value.payGroupId) {
-      onChange({ payGroupId: undefined });
+    // If companyUnitId is cleared, also clear departmentId and payGroupId
+    if (!value.companyUnitId && (value.departmentId || value.payGroupId)) {
+      onChange({ departmentId: undefined, payGroupId: undefined });
     }
     // If employeeTypeId is cleared, reset payGroupId
     if (!value.employeeTypeId && value.payGroupId) {
       onChange({ payGroupId: undefined });
     }
-  }, [value.companyId, value.orgUnitId, value.employeeTypeId]);
+  }, [value.companyId, value.companyUnitId, value.departmentId, value.employeeTypeId]);
 
   // Render helpers
   const showCountry = mode === 'employee' || mode === 'paygroup';
   const showCompany = true;
-  const showOrgUnit = true;
-  const showEmployeeType = true;
-  const showPayGroup = mode === 'employee' || mode === 'payrun';
+  const showCompanyUnit = true;
+  const showEmployeeType = mode !== 'employee'; // Hide Employee Type field in employee mode (handled in Employment Information section)
+  const showPayGroup = (mode === 'employee' || mode === 'payrun') && !disabledFields.includes('payGroupId'); // Hide if disabled or in employee mode (handled separately)
   // Required states
   const isRequired = (field: keyof CascadingSelectorValue) => requiredFields.includes(field);
   const isDisabled = (field: keyof CascadingSelectorValue) => disabledFields.includes(field);
+
+  // Company is optional by default unless explicitly required
+  const companyRequired = isRequired('companyId');
 
   return (
     <div className={`grid gap-4 sm:grid-cols-2 w-full ${className}`}>
@@ -141,14 +398,18 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
           <label className="block text-sm font-medium">Country{isRequired('countryId') && ' *'}</label>
           <Select
             value={value.countryId || ''}
-            onValueChange={v => onChange({ countryId: v })}
+            onValueChange={v => onChange({ countryId: v || undefined })}
             disabled={isDisabled('countryId') || loading.countries}
             aria-required={isRequired('countryId')}
           >
             <SelectTrigger aria-label="Select country">
               <SelectValue placeholder={loading.countries ? 'Loading countries…' : 'Select country'} />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent
+              allowClear={!isRequired('countryId') && !!value.countryId}
+              onClear={() => onChange({ countryId: undefined })}
+              currentValue={value.countryId}
+            >
               {countries.map(c => (
                 <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
               ))}
@@ -159,50 +420,94 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
           </Select>
         </div>
       )}
-      {showCompany && (
+      {showCompany && (() => {
+        // Get company name - prefer selected company, else first company
+        const selectedCompany = companies.find(c => c.id === value.companyId);
+        const companyName = selectedCompany?.name || companies[0]?.name || '';
+        const hasCompanyId = !!value.companyId || !!companies[0]?.id;
+
+        return (
+          <div>
+            <label className="block text-sm font-medium">Company{companyRequired && ' *'}</label>
+            <Input
+              value={companyName}
+              disabled={true}
+              readOnly={true}
+              className="h-10 bg-muted cursor-not-allowed"
+              aria-label="Company name"
+            />
+            {/* Only show error if we truly have no companies AND no company ID is set */}
+            {companies.length === 0 && !loading.companies && !hasCompanyId && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                No companies found. Please ensure database migrations have been run:
+                <br />• 20250112000006_create_gwazu_company.sql
+                <br />• 20250119174630_ensure_gwazu_company_and_org_units.sql
+                <br />• 20250120000000_fix_companies_rls.sql (for RLS policies)
+              </p>
+            )}
+          </div>
+        );
+      })()}
+      {showCompanyUnit && (
         <div>
-          <label className="block text-sm font-medium">Company{isRequired('companyId') && ' *'}</label>
-          <Select
-            value={value.companyId || ''}
-            onValueChange={v => onChange({ companyId: v, countryId: companies.find(c => c.id === v)?.country_id })}
-            disabled={isDisabled('companyId') || loading.companies}
-            aria-required={isRequired('companyId')}
-          >
-            <SelectTrigger aria-label="Select company">
-              <SelectValue placeholder={loading.companies ? 'Loading companies…' : 'Select company'} />
-            </SelectTrigger>
-            <SelectContent>
-              {companies.map(c => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-              ))}
-              {!loading.companies && companies.length === 0 && (
-                <div className="px-3 text-xs text-muted">No companies found</div>
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-      {showOrgUnit && (
-        <div>
-          <label className="block text-sm font-medium">Org Unit{isRequired('orgUnitId') && ' *'}</label>
-          <Select
-            value={value.orgUnitId || ''}
-            onValueChange={v => onChange({ orgUnitId: v })}
-            disabled={isDisabled('orgUnitId') || loading.orgUnits || !value.companyId}
-            aria-required={isRequired('orgUnitId')}
-          >
-            <SelectTrigger aria-label="Select org unit">
-              <SelectValue placeholder={loading.orgUnits ? 'Loading org units…' : !value.companyId ? 'Select company first' : 'Select org unit'} />
-            </SelectTrigger>
-            <SelectContent>
-              {orgUnits.map(u => (
-                <SelectItem key={u.id} value={u.id}>{u.name} ({u.kind})</SelectItem>
-              ))}
-              {!loading.orgUnits && orgUnits.length === 0 && (
-                <div className="px-3 text-xs text-muted">No org units found</div>
-              )}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-sm font-medium">Company Unit{isRequired('companyUnitId') && ' *'}</label>
+            {(value.companyId || companies[0]?.id) && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowCreateCompanyUnit(true)}
+                className="h-6 text-xs text-primary hover:text-primary-dark p-1"
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Add
+              </Button>
+            )}
+          </div>
+          {(() => {
+            const storedActive = typeof window !== 'undefined' ? localStorage.getItem('active_company_id') : null;
+            const companyIdToUse = value.companyId || storedActive || companies[0]?.id;
+            const hasNoCompanies = companies.length === 0 && !loading.companies;
+            const hasCompanyId = !!companyIdToUse;
+
+            return (
+              <>
+                <SearchableSelect
+                  options={companyUnits.map(u => ({ value: u.id, label: u.name }))}
+                  value={value.companyUnitId || ''}
+                  onValueChange={(v) => onChange({ companyUnitId: v || undefined })}
+                  placeholder={
+                    hasNoCompanies
+                      ? 'No companies available'
+                      : loading.companyUnits
+                        ? 'Loading company units…'
+                        : !companyIdToUse
+                          ? 'Select company first'
+                          : companyUnits.length === 0
+                            ? 'No company units found'
+                            : 'Select company unit'
+                  }
+                  searchPlaceholder="Search company units..."
+                  emptyMessage="No company units found"
+                  disabled={isDisabled('companyUnitId') || loading.companyUnits || !companyIdToUse || hasNoCompanies}
+                  allowCreate={!!companyIdToUse && !hasNoCompanies}
+                  onCreateNew={() => setShowCreateCompanyUnit(true)}
+                  className="h-10"
+                />
+                {hasNoCompanies && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Company units require a company to be selected. Please ensure database migrations have been run.
+                  </p>
+                )}
+                {companyIdToUse && companyUnits.length === 0 && !loading.companyUnits && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    No company units found for this company. Click "Add" to create one.
+                  </p>
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
       {showEmployeeType && (
@@ -210,14 +515,18 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
           <label className="block text-sm font-medium">Employee Type{isRequired('employeeTypeId') && ' *'}</label>
           <Select
             value={value.employeeTypeId || ''}
-            onValueChange={v => onChange({ employeeTypeId: v })}
+            onValueChange={v => onChange({ employeeTypeId: v || undefined })}
             disabled={isDisabled('employeeTypeId') || loading.employeeTypes}
             aria-required={isRequired('employeeTypeId')}
           >
             <SelectTrigger aria-label="Select employee type">
               <SelectValue placeholder={loading.employeeTypes ? 'Loading types…' : 'Select type'} />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent
+              allowClear={!isRequired('employeeTypeId') && !!value.employeeTypeId}
+              onClear={() => onChange({ employeeTypeId: undefined })}
+              currentValue={value.employeeTypeId}
+            >
               {employeeTypes.map(t => (
                 <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
               ))}
@@ -228,19 +537,71 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
           </Select>
         </div>
       )}
+      {mode === 'employee' && (
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-sm font-medium">Department{isRequired('departmentId') && ' *'}</label>
+            {value.companyUnitId && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowCreateDepartment(true)}
+                className="h-6 text-xs text-primary hover:text-primary-dark p-1"
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Add
+              </Button>
+            )}
+          </div>
+          <SearchableSelect
+            options={departments.map(d => ({ value: d.id, label: d.name }))}
+            value={value.departmentId || ''}
+            onValueChange={(v) => onChange({ departmentId: v || undefined })}
+            placeholder={
+              loading.departments
+                ? 'Loading departments…'
+                : !value.companyUnitId
+                  ? 'Select a company unit first'
+                  : departments.length === 0
+                    ? 'No departments found'
+                    : 'Select department'
+            }
+            searchPlaceholder="Search departments..."
+            emptyMessage={
+              !value.companyUnitId
+                ? 'Select a company unit first'
+                : 'No departments found'
+            }
+            disabled={isDisabled('departmentId') || loading.departments || !value.companyUnitId}
+            allowCreate={!!value.companyUnitId}
+            onCreateNew={() => setShowCreateDepartment(true)}
+            className="h-10"
+          />
+          {value.companyUnitId && departments.length === 0 && !loading.departments && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              No departments found for this company unit. Click "Add" to create one.
+            </p>
+          )}
+        </div>
+      )}
       {showPayGroup && (
         <div>
           <label className="block text-sm font-medium">Pay Group{isRequired('payGroupId') && ' *'}</label>
           <Select
             value={value.payGroupId || ''}
-            onValueChange={v => onChange({ payGroupId: v })}
+            onValueChange={v => onChange({ payGroupId: v || undefined })}
             disabled={isDisabled('payGroupId') || loading.payGroups}
             aria-required={isRequired('payGroupId')}
           >
             <SelectTrigger aria-label="Select pay group">
               <SelectValue placeholder={loading.payGroups ? 'Loading pay groups…' : 'Select pay group'} />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent
+              allowClear={!isRequired('payGroupId') && !!value.payGroupId}
+              onClear={() => onChange({ payGroupId: undefined })}
+              currentValue={value.payGroupId}
+            >
               {payGroups.map(g => (
                 <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
               ))}
@@ -251,6 +612,46 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
           </Select>
         </div>
       )}
+
+      {/* Create Company Unit Dialog */}
+      <CreateCompanyUnitDialog
+        open={showCreateCompanyUnit}
+        onOpenChange={setShowCreateCompanyUnit}
+        onSuccess={(companyUnit) => {
+          onChange({ companyUnitId: companyUnit.id });
+          // Reload company units
+          if (value.companyId) {
+            supabase.from('company_units')
+              .select('id, name, company_id')
+              .eq('company_id', value.companyId)
+              .order('name')
+              .then(r => {
+                setCompanyUnits(r.data || []);
+              });
+          }
+        }}
+        defaultCompanyId={value.companyId}
+      />
+
+      {/* Create Department Dialog */}
+      <CreateDepartmentDialog
+        open={showCreateDepartment}
+        onOpenChange={setShowCreateDepartment}
+        onSuccess={(department) => {
+          onChange({ departmentId: department.id });
+          // Reload departments
+          if (value.companyUnitId) {
+            supabase.from('departments')
+              .select('id, name, company_unit_id')
+              .eq('company_unit_id', value.companyUnitId)
+              .order('name')
+              .then(r => {
+                setDepartments(r.data || []);
+              });
+          }
+        }}
+        defaultCompanyUnitId={value.companyUnitId}
+      />
     </div>
   );
 };

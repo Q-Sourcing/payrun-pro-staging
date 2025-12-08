@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client'
 
-export interface OrgUnit {
+export interface CompanyUnit {
   id: string
   company_id: string
   name: string
@@ -16,21 +16,21 @@ export interface OrgUnit {
   employees_count?: number
 }
 
-export interface CreateOrgUnitData {
+export interface CreateCompanyUnitData {
   company_id: string
   name: string
   kind: 'head_office' | 'project'
 }
 
-export interface UpdateOrgUnitData {
+export interface UpdateCompanyUnitData {
   name?: string
   kind?: 'head_office' | 'project'
 }
 
-export class OrgUnitService {
-  static async listOrgUnits(companyId?: string): Promise<OrgUnit[]> {
+export class CompanyUnitService {
+  static async listCompanyUnits(companyId?: string): Promise<CompanyUnit[]> {
     let query = supabase
-      .from('org_units')
+      .from('company_units')
       .select(`
         id,
         company_id,
@@ -51,8 +51,8 @@ export class OrgUnitService {
     const { data, error } = await query
 
     if (error) {
-      console.error('Error fetching org units:', error)
-      throw new Error('Failed to fetch org units')
+      console.error('Error fetching company units:', error)
+      throw new Error('Failed to fetch company units')
     }
 
     return data?.map(unit => ({
@@ -62,9 +62,9 @@ export class OrgUnitService {
     })) || []
   }
 
-  static async getOrgUnit(id: string): Promise<OrgUnit | null> {
+  static async getCompanyUnit(id: string): Promise<CompanyUnit | null> {
     const { data, error } = await supabase
-      .from('org_units')
+      .from('company_units')
       .select(`
         id,
         company_id,
@@ -80,7 +80,7 @@ export class OrgUnitService {
       .single()
 
     if (error) {
-      console.error('Error fetching org unit:', error)
+      console.error('Error fetching company unit:', error)
       return null
     }
 
@@ -91,9 +91,9 @@ export class OrgUnitService {
     }
   }
 
-  static async createOrgUnit(data: CreateOrgUnitData): Promise<OrgUnit> {
+  static async createCompanyUnit(data: CreateCompanyUnitData): Promise<CompanyUnit> {
     const { data: result, error } = await supabase
-      .from('org_units')
+      .from('company_units')
       .insert(data)
       .select(`
         id,
@@ -107,16 +107,16 @@ export class OrgUnitService {
       .single()
 
     if (error) {
-      console.error('Error creating org unit:', error)
-      throw new Error('Failed to create org unit')
+      console.error('Error creating company unit:', error)
+      throw new Error('Failed to create company unit')
     }
 
     return result
   }
 
-  static async updateOrgUnit(id: string, data: UpdateOrgUnitData): Promise<OrgUnit> {
+  static async updateCompanyUnit(id: string, data: UpdateCompanyUnitData): Promise<CompanyUnit> {
     const { data: result, error } = await supabase
-      .from('org_units')
+      .from('company_units')
       .update({ ...data, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select(`
@@ -131,22 +131,23 @@ export class OrgUnitService {
       .single()
 
     if (error) {
-      console.error('Error updating org unit:', error)
-      throw new Error('Failed to update org unit')
+      console.error('Error updating company unit:', error)
+      throw new Error('Failed to update company unit')
     }
 
     return result
   }
 
-  static async deleteOrgUnit(id: string): Promise<void> {
+  static async deleteCompanyUnit(id: string): Promise<void> {
     const { error } = await supabase
-      .from('org_units')
+      .from('company_units')
       .delete()
       .eq('id', id)
 
     if (error) {
-      console.error('Error deleting org unit:', error)
-      throw new Error('Failed to delete org unit')
+      console.error('Error deleting company unit:', error)
+      throw new Error('Failed to delete company unit')
     }
   }
 }
+

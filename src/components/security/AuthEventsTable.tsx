@@ -36,8 +36,8 @@ export function AuthEventsTable({ orgId, showFilters = true }: AuthEventsTablePr
   const [limit] = useState(50);
 
   // Filters
-  const [eventTypeFilter, setEventTypeFilter] = useState<string>('');
-  const [successFilter, setSuccessFilter] = useState<string>('');
+  const [eventTypeFilter, setEventTypeFilter] = useState<string>('all');
+  const [successFilter, setSuccessFilter] = useState<string>('all');
   const [ipFilter, setIpFilter] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -47,8 +47,8 @@ export function AuthEventsTable({ orgId, showFilters = true }: AuthEventsTablePr
       setIsLoading(true);
       const result = await SecurityService.getAuthEvents({
         org_id: orgId,
-        event_type: eventTypeFilter || undefined,
-        success: successFilter === 'true' ? true : successFilter === 'false' ? false : undefined,
+        event_type: eventTypeFilter && eventTypeFilter !== 'all' ? eventTypeFilter : undefined,
+        success: successFilter === 'all' ? undefined : successFilter === 'true' ? true : successFilter === 'false' ? false : undefined,
         ip_address: ipFilter || undefined,
         start_date: startDate || undefined,
         end_date: endDate || undefined,
@@ -152,7 +152,7 @@ export function AuthEventsTable({ orgId, showFilters = true }: AuthEventsTablePr
                 <SelectValue placeholder="Event Type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Types</SelectItem>
+                <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="login_success">Login Success</SelectItem>
                 <SelectItem value="login_failed">Login Failed</SelectItem>
                 <SelectItem value="logout">Logout</SelectItem>
@@ -168,7 +168,7 @@ export function AuthEventsTable({ orgId, showFilters = true }: AuthEventsTablePr
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All</SelectItem>
+                <SelectItem value="all">All</SelectItem>
                 <SelectItem value="true">Success</SelectItem>
                 <SelectItem value="false">Failed</SelectItem>
               </SelectContent>

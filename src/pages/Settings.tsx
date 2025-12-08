@@ -175,7 +175,7 @@ const Settings = () => {
         return (
           <SettingsSectionGuard requiredRole="organization_admin" requiredPermission="organization_configuration">
             <div className="space-y-4">
-              <SecuritySettingsSection />
+            <SecuritySettingsSection />
               <Card>
                 <CardHeader>
                   <CardTitle>Account Security & Lockout</CardTitle>

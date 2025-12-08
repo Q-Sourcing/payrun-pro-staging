@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS companies (
   updated_at timestamptz DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS org_units (
+CREATE TABLE IF NOT EXISTS company_units (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id uuid NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   name text NOT NULL,

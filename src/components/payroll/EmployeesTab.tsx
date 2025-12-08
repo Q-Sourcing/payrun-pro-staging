@@ -3,18 +3,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Upload, Globe, Flag } from "lucide-react";
+import { Plus, Search, Pencil, Upload, Globe, Flag, ChevronDown, UserPlus, Link as LinkIcon } from "lucide-react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { getCurrencyByCode } from "@/lib/constants/countries";
+import { format } from "date-fns";
 import AddEmployeeDialog from "./AddEmployeeDialog";
 import EditEmployeeDialog from "./EditEmployeeDialog";
 import BulkUploadEmployeesDialog from "./BulkUploadEmployeesDialog";
+import { ColumnVisibilityDialog } from "./ColumnVisibilityDialog";
 import PageHeader from "@/components/PageHeader";
 import TableWrapper from "@/components/TableWrapper";
 import LoadingSkeleton from "@/components/LoadingSkeleton";
+import { Settings2 } from "lucide-react";
 
 interface Employee {
   id: string;
@@ -33,6 +38,7 @@ interface Employee {
   employee_type_id?: string | null;
   employee_type_name?: string; // resolved from employee_types
   pay_groups?: { name: string };
+  created_at?: string; // Date added timestamp
 }
 
 const EmployeesTab = () => {
@@ -42,6 +48,11 @@ const EmployeesTab = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [payTypeFilter, setPayTypeFilter] = useState("all");
   const [prefixFilter, setPrefixFilter] = useState("all");
+  const [countryFilter, setCountryFilter] = useState("all");
+  const [currencyFilter, setCurrencyFilter] = useState("all");
+  const [employeeTypeFilter, setEmployeeTypeFilter] = useState("all");
+  const [dateFromFilter, setDateFromFilter] = useState("");
+  const [dateToFilter, setDateToFilter] = useState("");
   const [sortBy, setSortBy] = useState("name"); // name | employee_number
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -49,6 +60,52 @@ const EmployeesTab = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const { toast } = useToast();
   const [companyName, setCompanyName] = useState<string | null>(null);
+  
+  // Column visibility state
+  const availableColumns = [
+    { key: 'employee_number', label: 'Employee ID' },
+    { key: 'name', label: 'Name' },
+    { key: 'type', label: 'Type' },
+    { key: 'email', label: 'Email' },
+    { key: 'pay_type', label: 'Pay Type' },
+    { key: 'pay_rate', label: 'Pay Rate' },
+    { key: 'country', label: 'Country' },
+    { key: 'currency', label: 'Currency' },
+    { key: 'pay_group', label: 'Pay Group' },
+    { key: 'status', label: 'Status' },
+    { key: 'created_at', label: 'Date Added' },
+    { key: 'actions', label: 'Actions' },
+  ];
+
+  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() => {
+    const saved = localStorage.getItem('employee_directory_columns');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        // If parsing fails, use defaults
+      }
+    }
+    // Default: all columns visible
+    const defaults: Record<string, boolean> = {};
+    availableColumns.forEach(col => {
+      defaults[col.key] = true;
+    });
+    return defaults;
+  });
+
+  const [showColumnVisibilityDialog, setShowColumnVisibilityDialog] = useState(false);
+
+  // Save column visibility to localStorage
+  useEffect(() => {
+    localStorage.setItem('employee_directory_columns', JSON.stringify(visibleColumns));
+  }, [visibleColumns]);
+
+  // Get unique values for filter dropdowns
+  // Filter out empty strings, null, and undefined values to prevent SelectItem errors
+  const uniqueCountries = [...new Set(employees.map(e => e.country).filter(v => v && v.trim() !== ''))].sort();
+  const uniqueCurrencies = [...new Set(employees.map(e => e.currency).filter(v => v && v.trim() !== ''))].sort();
+  const uniqueEmployeeTypes = [...new Set(employees.map(e => e.employee_type_name || e.employee_type).filter(v => v && v.trim() !== ''))].sort();
 
   const fetchEmployees = async () => {
     try {
@@ -150,13 +207,36 @@ const EmployeesTab = () => {
     const matchesSearch = (
       fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (employee.employee_number || "").toLowerCase().includes(searchTerm.toLowerCase())
+      (employee.employee_number || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (employee.phone || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ((employee as any).department || "").toLowerCase().includes(searchTerm.toLowerCase())
     );
     const matchesStatus = statusFilter === "all" || employee.status === statusFilter;
     const matchesPayType = payTypeFilter === "all" || employee.pay_type === payTypeFilter;
     const matchesPrefix = prefixFilter === "all" || (employee.employee_number || "").startsWith(prefixFilter + "-");
+    const matchesCountry = countryFilter === "all" || employee.country === countryFilter;
+    const matchesCurrency = currencyFilter === "all" || employee.currency === currencyFilter;
+    const matchesEmployeeType = employeeTypeFilter === "all" || 
+      (employee.employee_type_name || employee.employee_type) === employeeTypeFilter;
     
-    return matchesSearch && matchesStatus && matchesPayType && matchesPrefix;
+    // Date range filter
+    let matchesDateRange = true;
+    if (dateFromFilter || dateToFilter) {
+      if (employee.created_at) {
+        const createdDate = new Date(employee.created_at);
+        if (dateFromFilter && createdDate < new Date(dateFromFilter)) {
+          matchesDateRange = false;
+        }
+        if (dateToFilter && createdDate > new Date(dateToFilter + 'T23:59:59')) {
+          matchesDateRange = false;
+        }
+      } else {
+        matchesDateRange = false;
+      }
+    }
+    
+    return matchesSearch && matchesStatus && matchesPayType && matchesPrefix && 
+           matchesCountry && matchesCurrency && matchesEmployeeType && matchesDateRange;
   });
 
   const sortedEmployees = [...filteredEmployees].sort((a, b) => {
@@ -274,82 +354,178 @@ const EmployeesTab = () => {
               <Globe className="h-4 w-4 mr-2" />
               Fix Employee IDs
             </Button>
-            <Button 
-              onClick={() => setShowBulkUploadDialog(true)} 
+            <Button
               variant="outline"
+              size="sm"
+              onClick={() => setShowColumnVisibilityDialog(true)}
+              className="h-9 px-3"
             >
+              <Settings2 className="h-4 w-4 mr-2" />
+              Columns
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="bg-blue-600 hover:bg-blue-700 h-9 px-3 text-sm">
+                  Add Employee
+                  <ChevronDown className="h-3 w-3 ml-1.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setShowAddDialog(true)}>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Add Single Employee
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowBulkUploadDialog(true)}>
               <Upload className="h-4 w-4 mr-2" />
               Bulk Upload
-            </Button>
-            <Button 
-              onClick={() => setShowAddDialog(true)}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Employee
-            </Button>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </>
         }
         filters={
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search employees..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-11"
-              />
+          <div className="space-y-4">
+            {/* Main search and quick filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search employees..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 h-11"
+                />
+              </div>
+              
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={payTypeFilter} onValueChange={setPayTypeFilter}>
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Pay Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="hourly">Hourly</SelectItem>
+                  <SelectItem value="salary">Salary</SelectItem>
+                  <SelectItem value="piece_rate">Piece Rate</SelectItem>
+                  <SelectItem value="daily_rate">Daily Rate</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={countryFilter} onValueChange={setCountryFilter}>
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Country" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Countries</SelectItem>
+                  {uniqueCountries.map(country => (
+                    <SelectItem key={country} value={country}>{country}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={currencyFilter} onValueChange={setCurrencyFilter}>
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Currency" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Currencies</SelectItem>
+                  {uniqueCurrencies.map(currency => (
+                    <SelectItem key={currency} value={currency}>{currency}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-11">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
 
-            <Select value={payTypeFilter} onValueChange={setPayTypeFilter}>
-              <SelectTrigger className="h-11">
-                <SelectValue placeholder="Pay Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="hourly">Hourly</SelectItem>
-                <SelectItem value="salary">Salary</SelectItem>
-                <SelectItem value="piece_rate">Piece Rate</SelectItem>
-                <SelectItem value="daily_rate">Daily Rate</SelectItem>
-              </SelectContent>
-            </Select>
+            {/* Additional filters row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              <Select value={employeeTypeFilter} onValueChange={setEmployeeTypeFilter}>
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Employee Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {uniqueEmployeeTypes.map(type => (
+                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-            <Select value={prefixFilter} onValueChange={setPrefixFilter}>
-              <SelectTrigger className="h-11">
-                <SelectValue placeholder="Prefix" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Prefixes</SelectItem>
-                <SelectItem value="EMP">EMP</SelectItem>
-                <SelectItem value="UG">UG</SelectItem>
-                <SelectItem value="KE">KE</SelectItem>
-                <SelectItem value="TZ">TZ</SelectItem>
-                <SelectItem value="ENG">ENG</SelectItem>
-                <SelectItem value="SAL">SAL</SelectItem>
-              </SelectContent>
-            </Select>
+              <Select value={prefixFilter} onValueChange={setPrefixFilter}>
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Prefix" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Prefixes</SelectItem>
+                  <SelectItem value="EMP">EMP</SelectItem>
+                  <SelectItem value="UG">UG</SelectItem>
+                  <SelectItem value="KE">KE</SelectItem>
+                  <SelectItem value="TZ">TZ</SelectItem>
+                  <SelectItem value="ENG">ENG</SelectItem>
+                  <SelectItem value="SAL">SAL</SelectItem>
+                </SelectContent>
+              </Select>
 
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="h-11">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="employee_number">Employee ID</SelectItem>
-                <SelectItem value="name">Name</SelectItem>
-              </SelectContent>
-            </Select>
+              <Input
+                type="date"
+                placeholder="Date From"
+                value={dateFromFilter}
+                onChange={(e) => setDateFromFilter(e.target.value)}
+                className="h-11"
+              />
+
+              <Input
+                type="date"
+                placeholder="Date To"
+                value={dateToFilter}
+                onChange={(e) => setDateToFilter(e.target.value)}
+                className="h-11"
+              />
+
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="employee_number">Employee ID</SelectItem>
+                  <SelectItem value="name">Name</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Clear filters button */}
+            {(searchTerm || statusFilter !== 'all' || payTypeFilter !== 'all' || prefixFilter !== 'all' || 
+              countryFilter !== 'all' || currencyFilter !== 'all' || employeeTypeFilter !== 'all' || 
+              dateFromFilter || dateToFilter) && (
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setStatusFilter("all");
+                    setPayTypeFilter("all");
+                    setPrefixFilter("all");
+                    setCountryFilter("all");
+                    setCurrencyFilter("all");
+                    setEmployeeTypeFilter("all");
+                    setDateFromFilter("");
+                    setDateToFilter("");
+                  }}
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            )}
           </div>
         }
       />
@@ -377,20 +553,44 @@ const EmployeesTab = () => {
         </div>
       ) : (
         <TableWrapper>
-          <Table>
             <thead className="bg-slate-50 sticky top-0 z-10">
               <tr>
-                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Employee ID</th>
-                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Name</th>
-                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Type</th>
-                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Email</th>
-                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Pay Type</th>
-                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Pay Rate</th>
-                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Country</th>
-                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Currency</th>
-                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Pay Group</th>
-                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Status</th>
-                <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Actions</th>
+                {visibleColumns.employee_number !== false && (
+                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Employee ID</th>
+                )}
+                {visibleColumns.name !== false && (
+                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Name</th>
+                )}
+                {visibleColumns.type !== false && (
+                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Type</th>
+                )}
+                {visibleColumns.email !== false && (
+                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Email</th>
+                )}
+                {visibleColumns.pay_type !== false && (
+                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Pay Type</th>
+                )}
+                {visibleColumns.pay_rate !== false && (
+                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Pay Rate</th>
+                )}
+                {visibleColumns.country !== false && (
+                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Country</th>
+                )}
+                {visibleColumns.currency !== false && (
+                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Currency</th>
+                )}
+                {visibleColumns.pay_group !== false && (
+                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Pay Group</th>
+                )}
+                {visibleColumns.status !== false && (
+                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Status</th>
+                )}
+                {visibleColumns.created_at !== false && (
+                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Date Added</th>
+                )}
+                {visibleColumns.actions !== false && (
+                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Actions</th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -399,65 +599,98 @@ const EmployeesTab = () => {
                   key={employee.id}
                   className="hover:bg-slate-50 border-b border-slate-100"
                 >
-                  <td className="px-4 py-2 text-sm">
-                    <div className="font-medium text-slate-900">
-                      {employee.employee_number || "—"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-2 text-sm">
-                    <div className="font-medium text-slate-900">
-                      {getFullName(employee)}
-                    </div>
-                  </td>
-                  <td className="px-4 py-2 text-sm">
-                    {String((employee.employee_type_name || employee.employee_type || '')).toLowerCase().includes('expat') ? (
-                      <Badge variant="secondary" className="bg-blue-100 text-blue-800 font-medium px-3 py-1 border border-blue-200">
-                        <Globe className="h-3 w-3 mr-1" />
-                        {employee.employee_type_name || 'Expatriate'}
+                  {visibleColumns.employee_number !== false && (
+                    <td className="px-4 py-2 text-sm">
+                      <div className="font-medium text-slate-900">
+                        {employee.employee_number || "—"}
+                      </div>
+                    </td>
+                  )}
+                  {visibleColumns.name !== false && (
+                    <td className="px-4 py-2 text-sm">
+                      <div className="font-medium text-slate-900">
+                        {getFullName(employee)}
+                      </div>
+                    </td>
+                  )}
+                  {visibleColumns.type !== false && (
+                    <td className="px-4 py-2 text-sm">
+                      {String((employee.employee_type_name || employee.employee_type || '')).toLowerCase().includes('expat') ? (
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 font-medium px-3 py-1 border border-blue-200">
+                          <Globe className="h-3 w-3 mr-1" />
+                          {employee.employee_type_name || 'Expatriate'}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 font-medium px-3 py-1">
+                          <Flag className="h-3 w-3 mr-1" />
+                          {employee.employee_type_name || 'Local'}
+                        </Badge>
+                      )}
+                    </td>
+                  )}
+                  {visibleColumns.email !== false && (
+                    <td className="px-4 py-2 text-sm text-slate-600">{employee.email}</td>
+                  )}
+                  {visibleColumns.pay_type !== false && (
+                    <td className="px-4 py-2 text-sm">
+                      <div className="font-medium text-slate-900">{formatPayType(employee.pay_type)}</div>
+                    </td>
+                  )}
+                  {visibleColumns.pay_rate !== false && (
+                    <td className="px-4 py-2 text-sm">
+                      <div className="font-medium text-slate-900">{formatPayRate(employee.pay_rate, employee.pay_type, employee.currency)}</div>
+                    </td>
+                  )}
+                  {visibleColumns.country !== false && (
+                    <td className="px-4 py-2 text-sm text-slate-600">{employee.country}</td>
+                  )}
+                  {visibleColumns.currency !== false && (
+                    <td className="px-4 py-2 text-sm text-slate-600">{employee.currency}</td>
+                  )}
+                  {visibleColumns.pay_group !== false && (
+                    <td className="px-4 py-2 text-sm text-slate-600">{employee.pay_groups?.name || "Unassigned"}</td>
+                  )}
+                  {visibleColumns.status !== false && (
+                    <td className="px-4 py-2 text-sm">
+                      <Badge 
+                        variant={employee.status === "active" ? "default" : "secondary"}
+                        className={`font-medium px-3 py-1 ${
+                          employee.status === "active" 
+                            ? "bg-green-100 text-green-800 border border-green-200" 
+                            : "bg-gray-100 text-gray-800 border border-gray-200"
+                        }`}
+                      >
+                        {employee.status}
                       </Badge>
-                    ) : (
-                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 font-medium px-3 py-1">
-                        <Flag className="h-3 w-3 mr-1" />
-                        {employee.employee_type_name || 'Local'}
-                      </Badge>
-                    )}
-                  </td>
-                  <td className="px-4 py-2 text-sm text-slate-600">{employee.email}</td>
-                  <td className="px-4 py-2 text-sm">
-                    <div className="font-medium text-slate-900">{formatPayType(employee.pay_type)}</div>
-                  </td>
-                  <td className="px-4 py-2 text-sm">
-                    <div className="font-medium text-slate-900">{formatPayRate(employee.pay_rate, employee.pay_type, employee.currency)}</div>
-                  </td>
-                  <td className="px-4 py-2 text-sm text-slate-600">{employee.country}</td>
-                  <td className="px-4 py-2 text-sm text-slate-600">{employee.currency}</td>
-                  <td className="px-4 py-2 text-sm text-slate-600">{employee.pay_groups?.name || "Unassigned"}</td>
-                  <td className="px-4 py-2 text-sm">
-                    <Badge 
-                      variant={employee.status === "active" ? "default" : "secondary"}
-                      className={`font-medium px-3 py-1 ${
-                        employee.status === "active" 
-                          ? "bg-green-100 text-green-800 border border-green-200" 
-                          : "bg-gray-100 text-gray-800 border border-gray-200"
-                      }`}
-                    >
-                      {employee.status}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-2 text-sm">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
-                      onClick={() => handleEditEmployee(employee)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  </td>
+                    </td>
+                  )}
+                  {visibleColumns.created_at !== false && (
+                    <td className="px-4 py-2 text-sm text-slate-600">
+                      {employee.created_at ? format(new Date(employee.created_at), 'MMM dd, yyyy') : '—'}
+                    </td>
+                  )}
+                  {visibleColumns.actions !== false && (
+                    <td className="px-4 py-2 text-sm">
+                      <div className="flex items-center gap-1">
+                        {(employee as any).project_id && (
+                          <Link to={`/projects/${(employee as any).project_id}`} className="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-slate-100" title="View Project">
+                            <LinkIcon className="h-4 w-4" />
+                          </Link>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
+                          onClick={() => handleEditEmployee(employee)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
-          </Table>
         </TableWrapper>
       )}
 
@@ -478,6 +711,14 @@ const EmployeesTab = () => {
         open={showBulkUploadDialog}
         onOpenChange={setShowBulkUploadDialog}
         onEmployeesAdded={fetchEmployees}
+      />
+
+      <ColumnVisibilityDialog
+        open={showColumnVisibilityDialog}
+        onOpenChange={setShowColumnVisibilityDialog}
+        columns={availableColumns}
+        visibleColumns={visibleColumns}
+        onColumnsChange={setVisibleColumns}
       />
     </div>
   );

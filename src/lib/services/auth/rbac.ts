@@ -17,7 +17,7 @@ export type Permission =
   // Company permissions
   | 'companies.view'
   | 'companies.manage'
-  | 'companies.org_units.manage'
+  | 'companies.company_units.manage'
   
   // Payroll permissions
   | 'payroll.view'

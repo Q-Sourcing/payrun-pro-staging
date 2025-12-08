@@ -5,12 +5,12 @@ function authUid() {
   return data?.session?.user?.id || null
 }
 
-export async function getOrgEmployees(orgId: string, filters?: { companyId?: string; orgUnitId?: string; employeeTypeId?: string; status?: string; mine?: boolean }) {
+export async function getOrgEmployees(orgId: string, filters?: { companyId?: string; companyUnitId?: string; employeeTypeId?: string; status?: string; mine?: boolean }) {
   const uid = authUid()
   // Try unified first
   let res = await supabase
     .from('employee_master')
-    .select('id, first_name, last_name, email, status, base_rate, currency, company_id, org_unit_id, employee_type_id, created_by, created_at')
+    .select('id, first_name, last_name, email, status, base_rate, currency, company_id, company_unit_id, employee_type_id, created_by, created_at')
     .eq('organization_id', orgId)
     .order('created_at', { ascending: false })
 
@@ -18,7 +18,7 @@ export async function getOrgEmployees(orgId: string, filters?: { companyId?: str
     // Legacy attempt with org filter + created_at
     res = await supabase
       .from('employees')
-      .select('id, first_name, last_name, email, status, base_rate:pay_rate, currency, company_id, org_unit_id, employee_type, created_by, created_at')
+      .select('id, first_name, last_name, email, status, base_rate:pay_rate, currency, company_id, company_unit_id, employee_type, created_by, created_at')
       .eq('organization_id', orgId)
       .order('created_at', { ascending: false })
 
@@ -26,7 +26,7 @@ export async function getOrgEmployees(orgId: string, filters?: { companyId?: str
       // Legacy without org filter + created_at
       res = await supabase
         .from('employees')
-        .select('id, first_name, last_name, email, status, base_rate:pay_rate, currency, company_id, org_unit_id, employee_type, created_by, created_at')
+        .select('id, first_name, last_name, email, status, base_rate:pay_rate, currency, company_id, company_unit_id, employee_type, created_by, created_at')
         .order('created_at', { ascending: false })
 
       if (res.error) {
@@ -47,18 +47,18 @@ export async function getOrgEmployees(orgId: string, filters?: { companyId?: str
     if (uidNow) data = data.filter((r:any) => r.created_by === uidNow)
   }
   if (filters?.companyId) data = data.filter((r:any) => r.company_id === filters.companyId)
-  if (filters?.orgUnitId) data = data.filter((r:any) => r.org_unit_id === filters.orgUnitId)
+  if (filters?.companyUnitId) data = data.filter((r:any) => r.company_unit_id === filters.companyUnitId)
   if (filters?.employeeTypeId) data = data.filter((r:any) => (r.employee_type_id||r.employee_type) === filters.employeeTypeId)
 
   return { data }
 }
 
-export async function getOrgPayGroups(orgId: string, filters?: { companyId?: string; orgUnitId?: string; employeeTypeId?: string; mine?: boolean }) {
+export async function getOrgPayGroups(orgId: string, filters?: { companyId?: string; companyUnitId?: string; employeeTypeId?: string; mine?: boolean }) {
   const uid = authUid()
   // Primary
   let res = await supabase
     .from('pay_groups')
-    .select('id, name, currency, created_by, created_at, employee_type_id, org_unit_id, organization_id')
+    .select('id, name, currency, created_by, created_at, employee_type_id, company_unit_id, organization_id')
     .eq('organization_id', orgId)
     .order('created_at', { ascending: false })
 
@@ -66,7 +66,7 @@ export async function getOrgPayGroups(orgId: string, filters?: { companyId?: str
     // Fallbacks
     res = await supabase
       .from('pay_groups')
-      .select('id, name, currency, created_by, created_at, employee_type_id, org_unit_id, organization_id')
+      .select('id, name, currency, created_by, created_at, employee_type_id, company_unit_id, organization_id')
       .order('created_at', { ascending: false })
     if (res.error) {
       res = await supabase
@@ -76,7 +76,7 @@ export async function getOrgPayGroups(orgId: string, filters?: { companyId?: str
     }
   }
   let data = res.data || []
-  if (filters?.orgUnitId) data = data.filter((r:any) => r.org_unit_id === filters.orgUnitId)
+  if (filters?.companyUnitId) data = data.filter((r:any) => r.company_unit_id === filters.companyUnitId)
   if (filters?.employeeTypeId) data = data.filter((r:any) => r.employee_type_id === filters.employeeTypeId)
   if (filters?.mine && uid) data = data.filter((r:any) => r.created_by === uid)
   return { data }

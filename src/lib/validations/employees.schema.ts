@@ -31,9 +31,8 @@ export const createEmployeeSchema = z.object({
   account_number: z.string().max(50, 'Account number is too long').optional(),
   account_type: z.string().max(50, 'Account type is too long').optional(),
   currency: z.string().max(3, 'Currency code must be 3 characters').optional(),
-  // Category and sub_type for hierarchical structure
+  // Category and employee_type for hierarchical structure
   category: z.enum(['head_office', 'projects']).optional(),
-  sub_type: z.string().optional(),
 });
 
 export const updateEmployeeSchema = createEmployeeSchema.partial().extend({

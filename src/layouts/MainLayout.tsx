@@ -8,12 +8,38 @@ import { useUserRole } from "@/hooks/use-user-role";
 import { RoleBadge, RoleBadgeSmall } from "@/components/admin/RoleBadge";
 import { SuperAdminBadge } from "@/components/admin/SuperAdminBadge";
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrgNames } from "@/lib/tenant/useOrgNames";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
 
 export default function MainLayout() {
   const { user, profile, logout } = useSupabaseAuth();
   const { role, isSuperAdmin } = useUserRole();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { organizationId, companyId, setCompanyId } = useOrg();
+  const { organizationName, companyName } = useOrgNames();
+  const [assignedCompanies, setAssignedCompanies] = useState<Array<{ id: string; name: string }>>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        if (!user?.id) return;
+        const { data, error } = await supabase
+          .from('user_company_memberships')
+          .select('company:companies(id, name)')
+          .eq('user_id', user.id);
+        if (error) throw error;
+        const mapped = (data || []).map((r: any) => r.company).filter(Boolean);
+        if (!cancelled) setAssignedCompanies(mapped);
+      } catch {
+        if (!cancelled) setAssignedCompanies([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   const sidebarWidth = sidebarCollapsed ? 64 : 256;
 
@@ -108,18 +134,46 @@ export default function MainLayout() {
         {/* Header with User Info and Logout */}
         <header className="bg-white border-b border-slate-200 px-8 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-slate-900">Q-Payroll</h1>
-              <p className="text-sm text-slate-500">Professional Payroll Management</p>
-            </div>
-            
+            <div />            
             <div className="flex items-center gap-4">
+              {/* Organization | Company context */}
+              <div className="hidden md:flex items-center gap-3 px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-slate-500">Org:</span>
+                  <span className="text-xs font-medium text-slate-800">
+                    {organizationName || (organizationId ? `${organizationId.slice(0, 8)}…` : '—')}
+                  </span>
+                </div>
+                <span className="text-slate-300">|</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-slate-500">Company:</span>
+                  <div className="min-w-[180px]">
+                    <Select
+                      value={companyId || undefined}
+                      onValueChange={(val) => {
+                        setCompanyId(val);
+                        if (typeof window !== 'undefined') localStorage.setItem('active_company_id', val);
+                      }}
+                    >
+                      <SelectTrigger className="h-7 py-0 px-2 text-xs">
+                        <SelectValue placeholder={companyName || 'Select company'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {assignedCompanies.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
               {/* User Info - Flat Icon Design */}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors">
                 <div className="flex items-center justify-center w-8 h-8 bg-teal-100 text-teal-700 rounded-lg text-sm font-semibold">
                   {profile?.first_name?.[0]}{profile?.last_name?.[0] || 'U'}
                 </div>
-                <div className="hidden md:block">
+                <div className="block">
                   <div className="flex items-center gap-2">
                     <div className="text-sm font-medium text-slate-900">
                       {profile?.first_name} {profile?.last_name}

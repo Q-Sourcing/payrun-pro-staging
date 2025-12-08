@@ -93,12 +93,24 @@ export async function getCompaniesSummary(orgId: string) {
   // Try org filter first; fallback to all if org column missing
   let res = await supabase
     .from('companies')
-    .select('id, name')
+    .select(`
+      id,
+      name,
+      company_units:company_units(id),
+      employee_count:employees(id),
+      payroll:pay_runs(total_gross)
+    `)
     .eq('organization_id', orgId)
   if (res.error) {
     res = await supabase
       .from('companies')
-      .select('id, name')
+      .select(`
+        id,
+        name,
+        company_units:company_units(id),
+        employee_count:employees(id),
+        payroll:pay_runs(total_gross)
+      `)
   }
   return res
 }

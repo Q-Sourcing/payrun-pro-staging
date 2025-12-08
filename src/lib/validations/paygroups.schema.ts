@@ -9,7 +9,7 @@ const basePayGroupSchema = z.object({
   status: z.enum(['active', 'inactive']).default('active'),
   notes: z.string().max(1000, 'Notes are too long').optional(),
   category: z.enum(['head_office', 'projects']).optional(),
-  sub_type: z.string().optional(),
+  employee_type: z.string().optional(),
   pay_frequency: z.enum(['daily', 'bi_weekly', 'monthly']).optional(),
 });
 
@@ -18,6 +18,7 @@ export const createRegularPayGroupSchema = basePayGroupSchema.extend({
   type: z.literal('regular'),
   pay_frequency: z.enum(['weekly', 'bi_weekly', 'monthly', 'quarterly']),
   default_tax_percentage: z.number().min(0, 'Tax percentage must be 0 or greater').max(100, 'Tax percentage cannot exceed 100'),
+  tax_country: z.string().min(2, 'Tax country is required').max(2, 'Tax country code must be 2 characters'),
 });
 
 // Expatriate pay group schema
@@ -28,12 +29,16 @@ export const createExpatriatePayGroupSchema = basePayGroupSchema.extend({
   tax_country: z.string().min(2, 'Tax country is required').max(2, 'Tax country code must be 2 characters'),
 });
 
-// Contractor pay group schema
-export const createContractorPayGroupSchema = basePayGroupSchema.extend({
-  type: z.literal('contractor'),
-  contract_duration: z.number().int().min(1, 'Contract duration must be at least 1 month').max(60, 'Contract duration cannot exceed 60 months'),
-  default_hourly_rate: z.number().min(0, 'Hourly rate must be 0 or greater'),
+// Piece rate pay group schema
+export const createPieceRatePayGroupSchema = basePayGroupSchema.extend({
+  type: z.literal('piece_rate'),
+  piece_type: z.string().min(1, 'Piece type is required'),
+  default_piece_rate: z.number().min(0, 'Piece rate must be 0 or greater'),
+  default_tax_percentage: z.number().min(0, 'Tax percentage must be 0 or greater').max(100, 'Tax percentage cannot exceed 100'),
   tax_country: z.string().min(2, 'Tax country is required').max(2, 'Tax country code must be 2 characters'),
+  minimum_pieces: z.number().int().min(0, 'Minimum pieces must be 0 or greater').optional(),
+  maximum_pieces: z.number().int().min(1, 'Maximum pieces must be at least 1').optional(),
+  pay_frequency: z.enum(['weekly', 'bi_weekly', 'monthly']).optional(),
 });
 
 // Intern pay group schema
@@ -41,6 +46,7 @@ export const createInternPayGroupSchema = basePayGroupSchema.extend({
   type: z.literal('intern'),
   internship_duration: z.number().int().min(1, 'Internship duration must be at least 1 month').max(12, 'Internship duration cannot exceed 12 months'),
   stipend_amount: z.number().min(0, 'Stipend amount must be 0 or greater'),
+  tax_country: z.string().min(2, 'Tax country is required').max(2, 'Tax country code must be 2 characters'),
   academic_institution: z.string().max(255, 'Academic institution name is too long').optional(),
 });
 
@@ -48,7 +54,7 @@ export const createInternPayGroupSchema = basePayGroupSchema.extend({
 export const createPayGroupSchema = z.discriminatedUnion('type', [
   createRegularPayGroupSchema,
   createExpatriatePayGroupSchema,
-  createContractorPayGroupSchema,
+  createPieceRatePayGroupSchema,
   createInternPayGroupSchema,
 ]);
 
@@ -63,9 +69,9 @@ export const updateExpatriatePayGroupSchema = createExpatriatePayGroupSchema.par
   type: z.literal('expatriate'),
 });
 
-export const updateContractorPayGroupSchema = createContractorPayGroupSchema.partial().extend({
+export const updatePieceRatePayGroupSchema = createPieceRatePayGroupSchema.partial().extend({
   id: z.string().uuid('Invalid pay group ID'),
-  type: z.literal('contractor'),
+  type: z.literal('piece_rate'),
 });
 
 export const updateInternPayGroupSchema = createInternPayGroupSchema.partial().extend({
@@ -76,7 +82,7 @@ export const updateInternPayGroupSchema = createInternPayGroupSchema.partial().e
 export const updatePayGroupSchema = z.discriminatedUnion('type', [
   updateRegularPayGroupSchema,
   updateExpatriatePayGroupSchema,
-  updateContractorPayGroupSchema,
+  updatePieceRatePayGroupSchema,
   updateInternPayGroupSchema,
 ]);
 
@@ -84,22 +90,22 @@ export const updatePayGroupSchema = z.discriminatedUnion('type', [
 export const payGroupsQueryOptionsSchema = z.object({
   page: z.number().int().positive().optional(),
   limit: z.number().int().positive().max(100).optional(),
-  type: z.enum(['regular', 'expatriate', 'contractor', 'intern', 'all']).optional(),
+  type: z.enum(['regular', 'expatriate', 'piece_rate', 'intern', 'all']).optional(),
   search: z.string().optional(),
   include_employee_count: z.boolean().optional(),
   category: z.enum(['head_office', 'projects']).optional(),
-  sub_type: z.string().optional(),
+  employee_type: z.string().optional(),
 });
 
 export type CreateRegularPayGroupInput = z.infer<typeof createRegularPayGroupSchema>;
 export type CreateExpatriatePayGroupInput = z.infer<typeof createExpatriatePayGroupSchema>;
-export type CreateContractorPayGroupInput = z.infer<typeof createContractorPayGroupSchema>;
+export type CreatePieceRatePayGroupInput = z.infer<typeof createPieceRatePayGroupSchema>;
 export type CreateInternPayGroupInput = z.infer<typeof createInternPayGroupSchema>;
 export type CreatePayGroupInput = z.infer<typeof createPayGroupSchema>;
 
 export type UpdateRegularPayGroupInput = z.infer<typeof updateRegularPayGroupSchema>;
 export type UpdateExpatriatePayGroupInput = z.infer<typeof updateExpatriatePayGroupSchema>;
-export type UpdateContractorPayGroupInput = z.infer<typeof updateContractorPayGroupSchema>;
+export type UpdatePieceRatePayGroupInput = z.infer<typeof updatePieceRatePayGroupSchema>;
 export type UpdateInternPayGroupInput = z.infer<typeof updateInternPayGroupSchema>;
 export type UpdatePayGroupInput = z.infer<typeof updatePayGroupSchema>;
 

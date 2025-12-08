@@ -28,6 +28,7 @@ import {
   Edit, 
   Trash2, 
   Eye,
+  Package,
   Calendar,
   DollarSign,
   MapPin,
@@ -120,7 +121,7 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
     switch (type) {
       case 'regular': return <Users className="h-5 w-5" />;
       case 'expatriate': return <Globe2 className="h-5 w-5" />;
-      case 'contractor': return <Briefcase className="h-5 w-5" />;
+      case 'piece_rate': return <Package className="h-5 w-5" />;
       case 'intern': return <GraduationCap className="h-5 w-5" />;
       default: return <Users className="h-5 w-5" />;
     }

@@ -37,14 +37,14 @@ export default function PayGroupsOverview() {
         <CardContent>
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b text-muted-foreground"><th>Name</th><th>Employee Type</th><th>Org Unit</th><th>Currency</th><th>Created</th></tr>
+              <tr className="border-b text-muted-foreground"><th>Name</th><th>Employee Type</th><th>Company Unit</th><th>Currency</th><th>Created</th></tr>
             </thead>
             <tbody>
               {rows.map(r => (
                 <tr key={r.id} className="border-b last:border-none">
                   <td>{r.name}</td>
                   <td>{r.employee_type?.name || '-'}</td>
-                  <td>{r.org_unit?.name || '-'}</td>
+                  <td>{r.company_unit?.name || '-'}</td>
                   <td>{r.currency || '-'}</td>
                   <td>{String(r.created_at||'').slice(0,10)}</td>
                 </tr>

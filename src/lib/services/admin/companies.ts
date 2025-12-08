@@ -18,7 +18,7 @@ export interface Company {
     name: string
     symbol?: string
   }
-  org_units_count?: number
+  company_units_count?: number
 }
 
 export interface CreateCompanyData {
@@ -48,7 +48,7 @@ export class CompanyService {
         updated_at,
         country:countries(id, name, iso2),
         currency_info:currencies(code, name, symbol),
-        org_units:org_units(count)
+        company_units:company_units(count)
       `)
       .order('created_at', { ascending: false })
 
@@ -65,7 +65,7 @@ export class CompanyService {
 
     return data?.map(company => ({
       ...company,
-      org_units_count: company.org_units?.[0]?.count || 0
+      company_units_count: company.company_units?.[0]?.count || 0
     })) || []
   }
 
@@ -82,7 +82,7 @@ export class CompanyService {
         updated_at,
         country:countries(id, name, iso2),
         currency_info:currencies(code, name, symbol),
-        org_units:org_units(count)
+        company_units:company_units(count)
       `)
       .eq('id', id)
       .single()

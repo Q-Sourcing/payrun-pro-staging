@@ -6,27 +6,103 @@ interface OrgContextValue {
   organizationId: string | null;
   role: 'super_admin' | 'org_admin' | 'user' | null;
   companyId: string | null;
-  orgUnitId: string | null;
+  companyUnitId: string | null;
+  isPlatformAdmin: boolean;
+  selectedOrganizationId: string | null; // For platform admin context switching
   setCompanyId: (companyId: string|null) => void;
-  setOrgUnitId: (orgUnitId: string|null) => void;
+  setCompanyUnitId: (companyUnitId: string|null) => void;
+  setSelectedOrganizationId: (orgId: string|null) => void;
 }
 
 const OrgContext = createContext<OrgContextValue | undefined>(undefined);
+
+const PLATFORM_ADMIN_EMAIL = 'nalungukevin@gmail.com';
 
 export const OrgProvider = ({ children }: { children: ReactNode }) => {
   const { user, session, profile, isLoading } = useSupabaseAuth();
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [role, setRole] = useState<'super_admin' | 'org_admin' | 'user' | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
-  const [orgUnitId, setOrgUnitId] = useState<string | null>(null);
+  const [companyUnitId, setCompanyUnitId] = useState<string | null>(null);
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
+  
+  // Check if user is platform admin
+  const isPlatformAdmin = user?.email?.toLowerCase() === PLATFORM_ADMIN_EMAIL.toLowerCase() ||
+    localStorage.getItem('login_mode') === 'platform_admin';
 
   // Attempt to derive org from multiple sources
   useEffect(() => {
     async function resolveOrg() {
+      // Ensure company context first (from picker/membership)
+      try {
+        const storedCompany = typeof window !== 'undefined' ? localStorage.getItem('active_company_id') : null;
+        if (!companyId && storedCompany) {
+          setCompanyId(storedCompany);
+        }
+        // If no company selected yet, try to derive from memberships
+        if (!storedCompany && user?.id) {
+          const { data, error } = await supabase
+            .from('user_company_memberships')
+            .select('company_id')
+            .eq('user_id', user.id);
+          if (!error && data) {
+            if (data.length === 1) {
+              const cid = data[0].company_id;
+              setCompanyId(cid);
+              if (typeof window !== 'undefined') localStorage.setItem('active_company_id', cid);
+            } else if (data.length > 1) {
+              // Multiple choices: let the company picker handle selection
+              // Don't auto-pick here
+            }
+          }
+        }
+      } catch {}
+
+      // Platform admin mode - use selected organization or default
+      if (isPlatformAdmin) {
+        const selectedOrg = selectedOrganizationId || 
+          (typeof window !== 'undefined' ? localStorage.getItem('active_organization_id') : null);
+        if (selectedOrg) {
+          setOrganizationId(selectedOrg);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('active_organization_id', selectedOrg);
+          }
+          return;
+        }
+        // Platform admin without selected org - try to get first org or leave null
+        try {
+          const orgs = await supabase.from('organizations').select('id').limit(1);
+          if (!orgs.error && orgs.data && orgs.data.length > 0) {
+            setOrganizationId(orgs.data[0].id);
+            setSelectedOrganizationId(orgs.data[0].id);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('active_organization_id', orgs.data[0].id);
+            }
+          }
+        } catch {}
+        return;
+      }
+
+      // Regular user flow
       // 1) localStorage (persisted selection)
       const stored = typeof window !== 'undefined' ? localStorage.getItem('active_organization_id') : null;
       if (!organizationId && stored) {
         setOrganizationId(stored);
+      }
+
+      // If organization is still unknown, derive it from selected company
+      if (!organizationId) {
+        try {
+          const effectiveCompanyId = companyId || (typeof window !== 'undefined' ? localStorage.getItem('active_company_id') : null);
+          if (effectiveCompanyId) {
+            const { data: comp } = await supabase.from('companies').select('organization_id').eq('id', effectiveCompanyId).single();
+            if (comp?.organization_id) {
+              setOrganizationId(comp.organization_id);
+              if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', comp.organization_id);
+              return;
+            }
+          }
+        } catch {}
       }
 
       // 2) user_profiles via loaded profile
@@ -103,15 +179,23 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
     if (!isLoading) {
       resolveOrg();
     }
-  }, [profile, session, user, isLoading]);
+  }, [profile, session, user, isLoading, isPlatformAdmin, selectedOrganizationId]);
 
   const value: OrgContextValue = {
-    organizationId,
+    organizationId: isPlatformAdmin && selectedOrganizationId ? selectedOrganizationId : organizationId,
     role,
     companyId,
-    orgUnitId,
+    companyUnitId,
+    isPlatformAdmin,
+    selectedOrganizationId,
     setCompanyId,
-    setOrgUnitId,
+    setCompanyUnitId,
+    setSelectedOrganizationId: (orgId: string | null) => {
+      setSelectedOrganizationId(orgId);
+      if (orgId && typeof window !== 'undefined') {
+        localStorage.setItem('active_organization_id', orgId);
+      }
+    },
   };
 
   return (

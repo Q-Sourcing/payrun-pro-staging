@@ -86,6 +86,18 @@ export const getCurrencyCodeFromCountry = (countryName: string): string => {
   return country?.currency || 'UGX'; // default to UGX
 };
 
+// Helper function to get currency code from country code (e.g., "UG" -> "UGX")
+export const getCurrencyCodeFromCountryCode = (countryCode: string): string => {
+  const country = getCountryByCode(countryCode);
+  return country?.currency || 'UGX'; // default to UGX
+};
+
+// Helper function to get default currency for a country code
+export const getDefaultCurrencyForCountry = (countryCode: string): Currency | undefined => {
+  const currencyCode = getCurrencyCodeFromCountryCode(countryCode);
+  return getCurrencyByCode(currencyCode);
+};
+
 // Piece rate options for enhanced piece-rate system
 export const PIECE_RATE_TYPES = [
   { value: "crates", label: "Crates" },

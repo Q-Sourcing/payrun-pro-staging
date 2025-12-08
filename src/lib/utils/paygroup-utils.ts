@@ -8,7 +8,7 @@
 export const PAYGROUP_TO_EMPLOYEE_TYPE_MAP: Record<string, string> = {
   'regular': 'local',
   'expatriate': 'expatriate', 
-  'contractor': 'contractor',
+  'piece_rate': 'piece_rate',
   'intern': 'intern'
 };
 
@@ -34,7 +34,7 @@ export function getPayGroupTypeColor(payGroupType: string): string {
   const colorMap: Record<string, string> = {
     'regular': 'blue',
     'expatriate': 'green',
-    'contractor': 'orange',
+    'piece_rate': 'amber',
     'intern': 'purple'
   };
   return colorMap[payGroupType] || 'gray';

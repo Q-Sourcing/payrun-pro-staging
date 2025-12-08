@@ -14,14 +14,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  UserPlus, 
-  Search, 
-  Users, 
-  Globe2, 
-  Briefcase, 
+import {
+  UserPlus,
+  Search,
+  Users,
+  Globe2,
+  Briefcase,
   GraduationCap,
-  Loader2
+  Loader2,
+  Package
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
@@ -77,7 +78,7 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
   // Filter employees based on search
   useEffect(() => {
     if (searchQuery.trim()) {
-      const filtered = employees.filter(emp => 
+      const filtered = employees.filter(emp =>
         `${emp.first_name} ${emp.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
         emp.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
         emp.department?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -94,17 +95,22 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
       // Filter employees by category/sub_type to match the pay group
       let query = supabase
         .from('employees')
-        .select('id, first_name, middle_name, last_name, email, department, employee_type, category, sub_type, pay_frequency')
+        .select('id, first_name, middle_name, last_name, email, department, category, employee_type, pay_frequency')
         .order('first_name');
 
-      // Filter by category and sub_type if preset group has them
-      if (presetGroup?.category && presetGroup?.sub_type) {
+      // Filter by category and employee_type if preset group has them
+      if (presetGroup?.category && presetGroup?.employee_type) {
         query = query.eq('category', presetGroup.category);
-        query = query.eq('sub_type', presetGroup.sub_type);
-        
+        query = query.eq('employee_type', presetGroup.employee_type);
+
         // For manpower, also filter by pay_frequency
-        if (presetGroup.sub_type === 'manpower' && presetGroup.pay_frequency) {
+        if (presetGroup.employee_type === 'manpower' && presetGroup.pay_frequency) {
           query = query.eq('pay_frequency', presetGroup.pay_frequency);
+        }
+
+        // Filter by project_id if pay group has one (for projects category)
+        if (presetGroup.category === 'projects' && (presetGroup as any).project_id) {
+          query = query.eq('project_id', (presetGroup as any).project_id);
         }
       } else if (presetGroup?.type) {
         // Fallback to old type-based filtering for backward compatibility
@@ -238,7 +244,7 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
           employee_id: selectedEmployee,
           pay_group_id: targetGroupId
         });
-        
+
         // Catch any DB constraint error (in case of race conditions)
         if (result?.error?.includes('unique_employee_in_paygroup') || result?.error?.includes('duplicate')) {
           const employeeName = employees.find(emp => emp.id === selectedEmployee)?.first_name || 'Employee';
@@ -260,7 +266,7 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
 
       onSuccess();
       onOpenChange(false);
-      
+
       // Reset form
       setSelectedEmployee('');
       setSelectedGroup(presetGroup?.id || '');
@@ -282,7 +288,7 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
     switch (type) {
       case 'regular': return <Users className="h-4 w-4" />;
       case 'expatriate': return <Globe2 className="h-4 w-4" />;
-      case 'contractor': return <Briefcase className="h-4 w-4" />;
+      case 'piece_rate': return <Package className="h-4 w-4" />;
       case 'intern': return <GraduationCap className="h-4 w-4" />;
       default: return <Users className="h-4 w-4" />;
     }
@@ -326,18 +332,15 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
           {!presetGroup && (
             <div className="space-y-2">
               <Label htmlFor="paygroup">Pay Group *</Label>
-              <Select 
-                value={selectedGroup} 
+              <Select
+                value={selectedGroup}
                 onValueChange={setSelectedGroup}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select pay group" />
                 </SelectTrigger>
                 <SelectContent>
-                  {/* This would be populated with actual pay groups */}
-                  <SelectItem value="">
-                    Select a pay group
-                  </SelectItem>
+                  {/* Pay groups would be populated here */}
                 </SelectContent>
               </Select>
             </div>
@@ -364,8 +367,8 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
             {presetGroup && (
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">
-                  Showing employees matching: {presetGroup.category && presetGroup.sub_type 
-                    ? `${presetGroup.category} > ${presetGroup.sub_type}${presetGroup.pay_frequency ? ` > ${presetGroup.pay_frequency}` : ''}`
+                  Showing employees matching: {presetGroup.category && presetGroup.employee_type
+                    ? `${presetGroup.category} > ${presetGroup.employee_type}${presetGroup.pay_frequency ? ` > ${presetGroup.pay_frequency}` : ''}`
                     : presetGroup.type}
                 </p>
                 <p className="text-xs text-blue-600">
@@ -388,11 +391,10 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
                     {filteredEmployees.map((employee) => (
                       <motion.div
                         key={employee.id}
-                        className={`p-3 rounded-md cursor-pointer transition-colors ${
-                          selectedEmployee === employee.id
+                        className={`p-3 rounded-md cursor-pointer transition-colors ${selectedEmployee === employee.id
                             ? 'bg-blue-50 border border-blue-200'
                             : 'hover:bg-gray-50'
-                        }`}
+                          }`}
                         onClick={() => setSelectedEmployee(employee.id)}
                         whileHover={{ scale: 1.01 }}
                         transition={{ duration: 0.1 }}

@@ -376,7 +376,7 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
     switch (type) {
       case 'expatriate': return 'bg-blue-100 text-blue-800';
       case 'local': return 'bg-green-100 text-green-800';
-      case 'contractor': return 'bg-orange-100 text-orange-800';
+      case 'piece_rate': return 'bg-amber-100 text-amber-800';
       case 'intern': return 'bg-purple-100 text-purple-800';
       default: return 'bg-gray-100 text-gray-800';
     }

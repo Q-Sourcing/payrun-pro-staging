@@ -64,11 +64,15 @@ import { Admin } from "./pages/Admin";
 import SuperAdmin from "./pages/SuperAdmin";
 import { SecuritySettingsPage } from "./pages/SecuritySettings";
 import { AdminSecurityDashboard } from "./pages/AdminSecurityDashboard";
+import PlatformAdminDashboard from "./pages/PlatformAdminDashboard";
 
 // Import MainLayout component
 import MainLayout from "./layouts/MainLayout";
 import { OrgProvider } from '@/lib/tenant/OrgContext';
 import Dashboard from "./pages/Dashboard";
+import Projects from "./pages/Projects";
+import ProjectDetailPage from "./components/projects/ProjectDetailPage";
+import CompanyPicker from "./components/auth/CompanyPicker";
 
 // Query client is now imported from optimized configuration
 
@@ -101,9 +105,9 @@ const App = () => {
     console.log('🌿 Environment:', import.meta.env.VITE_ENVIRONMENT || import.meta.env.NEXT_PUBLIC_ENVIRONMENT || 'unknown');
     console.log('🔗 Supabase URL:', import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL || 'not configured');
     console.log('🔧 Vite Mode:', import.meta.env.MODE);
-    
+
     RealtimeService.initializeRealtimeSubscriptions();
-    
+
     // Cleanup on unmount
     return () => {
       RealtimeService.cleanupSubscriptions();
@@ -119,84 +123,92 @@ const App = () => {
             <Toaster />
             <Sonner />
             <BrowserRouter>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              
-              {/* Admin Dashboard */}
-              <Route path="/admin/*" element={
-                <ProtectedRoute>
-                  <Admin />
-                </ProtectedRoute>
-              } />
-              
-              {/* Main Layout with Sidebar */}
-              <Route
-                path="/"
-                element={
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/choose-company" element={
                   <ProtectedRoute>
-                    <OrgProvider>
-                    <MainLayout />
-                    </OrgProvider>
+                    <CompanyPicker />
                   </ProtectedRoute>
-                }
-              >
-                {/* Default redirect to dashboard */}
-                <Route index element={<Dashboard />} />
-                {/* Explicit dashboard route */}
-                <Route path="dashboard" element={<Dashboard />} />
-                
-                {/* My Dashboard Routes */}
-                <Route path="my/employees" element={<MyEmployees />} />
-                <Route path="my/paygroups" element={<MyPayGroups />} />
-                <Route path="my/payruns" element={<MyPayRuns />} />
+                } />
 
-                {/* Core Module Routes */}
-                <Route path="employees" element={<EmployeesTab />} />
-                <Route path="paygroups" element={<PayGroupsTab />} />
-                
-                {/* Pay Groups Filtered Routes */}
-                <Route path="paygroups/head-office/regular" element={<HeadOfficeRegularPage />} />
-                <Route path="paygroups/head-office/expatriate" element={<HeadOfficeExpatriatePage />} />
-                <Route path="paygroups/head-office/interns" element={<HeadOfficeInternsPage />} />
-                <Route path="paygroups/projects/manpower/daily" element={<ProjectsManpowerDailyPage />} />
-                <Route path="paygroups/projects/manpower/bi-weekly" element={<ProjectsManpowerBiWeeklyPage />} />
-                <Route path="paygroups/projects/manpower/monthly" element={<ProjectsManpowerMonthlyPage />} />
-                <Route path="paygroups/projects/ippms/piece-rate" element={<ProjectsIppmsPage />} />
-                <Route path="paygroups/projects/expatriate" element={<ProjectsExpatriatePage />} />
-                
-                <Route path="payruns" element={<PayRunsTab />} />
-                
-                {/* Pay Runs Filtered Routes */}
-                <Route path="payruns/head-office/regular" element={<HeadOfficeRegularPayRunsPage />} />
-                <Route path="payruns/head-office/expatriate" element={<HeadOfficeExpatriatePayRunsPage />} />
-                <Route path="payruns/head-office/interns" element={<HeadOfficeInternsPayRunsPage />} />
-                <Route path="payruns/projects/manpower/daily" element={<ProjectsManpowerDailyPayRunsPage />} />
-                <Route path="payruns/projects/manpower/bi-weekly" element={<ProjectsManpowerBiWeeklyPayRunsPage />} />
-                <Route path="payruns/projects/manpower/monthly" element={<ProjectsManpowerMonthlyPayRunsPage />} />
-                <Route path="payruns/projects/ippms" element={<ProjectsIppmsPayRunsPage />} />
-                <Route path="payruns/projects/expatriate" element={<ProjectsExpatriatePayRunsPage />} />
-                
-                <Route path="reports" element={<ReportsTab />} />
-                <Route path="settings" element={<Settings />} />
-                <Route path="settings/security" element={<SecuritySettingsPage />} />
-                <Route path="admin/super-admin" element={<SuperAdmin />} />
-                <Route path="admin/security" element={<AdminSecurityDashboard />} />
+                {/* Admin Dashboard */}
+                <Route path="/admin/*" element={
+                  <ProtectedRoute>
+                    <Admin />
+                  </ProtectedRoute>
+                } />
 
-                {/* Expatriate Payroll Route */}
-                <Route path="payruns/expatriate" element={<ExpatriatePayrollPage />} />
+                {/* Main Layout with Sidebar */}
+                <Route
+                  path="/"
+                  element={
+                    <ProtectedRoute>
+                      <OrgProvider>
+                        <MainLayout />
+                      </OrgProvider>
+                    </ProtectedRoute>
+                  }
+                >
+                  {/* Default redirect to dashboard */}
+                  <Route index element={<Dashboard />} />
+                  {/* Explicit dashboard route */}
+                  <Route path="dashboard" element={<Dashboard />} />
 
-                {/* Local Payroll Subroutes */}
-                <Route path="payruns/local/monthly" element={<LocalPayrollMonthly />} />
-                <Route path="payruns/local/temporary" element={<LocalPayrollTemporary />} />
-                <Route path="payruns/local/intern" element={<LocalPayrollIntern />} />
-                <Route path="payruns/local/trainee" element={<LocalPayrollTrainee />} />
-                <Route path="payruns/local/casual" element={<LocalPayrollCasual />} />
-              </Route>
+                  {/* My Dashboard Routes */}
+                  <Route path="my/employees" element={<MyEmployees />} />
+                  <Route path="my/paygroups" element={<MyPayGroups />} />
+                  <Route path="my/payruns" element={<MyPayRuns />} />
 
-              {/* Catch-all route */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
+                  {/* Core Module Routes */}
+                  <Route path="employees" element={<EmployeesTab />} />
+                  <Route path="projects" element={<Projects />} />
+                  <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+                  <Route path="paygroups" element={<PayGroupsTab />} />
+
+                  {/* Pay Groups Filtered Routes */}
+                  <Route path="paygroups/head-office/regular" element={<HeadOfficeRegularPage />} />
+                  <Route path="paygroups/head-office/expatriate" element={<HeadOfficeExpatriatePage />} />
+                  <Route path="paygroups/head-office/interns" element={<HeadOfficeInternsPage />} />
+                  <Route path="paygroups/projects/manpower/daily" element={<ProjectsManpowerDailyPage />} />
+                  <Route path="paygroups/projects/manpower/bi-weekly" element={<ProjectsManpowerBiWeeklyPage />} />
+                  <Route path="paygroups/projects/manpower/monthly" element={<ProjectsManpowerMonthlyPage />} />
+                  <Route path="paygroups/projects/ippms/piece-rate" element={<ProjectsIppmsPage />} />
+                  <Route path="paygroups/projects/expatriate" element={<ProjectsExpatriatePage />} />
+
+                  <Route path="payruns" element={<PayRunsTab />} />
+
+                  {/* Pay Runs Filtered Routes */}
+                  <Route path="payruns/head-office/regular" element={<HeadOfficeRegularPayRunsPage />} />
+                  <Route path="payruns/head-office/expatriate" element={<HeadOfficeExpatriatePayRunsPage />} />
+                  <Route path="payruns/head-office/interns" element={<HeadOfficeInternsPayRunsPage />} />
+                  <Route path="payruns/projects/manpower/daily" element={<ProjectsManpowerDailyPayRunsPage />} />
+                  <Route path="payruns/projects/manpower/bi-weekly" element={<ProjectsManpowerBiWeeklyPayRunsPage />} />
+                  <Route path="payruns/projects/manpower/monthly" element={<ProjectsManpowerMonthlyPayRunsPage />} />
+                  <Route path="payruns/projects/ippms" element={<ProjectsIppmsPayRunsPage />} />
+                  <Route path="payruns/projects/expatriate" element={<ProjectsExpatriatePayRunsPage />} />
+
+                  <Route path="reports" element={<ReportsTab />} />
+                  <Route path="settings" element={<Settings />} />
+                  <Route path="settings/security" element={<SecuritySettingsPage />} />
+                  <Route path="admin/super-admin" element={<SuperAdmin />} />
+                  <Route path="platform-admin" element={<PlatformAdminDashboard />} />
+                  <Route path="admin/security" element={<AdminSecurityDashboard />} />
+
+                  {/* Expatriate Payroll Route */}
+                  <Route path="payruns/expatriate" element={<ExpatriatePayrollPage />} />
+
+                  {/* Local Payroll Subroutes */}
+                  <Route path="payruns/local/monthly" element={<LocalPayrollMonthly />} />
+                  <Route path="payruns/local/temporary" element={<LocalPayrollTemporary />} />
+                  <Route path="payruns/local/intern" element={<LocalPayrollIntern />} />
+                  <Route path="payruns/local/trainee" element={<LocalPayrollTrainee />} />
+                  <Route path="payruns/local/casual" element={<LocalPayrollCasual />} />
+                </Route>
+
+                {/* Catch-all route */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
           </TooltipProvider>
         </SupabaseAuthProvider>
       </ThemeProvider>

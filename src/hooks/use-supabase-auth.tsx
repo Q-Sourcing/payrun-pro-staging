@@ -164,22 +164,74 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
     try {
       debug('Attempting login for:', email);
       
-      // Call secure-login Edge Function
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const response = await fetch(`${supabaseUrl}/functions/v1/secure-login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Call secure-login Edge Function using Supabase client's invoke method
+      // This handles authentication headers automatically
+      const { data: result, error: invokeError } = await supabase.functions.invoke('secure-login', {
+        body: {
           email,
           password,
-        }),
+        },
       });
 
-      const result = await response.json();
+      // Handle invocation errors
+      if (invokeError) {
+        debug('Edge Function invocation error:', {
+          name: invokeError.name,
+          message: invokeError.message,
+          context: invokeError.context,
+          stack: invokeError.stack,
+        });
+        
+        // Extract error message from context if available
+        let errorMessage = 'Invalid email or password';
+        if (invokeError.context) {
+          const context = invokeError.context as any;
+          if (context.body) {
+            try {
+              const body = typeof context.body === 'string' ? JSON.parse(context.body) : context.body;
+              errorMessage = body.message || body.error || errorMessage;
+            } catch {
+              errorMessage = context.body || errorMessage;
+            }
+          } else if (context.message) {
+            errorMessage = context.message;
+          }
+        }
+        
+        if (invokeError.message && invokeError.message !== 'Edge Function returned a non-2xx status code') {
+          errorMessage = invokeError.message;
+        }
+        
+        logError('Login error:', {
+          error: invokeError,
+          message: errorMessage,
+          context: invokeError.context,
+        });
+        
+        toast({
+          title: "Login Failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        
+        throw new Error(errorMessage);
+      }
 
-      if (!response.ok || !result.success) {
+      // Handle function-level errors (when function returns but with success: false)
+      if (!result) {
+        const errorMessage = 'Invalid email or password';
+        logError('Login error: No result from Edge Function');
+        
+        toast({
+          title: "Login Failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+        
+        throw new Error(errorMessage);
+      }
+
+      if (!result.success) {
         // Generic error message (no disclosure of account status)
         const errorMessage = result.message || 'Invalid email or password';
         logError('Login error:', errorMessage);

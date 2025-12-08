@@ -21,7 +21,7 @@ interface PayRun {
   total_deductions: number;
   total_net_pay: number;
   category?: string;
-  sub_type?: string;
+  employee_type?: string;
   pay_frequency?: string;
   pay_group_master: {
     name: string;
@@ -35,26 +35,28 @@ interface PayRun {
 
 interface FilteredPayRunsPageProps {
   category: PayGroupCategory;
-  subType?: HeadOfficeSubType | ProjectsSubType;
+  employeeType?: HeadOfficeSubType | ProjectsSubType;
   payFrequency?: ManpowerFrequency;
   title: string;
   description: string;
 }
 
-// Helper function to map subType to payrollType
-const getPayrollTypeFromSubType = (subType?: string): string | undefined => {
-  if (!subType) return undefined;
+// Helper function to map employeeType to payrollType
+const getPayrollTypeFromEmployeeType = (employeeType?: string): string | undefined => {
+  if (!employeeType) return undefined;
   const mapping: Record<string, string> = {
     'regular': 'Local',
     'expatriate': 'Expatriate',
     'interns': 'Local',
+    // IPPMS is a piece_rate paygroup; treat as Local for pay run UI locking
+    'ippms': 'Local',
   };
-  return mapping[subType.toLowerCase()];
+  return mapping[employeeType.toLowerCase()];
 };
 
 const FilteredPayRunsPage: React.FC<FilteredPayRunsPageProps> = ({
   category,
-  subType,
+  employeeType,
   payFrequency,
   title,
   description
@@ -64,14 +66,16 @@ const FilteredPayRunsPage: React.FC<FilteredPayRunsPageProps> = ({
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [selectedPayRun, setSelectedPayRun] = useState<PayRun | null>(null);
+  // IPPMS pay type toggle
+  const [ippmsPayType, setIppmsPayType] = useState<'piece_rate' | 'daily_rate'>('piece_rate');
   const { toast } = useToast();
 
-  // Determine payroll type from subType
-  const payrollType = getPayrollTypeFromSubType(subType);
+  // Determine payroll type from employeeType
+  const payrollType = getPayrollTypeFromEmployeeType(employeeType);
 
   useEffect(() => {
     fetchPayRuns();
-  }, [category, subType, payFrequency]);
+  }, [category, employeeType, payFrequency]);
 
   const fetchPayRuns = async () => {
     setLoading(true);
@@ -91,8 +95,8 @@ const FilteredPayRunsPage: React.FC<FilteredPayRunsPageProps> = ({
         `)
         .eq("category", category);
 
-      if (subType) {
-        query = query.eq("sub_type", subType);
+      if (employeeType) {
+        query = query.eq("employee_type", employeeType);
       }
 
       if (payFrequency) {
@@ -155,6 +159,24 @@ const FilteredPayRunsPage: React.FC<FilteredPayRunsPageProps> = ({
           Create Pay Run
         </Button>
       </div>
+
+      {/* IPPMS Pay Type Toggle */}
+      {(employeeType || '').toLowerCase() === 'ippms' && (
+        <div className="flex items-center gap-2">
+          <Button
+            variant={ippmsPayType === 'piece_rate' ? 'default' : 'outline'}
+            onClick={() => setIppmsPayType('piece_rate')}
+          >
+            Piece Rate
+          </Button>
+          <Button
+            variant={ippmsPayType === 'daily_rate' ? 'default' : 'outline'}
+            onClick={() => setIppmsPayType('daily_rate')}
+          >
+            Daily Rate
+          </Button>
+        </div>
+      )}
 
       {payRuns.length > 0 ? (
         <Card>
@@ -229,8 +251,9 @@ const FilteredPayRunsPage: React.FC<FilteredPayRunsPageProps> = ({
         onSuccess={fetchPayRuns}
         payrollType={payrollType}
         defaultCategory={category}
-        defaultSubType={subType}
+        defaultEmployeeType={employeeType}
         defaultPayFrequency={payFrequency}
+        initialIppmsPayType={((employeeType || '').toLowerCase() === 'ippms') ? ippmsPayType : undefined}
       />
 
       {selectedPayRun && (
@@ -249,7 +272,7 @@ const FilteredPayRunsPage: React.FC<FilteredPayRunsPageProps> = ({
 export const HeadOfficeRegularPayRunsPage = () => (
   <FilteredPayRunsPage
     category="head_office"
-    subType="regular"
+    employeeType="regular"
     title="Head Office - Regular Pay Runs"
     description="Manage regular payroll runs for head office employees"
   />
@@ -258,7 +281,7 @@ export const HeadOfficeRegularPayRunsPage = () => (
 export const HeadOfficeExpatriatePayRunsPage = () => (
   <FilteredPayRunsPage
     category="head_office"
-    subType="expatriate"
+    employeeType="expatriate"
     title="Head Office - Expatriate Pay Runs"
     description="Manage expatriate payroll runs for head office"
   />
@@ -267,7 +290,7 @@ export const HeadOfficeExpatriatePayRunsPage = () => (
 export const HeadOfficeInternsPayRunsPage = () => (
   <FilteredPayRunsPage
     category="head_office"
-    subType="interns"
+    employeeType="interns"
     title="Head Office - Interns Pay Runs"
     description="Manage intern payroll runs for head office"
   />
@@ -277,7 +300,7 @@ export const HeadOfficeInternsPayRunsPage = () => (
 export const ProjectsManpowerDailyPayRunsPage = () => (
   <FilteredPayRunsPage
     category="projects"
-    subType="manpower"
+    employeeType="manpower"
     payFrequency="daily"
     title="Projects - Manpower Daily Pay Runs"
     description="Manage daily manpower payroll runs for projects"
@@ -287,7 +310,7 @@ export const ProjectsManpowerDailyPayRunsPage = () => (
 export const ProjectsManpowerBiWeeklyPayRunsPage = () => (
   <FilteredPayRunsPage
     category="projects"
-    subType="manpower"
+    employeeType="manpower"
     payFrequency="bi_weekly"
     title="Projects - Manpower Bi-weekly Pay Runs"
     description="Manage bi-weekly manpower payroll runs for projects"
@@ -297,7 +320,7 @@ export const ProjectsManpowerBiWeeklyPayRunsPage = () => (
 export const ProjectsManpowerMonthlyPayRunsPage = () => (
   <FilteredPayRunsPage
     category="projects"
-    subType="manpower"
+    employeeType="manpower"
     payFrequency="monthly"
     title="Projects - Manpower Monthly Pay Runs"
     description="Manage monthly manpower payroll runs for projects"
@@ -307,7 +330,7 @@ export const ProjectsManpowerMonthlyPayRunsPage = () => (
 export const ProjectsIppmsPayRunsPage = () => (
   <FilteredPayRunsPage
     category="projects"
-    subType="ippms"
+    employeeType="ippms"
     title="Projects - IPPMS Pay Runs"
     description="Manage IPPMS (piece rate) payroll runs for projects"
   />
@@ -316,7 +339,7 @@ export const ProjectsIppmsPayRunsPage = () => (
 export const ProjectsExpatriatePayRunsPage = () => (
   <FilteredPayRunsPage
     category="projects"
-    subType="expatriate"
+    employeeType="expatriate"
     title="Projects - Expatriate Pay Runs"
     description="Manage expatriate payroll runs for projects"
   />

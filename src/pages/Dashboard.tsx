@@ -32,9 +32,6 @@ const Dashboard = () => {
           <h1 className="text-2xl font-bold">Organization Overview</h1>
           <p className="text-muted-foreground text-sm">Welcome back — here’s how your organization is performing.</p>
         </div>
-        {companies.length > 0 && (
-          <span className="bg-primary/80 text-white text-xs px-3 py-1 rounded-md font-medium shadow">Org: {companies[0].name || 'GWAZU'}</span>
-        )}
       </div>
       {/* Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 mb-8">
@@ -90,7 +87,7 @@ const Dashboard = () => {
                 <CardTitle>{c.name}</CardTitle>
               </CardHeader>
               <CardContent className="flex-1 space-y-1">
-                <div>Org Units: <span className="font-semibold">{c.org_units?.length || 0}</span></div>
+                <div>Company Units: <span className="font-semibold">{c.company_units?.length || 0}</span></div>
                 <div>Employees: <span className="font-semibold">{Array.isArray(c.employee_count) ? c.employee_count.length : 0}</span></div>
                 <div>Total Payroll: <span className="font-semibold">{Array.isArray(c.payroll)&&c.payroll.length>0 ? c.payroll.map(p=>p.total_gross).reduce((a,n)=>a+n,0).toLocaleString('en-US', {style:'currency',currency:'USD'}) : '$0'}</span></div>
               </CardContent>

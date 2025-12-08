@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 
-export type PayRunType = 'local' | 'expatriate' | 'contractor' | 'intern';
+export type PayRunType = 'local' | 'expatriate' | 'piece_rate' | 'intern';
 
 export interface PayRunItemBase {
   id: string;
@@ -51,19 +51,21 @@ export interface ExpatriatePayRunItem extends PayRunItemBase {
   tax_rate: number;
 }
 
-export interface ContractorPayRunItem extends PayRunItemBase {
-  contract_rate: number;
-  hours_worked?: number;
-  project_hours: number;
-  milestone_completion: number;
+export interface PieceRatePayRunItem extends PayRunItemBase {
+  pieces_completed: number;
+  piece_rate: number;
+  piece_type: string;
   gross_pay: number;
-  withholding_tax: number;
-  contractor_fees: number;
+  tax_deduction: number;
+  benefit_deductions: number;
+  custom_deductions: number;
+  total_deductions: number;
   net_pay: number;
-  contract_type: string;
-  project_id?: string;
-  invoice_number?: string;
-  payment_terms: string;
+  nssf_employee: number;
+  nssf_employer: number;
+  paye_tax: number;
+  local_currency: string;
+  tax_country: string;
 }
 
 export interface InternPayRunItem extends PayRunItemBase {
@@ -80,7 +82,7 @@ export interface InternPayRunItem extends PayRunItemBase {
   learning_objectives?: string[];
 }
 
-export type PayRunItem = LocalPayRunItem | ExpatriatePayRunItem | ContractorPayRunItem | InternPayRunItem;
+export type PayRunItem = LocalPayRunItem | ExpatriatePayRunItem | PieceRatePayRunItem | InternPayRunItem;
 
 /**
  * Unified service for managing pay run items across all types
@@ -94,7 +96,7 @@ export class PayRunTypeService {
     const tableMap = {
       local: 'local_pay_run_items',
       expatriate: 'expatriate_pay_run_items',
-      contractor: 'contractor_pay_run_items',
+      piece_rate: 'local_pay_run_items', // Piece rate uses local table since they're local employees
       intern: 'intern_pay_run_items'
     };
     return tableMap[payRunType];
@@ -300,7 +302,7 @@ export class PayRunTypeService {
   static async getActivePayRunTypes(payRunId: string): Promise<PayRunType[]> {
     const types: PayRunType[] = [];
     
-    for (const payRunType of ['local', 'expatriate', 'contractor', 'intern'] as PayRunType[]) {
+    for (const payRunType of ['local', 'expatriate', 'piece_rate', 'intern'] as PayRunType[]) {
       const tableName = this.getTableName(payRunType);
       
       const { data, error } = await supabase

@@ -128,7 +128,7 @@ export default function EmployeesOverview() {
               <Field label="Email" value={viewRow.email} />
               <Field label="Employee ID" value={viewRow.employee_number || viewRow.id} />
               <Field label="Company" value={viewRow._company_name} />
-              <Field label="Org Unit" value={viewRow.org_unit_id || '-'} />
+              <Field label="Company Unit" value={viewRow.company_unit_id || '-'} />
               <Field label="Type" value={viewRow._type_name} />
               <Field label="Pay Group" value={viewRow._pay_group_name} />
               <Field label="Pay Type" value={fmtPayType(viewRow.pay_type)} />

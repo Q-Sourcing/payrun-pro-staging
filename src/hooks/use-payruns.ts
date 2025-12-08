@@ -70,7 +70,7 @@ export function useCreatePayRun() {
         total_deductions: 0,
         total_net_pay: 0,
         category: newPayRun.category,
-        sub_type: newPayRun.sub_type,
+        employee_type: newPayRun.employee_type,
         pay_frequency: newPayRun.pay_frequency,
         payroll_type: newPayRun.payroll_type,
         exchange_rate: newPayRun.exchange_rate,

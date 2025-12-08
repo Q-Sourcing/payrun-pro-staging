@@ -11,26 +11,27 @@ import { useToast } from '@/hooks/use-toast';
 
 interface FilteredPayGroupsPageProps {
   category: PayGroupCategory;
-  subType?: HeadOfficeSubType | ProjectsSubType;
+  employeeType?: HeadOfficeSubType | ProjectsSubType;
   payFrequency?: ManpowerFrequency;
   title: string;
   description: string;
 }
 
-// Helper function to map subType to PayGroupType
-const getPayGroupTypeFromSubType = (subType?: string): PayGroupType | undefined => {
-  if (!subType) return undefined;
+// Helper function to map employeeType to PayGroupType
+const getPayGroupTypeFromEmployeeType = (employeeType?: string): PayGroupType | undefined => {
+  if (!employeeType) return undefined;
   const mapping: Record<string, PayGroupType> = {
     'regular': 'regular',
     'expatriate': 'expatriate',
     'interns': 'intern',
+    'ippms': 'piece_rate',
   };
-  return mapping[subType.toLowerCase()];
+  return mapping[employeeType.toLowerCase()];
 };
 
 const FilteredPayGroupsPage: React.FC<FilteredPayGroupsPageProps> = ({
   category,
-  subType,
+  employeeType,
   payFrequency,
   title,
   description
@@ -40,20 +41,27 @@ const FilteredPayGroupsPage: React.FC<FilteredPayGroupsPageProps> = ({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<PayGroup | undefined>();
+  // IPPMS pay type toggle
+  const [ippmsPayType, setIppmsPayType] = useState<'piece_rate' | 'daily_rate'>('piece_rate');
   const { toast } = useToast();
 
-  // Determine pay group type from subType
-  const defaultType = getPayGroupTypeFromSubType(subType);
+  // Determine pay group type from employeeType
+  const defaultType = getPayGroupTypeFromEmployeeType(employeeType);
 
   useEffect(() => {
     loadPayGroups();
-  }, [category, subType, payFrequency]);
+  }, [category, employeeType, payFrequency]);
 
   const loadPayGroups = async () => {
     setLoading(true);
     try {
-      const groups = await PayGroupsService.getPayGroupsByCategory(category, subType, payFrequency);
-      setPayGroups(groups);
+      const groups = await PayGroupsService.getPayGroupsByCategory(category, employeeType, payFrequency);
+      // If IPPMS, filter by selected pay_type
+      if (employeeType === 'ippms') {
+        setPayGroups(groups.filter(g => (g as any).pay_type ? (g as any).pay_type === ippmsPayType : true));
+      } else {
+        setPayGroups(groups);
+      }
     } catch (error) {
       console.error('Error loading pay groups:', error);
       toast({
@@ -106,6 +114,24 @@ const FilteredPayGroupsPage: React.FC<FilteredPayGroupsPageProps> = ({
         </Button>
       </div>
 
+      {/* IPPMS Pay Type Toggle */}
+      {employeeType === 'ippms' && (
+        <div className="flex items-center gap-2">
+          <Button
+            variant={ippmsPayType === 'piece_rate' ? 'default' : 'outline'}
+            onClick={() => { setIppmsPayType('piece_rate'); loadPayGroups(); }}
+          >
+            Piece Rate
+          </Button>
+          <Button
+            variant={ippmsPayType === 'daily_rate' ? 'default' : 'outline'}
+            onClick={() => { setIppmsPayType('daily_rate'); loadPayGroups(); }}
+          >
+            Daily Rate
+          </Button>
+        </div>
+      )}
+
       {payGroups.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {payGroups.map((group) => (
@@ -153,7 +179,7 @@ const FilteredPayGroupsPage: React.FC<FilteredPayGroupsPageProps> = ({
 export const HeadOfficeRegularPage = () => (
   <FilteredPayGroupsPage
     category="head_office"
-    subType="regular"
+    employeeType="regular"
     title="Head Office - Regular Pay Groups"
     description="Manage regular payroll groups for head office employees"
   />
@@ -162,7 +188,7 @@ export const HeadOfficeRegularPage = () => (
 export const HeadOfficeExpatriatePage = () => (
   <FilteredPayGroupsPage
     category="head_office"
-    subType="expatriate"
+    employeeType="expatriate"
     title="Head Office - Expatriate Pay Groups"
     description="Manage expatriate payroll groups for head office"
   />
@@ -171,7 +197,7 @@ export const HeadOfficeExpatriatePage = () => (
 export const HeadOfficeInternsPage = () => (
   <FilteredPayGroupsPage
     category="head_office"
-    subType="interns"
+    employeeType="interns"
     title="Head Office - Interns Pay Groups"
     description="Manage intern payroll groups for head office"
   />
@@ -181,7 +207,7 @@ export const HeadOfficeInternsPage = () => (
 export const ProjectsManpowerDailyPage = () => (
   <FilteredPayGroupsPage
     category="projects"
-    subType="manpower"
+    employeeType="manpower"
     payFrequency="daily"
     title="Projects - Manpower Daily Pay Groups"
     description="Manage daily manpower payroll groups for projects"
@@ -191,7 +217,7 @@ export const ProjectsManpowerDailyPage = () => (
 export const ProjectsManpowerBiWeeklyPage = () => (
   <FilteredPayGroupsPage
     category="projects"
-    subType="manpower"
+    employeeType="manpower"
     payFrequency="bi_weekly"
     title="Projects - Manpower Bi-weekly Pay Groups"
     description="Manage bi-weekly manpower payroll groups for projects"
@@ -201,7 +227,7 @@ export const ProjectsManpowerBiWeeklyPage = () => (
 export const ProjectsManpowerMonthlyPage = () => (
   <FilteredPayGroupsPage
     category="projects"
-    subType="manpower"
+    employeeType="manpower"
     payFrequency="monthly"
     title="Projects - Manpower Monthly Pay Groups"
     description="Manage monthly manpower payroll groups for projects"
@@ -211,7 +237,7 @@ export const ProjectsManpowerMonthlyPage = () => (
 export const ProjectsIppmsPage = () => (
   <FilteredPayGroupsPage
     category="projects"
-    subType="ippms"
+    employeeType="ippms"
     title="Projects - IPPMS Pay Groups"
     description="Manage IPPMS (piece rate) payroll groups for projects"
   />
@@ -220,7 +246,7 @@ export const ProjectsIppmsPage = () => (
 export const ProjectsExpatriatePage = () => (
   <FilteredPayGroupsPage
     category="projects"
-    subType="expatriate"
+    employeeType="expatriate"
     title="Projects - Expatriate Pay Groups"
     description="Manage expatriate payroll groups for projects"
   />

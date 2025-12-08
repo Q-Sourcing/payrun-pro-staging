@@ -99,7 +99,7 @@ export function useCreatePayGroup() {
         name: newPayGroup.name,
         type: newPayGroup.type,
         category: newPayGroup.category,
-        sub_type: newPayGroup.sub_type,
+        employee_type: newPayGroup.employee_type,
         pay_frequency: newPayGroup.pay_frequency,
         country: newPayGroup.country,
         currency: newPayGroup.currency || 'UGX',

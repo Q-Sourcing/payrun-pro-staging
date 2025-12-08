@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { logAuditEvent, extractIpAddress, extractUserAgent } from '../_shared/audit-logger.ts'
+import { validateRequest, CreatePayRunRequestSchema, UpdatePayRunRequestSchema, DeletePayRunRequestSchema } from '../_shared/validation-schemas.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -165,11 +167,27 @@ serve(async (req) => {
     const role = userRole.role
     const canManagePayRuns = ['finance', 'admin', 'super_admin'].includes(role)
 
+    // Extract IP and user agent for audit logging
+    const ipAddress = extractIpAddress(req)
+    const userAgent = extractUserAgent(req)
+
     if (!canManagePayRuns) {
+      // Log denied access attempt
+      await logAuditEvent(supabaseAdmin, {
+        user_id: user.id,
+        action: 'payrun.operation',
+        resource: 'pay_runs',
+        details: { attempted_action: req.method, reason: 'insufficient_permissions' },
+        ip_address: ipAddress,
+        user_agent: userAgent,
+        result: 'denied',
+      })
+
       return new Response(
         JSON.stringify({ 
           success: false, 
-          message: 'Insufficient permissions. Finance, Admin, or Super Admin role required.' 
+          message: 'Insufficient permissions. Finance, Admin, or Super Admin role required.',
+          code: 'PERMISSION_DENIED'
         } as PayRunResponse),
         { 
           status: 403, 
@@ -180,14 +198,26 @@ serve(async (req) => {
 
     // Handle CREATE request
     if (req.method === 'POST') {
-      const body: CreatePayRunRequest = await req.json()
+      let body: CreatePayRunRequest
+      try {
+        const rawBody = await req.json()
+        body = validateRequest(CreatePayRunRequestSchema, rawBody)
+      } catch (validationError) {
+        await logAuditEvent(supabaseAdmin, {
+          user_id: user.id,
+          action: 'payrun.create',
+          resource: 'pay_runs',
+          details: { error: validationError instanceof Error ? validationError.message : 'Validation failed' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'failure',
+        })
 
-      // Validate required fields
-      if (!body.pay_period_start || !body.pay_period_end) {
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'pay_period_start and pay_period_end are required' 
+            message: validationError instanceof Error ? validationError.message : 'Invalid request data',
+            code: 'VALIDATION_ERROR'
           } as PayRunResponse),
           { 
             status: 400, 
@@ -227,10 +257,22 @@ serve(async (req) => {
 
       if (error) {
         console.error('Error creating pay run:', error)
+        
+        await logAuditEvent(supabaseAdmin, {
+          user_id: user.id,
+          action: 'payrun.create',
+          resource: 'pay_runs',
+          details: { error: error.message, pay_run_id: payRunId },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'failure',
+        })
+
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'Failed to create pay run: ' + error.message 
+            message: 'Failed to create pay run: ' + error.message,
+            code: 'CREATE_ERROR'
           } as PayRunResponse),
           { 
             status: 400, 
@@ -238,6 +280,17 @@ serve(async (req) => {
           }
         )
       }
+
+      // Log successful creation
+      await logAuditEvent(supabaseAdmin, {
+        user_id: user.id,
+        action: 'payrun.create',
+        resource: 'pay_runs',
+        details: { pay_run_id: payRun.id, pay_run_date: payRun.pay_run_date, status: payRun.status },
+        ip_address: ipAddress,
+        user_agent: userAgent,
+        result: 'success',
+      })
 
       console.log(`Pay run created: ${payRun.id} by ${user.email}`)
 
@@ -256,13 +309,26 @@ serve(async (req) => {
 
     // Handle UPDATE request
     if (req.method === 'PUT' || req.method === 'PATCH') {
-      const body: UpdatePayRunRequest = await req.json()
+      let body: UpdatePayRunRequest
+      try {
+        const rawBody = await req.json()
+        body = validateRequest(UpdatePayRunRequestSchema, rawBody)
+      } catch (validationError) {
+        await logAuditEvent(supabaseAdmin, {
+          user_id: user.id,
+          action: 'payrun.update',
+          resource: 'pay_runs',
+          details: { error: validationError instanceof Error ? validationError.message : 'Validation failed' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'failure',
+        })
 
-      if (!body.id) {
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'Pay run ID is required' 
+            message: validationError instanceof Error ? validationError.message : 'Invalid request data',
+            code: 'VALIDATION_ERROR'
           } as PayRunResponse),
           { 
             status: 400, 
@@ -294,10 +360,26 @@ serve(async (req) => {
       // Validate status transition
       if (body.status && body.status !== existing.status) {
         if (!validateStatusTransition(existing.status as PayRunStatus, body.status)) {
+          await logAuditEvent(supabaseAdmin, {
+            user_id: user.id,
+            action: 'payrun.status_change',
+            resource: 'pay_runs',
+            details: { 
+              pay_run_id: body.id, 
+              attempted_status: body.status, 
+              current_status: existing.status,
+              error: 'Invalid status transition'
+            },
+            ip_address: ipAddress,
+            user_agent: userAgent,
+            result: 'failure',
+          })
+
           return new Response(
             JSON.stringify({ 
               success: false, 
-              message: `Invalid status transition from ${existing.status} to ${body.status}` 
+              message: `Invalid status transition from ${existing.status} to ${body.status}`,
+              code: 'INVALID_STATUS_TRANSITION'
             } as PayRunResponse),
             { 
               status: 400, 
@@ -343,10 +425,22 @@ serve(async (req) => {
 
       if (updateError) {
         console.error('Error updating pay run:', updateError)
+        
+        await logAuditEvent(supabaseAdmin, {
+          user_id: user.id,
+          action: 'payrun.update',
+          resource: 'pay_runs',
+          details: { pay_run_id: body.id, error: updateError.message },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'failure',
+        })
+
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'Failed to update pay run: ' + updateError.message 
+            message: 'Failed to update pay run: ' + updateError.message,
+            code: 'UPDATE_ERROR'
           } as PayRunResponse),
           { 
             status: 400, 
@@ -354,6 +448,22 @@ serve(async (req) => {
           }
         )
       }
+
+      // Log successful update (and status change if applicable)
+      const auditAction = body.status && body.status !== existing.status ? 'payrun.status_change' : 'payrun.update'
+      await logAuditEvent(supabaseAdmin, {
+        user_id: user.id,
+        action: auditAction,
+        resource: 'pay_runs',
+        details: { 
+          pay_run_id: body.id,
+          status_change: body.status && body.status !== existing.status ? { old: existing.status, new: body.status } : undefined,
+          changes: Object.keys(updateData).filter(k => k !== 'updated_at')
+        },
+        ip_address: ipAddress,
+        user_agent: userAgent,
+        result: 'success',
+      })
 
       console.log(`Pay run updated: ${body.id} by ${user.email}`)
 
@@ -372,13 +482,26 @@ serve(async (req) => {
 
     // Handle DELETE request
     if (req.method === 'DELETE') {
-      const body: DeletePayRunRequest = await req.json()
+      let body: DeletePayRunRequest
+      try {
+        const rawBody = await req.json()
+        body = validateRequest(DeletePayRunRequestSchema, rawBody)
+      } catch (validationError) {
+        await logAuditEvent(supabaseAdmin, {
+          user_id: user.id,
+          action: 'payrun.delete',
+          resource: 'pay_runs',
+          details: { error: validationError instanceof Error ? validationError.message : 'Validation failed' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'failure',
+        })
 
-      if (!body.id) {
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'Pay run ID is required' 
+            message: validationError instanceof Error ? validationError.message : 'Invalid request data',
+            code: 'VALIDATION_ERROR'
           } as PayRunResponse),
           { 
             status: 400, 
@@ -395,10 +518,21 @@ serve(async (req) => {
         .single()
 
       if (fetchError || !existing) {
+        await logAuditEvent(supabaseAdmin, {
+          user_id: user.id,
+          action: 'payrun.delete',
+          resource: 'pay_runs',
+          details: { pay_run_id: body.id, error: 'Pay run not found' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'failure',
+        })
+
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'Pay run not found' 
+            message: 'Pay run not found',
+            code: 'NOT_FOUND'
           } as PayRunResponse),
           { 
             status: 404, 
@@ -409,10 +543,21 @@ serve(async (req) => {
 
       // Prevent deletion of processed pay runs unless hard delete
       if (existing.status === 'processed' && !body.hard_delete) {
+        await logAuditEvent(supabaseAdmin, {
+          user_id: user.id,
+          action: 'payrun.delete',
+          resource: 'pay_runs',
+          details: { pay_run_id: body.id, status: existing.status, reason: 'processed_payrun_protection' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'denied',
+        })
+
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'Cannot delete processed pay runs. Use hard delete if necessary.' 
+            message: 'Cannot delete processed pay runs. Use hard delete if necessary.',
+            code: 'PROCESSED_PAYRUN_PROTECTION'
           } as PayRunResponse),
           { 
             status: 400, 
@@ -423,10 +568,21 @@ serve(async (req) => {
 
       // Only super_admin can hard delete
       if (body.hard_delete && role !== 'super_admin') {
+        await logAuditEvent(supabaseAdmin, {
+          user_id: user.id,
+          action: 'payrun.delete',
+          resource: 'pay_runs',
+          details: { pay_run_id: body.id, attempted_action: 'hard_delete', reason: 'insufficient_permissions' },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'denied',
+        })
+
         return new Response(
           JSON.stringify({ 
             success: false, 
-            message: 'Only super admin can perform hard delete' 
+            message: 'Only super admin can perform hard delete',
+            code: 'PERMISSION_DENIED'
           } as PayRunResponse),
           { 
             status: 403, 
@@ -444,10 +600,22 @@ serve(async (req) => {
 
         if (deleteError) {
           console.error('Error deleting pay run:', deleteError)
+          
+          await logAuditEvent(supabaseAdmin, {
+            user_id: user.id,
+            action: 'payrun.delete',
+            resource: 'pay_runs',
+            details: { pay_run_id: body.id, delete_type: 'hard', error: deleteError.message },
+            ip_address: ipAddress,
+            user_agent: userAgent,
+            result: 'failure',
+          })
+
           return new Response(
             JSON.stringify({ 
               success: false, 
-              message: 'Failed to delete pay run: ' + deleteError.message 
+              message: 'Failed to delete pay run: ' + deleteError.message,
+              code: 'DELETE_ERROR'
             } as PayRunResponse),
             { 
               status: 400, 
@@ -455,6 +623,17 @@ serve(async (req) => {
             }
           )
         }
+
+        // Log successful hard delete
+        await logAuditEvent(supabaseAdmin, {
+          user_id: user.id,
+          action: 'payrun.delete',
+          resource: 'pay_runs',
+          details: { pay_run_id: body.id, delete_type: 'hard', status: existing.status },
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          result: 'success',
+        })
 
         console.log(`Pay run hard deleted: ${body.id} by ${user.email}`)
 
@@ -481,10 +660,22 @@ serve(async (req) => {
 
           if (updateError) {
             console.error('Error soft deleting pay run:', updateError)
+            
+            await logAuditEvent(supabaseAdmin, {
+              user_id: user.id,
+              action: 'payrun.delete',
+              resource: 'pay_runs',
+              details: { pay_run_id: body.id, delete_type: 'soft', error: updateError.message },
+              ip_address: ipAddress,
+              user_agent: userAgent,
+              result: 'failure',
+            })
+
             return new Response(
               JSON.stringify({ 
                 success: false, 
-                message: 'Failed to soft delete pay run: ' + updateError.message 
+                message: 'Failed to soft delete pay run: ' + updateError.message,
+                code: 'DELETE_ERROR'
               } as PayRunResponse),
               { 
                 status: 400, 
@@ -492,6 +683,17 @@ serve(async (req) => {
               }
             )
           }
+
+          // Log successful soft delete
+          await logAuditEvent(supabaseAdmin, {
+            user_id: user.id,
+            action: 'payrun.delete',
+            resource: 'pay_runs',
+            details: { pay_run_id: body.id, delete_type: 'soft', status: existing.status },
+            ip_address: ipAddress,
+            user_agent: userAgent,
+            result: 'success',
+          })
 
           console.log(`Pay run soft deleted: ${body.id} by ${user.email}`)
 
@@ -506,10 +708,21 @@ serve(async (req) => {
             }
           )
         } else {
+          await logAuditEvent(supabaseAdmin, {
+            user_id: user.id,
+            action: 'payrun.delete',
+            resource: 'pay_runs',
+            details: { pay_run_id: body.id, status: existing.status, reason: 'invalid_status_for_soft_delete' },
+            ip_address: ipAddress,
+            user_agent: userAgent,
+            result: 'denied',
+          })
+
           return new Response(
             JSON.stringify({ 
               success: false, 
-              message: `Cannot soft delete pay run with status: ${existing.status}` 
+              message: `Cannot soft delete pay run with status: ${existing.status}`,
+              code: 'INVALID_STATUS'
             } as PayRunResponse),
             { 
               status: 400, 
@@ -533,10 +746,51 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Unexpected error in manage-payruns function:', error)
+    
+    // Try to log the error (but don't fail if logging fails)
+    try {
+      const ipAddress = extractIpAddress(req)
+      const userAgent = extractUserAgent(req)
+      const authHeader = req.headers.get('Authorization')
+      const token = authHeader?.replace('Bearer ', '')
+      
+      if (token) {
+        const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+        if (serviceRoleKey) {
+          const supabaseAdmin = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            serviceRoleKey,
+            {
+              auth: {
+                autoRefreshToken: false,
+                persistSession: false
+              }
+            }
+          )
+          
+          const { data: { user } } = await supabaseAdmin.auth.getUser(token)
+          if (user) {
+            await logAuditEvent(supabaseAdmin, {
+              user_id: user.id,
+              action: 'payrun.operation',
+              resource: 'pay_runs',
+              details: { error: error instanceof Error ? error.message : 'Unknown error', method: req.method },
+              ip_address: ipAddress,
+              user_agent: userAgent,
+              result: 'failure',
+            })
+          }
+        }
+      }
+    } catch (logError) {
+      console.error('Failed to log error:', logError)
+    }
+    
     return new Response(
       JSON.stringify({ 
         success: false, 
-        message: 'Internal server error: ' + (error instanceof Error ? error.message : 'Unknown error') 
+        message: 'Internal server error: ' + (error instanceof Error ? error.message : 'Unknown error'),
+        code: 'INTERNAL_ERROR'
       } as PayRunResponse),
       { 
         status: 500, 

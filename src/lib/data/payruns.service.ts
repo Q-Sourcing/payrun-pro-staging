@@ -17,7 +17,7 @@ export interface PayRun {
   approved_at?: string;
   created_by?: string;
   category?: string;
-  sub_type?: string;
+  employee_type?: string;
   pay_frequency?: string;
   payroll_type?: string;
   exchange_rate?: number;
@@ -66,7 +66,7 @@ export class PayRunsService {
       pay_group_id,
       pay_group_master_id,
       category,
-      sub_type,
+      employee_type,
       date_from,
       date_to,
       search,
@@ -110,8 +110,8 @@ export class PayRunsService {
         query = query.eq('category', category);
       }
 
-      if (sub_type) {
-        query = query.eq('sub_type', sub_type);
+      if (employee_type) {
+        query = query.eq('employee_type', employee_type);
       }
 
       if (date_from) {
@@ -162,7 +162,7 @@ export class PayRunsService {
         approved_at: pr.approved_at,
         created_by: pr.created_by,
         category: pr.category,
-        sub_type: pr.sub_type,
+        employee_type: pr.employee_type,
         pay_frequency: pr.pay_frequency,
         payroll_type: pr.payroll_type,
         exchange_rate: pr.exchange_rate,
@@ -237,7 +237,7 @@ export class PayRunsService {
         approved_at: data.approved_at,
         created_by: data.created_by,
         category: data.category,
-        sub_type: data.sub_type,
+        employee_type: data.employee_type,
         pay_frequency: data.pay_frequency,
         payroll_type: data.payroll_type,
         exchange_rate: data.exchange_rate,
@@ -283,19 +283,19 @@ export class PayRunsService {
           'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          pay_run_date: validatedData.pay_run_date || new Date().toISOString().split('T')[0],
-          pay_period_start: validatedData.pay_period_start,
-          pay_period_end: validatedData.pay_period_end,
-          pay_group_id: validatedData.pay_group_id,
-          pay_group_master_id: validatedData.pay_group_master_id,
-          status: validatedData.status || 'draft',
-          category: validatedData.category,
-          sub_type: validatedData.sub_type,
-          pay_frequency: validatedData.pay_frequency,
-          payroll_type: validatedData.payroll_type,
-          exchange_rate: validatedData.exchange_rate,
-          days_worked: validatedData.days_worked,
-          created_by: validatedData.created_by || user?.id,
+        pay_run_date: validatedData.pay_run_date || new Date().toISOString().split('T')[0],
+        pay_period_start: validatedData.pay_period_start,
+        pay_period_end: validatedData.pay_period_end,
+        pay_group_id: validatedData.pay_group_id,
+        pay_group_master_id: validatedData.pay_group_master_id,
+        status: validatedData.status || 'draft',
+        category: validatedData.category,
+        employee_type: validatedData.employee_type,
+        pay_frequency: validatedData.pay_frequency,
+        payroll_type: validatedData.payroll_type,
+        exchange_rate: validatedData.exchange_rate,
+        days_worked: validatedData.days_worked,
+        created_by: validatedData.created_by || user?.id,
         }),
       });
 
@@ -331,7 +331,7 @@ export class PayRunsService {
       }
 
       // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await supabase.auth.getUser();
 
       // Call Edge Function
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -350,7 +350,7 @@ export class PayRunsService {
           pay_group_master_id: validatedData.pay_group_master_id,
           status: validatedData.status,
           category: validatedData.category,
-          sub_type: validatedData.sub_type,
+          employee_type: validatedData.employee_type,
           pay_frequency: validatedData.pay_frequency,
           payroll_type: validatedData.payroll_type,
           exchange_rate: validatedData.exchange_rate,

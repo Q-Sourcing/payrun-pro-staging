@@ -21,11 +21,11 @@ serve(async (req) => {
 
   try {
     const { employee_id, pay_group_id, assigned_by, notes } = await req.json();
-    
+
     if (!employee_id || !pay_group_id) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields" }), 
-        { 
+        JSON.stringify({ error: "Missing required fields" }),
+        {
           status: 400,
           headers: {
             'Access-Control-Allow-Origin': '*',
@@ -35,18 +35,54 @@ serve(async (req) => {
       );
     }
 
+    // Look up the pay_group_master_id from pay_group_master table
+    // The pay_group_id passed in is the source_id (from pay_groups or expatriate_pay_groups)
+    const { data: masterData, error: masterError } = await supabase
+      .from("pay_group_master")
+      .select("id")
+      .eq("source_id", pay_group_id)
+      .maybeSingle();
+
+    if (masterError) {
+      return new Response(
+        JSON.stringify({ error: `Failed to find pay group master: ${masterError.message}` }),
+        {
+          status: 400,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+
+    if (!masterData) {
+      return new Response(
+        JSON.stringify({ error: "Pay group not found in master table" }),
+        {
+          status: 404,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+
+    const pay_group_master_id = masterData.id;
+
     // First, check if employee is already in another active pay group
     const { data: existingActiveAssignment, error: activeCheckError } = await supabase
       .from("paygroup_employees")
-      .select("id, pay_group_id, active")
+      .select("id, pay_group_master_id, active")
       .eq("employee_id", employee_id)
       .eq("active", true)
       .maybeSingle();
 
     if (activeCheckError) {
       return new Response(
-        JSON.stringify({ error: `Check failed: ${activeCheckError.message}` }), 
-        { 
+        JSON.stringify({ error: `Check failed: ${activeCheckError.message}` }),
+        {
           status: 400,
           headers: {
             'Access-Control-Allow-Origin': '*',
@@ -61,13 +97,13 @@ serve(async (req) => {
       .from("paygroup_employees")
       .select("id, active")
       .eq("employee_id", employee_id)
-      .eq("pay_group_id", pay_group_id)
+      .eq("pay_group_master_id", pay_group_master_id)
       .maybeSingle();
 
     if (checkError) {
       return new Response(
-        JSON.stringify({ error: `Check failed: ${checkError.message}` }), 
-        { 
+        JSON.stringify({ error: `Check failed: ${checkError.message}` }),
+        {
           status: 400,
           headers: {
             'Access-Control-Allow-Origin': '*',
@@ -79,21 +115,22 @@ serve(async (req) => {
 
     let data, error;
 
-    if (existingActiveAssignment && existingActiveAssignment.pay_group_id !== pay_group_id) {
+    if (existingActiveAssignment && existingActiveAssignment.pay_group_master_id !== pay_group_master_id) {
       // Employee is already in another pay group - move them to this one
       // First, deactivate the current assignment
       const { error: deactivateError } = await supabase
         .from("paygroup_employees")
-        .update({ 
-          active: false, 
-          removed_at: new Date().toISOString() 
+        .update({
+          active: false,
+          removed_at: new Date().toISOString(),
+          pay_group_id: null  // Clear pay_group_id to avoid trigger validation issues
         })
         .eq("id", existingActiveAssignment.id);
 
       if (deactivateError) {
         return new Response(
-          JSON.stringify({ error: `Failed to deactivate existing assignment: ${deactivateError.message}` }), 
-          { 
+          JSON.stringify({ error: `Failed to deactivate existing assignment: ${deactivateError.message}` }),
+          {
             status: 400,
             headers: {
               'Access-Control-Allow-Origin': '*',
@@ -108,7 +145,7 @@ serve(async (req) => {
         // Reactivate the existing record for this pay group
         const { data: reactivatedData, error: reactivateError } = await supabase
           .from("paygroup_employees")
-          .update({ 
+          .update({
             active: true,
             assigned_by,
             notes,
@@ -118,7 +155,7 @@ serve(async (req) => {
           .eq("id", existingRecord.id)
           .select()
           .single();
-        
+
         data = reactivatedData;
         error = reactivateError;
       } else {
@@ -126,10 +163,11 @@ serve(async (req) => {
         // The unique constraint is on employee_id only, so we use that for conflict resolution
         const { data: newData, error: newError } = await supabase
           .from("paygroup_employees")
-          .upsert({ 
-            employee_id, 
-            pay_group_id, 
-            assigned_by, 
+          .upsert({
+            employee_id,
+            pay_group_master_id,
+            pay_group_id,  // Keep for backward compatibility
+            assigned_by,
             notes,
             assigned_at: new Date().toISOString(),
             active: true,
@@ -139,7 +177,7 @@ serve(async (req) => {
           })
           .select()
           .single();
-        
+
         data = newData;
         error = newError;
       }
@@ -147,8 +185,8 @@ serve(async (req) => {
       if (existingRecord.active) {
         // Employee is already actively assigned to this pay group
         return new Response(
-          JSON.stringify({ error: "Employee is already assigned to this pay group" }), 
-          { 
+          JSON.stringify({ error: "Employee is already assigned to this pay group" }),
+          {
             status: 409,
             headers: {
               'Access-Control-Allow-Origin': '*',
@@ -160,7 +198,7 @@ serve(async (req) => {
         // Reactivate the soft-deleted assignment
         const { data: reactivatedData, error: reactivateError } = await supabase
           .from("paygroup_employees")
-          .update({ 
+          .update({
             active: true,
             assigned_by,
             notes,
@@ -170,7 +208,7 @@ serve(async (req) => {
           .eq("id", existingRecord.id)
           .select()
           .single();
-        
+
         data = reactivatedData;
         error = reactivateError;
       }
@@ -179,10 +217,11 @@ serve(async (req) => {
       // The unique constraint is on employee_id only, so we use that for conflict resolution
       const { data: newData, error: newError } = await supabase
         .from("paygroup_employees")
-        .upsert({ 
-          employee_id, 
-          pay_group_id, 
-          assigned_by, 
+        .upsert({
+          employee_id,
+          pay_group_master_id,
+          pay_group_id,  // Keep for backward compatibility
+          assigned_by,
           notes,
           assigned_at: new Date().toISOString(),
           active: true,
@@ -192,7 +231,7 @@ serve(async (req) => {
         })
         .select()
         .single();
-      
+
       data = newData;
       error = newError;
     }
@@ -203,8 +242,8 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({
             error: "This employee is already active in another paygroup. Your organization uses strict mode."
-          }), 
-          { 
+          }),
+          {
             status: 409,
             headers: {
               'Access-Control-Allow-Origin': '*',
@@ -214,8 +253,8 @@ serve(async (req) => {
         );
       }
       return new Response(
-        JSON.stringify({ error: msg }), 
-        { 
+        JSON.stringify({ error: msg }),
+        {
           status: 400,
           headers: {
             'Access-Control-Allow-Origin': '*',
@@ -226,8 +265,8 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, data }), 
-      { 
+      JSON.stringify({ success: true, data }),
+      {
         status: 200,
         headers: {
           'Access-Control-Allow-Origin': '*',
@@ -237,8 +276,8 @@ serve(async (req) => {
     );
   } catch (e) {
     return new Response(
-      JSON.stringify({ error: String(e) }), 
-      { 
+      JSON.stringify({ error: String(e) }),
+      {
         status: 400,
         headers: {
           'Access-Control-Allow-Origin': '*',

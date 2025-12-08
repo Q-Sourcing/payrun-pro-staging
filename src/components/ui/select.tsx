@@ -1,6 +1,6 @@
 import * as React from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
-import { Check, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -58,10 +58,16 @@ const SelectScrollDownButton = React.forwardRef<
 ));
 SelectScrollDownButton.displayName = SelectPrimitive.ScrollDownButton.displayName;
 
+interface SelectContentProps extends React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content> {
+  allowClear?: boolean;
+  onClear?: () => void;
+  currentValue?: string;
+}
+
 const SelectContent = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
->(({ className, children, position = "popper", ...props }, ref) => (
+  SelectContentProps
+>(({ className, children, position = "popper", allowClear, onClear, currentValue, ...props }, ref) => (
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
       ref={ref}
@@ -89,6 +95,20 @@ const SelectContent = React.forwardRef<
             "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]",
         )}
       >
+        {allowClear && currentValue && onClear && (
+          <SelectPrimitive.Item
+            value="__clear__"
+            onSelect={(e) => {
+              e.preventDefault();
+              if (onClear) {
+                onClear();
+              }
+            }}
+            className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 px-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground border-b border-border mb-1"
+          >
+            <SelectPrimitive.ItemText className="sr-only">Clear</SelectPrimitive.ItemText>
+          </SelectPrimitive.Item>
+        )}
         {children}
       </SelectPrimitive.Viewport>
       <SelectScrollDownButton />

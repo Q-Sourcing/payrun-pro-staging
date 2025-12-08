@@ -143,6 +143,109 @@ export class EmployeesService {
   }
 
   /**
+   * Get employees assigned to a given project
+   */
+  static async getEmployeesByProject(projectId: string, organizationId?: string): Promise<EmployeeWithPayGroup[]> {
+    try {
+      let query = supabase
+        .from('employees')
+        .select('id, first_name, middle_name, last_name, email, employee_type, department, pay_type, pay_group_id, status, project_id, category, pay_frequency, currency, country')
+        .eq('project_id', projectId);
+      if (organizationId) {
+        query = (query as any).eq('organization_id', organizationId);
+      }
+      const { data, error } = await query.order('first_name');
+      if (error) throw error;
+      return (data || []).map((emp: any) => ({
+        id: emp.id,
+        first_name: emp.first_name,
+        middle_name: emp.middle_name,
+        last_name: emp.last_name,
+        email: emp.email,
+        employee_type: emp.employee_type,
+        department: emp.department,
+        created_at: '',
+        updated_at: '',
+        // passthrough fields useful for UI
+        pay_type: emp.pay_type,
+        pay_group_id: emp.pay_group_id,
+        status: emp.status,
+        project_id: emp.project_id,
+        category: emp.category,
+        pay_frequency: emp.pay_frequency,
+        currency: emp.currency,
+        country: emp.country,
+      }));
+    } catch (error: any) {
+      console.error('Error fetching employees by project:', error);
+      throw new Error(`Failed to fetch employees for project: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Assign an employee to a project (sets project_id)
+   */
+  static async assignToProject(employeeId: string, projectId: string) {
+    const { error } = await supabase
+      .from('employees')
+      .update({ project_id: projectId, category: 'projects' })
+      .eq('id', employeeId);
+    if (error) throw error;
+  }
+
+  /**
+   * Fetch eligible employees for a project pay group based on project, pay type and optional employee type.
+   */
+  static async getEligibleEmployeesForProjectPayGroup(params: {
+    organizationId?: string;
+    projectId: string;
+    payType: string;
+    employeeType?: string;
+  }): Promise<Array<{
+    id: string;
+    first_name: string;
+    middle_name?: string | null;
+    last_name?: string | null;
+    email: string;
+    employee_number?: string | null;
+    project_id: string;
+    pay_type: string;
+    employee_type: string | null;
+    status: string | null;
+  }>> {
+    const { organizationId, projectId, payType, employeeType } = params;
+    let query = supabase
+      .from('employees')
+      .select('id, first_name, middle_name, last_name, email, employee_number, project_id, pay_type, employee_type, status, category')
+      .eq('project_id', projectId)
+      .eq('category', 'projects')
+      .eq('pay_type', payType)
+      .eq('status', 'active');
+
+    if (employeeType) {
+      query = query.eq('employee_type', employeeType);
+    }
+    if (organizationId) {
+      query = (query as any).eq('organization_id', organizationId);
+    }
+
+    const { data, error } = await query.order('first_name');
+    if (error) throw error;
+    return (data || []) as any[];
+  }
+
+  /**
+   * Remove employee from a project (sets project_id = null)
+   */
+  static async removeFromProject(employeeId: string) {
+    const { error } = await supabase
+      .from('employees')
+      .update({ project_id: null })
+      .eq('id', employeeId);
+    if (error) throw error;
+  }
+
+  /**
    * Get employees by type with current pay group info
    */
   static async getEmployeesByType(
@@ -274,7 +377,6 @@ export class EmployeesService {
         account_type: validatedData.account_type,
         currency: validatedData.currency,
         category: validatedData.category,
-        sub_type: validatedData.sub_type,
         employee_number: employeeNumber,
         status: validatedData.employment_status === 'Active' ? 'active' : 'inactive',
       };
@@ -361,7 +463,7 @@ export class EmployeesService {
       if (validatedData.account_type !== undefined) updateData.account_type = validatedData.account_type;
       if (validatedData.currency !== undefined) updateData.currency = validatedData.currency;
       if (validatedData.category !== undefined) updateData.category = validatedData.category;
-      if (validatedData.sub_type !== undefined) updateData.sub_type = validatedData.sub_type;
+      if (validatedData.employee_type !== undefined) updateData.employee_type = validatedData.employee_type;
 
       const { data: employee, error } = await supabase
         .from('employees')

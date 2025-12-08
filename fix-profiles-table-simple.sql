@@ -1,0 +1,106 @@
+-- Fix profiles table - Add missing columns for secure-login Edge Function
+-- Run each section separately if needed
+
+-- Step 1: Add missing columns
+ALTER TABLE public.profiles
+ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER DEFAULT 0 NOT NULL;
+
+ALTER TABLE public.profiles
+ADD COLUMN IF NOT EXISTS locked_at TIMESTAMP WITH TIME ZONE;
+
+ALTER TABLE public.profiles
+ADD COLUMN IF NOT EXISTS locked_by UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+
+ALTER TABLE public.profiles
+ADD COLUMN IF NOT EXISTS unlocked_at TIMESTAMP WITH TIME ZONE;
+
+ALTER TABLE public.profiles
+ADD COLUMN IF NOT EXISTS unlocked_by UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+
+ALTER TABLE public.profiles
+ADD COLUMN IF NOT EXISTS lockout_reason TEXT;
+
+ALTER TABLE public.profiles
+ADD COLUMN IF NOT EXISTS organization_id UUID;
+
+-- Step 2: Add indexes
+CREATE INDEX IF NOT EXISTS idx_profiles_locked_at ON public.profiles(locked_at) WHERE locked_at IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_profiles_failed_attempts ON public.profiles(failed_login_attempts) WHERE failed_login_attempts > 0;
+
+-- Step 3: Add check constraint (only if it doesn't exist)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'check_failed_attempts_non_negative'
+  ) THEN
+    ALTER TABLE public.profiles
+    ADD CONSTRAINT check_failed_attempts_non_negative 
+    CHECK (failed_login_attempts >= 0);
+  END IF;
+END
+$$;
+
+-- Step 4: Create function to reset failed login attempts
+CREATE OR REPLACE FUNCTION public.reset_failed_login_attempts(_user_id UUID)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $func$
+BEGIN
+  UPDATE public.profiles
+  SET 
+    failed_login_attempts = 0,
+    updated_at = NOW()
+  WHERE id = _user_id;
+END;
+$func$;
+
+-- Step 5: Create function to increment failed login attempts
+CREATE OR REPLACE FUNCTION public.increment_failed_login_attempts(_user_id UUID)
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $func$
+DECLARE
+  new_count INTEGER;
+BEGIN
+  UPDATE public.profiles
+  SET 
+    failed_login_attempts = failed_login_attempts + 1,
+    updated_at = NOW()
+  WHERE id = _user_id
+  RETURNING failed_login_attempts INTO new_count;
+  
+  RETURN COALESCE(new_count, 0);
+END;
+$func$;
+
+-- Step 6: Create function to check if account is locked
+CREATE OR REPLACE FUNCTION public.is_account_locked(_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $func$
+  SELECT locked_at IS NOT NULL
+  FROM public.profiles
+  WHERE id = _user_id
+$func$;
+
+-- Step 7: Add comments
+COMMENT ON COLUMN public.profiles.failed_login_attempts IS 'Number of consecutive failed login attempts. Reset on successful login.';
+
+COMMENT ON COLUMN public.profiles.locked_at IS 'Timestamp when account was locked due to failed attempts or admin action.';
+
+COMMENT ON COLUMN public.profiles.locked_by IS 'User ID of admin who locked the account (NULL if auto-locked).';
+
+COMMENT ON COLUMN public.profiles.unlocked_at IS 'Timestamp when account was unlocked.';
+
+COMMENT ON COLUMN public.profiles.unlocked_by IS 'User ID of admin who unlocked the account.';
+
+COMMENT ON COLUMN public.profiles.lockout_reason IS 'Reason for account lockout (e.g., "Failed login attempts exceeded threshold").';
+

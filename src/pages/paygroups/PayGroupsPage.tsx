@@ -107,23 +107,23 @@ export const PayGroupsPage: React.FC = () => {
   // Group pay groups hierarchically
   const groupedPayGroups = filteredPayGroups.reduce((acc, group) => {
     const category = group.category || 'head_office';
-    const subType = group.sub_type || 'regular';
+    const employeeType = group.employee_type || 'regular';
     
     if (!acc[category]) {
       acc[category] = {};
     }
     
-    if (category === 'projects' && subType === 'manpower') {
+    if (category === 'projects' && employeeType === 'manpower') {
       const freq = group.pay_frequency || 'monthly';
-      if (!acc[category][subType]) {
-        acc[category][subType] = { daily: [], bi_weekly: [], monthly: [] };
+      if (!acc[category][employeeType]) {
+        acc[category][employeeType] = { daily: [], bi_weekly: [], monthly: [] };
       }
-      acc[category][subType][freq as ManpowerFrequency].push(group);
+      acc[category][employeeType][freq as ManpowerFrequency].push(group);
     } else {
-      if (!acc[category][subType]) {
-        acc[category][subType] = [];
+      if (!acc[category][employeeType]) {
+        acc[category][employeeType] = [];
       }
-      acc[category][subType].push(group);
+      acc[category][employeeType].push(group);
     }
     
     return acc;
@@ -133,7 +133,7 @@ export const PayGroupsPage: React.FC = () => {
     setExpandedCategories(prev => ({ ...prev, [category]: !prev[category] }));
   };
 
-  const toggleSubType = (key: string) => {
+  const toggleEmployeeType = (key: string) => {
     setExpandedSubTypes(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
@@ -171,12 +171,12 @@ export const PayGroupsPage: React.FC = () => {
     });
   };
 
-  // Get icon for category/sub_type
+  // Get icon for category/employee_type
   const getCategoryIcon = (category: PayGroupCategory) => {
     return category === 'head_office' ? <Building2 className="h-4 w-4" /> : <FolderTree className="h-4 w-4" />;
   };
 
-  const getSubTypeLabel = (subType: string): string => {
+  const getEmployeeTypeLabel = (employeeType: string): string => {
     const labels: Record<string, string> = {
       'regular': 'Regular',
       'expatriate': 'Expatriate',
@@ -188,7 +188,7 @@ export const PayGroupsPage: React.FC = () => {
       'monthly': 'Monthly',
       'piece_rate': 'Piece Rate'
     };
-    return labels[subType] || subType;
+    return labels[employeeType] || employeeType;
   };
 
   if (loading) {
@@ -472,7 +472,7 @@ export const PayGroupsPage: React.FC = () => {
                 {groupedPayGroups.projects?.manpower && typeof groupedPayGroups.projects.manpower === 'object' && (
                   <div className="ml-6 space-y-3">
                     <button
-                      onClick={() => toggleSubType('projects.manpower')}
+                      onClick={() => toggleEmployeeType('projects.manpower')}
                       className="flex items-center gap-2 w-full text-left"
                     >
                       {expandedSubTypes['projects.manpower'] ? (
@@ -590,7 +590,7 @@ export const PayGroupsPage: React.FC = () => {
                 {Array.isArray(groupedPayGroups.projects?.ippms) && groupedPayGroups.projects.ippms.length > 0 && (
                   <div className="ml-6 space-y-3">
                     <button
-                      onClick={() => toggleSubType('projects.ippms')}
+                      onClick={() => toggleEmployeeType('projects.ippms')}
                       className="flex items-center gap-2 w-full text-left"
                     >
                       {expandedSubTypes['projects.ippms'] ? (
