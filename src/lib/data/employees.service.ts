@@ -344,9 +344,6 @@ export class EmployeesService {
       // Validate input
       const validatedData = createEmployeeSchema.parse(data);
 
-      // Generate employee number if not provided
-      const employeeNumber = await this.generateEmployeeNumber();
-
       // Prepare insert data
       const insertData: any = {
         first_name: validatedData.first_name,
@@ -377,7 +374,6 @@ export class EmployeesService {
         account_type: validatedData.account_type,
         currency: validatedData.currency,
         category: validatedData.category,
-        employee_number: employeeNumber,
         status: validatedData.employment_status === 'Active' ? 'active' : 'inactive',
       };
 

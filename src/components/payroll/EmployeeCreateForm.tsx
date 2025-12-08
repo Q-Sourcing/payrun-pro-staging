@@ -47,6 +47,7 @@ export const EmployeeCreateForm = ({ onSuccess, onCancel }: EmployeeCreateFormPr
                     company_unit_id: values.company_unit_id || null,
                     department_id: values.department_id || null,
                     date_joined: values.date_joined || null,
+                    number_prefix_override: values.employee_prefix || null,
                     category: values.category || null,
                     employee_type: values.employee_type || null,
                     pay_frequency: values.pay_frequency || null,

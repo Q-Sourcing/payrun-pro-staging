@@ -61,6 +61,7 @@ export type EmployeeFormValues = {
   department_id?: string | null;
   date_joined?: string | null;
   employee_number?: string | null;
+  employee_prefix?: string | null;
   category?: PayGroupCategory | "";
   employee_type?: HeadOfficeSubType | ProjectsSubType | "";
   pay_frequency?: ManpowerFrequency | "";
@@ -98,6 +99,7 @@ const employeeFormSchema = z.object({
   department_id: z.string().optional().nullable(),
   date_joined: z.string().optional().nullable(),
   employee_number: z.string().optional().nullable(),
+  employee_prefix: z.string().optional().nullable(),
   category: z.enum(["head_office", "projects"]).optional().or(z.literal("")),
   employee_type: z.string().optional().or(z.literal("")),
   pay_frequency: z.enum(["daily", "bi_weekly", "monthly"]).optional().or(z.literal("")),
@@ -170,6 +172,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
       department_id: "",
       date_joined: "",
       employee_number: "",
+      employee_prefix: "",
       category: "" as PayGroupCategory | "",
       employee_type: "" as HeadOfficeSubType | ProjectsSubType | "",
       pay_frequency: "" as ManpowerFrequency | "",
@@ -186,9 +189,12 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
   const watchCountry = form.watch("country");
   const watchCompanyId = form.watch("company_id");
   const watchCompanyUnitId = form.watch("company_unit_id");
+  const watchDepartmentId = form.watch("department_id");
+  const watchEmployeePrefix = form.watch("employee_prefix");
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeCompanyName, setActiveCompanyName] = useState<string>("");
+  const [activeCompanyShortCode, setActiveCompanyShortCode] = useState<string>("");
   const [companyUnits, setCompanyUnits] = useState<CompanyUnit[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
@@ -214,18 +220,21 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
         try {
           const { data } = await supabase
             .from('companies')
-            .select('name')
+            .select('name, short_code')
             .eq('id', companyId)
             .single();
           if (data) {
             setActiveCompanyName(data.name);
+            setActiveCompanyShortCode(data.short_code || "");
           }
         } catch (error) {
           console.error('Error loading company name:', error);
           setActiveCompanyName('Unknown Company');
+          setActiveCompanyShortCode('');
         }
       } else {
         setActiveCompanyName('');
+        setActiveCompanyShortCode('');
       }
     };
     void loadActiveCompany();
@@ -393,6 +402,22 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
     };
     void load();
   }, [watchCategory, watchEmployeeType, watchPayType, watchProjectId]);
+
+  // Build prefix options from active company's short code and category default
+  const prefixOptions = useMemo(() => {
+    const base = activeCompanyShortCode || "QSS";
+    return [`${base}-HO`, `${base}-PR`];
+  }, [activeCompanyShortCode]);
+
+  // When category changes, default the employee_prefix accordingly
+  useEffect(() => {
+    const base = activeCompanyShortCode || "QSS";
+    if (watchCategory === "head_office") {
+      form.setValue("employee_prefix", `${base}-HO`, { shouldDirty: true });
+    } else if (watchCategory === "projects") {
+      form.setValue("employee_prefix", `${base}-PR`, { shouldDirty: true });
+    }
+  }, [watchCategory, activeCompanyShortCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Edit-mode default bootstrapping
   useEffect(() => {
@@ -727,17 +752,32 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                 <Label htmlFor="date_joined">Date Joined</Label>
                 <Input id="date_joined" type="date" {...form.register("date_joined")} />
               </div>
-              {mode === "edit" && form.getValues("employee_number") && (
-                <div className="space-y-2">
-                  <Label htmlFor="employee_number">Employee Number</Label>
-                  <Input
-                    id="employee_number"
-                    value={form.getValues("employee_number") || ""}
-                    disabled
-                    className="bg-gray-100 cursor-not-allowed"
-                  />
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label htmlFor="employee_number">Employee Number</Label>
+                <Input
+                  id="employee_number"
+                  value={(mode === "edit" ? (form.getValues("employee_number") || "") : "")}
+                  placeholder={mode === "create" ? "Will be generated on save" : ""}
+                  disabled
+                  className="bg-gray-100 cursor-not-allowed"
+                />
+              </div>
+            </div>
+
+            {/* Employee Number Prefix */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="employee_prefix">Employee Number Prefix</Label>
+                <SearchableSelect
+                  options={prefixOptions.map((p) => ({ value: p, label: p }))}
+                  value={String(watchEmployeePrefix || "")}
+                  onValueChange={(value) => form.setValue("employee_prefix", value)}
+                  placeholder="Select prefix"
+                  searchPlaceholder="Search prefix..."
+                  emptyMessage="No prefixes"
+                  disabled={prefixOptions.length === 0}
+                />
+              </div>
             </div>
           </AccordionContent>
         </AccordionItem>
