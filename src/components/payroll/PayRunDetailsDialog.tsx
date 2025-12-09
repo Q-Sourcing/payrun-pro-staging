@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUpDown, Filter, Download, Globe, Flag, Settings, FileText, Gift, Calculator, FileSpreadsheet } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUpDown, Filter, Download, Globe, Flag, Settings, FileText, Gift, Calculator, FileSpreadsheet, Pencil, Check, X } from "lucide-react";
 import { getCountryDeductions, calculateDeduction } from "@/lib/constants/deductions";
 import { PayrollCalculationService, CalculationInput, CalculationResult } from "@/lib/types/payroll-calculations";
 import { getCurrencyByCode, getCurrencyCodeFromCountry } from "@/lib/constants/countries";
@@ -86,7 +86,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
   const [payItems, setPayItems] = useState<PayItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [editingItems, setEditingItems] = useState<Record<string, Partial<PayItem>>>({});
+  const [editingItems, setEditingItems] = useState<Record<string, Partial<PayItem> & { pay_rate?: number }>>({});
   const [expandedEmployee, setExpandedEmployee] = useState<string | null>(null);
   const [newCustomDeduction, setNewCustomDeduction] = useState<Record<string, { name: string; amount: string; type: string }>>({});
   const [payGroupCountry, setPayGroupCountry] = useState<string>("");
@@ -411,7 +411,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     return parts.join(' ');
   };
 
-  const handleFieldChange = (itemId: string, field: keyof PayItem, value: number) => {
+  const handleFieldChange = (itemId: string, field: keyof PayItem | 'pay_rate', value: number) => {
     setEditingItems(prev => ({
       ...prev,
       [itemId]: {
@@ -424,13 +424,15 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
   // Server-side calculation using Edge Function (for final submissions)
   const calculatePayServer = async (item: PayItem, edits: Partial<PayItem> = {}): Promise<CalculationResult> => {
     try {
+      const payRateOverride = (edits as any).pay_rate ?? item.employees.pay_rate;
+      const payTypeOverride = item.employees.pay_type;
       const input: CalculationInput = {
         employee_id: item.employee_id,
         pay_run_id: item.pay_run_id,
         hours_worked: edits.hours_worked ?? item.hours_worked ?? 0,
         pieces_completed: edits.pieces_completed ?? item.pieces_completed ?? 0,
-        pay_rate: item.employees.pay_rate,
-        pay_type: item.employees.pay_type,
+        pay_rate: payRateOverride,
+        pay_type: payTypeOverride,
         employee_type: item.employees.employee_type,
         country: item.employees.country,
         custom_deductions: item.customDeductions || [],
@@ -461,7 +463,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
   const calculatePayFallback = (item: PayItem, edits: Partial<PayItem> = {}) => {
     const hoursWorked = edits.hours_worked ?? item.hours_worked ?? 0;
     const piecesCompleted = edits.pieces_completed ?? item.pieces_completed ?? 0;
-    const payRate = item.employees.pay_rate;
+    const payRate = (edits as any).pay_rate ?? item.employees.pay_rate;
     const isExpatriate = item.employees.employee_type === 'expatriate';
 
     let baseGrossPay = 0;
@@ -715,6 +717,17 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     const { gross_pay: grossPay, paye_tax: taxDeduction, total_deductions: totalDeductions, net_pay: netPay } = result;
 
     try {
+      // If pay_rate was edited, sync it to the employee record (pay_items has no pay_rate column)
+      if (typeof (edits as any).pay_rate === 'number') {
+        await supabase
+          .from("employees")
+          .update({
+            pay_rate: (edits as any).pay_rate,
+            pay_type: item.employees.pay_type,
+          })
+          .eq("id", item.employee_id);
+      }
+
       const { error } = await supabase
         .from("pay_items")
         .update({
@@ -856,7 +869,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
   };
 
   const exportToCSV = () => {
-    const headers = ['Employee Name', 'Pay Type', 'Basic Salary', 'Hours/Pieces', 'Gross Pay', 'Tax Deductions', 'Custom Benefits', 'Total Deductions', 'Net Pay', 'Status'];
+  const headers = ['Employee Name', 'Pay Type', 'Daily Rate', 'Basic Salary', 'Total Days Worked', 'Gross Pay', 'Tax Deductions', 'Custom Benefits', 'Total Deductions', 'Net Pay', 'Status'];
 
     const rows = filteredAndSortedItems.map(item => {
       const calc = calculatePay(item);
@@ -1390,8 +1403,9 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                             <ArrowUpDown className="ml-2 h-4 w-4" />
                           </Button>
                         </TableHead>
+                        <TableHead>Daily Rate</TableHead>
                         <TableHead>Basic Salary</TableHead>
-                        <TableHead>Hours/Pieces</TableHead>
+                        <TableHead>Total Days Worked</TableHead>
                         <TableHead>
                           <Button variant="ghost" size="sm" onClick={() => handleSort('gross_pay')}>
                             Gross Pay
@@ -1437,6 +1451,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                       {filteredAndSortedItems.map((item) => {
                         const edits = editingItems[item.id] || {};
                         const calculated = calculatePay(item, edits);
+                        const isEditing = !!editingItems[item.id];
                         const isExpanded = expandedEmployee === item.id;
                         const countryDeductions = getCountryDeductions(item.employees.country);
 
@@ -1479,12 +1494,59 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                       item.employees.pay_type === 'daily_rate' ? 'Daily' : 'Salary'}
                                 </Badge>
                               </TableCell>
-                              <TableCell>{formatCurrency(item.employees.pay_rate, payGroupCurrency)}</TableCell>
+                              {/* Daily Rate column */}
                               <TableCell>
-                                {item.employees.pay_type === 'hourly' && `${item.hours_worked || 0} hrs`}
-                                {item.employees.pay_type === 'piece_rate' && `${item.pieces_completed || 0} pcs`}
-                                {item.employees.pay_type === 'daily_rate' && `${item.hours_worked || 0} days`}
-                                {item.employees.pay_type === 'salary' && '-'}
+                                {item.employees.pay_type === 'daily_rate' ? (
+                                  isEditing ? (
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      className="w-24 md:w-28"
+                                      value={(editingItems[item.id] as any)?.pay_rate ?? item.employees.pay_rate}
+                                      onChange={(e) => handleFieldChange(item.id, 'pay_rate', parseFloat(e.target.value) || 0)}
+                                    />
+                                  ) : (
+                                    formatCurrency(item.employees.pay_rate, payGroupCurrency)
+                                  )
+                                ) : (
+                                  '-'
+                                )}
+                              </TableCell>
+                              {/* Basic Salary (editable) */}
+                              <TableCell>
+                                {isEditing ? (
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    className="w-24 md:w-28"
+                                    value={(editingItems[item.id] as any)?.pay_rate ?? item.employees.pay_rate}
+                                    onChange={(e) => handleFieldChange(item.id, 'pay_rate', parseFloat(e.target.value) || 0)}
+                                  />
+                                ) : (
+                                  formatCurrency(item.employees.pay_rate, payGroupCurrency)
+                                )}
+                              </TableCell>
+                              {/* Total Days Worked */}
+                              <TableCell>
+                                {item.employees.pay_type === 'daily_rate' ? (
+                                  isEditing ? (
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      className="w-20 md:w-24"
+                                      value={editingItems[item.id]?.hours_worked ?? item.hours_worked ?? 0}
+                                      onChange={(e) => handleFieldChange(item.id, 'hours_worked', parseFloat(e.target.value) || 0)}
+                                    />
+                                  ) : (
+                                    `${item.hours_worked || 0} days`
+                                  )
+                                ) : (
+                                  item.employees.pay_type === 'hourly'
+                                    ? `${item.hours_worked || 0} hrs`
+                                    : item.employees.pay_type === 'piece_rate'
+                                      ? `${item.pieces_completed || 0} pcs`
+                                      : '-'
+                                )}
                               </TableCell>
                               <TableCell className="font-semibold">{formatCurrency(calculated.grossPay, payGroupCurrency)}</TableCell>
                               {/* Standard Deduction Columns */}
@@ -1537,13 +1599,44 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                               </TableCell>
                               <TableCell>
                                 <div className="flex gap-2">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setEditingItems({ [item.id]: {} })}
-                                  >
-                                    Edit
-                                  </Button>
+                                  {!isEditing ? (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => setEditingItems(prev => ({ ...prev, [item.id]: {} }))}
+                                      aria-label="Edit row"
+                                      title="Edit"
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                  ) : (
+                                    <>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleSave(item)}
+                                        aria-label="Save row"
+                                        title="Save"
+                                      >
+                                        <Check className="h-4 w-4 text-green-600" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                          setEditingItems(prev => {
+                                            const next = { ...prev };
+                                            delete next[item.id];
+                                            return next;
+                                          });
+                                        }}
+                                        aria-label="Cancel edit"
+                                        title="Cancel"
+                                      >
+                                        <X className="h-4 w-4 text-red-600" />
+                                      </Button>
+                                    </>
+                                  )}
                                   <Button
                                     variant="outline"
                                     size="sm"
