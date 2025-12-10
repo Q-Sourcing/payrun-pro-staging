@@ -43,6 +43,7 @@ export type EmployeeFormValues = {
   tin?: string | null;
   nssf_number?: string | null;
   passport_number?: string | null;
+  marital_status?: "Single" | "Married" | "Divorced" | "Widowed" | "" | null;
   pay_type: "hourly" | "salary" | "piece_rate" | "daily_rate";
   pay_rate?: number | null;
   country?: string;
@@ -62,6 +63,7 @@ export type EmployeeFormValues = {
   date_joined?: string | null;
   employee_number?: string | null;
   employee_prefix?: string | null;
+  reporting_manager_id?: string | "" | null;
   category?: PayGroupCategory | "";
   employee_type?: HeadOfficeSubType | ProjectsSubType | "";
   pay_frequency?: ManpowerFrequency | "";
@@ -81,6 +83,7 @@ const employeeFormSchema = z.object({
   tin: z.string().optional().nullable(),
   nssf_number: z.string().optional().nullable(),
   passport_number: z.string().optional().nullable(),
+  marital_status: z.enum(["Single", "Married", "Divorced", "Widowed"]).optional().or(z.literal("")).or(z.null()),
   pay_type: z.enum(["hourly", "salary", "piece_rate", "daily_rate"]),
   pay_rate: z.number().nullable().optional(),
   country: z.string().optional(),
@@ -100,6 +103,7 @@ const employeeFormSchema = z.object({
   date_joined: z.string().optional().nullable(),
   employee_number: z.string().optional().nullable(),
   employee_prefix: z.string().optional().nullable(),
+  reporting_manager_id: z.string().optional().or(z.literal("")).or(z.null()),
   category: z.enum(["head_office", "projects"]).optional().or(z.literal("")),
   employee_type: z.string().optional().or(z.literal("")),
   pay_frequency: z.enum(["daily", "bi_weekly", "monthly"]).optional().or(z.literal("")),
@@ -173,6 +177,8 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
       date_joined: "",
       employee_number: "",
       employee_prefix: "",
+      reporting_manager_id: "",
+      marital_status: "",
       category: "" as PayGroupCategory | "",
       employee_type: "" as HeadOfficeSubType | ProjectsSubType | "",
       pay_frequency: "" as ManpowerFrequency | "",
@@ -191,6 +197,8 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
   const watchCompanyUnitId = form.watch("company_unit_id");
   const watchDepartmentId = form.watch("department_id");
   const watchEmployeePrefix = form.watch("employee_prefix");
+  const watchDateJoined = form.watch("date_joined");
+  const watchPayRate = form.watch("pay_rate");
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeCompanyName, setActiveCompanyName] = useState<string>("");
@@ -200,6 +208,9 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
   const [banks, setBanks] = useState<Bank[]>([]);
   const [allowedPayTypes, setAllowedPayTypes] = useState<string[]>(["hourly", "salary", "piece_rate", "daily_rate"]);
   const [payGroups, setPayGroups] = useState<PayGroupOption[]>([]);
+  const [reportingManagers, setReportingManagers] = useState<Array<{ value: string; label: string }>>([]);
+  const [addingDept, setAddingDept] = useState(false);
+  const [newDeptName, setNewDeptName] = useState("");
 
   // When country changes, derive default currency
   useEffect(() => {
@@ -208,6 +219,26 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
       if (code) form.setValue("currency", code, { shouldDirty: true });
     }
   }, [watchCountry]);
+
+  // Experience calculator
+  const calculateExperienceFromDateJoined = (dateJoined?: string | null): string => {
+    if (!dateJoined) return "";
+    const start = new Date(dateJoined);
+    const now = new Date();
+    if (isNaN(start.getTime())) return "";
+    let years = now.getFullYear() - start.getFullYear();
+    let months = now.getMonth() - start.getMonth();
+    if (months < 0) {
+      years -= 1;
+      months += 12;
+    }
+    if (years < 0) return "";
+    const parts: string[] = [];
+    if (years > 0) parts.push(`${years} year${years === 1 ? "" : "s"}`);
+    if (months > 0) parts.push(`${months} month${months === 1 ? "" : "s"}`);
+    return parts.join(", ") || "0 months";
+  };
+  const experienceText = useMemo(() => calculateExperienceFromDateJoined(watchDateJoined), [watchDateJoined]);
 
   // Auto-populate company from active company in OrgContext
   useEffect(() => {
@@ -290,6 +321,35 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
     void load();
   }, [watchCompanyUnitId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Load reporting managers (active employees in same org/company)
+  useEffect(() => {
+    const load = async () => {
+      try {
+        let query = supabase
+          .from('employees')
+          .select('id, first_name, last_name, employee_number, status, organization_id, company_id')
+          .order('first_name');
+        if (organizationId) {
+          query = (query as any).eq('organization_id', organizationId);
+        }
+        if (companyId) {
+          query = (query as any).eq('company_id', companyId);
+        }
+        query = (query as any).eq('status', 'active');
+        const { data } = await query;
+        const options: Array<{ value: string; label: string }> = (data || []).map((e: any) => {
+          const name = [e.first_name, e.last_name].filter(Boolean).join(" ").trim();
+          const num = e.employee_number ? `${e.employee_number} - ` : "";
+          return { value: e.id, label: `${num}${name}` };
+        });
+        setReportingManagers(options);
+      } catch {
+        setReportingManagers([]);
+      }
+    };
+    void load();
+  }, [organizationId, companyId]);
+
   // Load banks when country changes
   useEffect(() => {
     const load = async () => {
@@ -316,7 +376,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
     // Auto-select default pay type if current is not allowed
     const currentPayType = form.getValues("pay_type");
     if (!allowed.includes(currentPayType)) {
-      const defaultPay = getDefaultPayType(watchCategory, watchEmployeeType, watchPayFrequency as ManpowerFrequency);
+      const defaultPay = getDefaultPayType(watchCategory as PayGroupCategory, watchEmployeeType, watchPayFrequency as ManpowerFrequency);
       if (defaultPay && allowed.includes(defaultPay)) {
         form.setValue("pay_type", defaultPay as any, { shouldDirty: true });
       } else if (allowed.length > 0) {
@@ -353,10 +413,12 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
       if (watchProjectId) {
         try {
           const list = await ProjectsService.getAllowedPayTypes(watchProjectId);
-          setAllowedPayTypes(list);
+          // Map project pay types to form pay types (e.g., daily -> daily_rate)
+          const mapped = list.map((t: string) => (t === "daily" ? "daily_rate" : t));
+          setAllowedPayTypes(mapped);
           // If current pay_type not allowed, set default
-          if (list.length > 0 && !list.includes(watchPayType)) {
-            form.setValue("pay_type", list[0] as any, { shouldDirty: true });
+          if (mapped.length > 0 && !mapped.includes(watchPayType)) {
+            form.setValue("pay_type", mapped[0] as any, { shouldDirty: true });
           }
         } catch {
           setAllowedPayTypes([]);
@@ -371,7 +433,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
   // Derive default pay_type for category/employee_type/frequency when not project-based
   useEffect(() => {
     if (!watchProjectId && watchCategory && watchEmployeeType) {
-      const def = getDefaultPayType(watchCategory, watchEmployeeType, watchPayFrequency as ManpowerFrequency);
+      const def = getDefaultPayType(watchCategory as PayGroupCategory, watchEmployeeType, watchPayFrequency as ManpowerFrequency);
       if (def && def !== watchPayType) {
         form.setValue("pay_type", def as any, { shouldDirty: true });
       }
@@ -484,117 +546,150 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
 
   return (
     <form onSubmit={form.handleSubmit(submit)} className="space-y-4">
-      <Accordion type="multiple" defaultValue={["personal", "employment", "pay", "bank"]} className="w-full">
+      <Accordion type="multiple" defaultValue={["personal", "employment", "pay"]} className="w-full">
         <AccordionItem value="personal">
-          <AccordionTrigger>Personal Information</AccordionTrigger>
+          <AccordionTrigger>
+            <div className="font-medium">Personal Information</div>
+          </AccordionTrigger>
           <AccordionContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="first_name">First Name *</Label>
-                <Input id="first_name" {...form.register("first_name")} />
+            <div className="space-y-6">
+              {/* Row 1: First Name, Last Name */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="first_name">First Name *</Label>
+                  <Input id="first_name" {...form.register("first_name")} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="last_name">Last Name *</Label>
+                  <Input id="last_name" {...form.register("last_name")} />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="middle_name">Middle Name</Label>
-                <Input id="middle_name" {...form.register("middle_name")} />
+              {/* Row 2: Middle Name, Email */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="middle_name">Middle Name</Label>
+                  <Input id="middle_name" {...form.register("middle_name")} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email *</Label>
+                  <Input id="email" type="email" {...form.register("email")} />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="last_name">Last Name</Label>
-                <Input id="last_name" {...form.register("last_name")} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email *</Label>
-                <Input id="email" type="email" {...form.register("email")} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone *</Label>
-                <div className="flex gap-2">
-                  <Select
-                    value={form.getValues("phone_country_code") || "+256"}
-                    onValueChange={(value) => form.setValue("phone_country_code", value)}
-                  >
-                    <SelectTrigger className="w-24">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="+256">+256 🇺🇬</SelectItem>
-                      <SelectItem value="+254">+254 🇰🇪</SelectItem>
-                      <SelectItem value="+255">+255 🇹🇿</SelectItem>
-                      <SelectItem value="+250">+250 🇷🇼</SelectItem>
-                      <SelectItem value="+211">+211 🇸🇸</SelectItem>
-                      <SelectItem value="+1">+1 🇺🇸</SelectItem>
-                      <SelectItem value="+44">+44 🇬🇧</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    id="phone"
-                    placeholder="752 123 456"
-                    className="flex-1"
-                    {...form.register("phone")}
+              {/* Row 3: Phone, Country */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone *</Label>
+                  <div className="flex gap-2">
+                    <Select
+                      value={form.getValues("phone_country_code") || "+256"}
+                      onValueChange={(value) => form.setValue("phone_country_code", value)}
+                    >
+                      <SelectTrigger className="w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="+256">+256 🇺🇬</SelectItem>
+                        <SelectItem value="+254">+254 🇰🇪</SelectItem>
+                        <SelectItem value="+255">+255 🇹🇿</SelectItem>
+                        <SelectItem value="+250">+250 🇷🇼</SelectItem>
+                        <SelectItem value="+211">+211 🇸🇸</SelectItem>
+                        <SelectItem value="+1">+1 🇺🇸</SelectItem>
+                        <SelectItem value="+44">+44 🇬🇧</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      id="phone"
+                      placeholder="752 123 456"
+                      className="flex-1"
+                      {...form.register("phone")}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="country">Country *</Label>
+                  <SearchableSelect
+                    options={ALL_COUNTRIES.map((c) => ({ value: c.code, label: c.name }))}
+                    value={String(form.getValues("country") || "")}
+                    onValueChange={(value) => form.setValue("country", value)}
+                    placeholder="Select country"
+                    searchPlaceholder="Search country..."
+                    emptyMessage="No country found"
                   />
                 </div>
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="gender">Gender</Label>
-                <Select value={String(form.getValues("gender") || "")} onValueChange={(value) => form.setValue("gender", value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select gender" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Male">Male</SelectItem>
-                    <SelectItem value="Female">Female</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
+              {/* Row 4: Gender, Date of Birth */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="gender">Gender</Label>
+                  <Select value={String(form.getValues("gender") || "")} onValueChange={(value) => form.setValue("gender", value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="date_of_birth">Date of Birth</Label>
+                  <Input id="date_of_birth" type="date" {...form.register("date_of_birth")} />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="date_of_birth">Date of Birth</Label>
-                <Input id="date_of_birth" type="date" {...form.register("date_of_birth")} />
+              {/* Row 5: National ID, Passport Number */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="national_id">National ID</Label>
+                  <Input id="national_id" {...form.register("national_id")} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="passport_number">Passport Number</Label>
+                  <Input id="passport_number" {...form.register("passport_number")} />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="national_id">National ID</Label>
-                <Input id="national_id" {...form.register("national_id")} />
+              {/* Row 6: NSSF Number, TIN */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nssf_number">NSSF Number</Label>
+                  <Input id="nssf_number" {...form.register("nssf_number")} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tin">TIN</Label>
+                  <Input id="tin" {...form.register("tin")} />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="tin">TIN</Label>
-                <Input id="tin" {...form.register("tin")} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="nssf_number">NSSF Number</Label>
-                <Input id="nssf_number" {...form.register("nssf_number")} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="passport_number">Passport Number</Label>
-                <Input id="passport_number" {...form.register("passport_number")} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="country">Country *</Label>
-                <SearchableSelect
-                  options={ALL_COUNTRIES.map((c) => ({ value: c.code, label: `${c.flag} ${c.name}` }))}
-                  value={String(form.getValues("country") || "")}
-                  onValueChange={(value) => form.setValue("country", value)}
-                  placeholder="Select country"
-                  searchPlaceholder="Search country..."
-                  emptyMessage="No country found"
-                />
+              {/* Row 7: Marital Status */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="marital_status">Marital Status</Label>
+                  <Select
+                    value={String(form.getValues("marital_status") || "")}
+                    onValueChange={(value) => form.setValue("marital_status", value as any)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select marital status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Single">Single</SelectItem>
+                      <SelectItem value="Married">Married</SelectItem>
+                      <SelectItem value="Divorced">Divorced</SelectItem>
+                      <SelectItem value="Widowed">Widowed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </AccordionContent>
         </AccordionItem>
 
         <AccordionItem value="employment">
-          <AccordionTrigger>Employment Information</AccordionTrigger>
+          <AccordionTrigger>
+            <div className="font-medium">Employment Information</div>
+          </AccordionTrigger>
           <AccordionContent>
-            {/* Company - Read-only from active company */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Row 1: Company, Company Unit */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="company">Company</Label>
                 <Input
@@ -605,39 +700,21 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                   title="Company is automatically set from your active company"
                 />
               </div>
-
-              {watchCompanyId && (
-                <div className="space-y-2">
-                  <Label htmlFor="company_unit">Company Unit</Label>
-                  <SearchableSelect
-                    options={companyUnits.map((cu) => ({ value: cu.id, label: cu.name }))}
-                    value={String(form.getValues("company_unit_id") || "")}
-                    onValueChange={(value) => form.setValue("company_unit_id", value)}
-                    placeholder={companyUnits.length ? "Select company unit..." : "No company units available"}
-                    searchPlaceholder="Search company units..."
-                    emptyMessage="No company units found"
-                    disabled={companyUnits.length === 0}
-                  />
-                </div>
-              )}
-
-              {watchCompanyUnitId && (
-                <div className="space-y-2">
-                  <Label htmlFor="department">Department</Label>
-                  <SearchableSelect
-                    options={departments.map((d) => ({ value: d.id, label: d.name }))}
-                    value={String(form.getValues("department_id") || "")}
-                    onValueChange={(value) => form.setValue("department_id", value)}
-                    placeholder={departments.length ? "Select department..." : "No departments available"}
-                    searchPlaceholder="Search departments..."
-                    emptyMessage="No departments found"
-                    disabled={departments.length === 0}
-                  />
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label htmlFor="company_unit">Company Unit</Label>
+                <SearchableSelect
+                  options={companyUnits.map((cu) => ({ value: cu.id, label: cu.name }))}
+                  value={String(form.getValues("company_unit_id") || "")}
+                  onValueChange={(value) => form.setValue("company_unit_id", value)}
+                  placeholder={companyUnits.length ? "Select company unit..." : "No company units available"}
+                  searchPlaceholder="Search company units..."
+                  emptyMessage="No company units found"
+                  disabled={!watchCompanyId || companyUnits.length === 0}
+                />
+              </div>
             </div>
 
-            {/* Category and Employee Type */}
+            {/* Row 2: Category, Employment Status */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
@@ -659,8 +736,27 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="employment_status">Employment Status</Label>
+                <Select value={String(form.getValues("employment_status") || "")} onValueChange={(value) => form.setValue("employment_status", value as any)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Terminated">Terminated</SelectItem>
+                    <SelectItem value="Deceased">Deceased</SelectItem>
+                    <SelectItem value="Resigned">Resigned</SelectItem>
+                    <SelectItem value="Probation">Probation</SelectItem>
+                    <SelectItem value="Notice Period">Notice Period</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
-              {watchCategory && (
+            {/* Employee Type selector (kept for logic), Pay Frequency when required */}
+            {watchCategory && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div className="space-y-2">
                   <Label htmlFor="employee_type">Employee Type *</Label>
                   <Select
@@ -694,8 +790,26 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                     </SelectContent>
                   </Select>
                 </div>
-              )}
-            </div>
+                {watchCategory && requiresPayFrequency(watchCategory as PayGroupCategory, watchEmployeeType) && (
+                  <div className="space-y-2">
+                    <Label htmlFor="pay_frequency">Pay Frequency</Label>
+                    <Select
+                      value={String(watchPayFrequency || "")}
+                      onValueChange={(value: ManpowerFrequency) => form.setValue("pay_frequency", value || "")}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select pay frequency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="bi_weekly">Bi-weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            )}
 
             {watchCategory === "projects" && watchEmployeeType && (
               <div className="space-y-2 mt-4">
@@ -712,60 +826,82 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
               </div>
             )}
 
-            {watchCategory && requiresPayFrequency(watchCategory as PayGroupCategory, watchEmployeeType) && (
-              <div className="space-y-2 mt-4">
-                <Label htmlFor="pay_frequency">Pay Frequency</Label>
-                <Select
-                  value={String(watchPayFrequency || "")}
-                  onValueChange={(value: ManpowerFrequency) => form.setValue("pay_frequency", value || "")}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select pay frequency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="bi_weekly">Bi-weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="employment_status">Employment Status</Label>
-                <Select value={String(form.getValues("employment_status") || "")} onValueChange={(value) => form.setValue("employment_status", value as any)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="Terminated">Terminated</SelectItem>
-                    <SelectItem value="Deceased">Deceased</SelectItem>
-                    <SelectItem value="Resigned">Resigned</SelectItem>
-                    <SelectItem value="Probation">Probation</SelectItem>
-                    <SelectItem value="Notice Period">Notice Period</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Row 3: Date Joined, Current Experience */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div className="space-y-2">
                 <Label htmlFor="date_joined">Date Joined</Label>
                 <Input id="date_joined" type="date" {...form.register("date_joined")} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="employee_number">Employee Number</Label>
-                <Input
-                  id="employee_number"
-                  value={(mode === "edit" ? (form.getValues("employee_number") || "") : "")}
-                  placeholder={mode === "create" ? "Will be generated on save" : ""}
-                  disabled
-                  className="bg-gray-100 cursor-not-allowed"
+                <Label htmlFor="current_experience">Current Experience</Label>
+                <Input id="current_experience" value={experienceText} disabled className="bg-gray-100 cursor-not-allowed" />
+              </div>
+            </div>
+
+            {/* Row 4: Department (with Quick Add), Reporting Manager */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="department">Department</Label>
+                <SearchableSelect
+                  options={[
+                    ...departments.map((d) => ({ value: d.id, label: d.name })),
+                    { value: "__add__", label: "Add new…" },
+                  ]}
+                  value={String(form.getValues("department_id") || "")}
+                  onValueChange={async (value) => {
+                    if (value === "__add__") {
+                      setAddingDept(true);
+                      return;
+                    }
+                    form.setValue("department_id", value);
+                  }}
+                  placeholder={departments.length ? "Select department..." : "No departments available"}
+                  searchPlaceholder="Search departments..."
+                  emptyMessage="No departments found"
+                  disabled={!watchCompanyUnitId}
+                />
+                {addingDept && (
+                  <div className="flex gap-2 mt-2">
+                    <Input value={newDeptName} onChange={(e) => setNewDeptName(e.target.value)} placeholder="New department name" />
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        if (!watchCompanyUnitId || !newDeptName.trim()) return;
+                        try {
+                          const created = await DepartmentsService.createDepartment({ name: newDeptName.trim(), company_unit_id: watchCompanyUnitId });
+                          const list = await DepartmentsService.getDepartmentsByCompanyUnit(watchCompanyUnitId);
+                          setDepartments(list);
+                          form.setValue("department_id", created.id, { shouldDirty: true });
+                          setNewDeptName("");
+                          setAddingDept(false);
+                        } catch {
+                          // ignore
+                        }
+                      }}
+                    >
+                      Add
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => { setAddingDept(false); setNewDeptName(""); }}>
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reporting_manager_id">Reporting Manager</Label>
+                <SearchableSelect
+                  options={reportingManagers}
+                  value={String(form.getValues("reporting_manager_id") || "")}
+                  onValueChange={(value) => form.setValue("reporting_manager_id", value)}
+                  placeholder={reportingManagers.length ? "Select reporting manager..." : "No employees found"}
+                  searchPlaceholder="Search employees..."
+                  emptyMessage="No employees found"
                 />
               </div>
             </div>
 
-            {/* Employee Number Prefix */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            {/* Row 5: Employee Number Prefix, Employee Number */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div className="space-y-2">
                 <Label htmlFor="employee_prefix">Employee Number Prefix</Label>
                 <SearchableSelect
@@ -778,12 +914,24 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                   disabled={prefixOptions.length === 0}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="employee_number">Employee Number</Label>
+                <Input
+                  id="employee_number"
+                  value={(mode === "edit" ? (form.getValues("employee_number") || "") : "")}
+                  placeholder={mode === "create" ? "Will be generated on save" : ""}
+                  disabled
+                  className="bg-gray-100 cursor-not-allowed"
+                />
+              </div>
             </div>
           </AccordionContent>
         </AccordionItem>
 
         <AccordionItem value="pay">
-          <AccordionTrigger>Pay Information</AccordionTrigger>
+          <AccordionTrigger>
+            <div className="font-medium">Pay Information</div>
+          </AccordionTrigger>
           <AccordionContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -816,8 +964,11 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                   id="pay_rate"
                   type="number"
                   step={selectedCurrency?.decimalPlaces === 0 ? "1" : "0.01"}
-                  value={form.getValues("pay_rate")?.toString() || ""}
-                  onChange={(e) => form.setValue("pay_rate", e.target.value ? parseFloat(e.target.value) : null)}
+                  value={watchPayRate ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    form.setValue("pay_rate", val === "" ? null : Number(val));
+                  }}
                   placeholder="0.00"
                 />
               </div>
@@ -850,7 +1001,9 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
         </AccordionItem>
 
         <AccordionItem value="bank">
-          <AccordionTrigger>Bank Details</AccordionTrigger>
+          <AccordionTrigger>
+            <div className="font-medium">Bank Details</div>
+          </AccordionTrigger>
           <AccordionContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">

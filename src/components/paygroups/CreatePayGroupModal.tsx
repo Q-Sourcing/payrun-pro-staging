@@ -174,7 +174,7 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
           type: initialType,
           category: 'projects',
           employee_type: 'ippms',
-          pay_type: 'piece_rate',
+          pay_type: 'daily_rate',
           pay_frequency: undefined,
           country: '',
           currency: 'UGX',
@@ -183,8 +183,8 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
           default_tax_percentage: 30,
           exchange_rate_to_local: 3800,
           tax_country: 'UG',
-          piece_type: 'units',
-          default_piece_rate: 0,
+          piece_type: undefined,
+          default_piece_rate: undefined,
           minimum_pieces: undefined,
           maximum_pieces: undefined,
           internship_duration: 6,
@@ -297,7 +297,13 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
       try {
         if (selectedProjectId) {
           const types = await ProjectsService.getAllowedPayTypes(selectedProjectId);
-          setAllowedPayTypes(types || []);
+          // Map project pay types (e.g., daily -> daily_rate) for IPPMS/daily flows
+          const mapped = (types || []).map((t: string) => (t === 'daily' ? 'daily_rate' : t));
+          setAllowedPayTypes(mapped);
+          // If defaulting IPPMS daily-rate, preselect daily_rate when available
+          if ((defaultType === 'piece_rate' || selectedType === 'piece_rate') && mapped.includes('daily_rate')) {
+            setFormData(prev => ({ ...prev, pay_type: 'daily_rate' }));
+          }
         } else {
           setAllowedPayTypes([]);
         }
