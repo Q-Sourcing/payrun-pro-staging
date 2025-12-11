@@ -35,10 +35,12 @@ export const SecuritySettingsSection = () => {
       .select('*')
       .eq('category', 'security')
       .eq('user_id', user.id)
-      .single();
+      .limit(1);
 
-    if (data?.value) {
-      const settings = data.value as any;
+    const settingsRow = data?.[0];
+
+    if (settingsRow?.value) {
+      const settings = settingsRow.value as any;
       setSessionTimeout(settings.sessionTimeout || "30");
       setTwoFactorAuth(settings.twoFactorAuth || "required");
       setPasswordPolicy(settings.passwordPolicy || "strong");

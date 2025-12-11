@@ -20,6 +20,7 @@ export function useOrgNames(): OrgNamesResult {
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [resolvedCompanyId, setResolvedCompanyId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [refreshKey, setRefreshKey] = useState<number>(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,7 +109,19 @@ export function useOrgNames(): OrgNamesResult {
     return () => {
       cancelled = true;
     };
-  }, [organizationId, companyId]);
+  }, [organizationId, companyId, refreshKey]);
+
+  useEffect(() => {
+    const handler = () => setRefreshKey((k) => k + 1);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('org-names-refresh', handler);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('org-names-refresh', handler);
+      }
+    };
+  }, []);
 
   return { organizationName, companyName, resolvedCompanyId, loading };
 }

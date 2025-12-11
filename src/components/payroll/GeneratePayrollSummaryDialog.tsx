@@ -14,14 +14,24 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { CompanySettingsDialog } from "./CompanySettingsDialog";
+import { useOrgNames } from "@/lib/tenant/useOrgNames";
 
-interface GenerateBillingSummaryDialogProps {
+type PayRunContext = {
+  payRun: any;
+  payItems: any[];
+  currency: string;
+  employerNSSF: number;
+  totalEmployerCost: number;
+  logoDataUrl?: string | null;
+};
+
+interface GeneratePayrollSummaryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   payRunId: string;
 }
 
-export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: GenerateBillingSummaryDialogProps) => {
+export const GeneratePayrollSummaryDialog = ({ open, onOpenChange, payRunId }: GeneratePayrollSummaryDialogProps) => {
   const [reportType, setReportType] = useState<"comprehensive" | "employer" | "tax" | "department">("comprehensive");
   const [exportFormat, setExportFormat] = useState<"pdf" | "excel" | "csv">("pdf");
   const [includeLogo, setIncludeLogo] = useState(true);
@@ -38,13 +48,44 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
   const [generating, setGenerating] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [companySettings, setCompanySettings] = useState<any>(null);
+  const [payRunContext, setPayRunContext] = useState<PayRunContext | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const { toast } = useToast();
+  const { organizationName, companyName } = useOrgNames();
+  const displayCompanyName = organizationName || companyName || companySettings?.company_name || "Q-Payroll Solutions";
 
   useEffect(() => {
     if (open) {
       fetchCompanySettings();
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!previewOpen || !payRunContext) return;
+    generatePreviewFromContext(payRunContext);
+  }, [
+    previewOpen,
+    payRunContext,
+    reportType,
+    includeLogo,
+    includeExecutiveSummary,
+    includeBreakdown,
+    includeContributions,
+    includeTaxSummary,
+    includeDepartmental,
+    includePaymentInstructions,
+    includeCompliance,
+    includeComparative,
+    includeNotes,
+    includeSignatures,
+  ]);
+
+  useEffect(() => {
+    return () => cleanupPreviewUrl();
+  }, []);
 
   const fetchCompanySettings = async () => {
     try {
@@ -61,44 +102,66 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
     }
   };
 
+  const loadPayRunContext = async (): Promise<PayRunContext> => {
+    const { data, error } = await supabase
+      .from("pay_runs")
+      .select(`
+        *,
+        pay_group_master:pay_group_master_id(name, country),
+        pay_items(
+          *,
+          employees(
+            first_name,
+            middle_name,
+            last_name,
+            email,
+            pay_type,
+            pay_rate,
+            department,
+            employee_type
+          )
+        )
+      `)
+      .eq("id", payRunId)
+      .single();
+
+    if (error) throw error;
+
+    const currency = getCurrencyCodeFromCountry(data.pay_group_master.country);
+    const payItems = data.pay_items || [];
+    const employerNSSF = (data.total_gross_pay || 0) * 0.10;
+    const totalEmployerCost = (data.total_gross_pay || 0) + employerNSSF;
+    const logoDataUrl = await fetchLogoDataUrl();
+
+    const context: PayRunContext = {
+      payRun: data,
+      payItems,
+      currency,
+      employerNSSF,
+      totalEmployerCost,
+      logoDataUrl,
+    };
+
+    setPayRunContext(context);
+    return context;
+  };
+
+  const cleanupPreviewUrl = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewUrl(null);
+  };
+
   const handleGenerate = async () => {
     setGenerating(true);
     
     try {
-      // Fetch pay run data
-      const { data: payRunData, error: payRunError } = await supabase
-        .from("pay_runs")
-        .select(`
-          *,
-          pay_group_master:pay_group_master_id(name, country),
-          pay_items(
-            *,
-            employees(
-              first_name,
-              middle_name,
-              last_name,
-              email,
-              pay_type,
-              pay_rate,
-              department,
-              employee_type
-            )
-          )
-        `)
-        .eq("id", payRunId)
-        .single();
-
-      if (payRunError) throw payRunError;
-
-      const currency = getCurrencyCodeFromCountry(payRunData.pay_group_master.country);
-      const payItems = payRunData.pay_items || [];
-
-      // Calculate employer contributions (NSSF at 10%)
-      const employerNSSF = (payRunData.total_gross_pay || 0) * 0.10;
-      const totalEmployerCost = (payRunData.total_gross_pay || 0) + employerNSSF;
+      const context = payRunContext || await loadPayRunContext();
+      const { payRun, payItems, currency, employerNSSF, totalEmployerCost, logoDataUrl } = context;
 
       // Validate data consistency before generating
-      const isValid = validateExportData(payRunData, payItems);
+      const isValid = validateExportData(payRun, payItems);
       if (!isValid) {
         toast({
           title: "Validation failed",
@@ -109,20 +172,18 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
       }
 
       // Prepare optional company logo
-      const logoDataUrl = await fetchLogoDataUrl();
-
       // Generate based on format
       if (exportFormat === "pdf") {
-        generatePDF(payRunData, payItems, currency, employerNSSF, totalEmployerCost, logoDataUrl || undefined);
+        generatePDF(payRun, payItems, currency, employerNSSF, totalEmployerCost, logoDataUrl || undefined, displayCompanyName);
       } else if (exportFormat === "excel") {
-        generateExcel(payRunData, payItems, currency, employerNSSF, totalEmployerCost);
+        generateExcel(payRun, payItems, currency, employerNSSF, totalEmployerCost, displayCompanyName);
       } else {
-        const csv = generateCSV(payRunData, payItems, currency, employerNSSF, totalEmployerCost);
+        const csv = generateCSV(payRun, payItems, currency, employerNSSF, totalEmployerCost, displayCompanyName);
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `billing-summary-${format(new Date(payRunData.pay_run_date), 'yyyy-MM-dd')}.csv`;
+        link.download = `payroll-summary-${format(new Date(payRun.pay_run_date), 'yyyy-MM-dd')}.csv`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -130,15 +191,15 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
       }
 
       toast({
-        title: "Billing Summary Downloaded",
-        description: `Successfully generated and downloaded ${exportFormat.toUpperCase()} billing summary`,
+        title: "Payroll Summary Downloaded",
+        description: `Successfully generated and downloaded ${exportFormat.toUpperCase()} payroll summary`,
       });
       onOpenChange(false);
     } catch (error) {
-      console.error("Error generating billing summary:", error);
+      console.error("Error generating payroll summary:", error);
       toast({
         title: "Error",
-        description: "Failed to generate billing summary",
+        description: "Failed to generate payroll summary",
         variant: "destructive",
       });
     } finally {
@@ -176,7 +237,15 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
     }
   };
 
-  const generatePDF = (payRun: any, payItems: any[], currency: string, employerNSSF: number, totalEmployerCost: number, logoDataUrl?: string) => {
+  const buildPayrollSummaryPdfDoc = (
+    payRun: any,
+    payItems: any[],
+    currency: string,
+    employerNSSF: number,
+    totalEmployerCost: number,
+    logoDataUrl: string | null | undefined,
+    displayName: string
+  ) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
     let yPos = 20;
@@ -191,7 +260,7 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
       }
       doc.setFontSize(18);
       doc.setFont('helvetica', 'bold');
-      doc.text(companySettings.company_name || 'Q-Payroll Solutions', 20, yPos);
+      doc.text(displayName, 20, yPos);
       yPos += 7;
       
       doc.setFontSize(10);
@@ -209,7 +278,7 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
     // Title
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text("PAYROLL BILLING SUMMARY", pageWidth / 2, yPos, { align: "center" });
+    doc.text("PAYROLL SUMMARY", pageWidth / 2, yPos, { align: "center" });
     yPos += 10;
 
     // Pay Run Info
@@ -335,7 +404,7 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
       yPos += 5;
       doc.text(`Number of Beneficiaries: ${payItems.length}`, 20, yPos);
       yPos += 5;
-      doc.text(`Reference: Payroll ${format(new Date(payRun.pay_run_date), 'MMMDDYYYY')}`, 20, yPos);
+      doc.text(`Reference: Payroll ${format(new Date(payRun.pay_run_date), 'MMM dd yyyy')}`, 20, yPos);
       yPos += 5;
       doc.text(`Due Date: ${format(new Date(payRun.pay_run_date), 'MMM dd, yyyy')}`, 20, yPos);
     }
@@ -355,17 +424,89 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
     }
 
     // Save PDF
-    doc.save(`billing-summary-${format(new Date(payRun.pay_run_date), 'yyyy-MM-dd')}.pdf`);
+    return doc;
   };
 
-  const generateExcel = (payRun: any, payItems: any[], currency: string, employerNSSF: number, totalEmployerCost: number) => {
+  const generatePDF = (
+    payRun: any,
+    payItems: any[],
+    currency: string,
+    employerNSSF: number,
+    totalEmployerCost: number,
+    logoDataUrl: string | null | undefined,
+    displayName: string
+  ) => {
+    const doc = buildPayrollSummaryPdfDoc(payRun, payItems, currency, employerNSSF, totalEmployerCost, logoDataUrl, displayName);
+    doc.save(`payroll-summary-${format(new Date(payRun.pay_run_date), 'yyyy-MM-dd')}.pdf`);
+  };
+
+  const generatePreviewFromContext = async (context: PayRunContext) => {
+    try {
+      setPreviewLoading(true);
+      setPreviewError(null);
+
+      const { payRun, payItems, currency, employerNSSF, totalEmployerCost, logoDataUrl } = context;
+      const isValid = validateExportData(payRun, payItems);
+      if (!isValid) {
+        setPreviewError("Calculated totals do not match the pay run. Please recalculate before exporting.");
+        toast({
+          title: "Validation failed",
+          description: "Calculated totals do not match the pay run. Please recalculate before exporting.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const doc = buildPayrollSummaryPdfDoc(payRun, payItems, currency, employerNSSF, totalEmployerCost, logoDataUrl || undefined, displayCompanyName);
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+
+      cleanupPreviewUrl();
+      setPreviewUrl(url);
+    } catch (error) {
+      console.error("Error generating preview:", error);
+      setPreviewError("Failed to generate preview.");
+      toast({
+        title: "Preview failed",
+        description: "Could not generate the payroll summary preview.",
+        variant: "destructive",
+      });
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const generatePreview = async () => {
+    const context = payRunContext || await loadPayRunContext();
+    await generatePreviewFromContext(context);
+  };
+
+  const handleOpenPreview = async () => {
+    setPreviewOpen(true);
+    await generatePreview();
+  };
+
+  const handlePrintPreview = () => {
+    const frame = document.getElementById("payroll-preview-frame") as HTMLIFrameElement | null;
+    frame?.contentWindow?.focus();
+    frame?.contentWindow?.print();
+  };
+
+  const generateExcel = (
+    payRun: any,
+    payItems: any[],
+    currency: string,
+    employerNSSF: number,
+    totalEmployerCost: number,
+    displayName: string
+  ) => {
     const wb = XLSX.utils.book_new();
 
     // Worksheet 1: Executive Summary
     const summaryData = [
-      ["PAYROLL BILLING SUMMARY"],
+      ["PAYROLL SUMMARY"],
       [],
-      ["Company", companySettings?.company_name || "Q-Payroll Solutions"],
+      ["Company", displayName || companySettings?.company_name || "Q-Payroll Solutions"],
       ["Pay Run Date", format(new Date(payRun.pay_run_date), 'MMM dd, yyyy')],
       ["Pay Period", `${format(new Date(payRun.pay_period_start), 'MMM dd, yyyy')} - ${format(new Date(payRun.pay_period_end), 'MMM dd, yyyy')}`],
       ["Pay Group", payRun.pay_group_master.name],
@@ -423,7 +564,7 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
       [],
       ["Total Amount to Transfer", `${currency} ${(payRun.total_net_pay || 0).toLocaleString()}`],
       ["Number of Beneficiaries", payItems.length],
-      ["Reference", `Payroll ${format(new Date(payRun.pay_run_date), 'MMMDDYYYY')}`],
+      ["Reference", `Payroll ${format(new Date(payRun.pay_run_date), 'MMM dd yyyy')}`],
       ["Due Date", format(new Date(payRun.pay_run_date), 'MMM dd, yyyy')],
     ];
     const ws4 = XLSX.utils.aoa_to_sheet(paymentData);
@@ -433,11 +574,19 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
     XLSX.writeFile(wb, `billing-summary-${format(new Date(payRun.pay_run_date), 'yyyy-MM-dd')}.xlsx`);
   };
 
-  const generateCSV = (payRun: any, payItems: any[], currency: string, employerNSSF: number, totalEmployerCost: number) => {
+  const generateCSV = (
+    payRun: any,
+    payItems: any[],
+    currency: string,
+    employerNSSF: number,
+    totalEmployerCost: number,
+    displayName: string
+  ) => {
     const lines: string[] = [];
     
     // Header
-    lines.push("PAYROLL BILLING SUMMARY");
+    lines.push("PAYROLL SUMMARY");
+    lines.push(`Company: ${displayName || companySettings?.company_name || 'Q-Payroll Solutions'}`);
     lines.push(`Pay Run Date: ${format(new Date(payRun.pay_run_date), 'MMM dd, yyyy')}`);
     lines.push(`Pay Period: ${format(new Date(payRun.pay_period_start), 'MMM dd, yyyy')} - ${format(new Date(payRun.pay_period_end), 'MMM dd, yyyy')}`);
     lines.push(`Pay Group: ${payRun.pay_group_master.name}`);
@@ -496,19 +645,20 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
     lines.push("PAYMENT INSTRUCTIONS");
     lines.push(`Total Amount to Transfer,${currency} ${payRun.total_net_pay?.toLocaleString() || '0'}`);
     lines.push(`Number of Beneficiaries,${payItems.length}`);
-    lines.push(`Reference,Payroll ${format(new Date(payRun.pay_run_date), 'MMMDDYYYY')}`);
+    lines.push(`Reference,Payroll ${format(new Date(payRun.pay_run_date), 'MMM dd yyyy')}`);
     lines.push(`Due Date,${format(new Date(payRun.pay_run_date), 'MMM dd, yyyy')}`);
     
     return lines.join('\n');
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto modern-dialog">
         <DialogHeader className="modern-dialog-header">
           <DialogTitle className="modern-dialog-title flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Generate Billing Summary
+            Generate Payroll Summary
           </DialogTitle>
           <DialogDescription className="modern-dialog-description">
             Create a comprehensive payroll billing and compliance report
@@ -522,7 +672,7 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="comprehensive" id="comprehensive" />
                 <Label htmlFor="comprehensive" className="font-normal">
-                  Comprehensive Billing Summary
+                  Comprehensive Payroll Summary
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
@@ -706,7 +856,7 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Report Type:</span>
-                <span className="font-semibold capitalize">{reportType} Billing Summary</span>
+                <span className="font-semibold capitalize">{reportType} Payroll Summary</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Export Format:</span>
@@ -724,6 +874,9 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={generating}>
             Cancel
           </Button>
+          <Button variant="outline" onClick={handleOpenPreview} disabled={generating}>
+            Preview
+          </Button>
           <Button onClick={handleGenerate} disabled={generating}>
             {generating ? "Generating..." : "Generate Summary"}
           </Button>
@@ -738,5 +891,99 @@ export const GenerateBillingSummaryDialog = ({ open, onOpenChange, payRunId }: G
         }}
       />
     </Dialog>
+
+    <Dialog open={previewOpen} onOpenChange={(open) => { setPreviewOpen(open); if (!open) cleanupPreviewUrl(); }}>
+      <DialogContent className="max-w-5xl h-[90vh] overflow-hidden">
+        <DialogHeader>
+          <DialogTitle>Preview Payroll Summary</DialogTitle>
+          <DialogDescription>Review the PDF preview before exporting.</DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-wrap gap-2 mb-4">
+          <Button variant="outline" onClick={generatePreview} disabled={previewLoading}>
+            {previewLoading ? "Refreshing..." : "Refresh preview"}
+          </Button>
+          <Button variant="outline" onClick={handleGenerate} disabled={generating || previewLoading}>
+            {generating ? "Generating..." : "Download / Export"}
+          </Button>
+          <Button variant="outline" onClick={handlePrintPreview} disabled={!previewUrl || previewLoading}>
+            Print
+          </Button>
+          <Button variant="outline" onClick={() => setPreviewOpen(false)}>
+            Close
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <div className="flex items-center space-x-2">
+            <Checkbox id="preview-executive" checked={includeExecutiveSummary} onCheckedChange={(checked) => setIncludeExecutiveSummary(checked as boolean)} />
+            <Label htmlFor="preview-executive" className="font-normal">Executive summary</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox id="preview-breakdown" checked={includeBreakdown} onCheckedChange={(checked) => setIncludeBreakdown(checked as boolean)} />
+            <Label htmlFor="preview-breakdown" className="font-normal">Employee breakdown</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox id="preview-contributions" checked={includeContributions} onCheckedChange={(checked) => setIncludeContributions(checked as boolean)} />
+            <Label htmlFor="preview-contributions" className="font-normal">Employer contributions</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox id="preview-tax" checked={includeTaxSummary} onCheckedChange={(checked) => setIncludeTaxSummary(checked as boolean)} />
+            <Label htmlFor="preview-tax" className="font-normal">Tax summary</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox id="preview-dept" checked={includeDepartmental} onCheckedChange={(checked) => setIncludeDepartmental(checked as boolean)} />
+            <Label htmlFor="preview-dept" className="font-normal">Departmental</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox id="preview-payment" checked={includePaymentInstructions} onCheckedChange={(checked) => setIncludePaymentInstructions(checked as boolean)} />
+            <Label htmlFor="preview-payment" className="font-normal">Payment instructions</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox id="preview-compliance" checked={includeCompliance} onCheckedChange={(checked) => setIncludeCompliance(checked as boolean)} />
+            <Label htmlFor="preview-compliance" className="font-normal">Compliance</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox id="preview-comparative" checked={includeComparative} onCheckedChange={(checked) => setIncludeComparative(checked as boolean)} />
+            <Label htmlFor="preview-comparative" className="font-normal">Comparative</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox id="preview-notes" checked={includeNotes} onCheckedChange={(checked) => setIncludeNotes(checked as boolean)} />
+            <Label htmlFor="preview-notes" className="font-normal">Notes</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox id="preview-signatures" checked={includeSignatures} onCheckedChange={(checked) => setIncludeSignatures(checked as boolean)} />
+            <Label htmlFor="preview-signatures" className="font-normal">Signatures</Label>
+          </div>
+        </div>
+
+        <div className="border rounded-md h-[70vh] overflow-hidden">
+          {previewLoading && (
+            <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">
+              Generating preview...
+            </div>
+          )}
+          {!previewLoading && previewError && (
+            <div className="w-full h-full flex items-center justify-center text-sm text-destructive">
+              {previewError}
+            </div>
+          )}
+          {!previewLoading && !previewError && previewUrl && (
+            <iframe
+              id="payroll-preview-frame"
+              title="Payroll Summary Preview"
+              src={previewUrl}
+              className="w-full h-full border-0"
+            />
+          )}
+          {!previewLoading && !previewError && !previewUrl && (
+            <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">
+              Preview not generated yet.
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };

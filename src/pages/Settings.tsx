@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { ThemeSettings } from "@/components/settings/ThemeSettings";
 import { CompanySettingsSection } from "@/components/settings/CompanySettingsSection";
 import { EmployeeSettingsSection } from "@/components/settings/EmployeeSettingsSection";

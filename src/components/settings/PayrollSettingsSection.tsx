@@ -34,10 +34,12 @@ export const PayrollSettingsSection = () => {
       .select('*')
       .eq('category', 'payroll')
       .eq('user_id', user.id)
-      .single();
+      .limit(1);
 
-    if (data?.value) {
-      const settings = data.value as any;
+    const settingsRow = data?.[0];
+
+    if (settingsRow?.value) {
+      const settings = settingsRow.value as any;
       setPayFrequency(settings.payFrequency || "monthly");
       setAutoSaveDrafts(settings.autoSaveDrafts || "yes");
       setRequireApproval(settings.requireApproval || "yes");

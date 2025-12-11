@@ -30,10 +30,12 @@ export const IntegrationsSection = () => {
       .select('*')
       .eq('category', 'integrations')
       .eq('user_id', user.id)
-      .single();
+      .limit(1);
 
-    if (data?.value) {
-      const settings = data.value as any;
+    const settingsRow = data?.[0];
+
+    if (settingsRow?.value) {
+      const settings = settingsRow.value as any;
       setEmailProvider(settings.emailProvider || "resend");
       setApiKey(settings.apiKey || "");
       setFromEmail(settings.fromEmail || "");

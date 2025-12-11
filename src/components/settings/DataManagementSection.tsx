@@ -32,10 +32,12 @@ export const DataManagementSection = () => {
       .select('*')
       .eq('category', 'data_management')
       .eq('user_id', user.id)
-      .single();
+      .limit(1);
 
-    if (data?.value) {
-      const settings = data.value as any;
+    const settingsRow = data?.[0];
+
+    if (settingsRow?.value) {
+      const settings = settingsRow.value as any;
       setBackupFrequency(settings.backupFrequency || "daily");
       setBackupRetention(settings.backupRetention || "30");
       setBackupLocation(settings.backupLocation || "cloud");

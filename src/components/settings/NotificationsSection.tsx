@@ -33,10 +33,12 @@ export const NotificationsSection = () => {
       .select('*')
       .eq('category', 'notifications')
       .eq('user_id', user.id)
-      .single();
+      .limit(1);
 
-    if (data?.value) {
-      const settings = data.value as any;
+    const settingsRow = data?.[0];
+
+    if (settingsRow?.value) {
+      const settings = settingsRow.value as any;
       setEmailPayRun(settings.emailPayRun || "yes");
       setEmailApproval(settings.emailApproval || "yes");
       setEmailEmployee(settings.emailEmployee || "yes");

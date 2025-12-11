@@ -7,10 +7,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ALL_COUNTRIES } from "@/lib/constants/countries";
+import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrgNames } from "@/lib/tenant/useOrgNames";
+import { useUserRole } from "@/hooks/use-user-role";
+import { Pencil } from "lucide-react";
 
 export const CompanySettingsSection = () => {
   const { toast } = useToast();
+  const { organizationId, companyId } = useOrg();
+  const { resolvedCompanyId } = useOrgNames();
+  const { isSuperAdmin } = useUserRole();
+  const readOnly = !isSuperAdmin;
   const [loading, setLoading] = useState(false);
+  const [editingName, setEditingName] = useState(false);
   const [formData, setFormData] = useState({
     companyName: "Q-Payroll",
     legalName: "",
@@ -30,30 +39,89 @@ export const CompanySettingsSection = () => {
 
   useEffect(() => {
     loadSettings();
-  }, []);
+  }, [organizationId, resolvedCompanyId]);
 
   const loadSettings = async () => {
+    const effectiveCompanyId = getEffectiveCompanyId();
+    let nameFromCompany = formData.companyName;
+
+    if (effectiveCompanyId) {
+      const { data: comp } = await supabase.from('companies').select('name').eq('id', effectiveCompanyId).maybeSingle();
+      if (comp?.name) {
+        nameFromCompany = comp.name;
+      }
+    }
+
     const { data: companySettings } = await supabase
       .from('company_settings')
       .select('*')
-      .single();
+      .limit(1);
 
-    if (companySettings) {
-      setFormData(prev => ({
-        ...prev,
-        companyName: companySettings.company_name || prev.companyName,
-        address: companySettings.address || "",
-        phone: companySettings.phone || "",
-        email: companySettings.email || "",
-        website: companySettings.website || "",
-        taxId: companySettings.tax_id || "",
-      }));
-    }
+    const settingsRow = companySettings?.[0];
+
+    setFormData(prev => ({
+      ...prev,
+      companyName: nameFromCompany || settingsRow?.company_name || prev.companyName,
+      address: settingsRow?.address || "",
+      phone: settingsRow?.phone || "",
+      email: settingsRow?.email || "",
+      website: settingsRow?.website || "",
+      taxId: settingsRow?.tax_id || "",
+    }));
+    setEditingName(false);
+  };
+
+  const getEffectiveOrgId = () => {
+    if (organizationId) return organizationId;
+    if (typeof window !== "undefined") return localStorage.getItem("active_organization_id");
+    return null;
+  };
+
+  const getEffectiveCompanyId = () => {
+    if (companyId) return companyId;
+    if (resolvedCompanyId) return resolvedCompanyId;
+    if (typeof window !== "undefined") return localStorage.getItem("active_company_id");
+    return null;
   };
 
   const handleSave = async () => {
+    if (!isSuperAdmin) {
+      toast({
+        title: "Insufficient permissions",
+        description: "Only super admins can change the company name.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const effectiveOrgId = getEffectiveOrgId();
+    const effectiveCompanyId = getEffectiveCompanyId();
+    if (!effectiveOrgId) {
+      toast({
+        title: "Missing organization",
+        description: "No organization context available to save changes.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
+      // Update canonical organization name
+      const { error: orgError } = await supabase
+        .from('organizations')
+        .update({ name: formData.companyName })
+        .eq('id', effectiveOrgId);
+      if (orgError) throw orgError;
+
+      // Mirror name to companies table (selected company)
+      if (effectiveCompanyId) {
+        await supabase
+          .from('companies')
+          .update({ name: formData.companyName })
+          .eq('id', effectiveCompanyId);
+      }
+
       const { error } = await supabase
         .from('company_settings')
         .upsert({
@@ -71,6 +139,9 @@ export const CompanySettingsSection = () => {
         title: "Company settings saved",
         description: "Your company information has been updated successfully.",
       });
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("org-names-refresh"));
+      }
     } catch (error) {
       toast({
         title: "Error saving settings",
@@ -92,10 +163,32 @@ export const CompanySettingsSection = () => {
           <h3 className="text-sm font-semibold text-muted-foreground">BASIC INFORMATION</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Company Name *</Label>
+              <div className="flex items-center justify-between">
+                <Label>Company Name *</Label>
+                {isSuperAdmin && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2"
+                    onClick={() => {
+                      if (editingName) {
+                        loadSettings();
+                        setEditingName(false);
+                      } else {
+                        setEditingName(true);
+                      }
+                    }}
+                  >
+                    <Pencil className="h-4 w-4 mr-1" />
+                    {editingName ? "Cancel" : "Edit"}
+                  </Button>
+                )}
+              </div>
               <Input
                 value={formData.companyName}
                 onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
+                disabled={!isSuperAdmin || !editingName}
               />
             </div>
             <div>
@@ -221,7 +314,7 @@ export const CompanySettingsSection = () => {
         </div>
 
         <div className="flex gap-2 pt-4">
-          <Button onClick={handleSave} disabled={loading}>
+          <Button onClick={handleSave} disabled={loading || readOnly}>
             {loading ? "Saving..." : "Save Company Settings"}
           </Button>
           <Button variant="outline" onClick={loadSettings}>Reset</Button>

@@ -10,8 +10,11 @@ import { PayGroupsService } from "@/lib/services/paygroups.service";
 import { formatProjectType } from "@/lib/types/projects";
 import { Button } from "@/components/ui/button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, X } from "lucide-react";
+import { X, UserPlus } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 import AddProjectEmployeesDialog from "./AddProjectEmployeesDialog";
+import { IppmsWorkTab } from "../ippms/IppmsWorkTab";
 
 export default function ProjectDetailPage() {
   const { projectId } = useParams();
@@ -116,8 +119,8 @@ export default function ProjectDetailPage() {
               {project.supports_all_pay_types
                 ? "All pay types supported for this project type"
                 : (project.allowed_pay_types || []).length
-                ? project.allowed_pay_types.map((pt: string) => <Badge key={pt} className="mr-1">{pt.replace('_', ' ')}</Badge>)
-                : "No specific pay types configured"}
+                  ? project.allowed_pay_types.map((pt: string) => <Badge key={pt} className="mr-1">{pt.replace('_', ' ')}</Badge>)
+                  : "No specific pay types configured"}
             </div>
           </CardContent>
         </Card>
@@ -133,7 +136,7 @@ export default function ProjectDetailPage() {
               <ul className="list-disc pl-5">
                 {payGroups.map(pg => (
                   <li key={pg.id}>
-                    {pg.name} <span className="text-muted-foreground">({pg.employee_type}{pg.pay_type ? ` • ${pg.pay_type}` : ''}{pg.pay_frequency ? ` • ${pg.pay_frequency}` : ''})</span>
+                    {pg.name} <span className="text-muted-foreground">({pg.employee_type}{(pg as any).pay_type ? ` • ${(pg as any).pay_type}` : ''}{pg.pay_frequency ? ` • ${pg.pay_frequency}` : ''})</span>
                   </li>
                 ))}
               </ul>
@@ -167,13 +170,47 @@ export default function ProjectDetailPage() {
         </CardContent>
       </Card>
 
+      {project.project_type === 'ippms' && (
+        <Card>
+          <CardHeader className="flex items-center justify-between flex-row">
+            <CardTitle className="text-base">IPPMS Workboard</CardTitle>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => document.getElementById('ippms-work-section')?.scrollIntoView({ behavior: 'smooth' })}>
+                Manage Attendance
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => document.getElementById('ippms-work-section')?.scrollIntoView({ behavior: 'smooth' })}>
+                Manage Piece Work
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            Daily-rate attendance, leave, holidays, shifts, and piece work entries feed the unified IPPMS work-day engine and are payrun-ready.
+          </CardContent>
+        </Card>
+      )}
+
+      {project.project_type === 'ippms' && (
+        <div id="ippms-work-section">
+          <IppmsWorkTab projectId={projectId as string} />
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">Assigned Employees</CardTitle>
-            <Button size="sm" onClick={() => setShowAssignDialog(true)}>
-              <Plus className="h-4 w-4 mr-1" /> Add Employees to Project
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="sm" onClick={() => setShowAssignDialog(true)}>
+                    <UserPlus className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Add Employees to Project</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">

@@ -23,7 +23,7 @@ import { BulkAddDialog } from "./BulkAddDialog";
 import { BulkDeductDialog } from "./BulkDeductDialog";
 import { BulkSelectedDialog } from "./BulkSelectedDialog";
 import { GeneratePayslipsDialog } from "./GeneratePayslipsDialog";
-import { GenerateBillingSummaryDialog } from "./GenerateBillingSummaryDialog";
+import { GeneratePayrollSummaryDialog } from "./GeneratePayrollSummaryDialog";
 import { ApplyBenefitsDialog } from "./ApplyBenefitsDialog";
 import { RecalculateTaxesDialog } from "./RecalculateTaxesDialog";
 import { RemoveCustomItemsDialog } from "./RemoveCustomItemsDialog";
@@ -101,7 +101,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
   const [bulkDeductDialogOpen, setBulkDeductDialogOpen] = useState(false);
   const [bulkSelectedDialogOpen, setBulkSelectedDialogOpen] = useState(false);
   const [generatePayslipsDialogOpen, setGeneratePayslipsDialogOpen] = useState(false);
-  const [generateBillingDialogOpen, setGenerateBillingDialogOpen] = useState(false);
+  const [generatePayrollSummaryDialogOpen, setGeneratePayrollSummaryDialogOpen] = useState(false);
   const [applyBenefitsDialogOpen, setApplyBenefitsDialogOpen] = useState(false);
   const [recalculateTaxesDialogOpen, setRecalculateTaxesDialogOpen] = useState(false);
   const [removeCustomItemsDialogOpen, setRemoveCustomItemsDialogOpen] = useState(false);
@@ -1341,9 +1341,9 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                           <Trash2 className="h-4 w-4 text-red-600" />
                           <span>Remove LST Deductions</span>
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setGenerateBillingDialogOpen(true)} className="gap-2">
+                        <DropdownMenuItem onClick={() => setGeneratePayrollSummaryDialogOpen(true)} className="gap-2">
                           <Download className="h-4 w-4 text-blue-600" />
-                          <span>Generate Billing Summary</span>
+                          <span>Generate Payroll Summary</span>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => setApplyBenefitsDialogOpen(true)} className="gap-2">
@@ -1979,9 +1979,9 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         payPeriod={payPeriod ? `${payPeriod.start} to ${payPeriod.end}` : undefined}
       />
 
-      <GenerateBillingSummaryDialog
-        open={generateBillingDialogOpen}
-        onOpenChange={setGenerateBillingDialogOpen}
+      <GeneratePayrollSummaryDialog
+        open={generatePayrollSummaryDialogOpen}
+        onOpenChange={setGeneratePayrollSummaryDialogOpen}
         payRunId={payRunId || ""}
       />
 

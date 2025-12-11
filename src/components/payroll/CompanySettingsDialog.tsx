@@ -8,6 +8,10 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Building2, Upload, X } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrgNames } from "@/lib/tenant/useOrgNames";
+import { useUserRole } from "@/hooks/use-user-role";
+import { Pencil } from "lucide-react";
 
 interface CompanySettingsDialogProps {
   open: boolean;
@@ -33,6 +37,11 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
   const [includeGeneratedDate, setIncludeGeneratedDate] = useState(true);
   const [showPageNumbers, setShowPageNumbers] = useState(true);
   const { toast } = useToast();
+  const { organizationId, companyId } = useOrg();
+  const { resolvedCompanyId, organizationName } = useOrgNames();
+  const { isSuperAdmin } = useUserRole();
+  const [editingName, setEditingName] = useState(false);
+  const readOnly = !isSuperAdmin;
   // Employee numbering settings
   const [numberFormat, setNumberFormat] = useState("PREFIX-SEQUENCE");
   const [defaultPrefix, setDefaultPrefix] = useState("EMP");
@@ -51,6 +60,15 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
 
   const fetchSettings = async () => {
     try {
+      const effectiveCompanyId = getEffectiveCompanyId();
+      if (effectiveCompanyId) {
+        const { data: comp } = await supabase.from("companies").select("name").eq("id", effectiveCompanyId).maybeSingle();
+        if (comp?.name) {
+          setCompanyName(comp.name);
+        }
+      } else if (organizationName) {
+        setCompanyName(organizationName);
+      }
       const { data, error } = await supabase
         .from("company_settings")
         .select("*")
@@ -76,6 +94,7 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
         setIncludeGeneratedDate(data.include_generated_date ?? true);
         setShowPageNumbers(data.show_page_numbers ?? true);
       }
+      setEditingName(false);
     } catch (error) {
       console.error("Error fetching settings:", error);
     }
@@ -103,7 +122,40 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
     }
   };
 
+  const getEffectiveOrgId = () => {
+    if (organizationId) return organizationId;
+    if (typeof window !== "undefined") return localStorage.getItem("active_organization_id");
+    return null;
+  };
+
+  const getEffectiveCompanyId = () => {
+    if (companyId) return companyId;
+    if (resolvedCompanyId) return resolvedCompanyId;
+    if (typeof window !== "undefined") return localStorage.getItem("active_company_id");
+    return null;
+  };
+
   const handleSave = async () => {
+    if (!isSuperAdmin) {
+      toast({
+        title: "Insufficient permissions",
+        description: "Only super admins can change the company name.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const effectiveOrgId = getEffectiveOrgId();
+    const effectiveCompanyId = getEffectiveCompanyId();
+    if (!effectiveOrgId) {
+      toast({
+        title: "Missing organization",
+        description: "No organization context available to save changes.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const { data: existing } = await supabase
@@ -173,10 +225,29 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
         if (nErr) throw nErr;
       }
 
+      // Update canonical organization name
+      const { error: orgError } = await supabase
+        .from("organizations")
+        .update({ name: companyName })
+        .eq("id", effectiveOrgId);
+      if (orgError) throw orgError;
+
+      // Mirror to companies table
+      if (effectiveCompanyId) {
+        await supabase
+          .from("companies")
+          .update({ name: companyName })
+          .eq("id", effectiveCompanyId);
+      }
+
       toast({
         title: "Settings Saved",
         description: "Company settings and numbering updated successfully",
       });
+      setEditingName(false);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("org-names-refresh"));
+      }
       onOpenChange(false);
     } catch (error) {
       console.error("Error saving settings:", error);
@@ -286,12 +357,34 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
             <Label className="text-base font-semibold">Company Details</Label>
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
-                <Label htmlFor="companyName">Company Name</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="companyName">Company Name</Label>
+                  {isSuperAdmin && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2"
+                      onClick={() => {
+                        if (editingName) {
+                          fetchSettings();
+                          setEditingName(false);
+                        } else {
+                          setEditingName(true);
+                        }
+                      }}
+                    >
+                      <Pencil className="h-4 w-4 mr-1" />
+                      {editingName ? "Cancel" : "Edit"}
+                    </Button>
+                  )}
+                </div>
                 <Input
                   id="companyName"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="Q-Payroll Solutions"
+                  disabled={!isSuperAdmin || !editingName}
                 />
               </div>
               <div className="col-span-2">
@@ -522,7 +615,7 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={loading}>
+          <Button onClick={handleSave} disabled={loading || readOnly}>
             {loading ? "Saving..." : "Save Branding"}
           </Button>
         </DialogFooter>
