@@ -8,27 +8,27 @@ import { log, warn, error, debug, getLoggingConfig } from './logger';
 // Test the secure logger functionality
 export function testSecureLogger() {
   console.log('=== Testing Secure Logger ===');
-  
+
   // Test 1: Normal logging (should work in development)
   log('This is a normal log message');
   debug('This is a debug message');
   warn('This is a warning message');
   error('This is an error message');
-  
+
   // Test 2: Sensitive data redaction
   log('User login attempt:', {
     email: 'user@example.com',
-    password: 'secret123',
-    access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    api_key: 'sk-1234567890abcdef'
+    password: 'mock-password-to-redact',
+    access_token: 'mock-jwt-token-header.payload.signature',
+    api_key: 'mock-api-key-12345'
   });
-  
+
   // Test 3: String with sensitive keywords
   log('Authorization header:', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...');
-  
+
   // Test 4: Configuration info
   console.log('Current logging config:', getLoggingConfig());
-  
+
   console.log('=== Secure Logger Test Complete ===');
 }
 
@@ -36,14 +36,14 @@ export function testSecureLogger() {
 if (typeof window !== 'undefined') {
   // Browser environment - make test function available globally
   (window as any).testSecureLogger = testSecureLogger;
-  
+
   // Also make individual logger functions available for testing
   (window as any).secureLog = log;
   (window as any).secureWarn = warn;
   (window as any).secureError = error;
   (window as any).secureDebug = debug;
   (window as any).getLoggingConfig = getLoggingConfig;
-  
+
   console.log('🔧 Secure Logger Test Functions Available:');
   console.log('- testSecureLogger() - Run full test');
   console.log('- secureLog(msg) - Test log function');
