@@ -11,6 +11,7 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import SignUp from "./pages/SignUp";
+import AcceptInvite from "./pages/AcceptInvite";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { SupabaseAuthProvider, useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import Settings from "./pages/Settings";
@@ -129,6 +130,7 @@ const App = () => {
                 <Route path="/login" element={<Login />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/signup" element={<SignUp />} />
+                <Route path="/accept-invite" element={<AcceptInvite />} />
                 <Route path="/choose-company" element={
                   <ProtectedRoute>
                     <CompanyPicker />

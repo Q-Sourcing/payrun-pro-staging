@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { z } from 'https://esm.sh/zod@3.22.4'
+import { Resend } from 'npm:resend'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -93,7 +94,7 @@ serve(async (req) => {
             console.log(`Creating new user: ${input.email}`)
 
             // Resolve Organization Name for the invite email
-            let inviteOrgName = '';
+            let inviteOrgName = 'PayRun Pro';
             if (input.orgs.length > 0) {
                 const primaryOrgId = input.orgs[0].orgId;
                 const { data: org } = await supabaseAdmin.from('organizations').select('name').eq('id', primaryOrgId).single();
@@ -102,17 +103,72 @@ serve(async (req) => {
                 }
             }
 
-            // Create new user (invite)
-            const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.inviteUserByEmail(input.email, {
-                data: {
-                    first_name: input.firstName,
-                    last_name: input.lastName,
-                    full_name: `${input.firstName} ${input.lastName}`,
-                    organization_name: inviteOrgName
+            // Generate Invite Link ensuring we get a valid action_link
+            const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+                type: 'invite',
+                email: input.email,
+                options: {
+                    redirectTo: `${req.headers.get('origin') ?? 'https://payroll.flipafrica.app'}/accept-invite`,
+                    data: {
+                        first_name: input.firstName,
+                        last_name: input.lastName,
+                        full_name: `${input.firstName} ${input.lastName}`,
+                        organization_name: inviteOrgName
+                    }
                 }
-            })
-            if (createError) throw createError
-            userId = newUser.user!.id
+            });
+
+            if (linkError) throw linkError;
+
+            const user = linkData.user;
+            userId = user.id;
+
+            // Send Email via Resend if requested
+            if (input.sendInvite && linkData.properties?.action_link) {
+                const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+                if (RESEND_API_KEY) {
+                    const resend = new Resend(RESEND_API_KEY);
+                    const inviteLink = linkData.properties.action_link;
+                    // Fix: The action_link from generateLink is usually the verification URL itself. 
+                    // However, we want to route to our frontend /accept-invite page.
+                    // The 'redirectTo' option above tells Supabase where to redirect AFTER verification if using the default flow.
+                    // But since we are intercepting, we can construct our own link if we want, OR use the action_link which has the token.
+                    // The robust way for "Setup Password" is to extract the token from the action_link query params and construct our clean URL.
+
+                    const urlObj = new URL(inviteLink);
+                    const token = urlObj.searchParams.get('token') || urlObj.searchParams.get('access_token');
+                    const params = new URLSearchParams(urlObj.search);
+                    // We need the 'token_hash' (pkce) or 'access_token' depending on the flow. 
+                    // 'invite' type generates a link with `token` (hashed) usually.
+                    // Let's rely on the token provided in the link.
+
+                    // Actually, easiest is to pass the whole link or just the token.
+                    // Let's pass the token to our custom route.
+                    // Standard Supabase invite link: SITE_URL/auth/v1/verify?token=...&type=invite&redirect_to=...
+
+                    // We want: [FRONTEND]/accept-invite?token=...
+                    const frontendUrl = `${req.headers.get('origin') ?? 'https://payroll.flipafrica.app'}/accept-invite?token=${token}&type=invite`;
+
+                    await resend.emails.send({
+                        from: 'PayRun Pro <onboarding@resend.dev>', // Should be verified domain in prod
+                        to: input.email,
+                        subject: `You've been invited to ${inviteOrgName}`,
+                        html: `
+                            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+                                <h2>Welcome to PayRun Pro!</h2>
+                                <p>You have been invited to join <strong>${inviteOrgName}</strong>.</p>
+                                <p>Please click the button below to set up your account and password:</p>
+                                <a href="${frontendUrl}" style="display: inline-block; background-color: #0070f3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin: 16px 0;">Accept Invitation</a>
+                                <p style="color: #666; font-size: 14px;">This link will expire in 24 hours.</p>
+                                <p style="color: #888; font-size: 12px; margin-top: 32px;">If you did not expect this invitation, you can ignore this email.</p>
+                            </div>
+                        `
+                    });
+                    console.log(`Invite email sent to ${input.email}`);
+                } else {
+                    console.warn('RESEND_API_KEY not set, skipping email.');
+                }
+            }
         }
 
         // 5. Update Profile (Global)
