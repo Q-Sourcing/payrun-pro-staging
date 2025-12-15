@@ -12,23 +12,25 @@ import { IntegrationsSection } from "@/components/settings/IntegrationsSection";
 import { DataManagementSection } from "@/components/settings/DataManagementSection";
 import { PayslipDesignerSection } from "@/components/settings/PayslipDesignerSection";
 import { SystemSettingsSection } from "@/components/settings/SystemSettingsSection";
+import { EmailSettingsSection } from "@/components/settings/EmailSettingsSection";
 import { UserManagement } from "@/components/user-management/UserManagement";
+import { AdminAccessSection } from "@/components/settings/AdminAccessSection";
 import { SettingsSectionGuard } from "@/components/settings/SettingsSectionGuard";
 import { useUserRole } from "@/hooks/use-user-role";
 import { ROLE_DEFINITIONS } from "@/lib/types/roles";
-import { 
-  Building2, 
-  Users, 
-  DollarSign, 
-  Palette, 
-  Shield, 
-  Bell, 
-  RefreshCw, 
-  Database, 
+import {
+  Building2,
+  Users,
+  DollarSign,
+  Palette,
+  Shield,
+  Bell,
+  RefreshCw,
+  Database,
   Info,
-  Activity,
-  FileText,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  Mail,
+  FileText
 } from "lucide-react";
 
 const Settings = () => {
@@ -37,84 +39,98 @@ const Settings = () => {
 
   // Define menu items with role requirements
   const allMenuItems = [
-    { 
-      id: "company", 
-      label: "Company Settings", 
+    {
+      id: "company",
+      label: "Company Settings",
       icon: Building2,
       requiredRole: 'organization_admin' as const,
       requiredPermission: 'organization_configuration'
     },
-    { 
-      id: "employee", 
-      label: "Employee Settings", 
+    {
+      id: "employee",
+      label: "Employee Settings",
       icon: Users,
       requiredRole: 'hr_business_partner' as const,
       requiredPermission: 'view_organization_employees'
     },
-    { 
-      id: "payroll", 
-      label: "Payroll Settings", 
+    {
+      id: "payroll",
+      label: "Payroll Settings",
       icon: DollarSign,
       requiredRole: 'payroll_manager' as const,
       requiredPermission: 'process_payroll'
     },
-    { 
-      id: "payslip-designer", 
-      label: "Payslip Designer", 
+    {
+      id: "payslip-designer",
+      label: "Payslip Designer",
       icon: FileText,
       requiredRole: 'payroll_manager' as const,
       requiredPermission: 'process_payroll'
     },
-    { 
-      id: "theme", 
-      label: "Display & Theme", 
+    {
+      id: "theme",
+      label: "Display & Theme",
       icon: Palette,
       requiredRole: 'employee' as const // Everyone can access theme
     },
-    { 
-      id: "security", 
-      label: "Security & Access", 
+    {
+      id: "security",
+      label: "Security & Access",
       icon: Shield,
       requiredRole: 'organization_admin' as const,
       requiredPermission: 'organization_configuration'
     },
-    { 
-      id: "notifications", 
-      label: "Notifications", 
+    {
+      id: "notifications",
+      label: "Notifications",
       icon: Bell,
       requiredRole: 'employee' as const // Everyone can access notifications
     },
-    { 
-      id: "integrations", 
-      label: "Integrations", 
+    {
+      id: "integrations",
+      label: "Integrations",
       icon: RefreshCw,
       requiredRole: 'organization_admin' as const,
       requiredPermission: 'manage_integrations'
     },
-    { 
-      id: "user-management", 
-      label: "User Management", 
+    {
+      id: "user-management",
+      label: "User Management",
       icon: Users,
       requiredRole: 'organization_admin' as const,
       requiredPermission: 'manage_organization_users'
     },
-    { 
-      id: "system", 
-      label: "System Settings", 
+    {
+      id: "admin-obac",
+      label: "Admin (Access Control)",
+      icon: Shield,
+      requiredRole: 'organization_admin' as const,
+      requiredPermission: 'manage_organization_users'
+    },
+    {
+      id: "emails",
+      label: "Email & Logic",
+      icon: Mail,
+      requiredRole: 'organization_admin' as const,
+      requiredPermission: 'organization_configuration'
+    },
+    {
+      id: "system",
+      label: "System Settings",
       icon: SettingsIcon,
       requiredRole: 'super_admin' as const,
       requiredPermission: 'system_configuration'
     },
-    { 
-      id: "data", 
-      label: "Data Management", 
+    {
+      id: "data",
+      label: "Data Management",
       icon: Database,
       requiredRole: 'organization_admin' as const,
       requiredPermission: 'export_data'
     },
-    { 
-      id: "about", 
-      label: "About & Help", 
+    {
+      id: "about",
+      label: "About & Help",
       icon: Info,
       requiredRole: 'employee' as const // Everyone can access about
     },
@@ -123,22 +139,22 @@ const Settings = () => {
   // Filter menu items based on user role
   const menuItems = allMenuItems.filter(item => {
     if (isSuperAdmin) return true; // Super admin sees everything
-    
+
     if (!role) return false;
-    
+
     const roleDef = ROLE_DEFINITIONS[role];
     const requiredRoleDef = ROLE_DEFINITIONS[item.requiredRole];
-    
+
     // Check role level
     if (roleDef.level < requiredRoleDef.level) {
       return false;
     }
-    
+
     // Check permission if specified
     if (item.requiredPermission && !roleDef.permissions.includes(item.requiredPermission as any)) {
       return false;
     }
-    
+
     return true;
   });
 
@@ -176,7 +192,7 @@ const Settings = () => {
         return (
           <SettingsSectionGuard requiredRole="organization_admin" requiredPermission="organization_configuration">
             <div className="space-y-4">
-            <SecuritySettingsSection />
+              <SecuritySettingsSection />
               <Card>
                 <CardHeader>
                   <CardTitle>Account Security & Lockout</CardTitle>
@@ -209,6 +225,12 @@ const Settings = () => {
             <UserManagement />
           </SettingsSectionGuard>
         );
+      case "admin-obac":
+        return (
+          <SettingsSectionGuard requiredRole="organization_admin" requiredPermission="manage_organization_users">
+            <AdminAccessSection />
+          </SettingsSectionGuard>
+        );
       case "system":
         return (
           <SettingsSectionGuard requiredRole="super_admin" requiredPermission="system_configuration">
@@ -219,6 +241,12 @@ const Settings = () => {
         return (
           <SettingsSectionGuard requiredRole="organization_admin" requiredPermission="export_data">
             <DataManagementSection />
+          </SettingsSectionGuard>
+        );
+      case "emails":
+        return (
+          <SettingsSectionGuard requiredRole="organization_admin" requiredPermission="organization_configuration">
+            <EmailSettingsSection />
           </SettingsSectionGuard>
         );
       default:
@@ -248,11 +276,10 @@ const Settings = () => {
                       <button
                         key={item.id}
                         onClick={() => setActiveSection(item.id)}
-                        className={`settings-nav-item ${
-                          activeSection === item.id
-                            ? "settings-nav-item-selected"
-                            : "settings-nav-item-unselected"
-                        }`}
+                        className={`settings-nav-item ${activeSection === item.id
+                          ? "settings-nav-item-selected"
+                          : "settings-nav-item-unselected"
+                          }`}
                         style={activeSection === item.id ? {
                           backgroundColor: 'hsl(192 78% 30%)',
                           color: 'white'

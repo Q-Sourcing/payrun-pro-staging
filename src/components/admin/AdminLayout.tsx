@@ -3,13 +3,13 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { 
-  Building2, 
-  Users, 
-  Settings, 
-  BarChart3, 
-  Activity, 
-  Shield, 
+import {
+  Building2,
+  Users,
+  Settings,
+  BarChart3,
+  Activity,
+  Shield,
   LogOut,
   Menu,
   X,
@@ -41,8 +41,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     impersonatedBy?: string
     impersonatedRole?: string
     organizationId?: string
+    organizationName?: string
   }>({ isImpersonated: false })
-  
+
   const location = useLocation()
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -83,16 +84,16 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       if (impersonationContext.isImpersonated) {
         await ImpersonationService.endImpersonation('')
       }
-      
+
       // Sign out from Supabase
       const { error } = await supabase.auth.signOut()
       if (error) throw error
-      
+
       toast({
         title: 'Success',
         description: 'Logged out successfully'
       })
-      
+
       navigate('/login')
     } catch (error) {
       toast({
@@ -104,7 +105,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Impersonation Banner */}
       {impersonationContext.isImpersonated && (
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-2">
@@ -112,7 +113,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             <div className="flex items-center space-x-2">
               <AlertTriangle className="h-4 w-4 text-amber-600" />
               <span className="text-sm font-medium text-amber-800">
-                Impersonating as {impersonationContext.impersonatedRole} in Organization ID: {impersonationContext.organizationId}
+                Impersonating as {impersonationContext.impersonatedRole} in Organization: {impersonationContext.organizationName || 'Unknown Organization'}
               </span>
             </div>
             <Button
@@ -130,9 +131,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       {/* Mobile sidebar */}
       <div className={`fixed inset-0 z-50 lg:hidden ${sidebarOpen ? 'block' : 'hidden'}`}>
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
-        <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-white shadow-xl">
+        <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-card shadow-xl border-r border-border">
           <div className="flex h-16 items-center justify-between px-4">
-            <h1 className="text-lg font-semibold text-gray-900">Super Admin</h1>
+            <h1 className="text-lg font-semibold text-foreground">Super Admin</h1>
             <Button
               variant="ghost"
               size="sm"
@@ -160,7 +161,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               )
             })}
           </nav>
-          <div className="border-t border-gray-200 p-4">
+          <div className="border-t border-border p-4">
             <Button
               variant="outline"
               className="w-full"
@@ -175,9 +176,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
       {/* Desktop sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
-        <div className="flex flex-col flex-grow bg-white border-r border-gray-200">
+        <div className="flex flex-col flex-grow bg-card border-r border-border">
           <div className="flex h-16 items-center px-4">
-            <h1 className="text-lg font-semibold text-gray-900">Super Admin</h1>
+            <h1 className="text-lg font-semibold text-foreground">Super Admin</h1>
           </div>
           <nav className="flex-1 space-y-1 px-2 py-4">
             {navigation.map((item) => {
@@ -195,7 +196,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               )
             })}
           </nav>
-          <div className="border-t border-gray-200 p-4">
+          <div className="border-t border-border p-4">
             <Button
               variant="outline"
               className="w-full"
@@ -211,7 +212,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Mobile header */}
-        <div className="sticky top-0 z-10 flex h-16 items-center justify-between bg-white px-4 shadow-sm lg:hidden">
+        <div className="sticky top-0 z-10 flex h-16 items-center justify-between bg-card px-4 border-b border-border lg:hidden">
           <Button
             variant="ghost"
             size="sm"
@@ -219,7 +220,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <h1 className="text-lg font-semibold text-gray-900">Super Admin</h1>
+          <h1 className="text-lg font-semibold text-foreground">Super Admin</h1>
           <div className="w-8" /> {/* Spacer */}
         </div>
 

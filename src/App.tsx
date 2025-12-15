@@ -9,6 +9,8 @@ import { useEffect } from "react";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import SignUp from "./pages/SignUp";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { SupabaseAuthProvider, useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import Settings from "./pages/Settings";
@@ -125,6 +127,8 @@ const App = () => {
             <BrowserRouter>
               <Routes>
                 <Route path="/login" element={<Login />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/signup" element={<SignUp />} />
                 <Route path="/choose-company" element={
                   <ProtectedRoute>
                     <CompanyPicker />

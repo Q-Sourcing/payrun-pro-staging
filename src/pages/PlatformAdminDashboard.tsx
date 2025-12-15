@@ -15,6 +15,11 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PlatformUserManagement } from '@/components/platform-admin/PlatformUserManagement';
+import { PlatformEmailSettings } from '@/components/platform-admin/email/PlatformEmailSettings';
+import { PlatformTemplateManager } from '@/components/platform-admin/email/PlatformTemplateManager';
+import { PlatformEmailLogs } from '@/components/platform-admin/email/PlatformEmailLogs';
 
 interface Organization {
   id: string;
@@ -208,62 +213,89 @@ export default function PlatformAdminDashboard() {
           </Card>
         </div>
 
-        {/* Organizations Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Organizations</CardTitle>
-            <CardDescription>
-              Manage and switch between organizations
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {organizations.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                No organizations found. Create your first organization to get started.
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Companies</TableHead>
-                    <TableHead>Users</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {organizations.map((org) => (
-                    <TableRow key={org.id}>
-                      <TableCell className="font-medium">{org.name}</TableCell>
-                      <TableCell>
-                        <Badge variant={org.active ? 'default' : 'secondary'}>
-                          {org.active ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{org.companies_count || 0}</TableCell>
-                      <TableCell>{org.users_count || 0}</TableCell>
-                      <TableCell>
-                        {new Date(org.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleSwitchToOrganization(org.id)}
-                        >
-                          Switch to
-                          <ArrowRight className="h-4 w-4 ml-2" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+        {/* Main Content Tabs */}
+        <Tabs defaultValue="organizations" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="organizations">Organizations</TabsTrigger>
+            <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="email">Email System</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="organizations">
+            <Card>
+              <CardHeader>
+                <CardTitle>Organizations</CardTitle>
+                <CardDescription>
+                  Manage and switch between organizations
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {organizations.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No organizations found. Create your first organization to get started.
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Companies</TableHead>
+                        <TableHead>Users</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {organizations.map((org) => (
+                        <TableRow key={org.id}>
+                          <TableCell className="font-medium">{org.name}</TableCell>
+                          <TableCell>
+                            <Badge variant={org.active ? 'default' : 'secondary'}>
+                              {org.active ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{org.companies_count || 0}</TableCell>
+                          <TableCell>{org.users_count || 0}</TableCell>
+                          <TableCell>
+                            {new Date(org.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleSwitchToOrganization(org.id)}
+                            >
+                              Switch to
+                              <ArrowRight className="h-4 w-4 ml-2" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="users">
+            <PlatformUserManagement />
+          </TabsContent>
+
+          <TabsContent value="email">
+            <Tabs defaultValue="settings" className="space-y-4">
+              <TabsList>
+                <TabsTrigger value="settings">Global Settings</TabsTrigger>
+                <TabsTrigger value="templates">Templates</TabsTrigger>
+                <TabsTrigger value="logs">Logs</TabsTrigger>
+              </TabsList>
+              <TabsContent value="settings"><PlatformEmailSettings /></TabsContent>
+              <TabsContent value="templates"><PlatformTemplateManager /></TabsContent>
+              <TabsContent value="logs"><PlatformEmailLogs /></TabsContent>
+            </Tabs>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

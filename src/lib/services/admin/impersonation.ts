@@ -44,7 +44,7 @@ export class ImpersonationService {
   static async impersonate(request: ImpersonationRequest): Promise<ImpersonationResponse> {
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      
+
       if (!session?.access_token) {
         throw new Error('No active session found')
       }
@@ -167,6 +167,7 @@ export class ImpersonationService {
     impersonatedBy?: string
     impersonatedRole?: string
     organizationId?: string
+    organizationName?: string
   } {
     try {
       const { data } = supabase.auth.getSession()
@@ -179,7 +180,8 @@ export class ImpersonationService {
         isImpersonated: !!(payload.impersonated_by && payload.impersonated_role),
         impersonatedBy: payload.impersonated_by,
         impersonatedRole: payload.impersonated_role,
-        organizationId: payload.organization_id
+        organizationId: payload.organization_id,
+        organizationName: payload.organization_name
       }
     } catch {
       return { isImpersonated: false }

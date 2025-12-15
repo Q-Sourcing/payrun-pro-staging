@@ -97,59 +97,7 @@
   --status-processed-bg: #dbeafe;
 }
 
-[data-theme="light"] {
-  /* Use HSL numeric tokens to be compatible with tailwind hsl(var(--*))) */
-  --background: 0 0% 100%;
-  --foreground: 222 84% 5%;
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%;
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
-  --ring: 186 84% 30%;
-  --card: 0 0% 100%;
-  --card-foreground: 222 84% 5%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 222 84% 5%;
-  --primary: 186 84% 30%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 45 91% 52%;
-  --secondary-foreground: 0 0% 100%;
-  --accent: 186 84% 94%;
-  --accent-foreground: 186 84% 30%;
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
-  --success: 142 76% 36%;
-  --success-foreground: 0 0% 100%;
-  --warning: 38 92% 50%;
-  --warning-foreground: 222 84% 5%;
-}
 
-[data-theme="dark"] {
-  /* Enhanced Dark Mode - Brand Colors with Proper Contrast */
-  --background: 222 84% 5%;          /* Very dark blue-gray #0f172a */
-  --foreground: 210 40% 98%;         /* Almost white text */
-  --muted: 215 28% 17%;              /* Dark muted bg */
-  --muted-foreground: 215 20% 65%;   /* Lighter for better contrast */
-  --border: 215 20% 25%;             /* Lighter borders */
-  --input: 215 28% 17%;              /* Dark input bg */
-  --ring: 186 84% 45%;               /* Brighter ring for visibility */
-  --card: 222 47% 11%;               /* Slightly lighter card bg #1e293b */
-  --card-foreground: 210 40% 98%;    /* High contrast text */
-  --popover: 222 47% 11%;            /* Solid popover bg - NO TRANSPARENCY */
-  --popover-foreground: 210 40% 98%; /* High contrast text */
-  --primary: 186 84% 40%;            /* Brighter teal for dark mode */
-  --primary-foreground: 0 0% 100%;
-  --secondary: 45 91% 52%;           /* Gold accent */
-  --secondary-foreground: 222 84% 5%;/* Dark text on gold */
-  --accent: 186 60% 20%;             /* Darker teal accent bg */
-  --accent-foreground: 186 84% 85%;  /* Light teal text */
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 0 0% 98%;
-  --success: 142 76% 36%;
-  --success-foreground: 0 0% 100%;
-  --warning: 38 92% 50%;
-  --warning-foreground: 222 84% 5%;  /* Dark text on warning */
-}
 
 /* High Contrast Mode */
 .high-contrast {

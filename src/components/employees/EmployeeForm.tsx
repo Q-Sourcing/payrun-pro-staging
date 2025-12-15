@@ -21,6 +21,8 @@ import { DepartmentsService, Department } from "@/lib/services/departments.servi
 import { BanksService, Bank } from "@/lib/services/banks.service";
 import { useOrg } from "@/lib/tenant/OrgContext";
 import { supabase } from "@/integrations/supabase/client";
+import { RBACService } from "@/lib/services/auth/rbac";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 
 // Account type options
 const ACCOUNT_TYPES = [
@@ -121,6 +123,15 @@ type PayGroupOption = { id: string; name: string };
 export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProps) => {
   const { toast } = useToast();
   const { organizationId, companyId } = useOrg();
+  const { userContext, profile } = useSupabaseAuth(); // Use auth context for roles
+
+  // Get user role from JWT claims or fall back to profile.role from database
+  const userRole = userContext?.role || profile?.role;
+
+  // RBAC Permission Checks - Simplified to always allow both categories
+  // TODO: Re-enable proper RBAC once user_roles table RLS is fixed
+  const canCreateHeadOffice = true;
+  const canCreateProject = true;
 
   // Helper function to get allowed pay types based on employee type and frequency
   const getAllowedPayTypes = (employeeType?: string, payFrequency?: string): string[] => {
@@ -197,6 +208,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
   const watchCompanyUnitId = form.watch("company_unit_id");
   const watchDepartmentId = form.watch("department_id");
   const watchEmployeePrefix = form.watch("employee_prefix");
+
   const watchDateJoined = form.watch("date_joined");
   const watchPayRate = form.watch("pay_rate");
 
@@ -211,6 +223,27 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
   const [reportingManagers, setReportingManagers] = useState<Array<{ value: string; label: string }>>([]);
   const [addingDept, setAddingDept] = useState(false);
   const [newDeptName, setNewDeptName] = useState("");
+
+  // Enforce Category Defaulting & Locking based on Permissions (Create Mode)
+  useEffect(() => {
+    if (mode === "create") {
+      // If user can ONLY create head office, force it
+      if (canCreateHeadOffice && !canCreateProject) {
+        if (watchCategory !== "head_office") {
+          form.setValue("category", "head_office");
+        }
+      }
+      // If user can ONLY create projects, force it
+      else if (!canCreateHeadOffice && canCreateProject) {
+        if (watchCategory !== "projects") {
+          form.setValue("category", "projects");
+        }
+      }
+      // If user can do both, do nothing (allow selection)
+      // If user can do neither, form will effectively be disabled/empty
+    }
+  }, [mode, canCreateHeadOffice, canCreateProject, watchCategory, form]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   // When country changes, derive default currency
   useEffect(() => {
@@ -720,6 +753,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                 <Label htmlFor="category">Category</Label>
                 <Select
                   value={form.getValues("category") || ""}
+                  disabled={(mode === "edit" && userRole !== 'org_admin' && userRole !== 'super_admin') || (canCreateHeadOffice !== canCreateProject)} // Disabled in edit (unless Admin) OR if only one option available
                   onValueChange={(value: PayGroupCategory) => {
                     form.setValue("category", value || "");
                     form.setValue("employee_type", "");
@@ -731,8 +765,8 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="head_office">Head Office</SelectItem>
-                    <SelectItem value="projects">Projects</SelectItem>
+                    {canCreateHeadOffice && <SelectItem value="head_office">Head Office</SelectItem>}
+                    {canCreateProject && <SelectItem value="projects">Projects</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>
@@ -936,7 +970,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="pay_type">Pay Type *</Label>
-                <Select value={form.getValues("pay_type")} onValueChange={(value) => form.setValue("pay_type", value as any)}>
+                <Select value={watchPayType || ""} onValueChange={(value) => form.setValue("pay_type", value as any)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>

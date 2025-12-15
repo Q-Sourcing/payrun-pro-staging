@@ -1,0 +1,9 @@
+{
+    "functions": {
+        "create-platform-user": {
+            "excluded_paths": [
+                ".**"
+            ]
+        }
+    }
+}

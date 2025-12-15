@@ -64,14 +64,14 @@ export const EmployeeCreateForm = ({ onSuccess, onCancel }: EmployeeCreateFormPr
     }, [organizationId, onSuccess, toast]);
 
     return (
-        <div className="flex flex-col h-full bg-gray-50/30">
+        <div className="flex flex-col h-full bg-muted/30">
             <ScrollArea className="flex-1 px-6 py-6">
                 <div className="max-w-3xl mx-auto space-y-6 pb-20">
                     <EmployeeForm mode="create" onSubmit={handleCreate} />
                 </div>
             </ScrollArea>
 
-            <div className="p-4 border-t bg-white flex justify-end gap-3 z-10">
+            <div className="p-4 border-t border-border bg-card flex justify-end gap-3 z-10">
                 <Button variant="outline" onClick={onCancel}>
                     Cancel
                 </Button>

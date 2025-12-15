@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Users, Calendar, Pencil, UserPlus, DollarSign } from "lucide-react";
 import { getCurrencyByCode, formatCurrency as formatCurrencyUtil } from "@/lib/constants/countries";
 import { format } from "date-fns";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { RBACService } from "@/lib/services/auth/rbac";
+import { PayGroupCategory } from "@/lib/types/paygroups";
 
 interface Employee {
   id: string;
@@ -30,6 +33,7 @@ interface PayGroup {
   pay_frequency: string;
   default_tax_percentage: number;
   description?: string | null;
+  category?: PayGroupCategory;
 }
 
 interface PayGroupDetailsDialogProps {
@@ -40,17 +44,32 @@ interface PayGroupDetailsDialogProps {
   onRunPayroll?: () => void;
 }
 
-const PayGroupDetailsDialog = ({ 
-  open, 
-  onOpenChange, 
+const PayGroupDetailsDialog = ({
+  open,
+  onOpenChange,
   payGroupId,
   onEditPayGroup,
-  onRunPayroll 
+  onRunPayroll
 }: PayGroupDetailsDialogProps) => {
   const [payGroup, setPayGroup] = useState<PayGroup | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { userContext } = useSupabaseAuth();
+
+  const canRunPayroll = useMemo(() => {
+    if (!userContext?.role || !payGroup) return false;
+    const scope = payGroup.category === 'projects' ? 'project' : 'head_office';
+    // Users need 'payroll.run' or 'payroll.process' depending on granular definition
+    // Usually 'payroll.run' is the action button
+    return RBACService.roleHasScopedPermission(userContext.role, 'payroll.run', scope);
+  }, [userContext?.role, payGroup]);
+
+  const canEditPayGroup = useMemo(() => {
+    if (!userContext?.role || !payGroup) return false;
+    const scope = payGroup.category === 'projects' ? 'project' : 'head_office';
+    return RBACService.roleHasScopedPermission(userContext.role, 'paygroups.edit', scope);
+  }, [userContext?.role, payGroup]);
 
   useEffect(() => {
     if (open && payGroupId) {
@@ -71,7 +90,7 @@ const PayGroupDetailsDialog = ({
         .single();
 
       if (pgError) throw pgError;
-      setPayGroup(pgData);
+      setPayGroup(pgData as PayGroup);
 
       // Fetch employees in this pay group
       const { data: empData, error: empError } = await supabase
@@ -129,12 +148,12 @@ const PayGroupDetailsDialog = ({
     const currency = getCurrencyByCode(currencyCode);
     const symbol = currency?.symbol || currencyCode;
     const decimals = currency?.decimalPlaces ?? 2;
-    
+
     const formattedRate = rate.toLocaleString('en-US', {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
     });
-    
+
     switch (payType) {
       case "hourly":
         return `${symbol}${formattedRate}/hr`;
@@ -171,14 +190,24 @@ const PayGroupDetailsDialog = ({
               </DialogDescription>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={onEditPayGroup} className="modern-dialog-button-secondary">
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit Details
-              </Button>
-              <Button size="sm" onClick={onRunPayroll} className="modern-dialog-button">
-                <DollarSign className="h-4 w-4 mr-2" />
-                Run Payroll
-              </Button>
+              {onEditPayGroup && canEditPayGroup && (
+                <Button variant="outline" size="sm" onClick={onEditPayGroup} className="modern-dialog-button-secondary">
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit Details
+                </Button>
+              )}
+              {onRunPayroll && (
+                <Button
+                  size="sm"
+                  onClick={onRunPayroll}
+                  className="modern-dialog-button"
+                  disabled={!canRunPayroll}
+                  title={!canRunPayroll ? "You do not have permission to run payroll for this group" : "Run Payroll"}
+                >
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  Run Payroll
+                </Button>
+              )}
             </div>
           </div>
         </DialogHeader>

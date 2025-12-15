@@ -8,6 +8,7 @@ import { getCurrencyByCode, getCurrencyCodeFromCountry } from "@/lib/constants/c
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths, subYears } from "date-fns";
+import { ApprovalAuditReport } from "./ApprovalAuditReport";
 
 interface AnalyticsData {
   activeEmployees: number;
@@ -89,8 +90,8 @@ const ReportsTab = () => {
       const monthlyPayroll = payRunsData?.reduce((sum, run) => sum + (run.total_net_pay || 0), 0) || 0;
 
       // Calculate average pay per employee
-      const avgPayPerEmployee = activeEmployees && activeEmployees > 0 
-        ? monthlyPayroll / activeEmployees 
+      const avgPayPerEmployee = activeEmployees && activeEmployees > 0
+        ? monthlyPayroll / activeEmployees
         : 0;
 
       setAnalytics({
@@ -116,7 +117,7 @@ const ReportsTab = () => {
     const currencyInfo = getCurrencyByCode(analytics.currency);
     const symbol = currencyInfo?.symbol || analytics.currency;
     const decimals = currencyInfo?.decimalPlaces ?? 2;
-    
+
     return `${symbol}${amount.toLocaleString('en-US', {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
@@ -165,7 +166,7 @@ const ReportsTab = () => {
 
       // Generate CSV content
       const csvContent = generateCSV(data, reportType);
-      
+
       // Download the file
       const blob = new Blob([csvContent], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
@@ -214,7 +215,7 @@ const ReportsTab = () => {
       ]);
     } else if (reportType === 'employee_summary') {
       headers = ['Employee Name', 'Email', 'Department', 'Pay Date', 'Gross Pay', 'Tax Deduction', 'Net Pay'];
-      rows = data.flatMap(run => 
+      rows = data.flatMap(run =>
         (run.pay_items || []).map((item: any) => [
           `${item.employees?.first_name || ''} ${item.employees?.middle_name || ''} ${item.employees?.last_name || ''}`.trim(),
           item.employees?.email || '',
@@ -340,24 +341,24 @@ const ReportsTab = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full justify-start"
                 onClick={() => generateReport('payroll_summary', 'monthly')}
               >
                 <Download className="h-4 w-4 mr-2" />
                 Generate Monthly Report
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full justify-start"
                 onClick={() => generateReport('payroll_summary', 'quarterly')}
               >
                 <Download className="h-4 w-4 mr-2" />
                 Generate Quarterly Report
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full justify-start"
                 onClick={() => generateReport('payroll_summary', 'annual')}
               >
@@ -382,24 +383,24 @@ const ReportsTab = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full justify-start"
                 onClick={() => generateReport('employee_summary', 'monthly')}
               >
                 <Download className="h-4 w-4 mr-2" />
                 Generate Pay Stubs
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full justify-start"
                 onClick={() => generateReport('employee_summary', 'quarterly')}
               >
                 <Download className="h-4 w-4 mr-2" />
                 Employee Summary
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full justify-start"
                 onClick={() => generateReport('employee_summary', 'annual')}
               >
@@ -424,24 +425,24 @@ const ReportsTab = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full justify-start"
                 onClick={() => generateReport('cost_analysis', 'monthly')}
               >
                 <Download className="h-4 w-4 mr-2" />
                 Cost Analysis
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full justify-start"
                 onClick={() => generateReport('department_breakdown', 'monthly')}
               >
                 <Download className="h-4 w-4 mr-2" />
                 Department Breakdown
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full justify-start"
                 onClick={() => generateReport('country_comparison', 'monthly')}
               >
@@ -452,6 +453,8 @@ const ReportsTab = () => {
           </CardContent>
         </Card>
       </div>
+
+      <ApprovalAuditReport />
 
       {/* Recent Reports Info */}
       <Card>

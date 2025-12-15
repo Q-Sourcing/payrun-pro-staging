@@ -60,7 +60,7 @@ const EmployeesTab = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const { toast } = useToast();
   const [companyName, setCompanyName] = useState<string | null>(null);
-  
+
   // Column visibility state
   const availableColumns = [
     { key: 'employee_number', label: 'Employee ID' },
@@ -216,9 +216,9 @@ const EmployeesTab = () => {
     const matchesPrefix = prefixFilter === "all" || (employee.employee_number || "").startsWith(prefixFilter + "-");
     const matchesCountry = countryFilter === "all" || employee.country === countryFilter;
     const matchesCurrency = currencyFilter === "all" || employee.currency === currencyFilter;
-    const matchesEmployeeType = employeeTypeFilter === "all" || 
+    const matchesEmployeeType = employeeTypeFilter === "all" ||
       (employee.employee_type_name || employee.employee_type) === employeeTypeFilter;
-    
+
     // Date range filter
     let matchesDateRange = true;
     if (dateFromFilter || dateToFilter) {
@@ -234,9 +234,9 @@ const EmployeesTab = () => {
         matchesDateRange = false;
       }
     }
-    
-    return matchesSearch && matchesStatus && matchesPayType && matchesPrefix && 
-           matchesCountry && matchesCurrency && matchesEmployeeType && matchesDateRange;
+
+    return matchesSearch && matchesStatus && matchesPayType && matchesPrefix &&
+      matchesCountry && matchesCurrency && matchesEmployeeType && matchesDateRange;
   });
 
   const sortedEmployees = [...filteredEmployees].sort((a, b) => {
@@ -261,12 +261,12 @@ const EmployeesTab = () => {
     const currency = getCurrencyByCode(currencyCode);
     const symbol = currency?.symbol || currencyCode;
     const decimals = currency?.decimalPlaces ?? 2;
-    
+
     const formattedRate = rate.toLocaleString('en-US', {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
     });
-    
+
     switch (payType) {
       case "hourly":
         return `${symbol}${formattedRate}/hr`;
@@ -320,7 +320,7 @@ const EmployeesTab = () => {
           description: "All employees already have employee numbers.",
         });
       }
-      
+
       // Refresh the employee list
       fetchEmployees();
     } catch (error: any) {
@@ -346,8 +346,8 @@ const EmployeesTab = () => {
         subtitle={`${filteredEmployees.length} employee${filteredEmployees.length !== 1 ? 's' : ''} found${companyName ? ` • ${companyName}` : ''}`}
         actions={
           <>
-            <Button 
-              onClick={generateEmployeeNumbers} 
+            <Button
+              onClick={generateEmployeeNumbers}
               variant="outline"
               disabled={loading}
             >
@@ -376,8 +376,8 @@ const EmployeesTab = () => {
                   Add Single Employee
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowBulkUploadDialog(true)}>
-              <Upload className="h-4 w-4 mr-2" />
-              Bulk Upload
+                  <Upload className="h-4 w-4 mr-2" />
+                  Bulk Upload
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -396,7 +396,7 @@ const EmployeesTab = () => {
                   className="pl-10 h-11"
                 />
               </div>
-              
+
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="h-11">
                   <SelectValue placeholder="Status" />
@@ -503,29 +503,29 @@ const EmployeesTab = () => {
             </div>
 
             {/* Clear filters button */}
-            {(searchTerm || statusFilter !== 'all' || payTypeFilter !== 'all' || prefixFilter !== 'all' || 
-              countryFilter !== 'all' || currencyFilter !== 'all' || employeeTypeFilter !== 'all' || 
+            {(searchTerm || statusFilter !== 'all' || payTypeFilter !== 'all' || prefixFilter !== 'all' ||
+              countryFilter !== 'all' || currencyFilter !== 'all' || employeeTypeFilter !== 'all' ||
               dateFromFilter || dateToFilter) && (
-              <div className="flex justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSearchTerm("");
-                    setStatusFilter("all");
-                    setPayTypeFilter("all");
-                    setPrefixFilter("all");
-                    setCountryFilter("all");
-                    setCurrencyFilter("all");
-                    setEmployeeTypeFilter("all");
-                    setDateFromFilter("");
-                    setDateToFilter("");
-                  }}
-                >
-                  Clear Filters
-                </Button>
-              </div>
-            )}
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setStatusFilter("all");
+                      setPayTypeFilter("all");
+                      setPrefixFilter("all");
+                      setCountryFilter("all");
+                      setCurrencyFilter("all");
+                      setEmployeeTypeFilter("all");
+                      setDateFromFilter("");
+                      setDateToFilter("");
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
+              )}
           </div>
         }
       />
@@ -543,8 +543,8 @@ const EmployeesTab = () => {
               : 'Get started by adding your first employee to the system.'
             }
           </p>
-          <Button 
-            onClick={() => setShowAddDialog(true)} 
+          <Button
+            onClick={() => setShowAddDialog(true)}
             className="h-11 px-6 bg-blue-600 hover:bg-blue-700"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -553,153 +553,152 @@ const EmployeesTab = () => {
         </div>
       ) : (
         <TableWrapper>
-            <thead className="bg-slate-50 sticky top-0 z-10">
-              <tr>
+          <thead className="bg-muted/50 sticky top-0 z-10">
+            <tr>
+              {visibleColumns.employee_number !== false && (
+                <th className="px-4 py-2 text-left text-sm font-medium text-muted-foreground">Employee ID</th>
+              )}
+              {visibleColumns.name !== false && (
+                <th className="px-4 py-2 text-left text-sm font-medium text-muted-foreground">Name</th>
+              )}
+              {visibleColumns.type !== false && (
+                <th className="px-4 py-2 text-left text-sm font-medium text-muted-foreground">Type</th>
+              )}
+              {visibleColumns.email !== false && (
+                <th className="px-4 py-2 text-left text-sm font-medium text-muted-foreground">Email</th>
+              )}
+              {visibleColumns.pay_type !== false && (
+                <th className="px-4 py-2 text-left text-sm font-medium text-muted-foreground">Pay Type</th>
+              )}
+              {visibleColumns.pay_rate !== false && (
+                <th className="px-4 py-2 text-left text-sm font-medium text-muted-foreground">Pay Rate</th>
+              )}
+              {visibleColumns.country !== false && (
+                <th className="px-4 py-2 text-left text-sm font-medium text-muted-foreground">Country</th>
+              )}
+              {visibleColumns.currency !== false && (
+                <th className="px-4 py-2 text-left text-sm font-medium text-muted-foreground">Currency</th>
+              )}
+              {visibleColumns.pay_group !== false && (
+                <th className="px-4 py-2 text-left text-sm font-medium text-muted-foreground">Pay Group</th>
+              )}
+              {visibleColumns.status !== false && (
+                <th className="px-4 py-2 text-left text-sm font-medium text-muted-foreground">Status</th>
+              )}
+              {visibleColumns.created_at !== false && (
+                <th className="px-4 py-2 text-left text-sm font-medium text-muted-foreground">Date Added</th>
+              )}
+              {visibleColumns.actions !== false && (
+                <th className="px-4 py-2 text-left text-sm font-medium text-muted-foreground">Actions</th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {sortedEmployees.map((employee, index) => (
+              <tr
+                key={employee.id}
+                className="hover:bg-muted/50 border-b border-border"
+              >
                 {visibleColumns.employee_number !== false && (
-                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Employee ID</th>
+                  <td className="px-4 py-2 text-sm">
+                    <div className="font-medium text-foreground">
+                      {employee.employee_number || "—"}
+                    </div>
+                  </td>
                 )}
                 {visibleColumns.name !== false && (
-                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Name</th>
+                  <td className="px-4 py-2 text-sm">
+                    <div className="font-medium text-foreground">
+                      {getFullName(employee)}
+                    </div>
+                  </td>
                 )}
                 {visibleColumns.type !== false && (
-                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Type</th>
+                  <td className="px-4 py-2 text-sm">
+                    {String((employee.employee_type_name || employee.employee_type || '')).toLowerCase().includes('expat') ? (
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 font-medium px-3 py-1 border border-blue-200 dark:border-blue-800">
+                        <Globe className="h-3 w-3 mr-1" />
+                        {employee.employee_type_name || 'Expatriate'}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-800 font-medium px-3 py-1">
+                        <Flag className="h-3 w-3 mr-1" />
+                        {employee.employee_type_name || 'Local'}
+                      </Badge>
+                    )}
+                  </td>
                 )}
                 {visibleColumns.email !== false && (
-                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Email</th>
+                  <td className="px-4 py-2 text-sm text-muted-foreground">{employee.email}</td>
                 )}
                 {visibleColumns.pay_type !== false && (
-                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Pay Type</th>
+                  <td className="px-4 py-2 text-sm">
+                    <div className="font-medium text-foreground">{formatPayType(employee.pay_type)}</div>
+                  </td>
                 )}
                 {visibleColumns.pay_rate !== false && (
-                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Pay Rate</th>
+                  <td className="px-4 py-2 text-sm">
+                    <div className="font-medium text-foreground">{formatPayRate(employee.pay_rate, employee.pay_type, employee.currency)}</div>
+                  </td>
                 )}
                 {visibleColumns.country !== false && (
-                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Country</th>
+                  <td className="px-4 py-2 text-sm text-muted-foreground">{employee.country}</td>
                 )}
                 {visibleColumns.currency !== false && (
-                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Currency</th>
+                  <td className="px-4 py-2 text-sm text-muted-foreground">{employee.currency}</td>
                 )}
                 {visibleColumns.pay_group !== false && (
-                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Pay Group</th>
+                  <td className="px-4 py-2 text-sm text-muted-foreground">{employee.pay_groups?.name || "Unassigned"}</td>
                 )}
                 {visibleColumns.status !== false && (
-                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Status</th>
+                  <td className="px-4 py-2 text-sm">
+                    <Badge
+                      variant={employee.status === "active" ? "default" : "secondary"}
+                      className={`font-medium px-3 py-1 ${employee.status === "active"
+                          ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800"
+                          : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700"
+                        }`}
+                    >
+                      {employee.status}
+                    </Badge>
+                  </td>
                 )}
                 {visibleColumns.created_at !== false && (
-                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Date Added</th>
+                  <td className="px-4 py-2 text-sm text-muted-foreground">
+                    {employee.created_at ? format(new Date(employee.created_at), 'MMM dd, yyyy') : '—'}
+                  </td>
                 )}
                 {visibleColumns.actions !== false && (
-                  <th className="px-4 py-2 text-left text-sm font-medium text-slate-600">Actions</th>
+                  <td className="px-4 py-2 text-sm">
+                    <div className="flex items-center gap-1">
+                      {(employee as any).project_id && (
+                        <Link to={`/projects/${(employee as any).project_id}`} className="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted" title="View Project">
+                          <LinkIcon className="h-4 w-4" />
+                        </Link>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 hover:bg-muted hover:text-foreground"
+                        onClick={() => handleEditEmployee(employee)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </td>
                 )}
               </tr>
-            </thead>
-            <tbody>
-              {sortedEmployees.map((employee, index) => (
-                <tr 
-                  key={employee.id}
-                  className="hover:bg-slate-50 border-b border-slate-100"
-                >
-                  {visibleColumns.employee_number !== false && (
-                    <td className="px-4 py-2 text-sm">
-                      <div className="font-medium text-slate-900">
-                        {employee.employee_number || "—"}
-                      </div>
-                    </td>
-                  )}
-                  {visibleColumns.name !== false && (
-                    <td className="px-4 py-2 text-sm">
-                      <div className="font-medium text-slate-900">
-                        {getFullName(employee)}
-                      </div>
-                    </td>
-                  )}
-                  {visibleColumns.type !== false && (
-                    <td className="px-4 py-2 text-sm">
-                      {String((employee.employee_type_name || employee.employee_type || '')).toLowerCase().includes('expat') ? (
-                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 font-medium px-3 py-1 border border-blue-200">
-                          <Globe className="h-3 w-3 mr-1" />
-                          {employee.employee_type_name || 'Expatriate'}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 font-medium px-3 py-1">
-                          <Flag className="h-3 w-3 mr-1" />
-                          {employee.employee_type_name || 'Local'}
-                        </Badge>
-                      )}
-                    </td>
-                  )}
-                  {visibleColumns.email !== false && (
-                    <td className="px-4 py-2 text-sm text-slate-600">{employee.email}</td>
-                  )}
-                  {visibleColumns.pay_type !== false && (
-                    <td className="px-4 py-2 text-sm">
-                      <div className="font-medium text-slate-900">{formatPayType(employee.pay_type)}</div>
-                    </td>
-                  )}
-                  {visibleColumns.pay_rate !== false && (
-                    <td className="px-4 py-2 text-sm">
-                      <div className="font-medium text-slate-900">{formatPayRate(employee.pay_rate, employee.pay_type, employee.currency)}</div>
-                    </td>
-                  )}
-                  {visibleColumns.country !== false && (
-                    <td className="px-4 py-2 text-sm text-slate-600">{employee.country}</td>
-                  )}
-                  {visibleColumns.currency !== false && (
-                    <td className="px-4 py-2 text-sm text-slate-600">{employee.currency}</td>
-                  )}
-                  {visibleColumns.pay_group !== false && (
-                    <td className="px-4 py-2 text-sm text-slate-600">{employee.pay_groups?.name || "Unassigned"}</td>
-                  )}
-                  {visibleColumns.status !== false && (
-                    <td className="px-4 py-2 text-sm">
-                      <Badge 
-                        variant={employee.status === "active" ? "default" : "secondary"}
-                        className={`font-medium px-3 py-1 ${
-                          employee.status === "active" 
-                            ? "bg-green-100 text-green-800 border border-green-200" 
-                            : "bg-gray-100 text-gray-800 border border-gray-200"
-                        }`}
-                      >
-                        {employee.status}
-                      </Badge>
-                    </td>
-                  )}
-                  {visibleColumns.created_at !== false && (
-                    <td className="px-4 py-2 text-sm text-slate-600">
-                      {employee.created_at ? format(new Date(employee.created_at), 'MMM dd, yyyy') : '—'}
-                    </td>
-                  )}
-                  {visibleColumns.actions !== false && (
-                    <td className="px-4 py-2 text-sm">
-                      <div className="flex items-center gap-1">
-                        {(employee as any).project_id && (
-                          <Link to={`/projects/${(employee as any).project_id}`} className="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-slate-100" title="View Project">
-                            <LinkIcon className="h-4 w-4" />
-                          </Link>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
-                          onClick={() => handleEditEmployee(employee)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
+            ))}
+          </tbody>
         </TableWrapper>
       )}
 
-      <AddEmployeeDialog 
-        open={showAddDialog} 
+      <AddEmployeeDialog
+        open={showAddDialog}
         onOpenChange={setShowAddDialog}
         onEmployeeAdded={fetchEmployees}
       />
-      
+
       <EditEmployeeDialog
         open={showEditDialog}
         onOpenChange={setShowEditDialog}

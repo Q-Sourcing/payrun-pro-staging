@@ -17,11 +17,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Users, 
-  Globe2, 
-  Briefcase, 
-  GraduationCap, 
+import {
+  Users,
+  Globe2,
+  Briefcase,
+  GraduationCap,
   HelpCircle,
   AlertCircle,
   CheckCircle,
@@ -30,9 +30,9 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  PayGroupType, 
-  PayGroupFormData, 
+import {
+  PayGroupType,
+  PayGroupFormData,
   PAYGROUP_TYPES,
   SUPPORTED_COUNTRIES,
   SUPPORTED_CURRENCIES,
@@ -60,6 +60,9 @@ interface CreatePayGroupModalProps {
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
   defaultType?: PayGroupType;
+  defaultCategory?: PayGroupCategory;
+  defaultEmployeeType?: HeadOfficeSubType | ProjectsSubType;
+  defaultPayFrequency?: ManpowerFrequency;
 }
 
 export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
@@ -67,6 +70,9 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
   onOpenChange,
   onSuccess,
   defaultType,
+  defaultCategory,
+  defaultEmployeeType,
+  defaultPayFrequency,
 }) => {
   // Simple project shape for dropdown
   type Project = {
@@ -88,7 +94,7 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
     }
     return 'regular';
   };
-  
+
   const [selectedType, setSelectedType] = useState<PayGroupType>(() => {
     try {
       return getInitialType();
@@ -97,7 +103,7 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
       return 'regular';
     }
   });
-  
+
   // Ensure selectedType stays locked to defaultType when provided and valid
   useEffect(() => {
     try {
@@ -112,7 +118,7 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<PayGroupCategory | ''>('');
   const [selectedEmployeeType, setSelectedEmployeeType] = useState<HeadOfficeSubType | ProjectsSubType | ''>('');
   const [selectedPayFrequency, setSelectedPayFrequency] = useState<ManpowerFrequency | ''>('');
-  
+
   const [formData, setFormData] = useState<PayGroupFormData>({
     name: '',
     type: defaultType || 'regular',
@@ -126,8 +132,6 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
     default_tax_percentage: 30,
     exchange_rate_to_local: 3800,
     tax_country: '',
-    contract_duration: 12,
-    default_hourly_rate: 25,
     internship_duration: 6,
     stipend_amount: 500,
     academic_institution: ''
@@ -162,7 +166,12 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
           console.error('Error fetching projects:', err);
         }
       })();
-      
+
+      // Set context defaults if provided
+      const initialCategory = defaultCategory || '';
+      const initialEmployeeType = defaultEmployeeType || '';
+      const initialPayFrequency = defaultPayFrequency || '';
+
       // Auto-set IPPMS fields when defaultType is 'piece_rate'
       if (initialType === 'piece_rate') {
         setSelectedCategory('projects');
@@ -192,16 +201,16 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
           academic_institution: ''
         });
       } else {
-        setSelectedCategory('');
-        setSelectedEmployeeType('');
-        setSelectedPayFrequency('');
+        setSelectedCategory(initialCategory as PayGroupCategory | '');
+        setSelectedEmployeeType(initialEmployeeType as HeadOfficeSubType | ProjectsSubType | '');
+        setSelectedPayFrequency(initialPayFrequency as ManpowerFrequency | '');
         setSelectedProjectId('');
         setFormData({
           name: '',
           type: initialType,
-          category: undefined,
-          employee_type: undefined,
-          pay_frequency: undefined,
+          category: initialCategory || undefined,
+          employee_type: initialEmployeeType || undefined,
+          pay_frequency: initialPayFrequency || undefined,
           country: '',
           currency: initialType === 'expatriate' ? 'USD' : 'UGX',
           status: 'active',
@@ -221,7 +230,7 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
       setErrors({});
       setGeneratedPayGroupId('');
     }
-  }, [open, defaultType]);
+  }, [open, defaultType, defaultCategory, defaultEmployeeType, defaultPayFrequency]);
 
   // Update formData when category/employee_type/pay_frequency changes
   // Skip for IPPMS (piece_rate) as those are auto-set
@@ -323,9 +332,9 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
       if ((selectedCategory === 'projects' || defaultType === 'piece_rate') && project) {
         setGeneratedPayGroupId(generateProjectPayGroupId(project.name, formData.name));
       } else {
-        const typeCode = selectedType === 'expatriate' ? 'EXPG' : 
-                        selectedType === 'piece_rate' ? 'PCE' : 
-                        selectedType === 'intern' ? 'INTR' : 'REGP';
+        const typeCode = selectedType === 'expatriate' ? 'EXPG' :
+          selectedType === 'piece_rate' ? 'PCE' :
+            selectedType === 'intern' ? 'INTR' : 'REGP';
         setGeneratedPayGroupId(generatePayGroupId(typeCode as any, formData.name));
       }
     } else {
@@ -383,7 +392,7 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
   // Handle input changes
   const handleInputChange = (field: keyof PayGroupFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    
+
     // Clear error for this field
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
@@ -394,7 +403,7 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
   const validateForm = (): boolean => {
     const validationErrors = PayGroupsService.validatePayGroupData(formData);
     const errorMap: Record<string, string> = {};
-    
+
     validationErrors.forEach(error => {
       // Map generic errors to specific fields
       if (error.includes('name')) errorMap.name = error;
@@ -525,83 +534,86 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
         <div className="space-y-6">
           {/* Category and Employee Type Selection - Hide for IPPMS (piece_rate) */}
           {defaultType !== 'piece_rate' && (
-          <div className="space-y-4">
-            <Label className="text-base font-medium">Category & Employee Type</Label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {renderField(
-                'category',
-                'Category',
-                <Select 
-                  value={selectedCategory} 
-                  onValueChange={(value: PayGroupCategory) => {
-                    setSelectedCategory(value);
-                    setSelectedEmployeeType(''); // Reset employee_type when category changes
-                    setSelectedPayFrequency(''); // Reset pay_frequency when category changes
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="head_office">Head Office</SelectItem>
-                    <SelectItem value="projects">Projects</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-
-              {selectedCategory && (
-                renderField(
-                  'employee_type',
-                  'Employee Type',
-                  <Select 
-                    value={selectedEmployeeType} 
-                    onValueChange={(value: HeadOfficeSubType | ProjectsSubType) => {
-                      setSelectedEmployeeType(value);
-                      if (value !== 'manpower') {
-                        setSelectedPayFrequency(''); // Reset pay_frequency if not manpower
-                      }
+            <div className="space-y-4">
+              <Label className="text-base font-medium">Category & Employee Type</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {renderField(
+                  'category',
+                  'Category',
+                  <Select
+                    value={selectedCategory}
+                    onValueChange={(value: PayGroupCategory) => {
+                      setSelectedCategory(value);
+                      setSelectedEmployeeType(''); // Reset employee_type when category changes
+                      setSelectedPayFrequency(''); // Reset pay_frequency when category changes
                     }}
+                    disabled={!!defaultCategory}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select employee type" />
+                    <SelectTrigger className={defaultCategory ? 'opacity-70 cursor-not-allowed' : ''}>
+                      <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
-                      {getSubTypesForCategory(selectedCategory).map(empType => (
-                        <SelectItem key={empType} value={empType}>
-                          {empType === 'regular' ? 'Regular' :
-                           empType === 'expatriate' ? 'Expatriate' :
-                           empType === 'interns' ? 'Interns' :
-                           empType === 'manpower' ? 'Manpower' :
-                           empType === 'ippms' ? 'IPPMS' :
-                           empType}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="head_office">Head Office</SelectItem>
+                      <SelectItem value="projects">Projects</SelectItem>
                     </SelectContent>
                   </Select>
-                )
-              )}
+                )}
 
-              {requiresPayFrequency(selectedCategory, selectedEmployeeType) && (
-                renderField(
-                  'pay_frequency',
-                  'Pay Frequency',
-                  <Select 
-                    value={selectedPayFrequency} 
-                    onValueChange={(value: ManpowerFrequency) => setSelectedPayFrequency(value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select pay frequency" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="bi_weekly">Bi-weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )
-              )}
+                {selectedCategory && (
+                  renderField(
+                    'employee_type',
+                    'Employee Type',
+                    <Select
+                      value={selectedEmployeeType}
+                      onValueChange={(value: HeadOfficeSubType | ProjectsSubType) => {
+                        setSelectedEmployeeType(value);
+                        if (value !== 'manpower') {
+                          setSelectedPayFrequency(''); // Reset pay_frequency if not manpower
+                        }
+                      }}
+                      disabled={!!defaultEmployeeType}
+                    >
+                      <SelectTrigger className={defaultEmployeeType ? 'opacity-70 cursor-not-allowed' : ''}>
+                        <SelectValue placeholder="Select employee type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getSubTypesForCategory(selectedCategory).map(empType => (
+                          <SelectItem key={empType} value={empType}>
+                            {empType === 'regular' ? 'Regular' :
+                              empType === 'expatriate' ? 'Expatriate' :
+                                empType === 'interns' ? 'Interns' :
+                                  empType === 'manpower' ? 'Manpower' :
+                                    empType === 'ippms' ? 'IPPMS' :
+                                      empType}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )
+                )}
+
+                {selectedCategory && requiresPayFrequency(selectedCategory as PayGroupCategory, selectedEmployeeType) && (
+                  renderField(
+                    'pay_frequency',
+                    'Pay Frequency',
+                    <Select
+                      value={selectedPayFrequency}
+                      onValueChange={(value: ManpowerFrequency) => setSelectedPayFrequency(value)}
+                      disabled={!!defaultPayFrequency}
+                    >
+                      <SelectTrigger className={defaultPayFrequency ? 'opacity-70 cursor-not-allowed' : ''}>
+                        <SelectValue placeholder="Select pay frequency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="bi_weekly">Bi-weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )
+                )}
+              </div>
             </div>
-          </div>
           )}
 
           {/* Pay Group Type Selection - Only show if defaultType is not provided or invalid */}
@@ -615,12 +627,11 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
-                    <Card 
-                      className={`cursor-pointer transition-all ${
-                        selectedType === type.id 
-                          ? 'ring-2 ring-blue-500 bg-blue-50' 
-                          : 'hover:bg-gray-50'
-                      }`}
+                    <Card
+                      className={`cursor-pointer transition-all ${selectedType === type.id
+                        ? 'ring-2 ring-blue-500 bg-blue-50'
+                        : 'hover:bg-gray-50'
+                        }`}
                       onClick={() => setSelectedType(type.id)}
                     >
                       <CardContent className="p-4 text-center">
@@ -675,7 +686,7 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
                       <CheckCircle className="h-4 w-4 text-green-600" />
                       Basic Information
                     </h3>
-                    
+
                     {/* Project selection for project-based groups */}
                     {(selectedCategory === 'projects' || defaultType === 'piece_rate') && renderField(
                       'project',
@@ -693,7 +704,7 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
                         </SelectContent>
                       </Select>
                     )}
-                    
+
                     {renderField(
                       'name',
                       'Pay Group Name',
@@ -916,7 +927,7 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
                                 <SelectValue placeholder="Select pay type" />
                               </SelectTrigger>
                               <SelectContent>
-                                {(['piece_rate','daily_rate'] as const)
+                                {(['piece_rate', 'daily_rate'] as const)
                                   .filter(pt => allowedPayTypes.length === 0 || allowedPayTypes.includes(pt))
                                   .map(pt => (
                                     <SelectItem key={pt} value={pt}>

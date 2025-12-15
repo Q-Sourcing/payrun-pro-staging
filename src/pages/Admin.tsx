@@ -4,6 +4,7 @@ import { AdminLayout } from '@/components/admin/AdminLayout'
 import { OverviewPage } from '@/components/admin/OverviewPage'
 import { OrganizationsList } from '@/components/admin/OrganizationsList'
 import { UserManagement } from '@/components/admin/UserManagement'
+import OrgUsersManagementPage from '@/pages/admin/OrgUsersManagementPage'
 
 export function Admin() {
   return (
@@ -13,6 +14,7 @@ export function Admin() {
         <Route path="/organizations" element={<OrganizationsList />} />
         <Route path="/organizations/:orgId" element={<div>Organization Detail - Coming Soon</div>} />
         <Route path="/users" element={<UserManagement />} />
+        <Route path="/admin/orgs/:orgId/users" element={<OrgUsersManagementPage />} />
         <Route path="/system-settings" element={<div>System Settings - Coming Soon</div>} />
         <Route path="/global-reports" element={<div>Global Reports - Coming Soon</div>} />
         <Route path="/activity-log" element={<div>Activity Log - Coming Soon</div>} />

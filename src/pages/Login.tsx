@@ -1,5 +1,5 @@
-import { ModernLoginForm } from '@/components/auth/ModernLoginForm';
+import { SignInCard } from '@/components/ui/sign-in-card-2';
 
 export default function Login() {
-  return <ModernLoginForm />;
+  return <SignInCard />;
 }

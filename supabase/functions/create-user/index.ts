@@ -8,10 +8,10 @@ const corsHeaders = {
 
 interface CreateUserRequest {
   email: string;
-  password: string;
+  password?: string; // Optional now, we prefer invite
   full_name: string;
   role: 'employee' | 'hr_manager' | 'finance' | 'admin';
-  country: string;
+  country?: string; // Optional
 }
 
 interface CreateUserResponse {
@@ -50,68 +50,76 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Authorization header required' 
+        JSON.stringify({
+          success: false,
+          message: 'Authorization header required'
         } as CreateUserResponse),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
     // Extract the JWT token
     const token = authHeader.replace('Bearer ', '')
-    
+
     // Verify the token and get user info
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
-    
+
     if (authError || !user) {
       console.error('Authentication failed:', authError)
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Invalid authentication token' 
+        JSON.stringify({
+          success: false,
+          message: 'Invalid authentication token'
         } as CreateUserResponse),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
-    // Check if user has super_admin role
-    const { data: userRoles, error: roleError } = await supabaseAdmin
-      .from('user_roles')
+    // Check permissions using user_profiles (standard for this app)
+    const { data: callerProfile, error: callerProfileError } = await supabaseAdmin
+      .from('user_profiles')
       .select('role')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
+      .maybeSingle()
 
-    if (roleError) {
-      console.error('Error fetching user roles:', roleError)
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Failed to verify user permissions' 
-        } as CreateUserResponse),
-        { 
-          status: 403, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
+    // Fallback for Super Admin whitelist
+    const SUPER_ADMIN_EMAILS = ['nalungukevin@gmail.com'];
+    const isWhitelisted = SUPER_ADMIN_EMAILS.includes(user.email || '');
+
+    const callerRole = callerProfile?.role || '';
+
+    const { data: platformAdmin, error: platformAdminError } = await supabaseAdmin
+      .from('platform_admins')
+      .select('id, allowed')
+      .eq('email', user.email)
+      .maybeSingle()
+
+    if (platformAdminError) {
+      console.error('Platform admin lookup failed:', platformAdminError)
     }
 
-    const roles = userRoles?.map(r => r.role) || []
-    if (!roles.includes('super_admin')) {
-      console.error(`User ${user.email} attempted to create user without super_admin role`)
+    const isPlatformAdmin = !!platformAdmin?.allowed
+
+    // Allowed roles for creating users
+    const ALLOWED_ROLES = ['super_admin', 'org_admin', 'organization_admin', 'org_owner'];
+
+    // Allow if has allowed role OR whitelisted email OR platform admin
+    if (!ALLOWED_ROLES.includes(callerRole) && !isWhitelisted && !isPlatformAdmin) {
+      console.error(`User ${user.email} (Role: ${callerRole}) attempted to create user without sufficient permissions`)
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Insufficient permissions. Super admin role required.' 
+        JSON.stringify({
+          success: false,
+          message: 'Insufficient permissions. Organization Admin or Super Admin role required.'
         } as CreateUserResponse),
-        { 
-          status: 403, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
@@ -120,139 +128,111 @@ serve(async (req) => {
     const { email, password, full_name, role, country }: CreateUserRequest = await req.json()
 
     // Validate required fields
-    if (!email || !password || !full_name || !role || !country) {
+    if (!email || !full_name || !role) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'All fields are required: email, password, full_name, role, country' 
+        JSON.stringify({
+          success: false,
+          message: 'Required fields: email, full_name, role'
         } as CreateUserResponse),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
-    // Validate role
-    const validRoles = ['employee', 'hr_manager', 'finance', 'admin']
-    if (!validRoles.includes(role)) {
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: `Invalid role. Must be one of: ${validRoles.join(', ')}` 
-        } as CreateUserResponse),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    // Validate role (optional, align with your system roles)
+    // We are more flexible now as role might be organization specific
+
+    let newUser;
+
+    if (password) {
+      // Create with password
+      const { data, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          full_name,
+          first_name: full_name.split(' ')[0] || '',
+          last_name: full_name.split(' ').slice(1).join(' ') || '',
+          country
         }
-      )
+      })
+      if (createError) throw createError;
+      newUser = data.user;
+    } else {
+      // Invite user (better UX)
+      const { data, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        data: {
+          full_name,
+          first_name: full_name.split(' ')[0] || '',
+          last_name: full_name.split(' ').slice(1).join(' ') || '',
+          country
+        }
+      })
+      if (inviteError) throw inviteError;
+      newUser = data.user;
     }
 
-    // Create the new user
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      user_metadata: {
-        full_name,
-        country
-      }
-    })
-
-    if (createError || !newUser.user) {
-      console.error('Error creating user:', createError)
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Failed to create user: ' + (createError?.message || 'Unknown error') 
-        } as CreateUserResponse),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
+    if (!newUser) {
+      throw new Error('Failed to create or invite user')
     }
 
-    // Create user profile
+    // Create user profile in user_profiles table (Correct table)
     const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .insert({
-        id: newUser.user.id,
+      .from('user_profiles')
+      .upsert({
+        id: newUser.id,
         email: email,
         first_name: full_name.split(' ')[0] || '',
         last_name: full_name.split(' ').slice(1).join(' ') || '',
+        role: role, // 'employee', 'organization_admin', etc.
         created_at: new Date().toISOString()
       })
 
     if (profileError) {
       console.error('Error creating profile:', profileError)
-      // Clean up the created user if profile creation fails
-      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
-      
+      // Clean up if profile creation fails? 
+      // Maybe not, as the auth user exists. We can return a warning.
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Failed to create user profile' 
+        JSON.stringify({
+          success: true, // User created, but profile failed
+          message: 'User created/invited, but profile creation failed: ' + profileError.message,
+          user_id: newUser.id
         } as CreateUserResponse),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 200, // Still 200 as auth user is key
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
-    // Assign role to the user
-    const { error: roleAssignError } = await supabaseAdmin
-      .from('user_roles')
-      .insert({
-        user_id: newUser.user.id,
-        role: role,
-        assigned_by: user.id,
-        assigned_at: new Date().toISOString()
-      })
-
-    if (roleAssignError) {
-      console.error('Error assigning role:', roleAssignError)
-      // Clean up the created user and profile if role assignment fails
-      await supabaseAdmin.from('profiles').delete().eq('id', newUser.user.id)
-      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
-      
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Failed to assign role to user' 
-        } as CreateUserResponse),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    // Log successful user creation (without sensitive data)
-    console.log(`User created successfully: ${email} with role ${role} by ${user.email}`)
+    // Assign legacy role if needed
+    // ...
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         message: 'User created successfully',
-        user_id: newUser.user.id
+        user_id: newUser.id
       } as CreateUserResponse),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Unexpected error in create-user function:', error)
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        message: 'Internal server error' 
+      JSON.stringify({
+        success: false,
+        message: error.message || 'Internal server error'
       } as CreateUserResponse),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
   }

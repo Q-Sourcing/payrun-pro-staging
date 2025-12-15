@@ -45,7 +45,7 @@ serve(async (req) => {
     // Verify the current user's token
     const token = authHeader.replace('Bearer ', '')
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token)
-    
+
     if (userError || !user) {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid token' }),
@@ -115,6 +115,7 @@ serve(async (req) => {
       aud: 'authenticated',
       role: 'authenticated',
       organization_id: target_org_id,
+      organization_name: org.name,
       impersonated_role: target_role,
       impersonated_by: user.id,
       impersonated_at: new Date().toISOString(),
@@ -127,7 +128,7 @@ serve(async (req) => {
     const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
     const payload = btoa(JSON.stringify(impersonationPayload))
     const signature = btoa('impersonation_signature') // In production, use proper HMAC
-    
+
     const impersonationToken = `${header}.${payload}.${signature}`
 
     // Log impersonation session
@@ -155,23 +156,23 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify(response),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
 
   } catch (error) {
     console.error('Impersonation error:', error)
     return new Response(
-      JSON.stringify({ 
-        success: false, 
+      JSON.stringify({
+        success: false,
         error: 'Internal server error',
-        details: error.message 
+        details: error.message
       }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
   }

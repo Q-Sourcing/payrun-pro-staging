@@ -16,24 +16,45 @@ interface UserManagementGuardProps {
 
 // Helper function to convert Supabase profile to our User type
 const convertProfileToUser = (profile: any, supabaseUser: any): User | null => {
-  if (!profile || !supabaseUser) return null;
-  
-  // Map the first role from the roles array to our UserRole type
-  const primaryRole = profile.roles?.[0] as UserRole || 'employee';
-  
+  if (!supabaseUser) return null;
+
+  // Handle mixed profile shapes (legacy array vs new singular role)
+  let primaryRole: UserRole = 'employee';
+
+  // SUPER ADMIN FALLBACK: Check email whitelist first
+  // This matches logic in use-user-role.ts
+  const SUPER_ADMIN_EMAILS = ['nalungukevin@gmail.com'];
+  if (SUPER_ADMIN_EMAILS.includes(supabaseUser.email || '')) {
+    primaryRole = 'super_admin';
+  } else if (profile?.role) {
+    // New profile shape
+    primaryRole = profile.role as UserRole;
+  } else if (profile?.roles && Array.isArray(profile.roles)) {
+    // Legacy profile shape
+    primaryRole = profile.roles[0] as UserRole;
+  } else {
+    // Fallback if no profile or role found
+    const appRole = supabaseUser.app_metadata?.role || supabaseUser.user_metadata?.role;
+    if (appRole === 'super_admin') primaryRole = 'super_admin';
+  }
+
+  // Fallback for names
+  const firstName = profile?.first_name || supabaseUser.user_metadata?.first_name || '';
+  const lastName = profile?.last_name || supabaseUser.user_metadata?.last_name || '';
+
   return {
-    id: profile.id,
-    email: profile.email,
-    firstName: profile.first_name || '',
-    lastName: profile.last_name || '',
+    id: supabaseUser.id,
+    email: supabaseUser.email || '',
+    firstName,
+    lastName,
     role: primaryRole,
-    organizationId: null,
+    organizationId: profile?.organization_id || supabaseUser.user_metadata?.organization_id || null,
     departmentId: null,
     managerId: null,
     isActive: true,
-    lastLogin: supabaseUser.last_sign_in_at,
-    createdAt: supabaseUser.created_at,
-    updatedAt: supabaseUser.updated_at || supabaseUser.created_at,
+    lastLogin: supabaseUser.last_sign_in_at || new Date().toISOString(),
+    createdAt: supabaseUser.created_at || new Date().toISOString(),
+    updatedAt: profile?.updated_at || supabaseUser.updated_at || new Date().toISOString(),
     permissions: ROLE_DEFINITIONS[primaryRole]?.permissions || [],
     restrictions: [],
     twoFactorEnabled: false,
@@ -49,7 +70,7 @@ export function UserManagementGuard({
   onUnauthorized
 }: UserManagementGuardProps) {
   const { user, profile } = useSupabaseAuth();
-  
+
   // Convert Supabase profile to our User type
   const convertedUser = convertProfileToUser(profile, user);
 
@@ -197,7 +218,7 @@ function canAccessUserManagement(user: User): boolean {
 export function canCreateUserWithRole(currentUser: User, targetRole: UserRole): boolean {
   // Super admins can create anyone
   if (currentUser.role === 'super_admin') return true;
-  
+
   // Organization admins can create users up to their level
   if (currentUser.role === 'organization_admin') {
     const roleHierarchy = {
@@ -209,10 +230,10 @@ export function canCreateUserWithRole(currentUser: User, targetRole: UserRole): 
       'hr_business_partner': 4,
       'employee': 1
     };
-    
+
     return (roleHierarchy[targetRole] || 0) <= (roleHierarchy[currentUser.role] || 0);
   }
-  
+
   return false;
 }
 
@@ -222,12 +243,12 @@ export function canCreateUserWithRole(currentUser: User, targetRole: UserRole): 
 export function canEditUser(currentUser: User, targetUser: User): boolean {
   // Super admins can edit anyone
   if (currentUser.role === 'super_admin') return true;
-  
+
   // Organization admins can edit users in their organization
   if (currentUser.role === 'organization_admin') {
     return currentUser.organizationId === targetUser.organizationId;
   }
-  
+
   return false;
 }
 
@@ -237,13 +258,13 @@ export function canEditUser(currentUser: User, targetUser: User): boolean {
 export function canDeleteUser(currentUser: User, targetUser: User): boolean {
   // Super admins can delete anyone
   if (currentUser.role === 'super_admin') return true;
-  
+
   // Organization admins can delete users in their organization (except super admins)
   if (currentUser.role === 'organization_admin') {
-    return currentUser.organizationId === targetUser.organizationId && 
-           targetUser.role !== 'super_admin';
+    return currentUser.organizationId === targetUser.organizationId &&
+      targetUser.role !== 'super_admin';
   }
-  
+
   return false;
 }
 
@@ -254,11 +275,11 @@ export function getAccessibleRolesForCreation(user: User): UserRole[] {
   if (user.role === 'super_admin') {
     return Object.keys(ROLE_DEFINITIONS) as UserRole[];
   }
-  
+
   if (user.role === 'organization_admin') {
     return ['organization_admin', 'ceo_executive', 'payroll_manager', 'finance_controller', 'hr_business_partner', 'employee'];
   }
-  
+
   return [];
 }
 

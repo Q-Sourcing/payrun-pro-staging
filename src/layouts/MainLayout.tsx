@@ -2,7 +2,7 @@ import { Outlet } from "react-router-dom";
 import { NavigationSidebar } from "@/components/Sidebar";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { LogOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronRight, Pin, PinOff } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useUserRole } from "@/hooks/use-user-role";
 import { RoleBadge, RoleBadgeSmall } from "@/components/admin/RoleBadge";
@@ -17,7 +17,19 @@ import { useEffect, useState } from "react";
 export default function MainLayout() {
   const { user, profile, logout } = useSupabaseAuth();
   const { role, isSuperAdmin } = useUserRole();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Initialize pinned state from localStorage
+  const [isPinned, setIsPinned] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sidebar_pinned') === 'true';
+    }
+    return false;
+  });
+
+  // Sidebar is collapsed if NOT pinned AND NOT hovered (we start expanded if pinned)
+  // Actually, we use a state for 'collapsed' but drive it via mouse events and pin state
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(!isPinned);
+
   const { organizationId, companyId, setCompanyId } = useOrg();
   const { organizationName, companyName } = useOrgNames();
   const [assignedCompanies, setAssignedCompanies] = useState<Array<{ id: string; name: string }>>([]);
@@ -41,16 +53,36 @@ export default function MainLayout() {
     return () => { cancelled = true; };
   }, [user?.id]);
 
+  // Effect to sync sidebarCollapsed with isPinned changes
+  useEffect(() => {
+    if (isPinned) {
+      setSidebarCollapsed(false);
+    }
+  }, [isPinned]);
+
+  const handleTogglePin = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newPinned = !isPinned;
+    setIsPinned(newPinned);
+    localStorage.setItem('sidebar_pinned', String(newPinned));
+  };
+
   const sidebarWidth = sidebarCollapsed ? 64 : 256;
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-800">
+    <div className="flex min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100">
       {/* Sidebar */}
       <motion.aside
-        className="fixed left-0 top-0 h-screen bg-white border-r border-slate-200 z-30 flex flex-col overflow-hidden"
+        className="fixed left-0 top-0 h-screen bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 z-30 flex flex-col overflow-hidden"
         initial={false}
         animate={{ width: sidebarWidth }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
+        onMouseEnter={() => setSidebarCollapsed(false)}
+        onMouseLeave={() => {
+          if (!isPinned) {
+            setSidebarCollapsed(true);
+          }
+        }}
       >
         <div className="flex-shrink-0">
           {/* Sidebar Header */}
@@ -97,18 +129,26 @@ export default function MainLayout() {
         <div className="flex-shrink-0 border-t border-slate-200">
           <div className="nav-section">
             <div className="nav-items">
-              {/* Collapse Toggle */}
-              <button
-                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                className="w-full flex items-center justify-center px-4 py-3 hover:bg-slate-50 transition-colors"
-                title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              >
-                {sidebarCollapsed ? (
-                  <ChevronRight className="w-5 h-5 text-slate-600" />
-                ) : (
-                  <ChevronLeft className="w-5 h-5 text-slate-600" />
-                )}
-              </button>
+              {/* Pin Toggle - Replaces Collapse Toggle */}
+              {!sidebarCollapsed && (
+                <button
+                  onClick={handleTogglePin}
+                  className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-md text-slate-700 hover:bg-slate-50 transition-colors"
+                  title={isPinned ? "Unpin Sidebar (Auto-retract)" : "Pin Sidebar"}
+                >
+                  {isPinned ? (
+                    <>
+                      <PinOff className="w-4 h-4" />
+                      <span className="text-sm">Unpin Sidebar</span>
+                    </>
+                  ) : (
+                    <>
+                      <Pin className="w-4 h-4" />
+                      <span className="text-sm">Pin Sidebar</span>
+                    </>
+                  )}
+                </button>
+              )}
 
               {/* Theme Toggle */}
               {!sidebarCollapsed && (
@@ -132,21 +172,21 @@ export default function MainLayout() {
         style={{ marginLeft: `${sidebarWidth}px` }}
       >
         {/* Header with User Info and Logout */}
-        <header className="sticky top-0 z-20 bg-white border-b border-slate-200 px-8 py-4">
+        <header className="sticky top-0 z-20 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-8 py-4">
           <div className="flex items-center justify-between">
             <div />
             <div className="flex items-center gap-4">
               {/* Organization | Company context */}
-              <div className="hidden md:flex items-center gap-3 px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
+              <div className="hidden md:flex items-center gap-3 px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600">
                 <div className="flex items-center gap-1">
-                  <span className="text-xs text-slate-500">Org:</span>
-                  <span className="text-xs font-medium text-slate-800">
-                    {organizationName || (organizationId ? `${organizationId.slice(0, 8)}…` : '—')}
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Org:</span>
+                  <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                    {organizationName || 'Organization'}
                   </span>
                 </div>
-                <span className="text-slate-300">|</span>
+                <span className="text-slate-300 dark:text-slate-600">|</span>
                 <div className="flex items-center gap-1">
-                  <span className="text-xs text-slate-500">Company:</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Company:</span>
                   <div className="min-w-[180px]">
                     <Select
                       value={companyId || undefined}
@@ -169,19 +209,19 @@ export default function MainLayout() {
               </div>
 
               {/* User Info - Flat Icon Design */}
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors">
-                <div className="flex items-center justify-center w-8 h-8 bg-teal-100 text-teal-700 rounded-lg text-sm font-semibold">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                <div className="flex items-center justify-center w-8 h-8 bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-100 rounded-lg text-sm font-semibold">
                   {profile?.first_name?.[0]}{profile?.last_name?.[0] || 'U'}
                 </div>
                 <div className="block">
                   <div className="flex items-center gap-2">
-                    <div className="text-sm font-medium text-slate-900">
+                    <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
                       {profile?.first_name} {profile?.last_name}
                     </div>
                     {isSuperAdmin && <SuperAdminBadge variant="icon-only" />}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <div className="text-xs text-slate-500">{profile?.email}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">{profile?.email}</div>
                     {role && !isSuperAdmin && <RoleBadgeSmall role={role} />}
                   </div>
                 </div>

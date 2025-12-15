@@ -1,16 +1,16 @@
 import { ReactNode } from 'react'
-import { useAuthContext } from '@/hooks/use-auth-context'
-import { Permission, Role } from '@/lib/services/auth/rbac'
+import { useSupabaseAuth } from '@/hooks/use-supabase-auth'
+import { RBACService, Permission, Role } from '@/lib/services/auth/rbac'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertTriangle, Lock } from 'lucide-react'
+import { Lock } from 'lucide-react'
 
 interface PermissionGuardProps {
   children: ReactNode
   permission?: Permission
   permissions?: Permission[]
-  requireAll?: boolean
   role?: Role
   roles?: Role[]
+  requireAll?: boolean
   fallback?: ReactNode
   showError?: boolean
 }
@@ -19,70 +19,75 @@ export function PermissionGuard({
   children,
   permission,
   permissions,
-  requireAll = false,
+  requireAll = true,
   role,
   roles,
-  fallback,
+  fallback = null,
   showError = true
 }: PermissionGuardProps) {
-  const { 
-    hasPermission, 
-    hasAnyPermission, 
-    hasAllPermissions, 
-    isSuperAdmin, 
-    isOrgAdmin, 
-    isUser,
-    isLoading 
-  } = useAuthContext()
+  const { userContext, isAuthenticated, isLoading } = useSupabaseAuth()
 
-  // Show loading state
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     )
   }
 
+  // If not authenticated or no role, deny access
+  if (!isAuthenticated || !userContext?.role) {
+    if (fallback) return <>{fallback}</>
+    // Start with deny
+    return showError ? (
+      <div className="flex items-center justify-center p-8">
+        <Alert className="max-w-md">
+          <Lock className="h-4 w-4" />
+          <AlertDescription>
+            You must be logged in to access this resource.
+          </AlertDescription>
+        </Alert>
+      </div>
+    ) : null;
+  }
+
+  const userRole = userContext.role
+
   // Check role permissions
   let hasRolePermission = true
   if (role) {
-    hasRolePermission = 
-      (role === 'super_admin' && isSuperAdmin()) ||
-      (role === 'org_admin' && isOrgAdmin()) ||
-      (role === 'user' && isUser())
+    hasRolePermission = userRole === role
   } else if (roles && roles.length > 0) {
-    hasRolePermission = roles.some(r => 
-      (r === 'super_admin' && isSuperAdmin()) ||
-      (r === 'org_admin' && isOrgAdmin()) ||
-      (r === 'user' && isUser())
-    )
+    hasRolePermission = roles.includes(userRole)
   }
 
-  // Check specific permissions
+  if (!hasRolePermission) {
+    if (fallback) return <>{fallback}</>
+    return showError ? (
+      <div className="flex items-center justify-center p-8">
+        <Alert className="max-w-md">
+          <Lock className="h-4 w-4" />
+          <AlertDescription>
+            You don't have the required role to access this resource.
+          </AlertDescription>
+        </Alert>
+      </div>
+    ) : null;
+  }
+
+  // Check granular permissions
   let hasSpecificPermission = true
   if (permission) {
-    hasSpecificPermission = hasPermission(permission)
+    hasSpecificPermission = RBACService.roleHasPermission(userRole, permission)
   } else if (permissions && permissions.length > 0) {
-    hasSpecificPermission = requireAll 
-      ? hasAllPermissions(permissions)
-      : hasAnyPermission(permissions)
+    hasSpecificPermission = requireAll
+      ? permissions.every(p => RBACService.roleHasPermission(userRole, p))
+      : permissions.some(p => RBACService.roleHasPermission(userRole, p))
   }
 
-  // Check if user has required permissions
-  const hasAccess = hasRolePermission && hasSpecificPermission
-
-  // Show fallback or error if no access
-  if (!hasAccess) {
-    if (fallback) {
-      return <>{fallback}</>
-    }
-
-    if (!showError) {
-      return null
-    }
-
-    return (
+  if (!hasSpecificPermission) {
+    if (fallback) return <>{fallback}</>
+    return showError ? (
       <div className="flex items-center justify-center p-8">
         <Alert className="max-w-md">
           <Lock className="h-4 w-4" />
@@ -91,9 +96,10 @@ export function PermissionGuard({
           </AlertDescription>
         </Alert>
       </div>
-    )
+    ) : null;
   }
 
+  // Access granted
   return <>{children}</>
 }
 
@@ -122,14 +128,14 @@ export function AdminOnly({ children, fallback }: { children: ReactNode; fallbac
   )
 }
 
-export function RequirePermission({ 
-  permission, 
-  children, 
-  fallback 
-}: { 
-  permission: Permission; 
-  children: ReactNode; 
-  fallback?: ReactNode 
+export function RequirePermission({
+  permission,
+  children,
+  fallback
+}: {
+  permission: Permission;
+  children: ReactNode;
+  fallback?: ReactNode
 }) {
   return (
     <PermissionGuard permission={permission} fallback={fallback}>
@@ -138,14 +144,14 @@ export function RequirePermission({
   )
 }
 
-export function RequireAnyPermission({ 
-  permissions, 
-  children, 
-  fallback 
-}: { 
-  permissions: Permission[]; 
-  children: ReactNode; 
-  fallback?: ReactNode 
+export function RequireAnyPermission({
+  permissions,
+  children,
+  fallback
+}: {
+  permissions: Permission[];
+  children: ReactNode;
+  fallback?: ReactNode
 }) {
   return (
     <PermissionGuard permissions={permissions} requireAll={false} fallback={fallback}>
@@ -154,14 +160,14 @@ export function RequireAnyPermission({
   )
 }
 
-export function RequireAllPermissions({ 
-  permissions, 
-  children, 
-  fallback 
-}: { 
-  permissions: Permission[]; 
-  children: ReactNode; 
-  fallback?: ReactNode 
+export function RequireAllPermissions({
+  permissions,
+  children,
+  fallback
+}: {
+  permissions: Permission[];
+  children: ReactNode;
+  fallback?: ReactNode
 }) {
   return (
     <PermissionGuard permissions={permissions} requireAll={true} fallback={fallback}>

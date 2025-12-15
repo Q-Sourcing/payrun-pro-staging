@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
   DialogContent,
@@ -31,13 +32,13 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  User, 
-  Mail, 
-  Shield, 
-  Settings, 
-  Key, 
-  CheckCircle, 
+import {
+  User,
+  Mail,
+  Shield,
+  Settings,
+  Key,
+  CheckCircle,
   AlertCircle,
   Eye,
   EyeOff,
@@ -49,7 +50,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { User as UserType, UserRole, Permission } from '@/lib/types/roles';
-import { ROLE_DEFINITIONS } from '@/lib/types/roles';
+import { ROLE_DEFINITIONS, ORG_SUPER_ADMIN } from '@/lib/types/roles';
+import { AuditLogger } from '@/lib/services/audit-logger';
 
 interface UserFormProps {
   user?: UserType | null;
@@ -62,17 +64,9 @@ const userFormSchema = z.object({
   firstName: z.string().min(2, 'First name must be at least 2 characters'),
   lastName: z.string().min(2, 'Last name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email address'),
-  role: z.enum([
-    'super_admin',
-    'organization_admin',
-    'ceo_executive',
-    'payroll_manager',
-    'employee',
-    'hr_business_partner',
-    'finance_controller'
-  ] as const),
-  organizationId: z.string().optional(),
-  departmentId: z.string().optional(),
+  // Role is now derived or primary, but we validate that at least one is selected in the UI state
+  // We keep 'role' in schema for legacy compatibility but make it optional or derived
+  role: z.string().optional(),
   managerId: z.string().optional(),
   isActive: z.boolean().default(true),
   twoFactorEnabled: z.boolean().default(false),
@@ -102,8 +96,6 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
       lastName: user?.lastName || '',
       email: user?.email || '',
       role: user?.role || 'employee',
-      organizationId: user?.organizationId || '',
-      departmentId: user?.departmentId || '',
       managerId: user?.managerId || '',
       isActive: user?.isActive ?? true,
       twoFactorEnabled: user?.twoFactorEnabled ?? false,
@@ -111,21 +103,114 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
       permissions: user?.permissions || [],
       restrictions: user?.restrictions || [],
       sendInvitation: !isEditing,
-      temporaryPassword: '',
     },
   });
 
-  const selectedRole = form.watch('role');
-  const roleDefinition = ROLE_DEFINITIONS[selectedRole];
+  // Multi-Role State
+  const [availableOrgRoles, setAvailableOrgRoles] = useState<{ id: string; key: string; name: string; description: string | null }[]>([]);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]); // Array of role IDs
+  const [loadingRoles, setLoadingRoles] = useState(false);
+
+  // Fetch Companies Logic
+  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
+  const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
+  const [loadingCompanies, setLoadingCompanies] = useState(false);
 
   useEffect(() => {
-    if (selectedRole) {
-      // Set default permissions for the role
-      const defaultPermissions = roleDefinition.permissions;
-      form.setValue('permissions', defaultPermissions);
-      setCustomPermissions(defaultPermissions);
+    const fetchRolesAndCompanies = async () => {
+      setLoadingRoles(true);
+      setLoadingCompanies(true);
+      try {
+        // Fetch Roles
+        const { data: rolesData, error: rolesError } = await supabase
+          .from('org_roles')
+          .select('id, key, name, description, org_id')
+          .order('name');
+
+        if (rolesError) throw rolesError;
+        setAvailableOrgRoles(rolesData || []);
+
+        // Fetch Companies
+        const { data: companiesData, error: companiesError } = await supabase
+          .from('companies')
+          .select('id, name')
+          .order('name');
+
+        if (companiesError) throw companiesError;
+        setCompanies(companiesData || []);
+
+      } catch (err) {
+        console.error('Failed to fetch dependencies', err);
+      } finally {
+        setLoadingRoles(false);
+        setLoadingCompanies(false);
+      }
+    };
+    fetchRolesAndCompanies();
+  }, []);
+
+  // Hydrate user data (roles & companies)
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!user?.id) return;
+
+      // 1. Companies
+      const { data: companyData } = await supabase
+        .from('user_company_memberships')
+        .select('company_id')
+        .eq('user_id', user.id);
+      if (companyData) {
+        setSelectedCompanies(companyData.map(d => d.company_id));
+      }
+
+      // 2. Roles (via org_user_roles -> org_users)
+      // First find existing org_user record
+      const { data: orgUserData } = await supabase
+        .from('org_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (orgUserData) {
+        const { data: userRolesData } = await supabase
+          .from('org_user_roles')
+          .select('role_id')
+          .eq('org_user_id', orgUserData.id);
+
+        if (userRolesData) {
+          setSelectedRoles(userRolesData.map(r => r.role_id));
+        }
+      } else {
+        // Fallback: If no org_user_roles, map legacy role to new roles if possible
+        // This is a heuristic if the user hasn't been migrated yet
+      }
+    };
+
+    if (isEditing) {
+      fetchUserData();
     }
-  }, [selectedRole, form, roleDefinition]);
+  }, [user, isEditing]);
+
+  const toggleRole = (roleId: string) => {
+    setSelectedRoles(prev =>
+      prev.includes(roleId) ? prev.filter(r => r !== roleId) : [...prev, roleId]
+    );
+  };
+
+
+  const toggleCompany = (companyId: string) => {
+    setSelectedCompanies(prev =>
+      prev.includes(companyId) ? prev.filter(c => c !== companyId) : [...prev, companyId]
+    );
+  };
+
+  const toggleAllCompanies = () => {
+    if (selectedCompanies.length === companies.length) {
+      setSelectedCompanies([]);
+    } else {
+      setSelectedCompanies(companies.map(c => c.id));
+    }
+  };
 
   const generateRandomPassword = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
@@ -146,24 +231,24 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
     const newPermissions = currentPermissions.includes(permission)
       ? currentPermissions.filter(p => p !== permission)
       : [...currentPermissions, permission];
-    
+
     form.setValue('permissions', newPermissions);
-    setCustomPermissions(newPermissions);
+    setCustomPermissions(newPermissions as Permission[]);
   };
 
   const canManageSuperAdmins = currentUser?.role === 'super_admin';
   const canEditUser = (targetUser: UserType | null) => {
     if (!targetUser) return true; // Creating new user
     if (!currentUser) return false;
-    
+
     // Super admins can edit anyone
     if (currentUser.role === 'super_admin') return true;
-    
+
     // Organization admins can edit users in their organization
     if (currentUser.role === 'organization_admin') {
       return currentUser.organizationId === targetUser.organizationId;
     }
-    
+
     return false;
   };
 
@@ -173,33 +258,207 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
       return;
     }
 
+    if (selectedCompanies.length === 0) {
+      setError('Please assign access to at least one company.');
+      return;
+    }
+
+    if (selectedRoles.length === 0) {
+      setError('Please assign at least one role.');
+      return;
+    }
+
+    // Determine primary role for legacy compatibility (highest privilege or first selected)
+    // Simple heuristic: just pick the first one's key for now, or default to 'employee'
+    // In a real scenario, we'd rank them.
+    const primaryRoleObj = availableOrgRoles.find(r => r.id === selectedRoles[0]);
+    const legacyRole = (primaryRoleObj?.key.toLowerCase() as UserRole) || 'employee';
+    // Note: This casting might be rough if keys don't match exactly. 
+    // Ideally we map ORG_ADMIN -> org_admin.
+    // For now, we assume keys are somewhat compatible or we default safe.
+
     setIsSubmitting(true);
     setError(null);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (isEditing) {
+        // Simulate API call for Editing
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-      const userData: UserType = {
-        id: user?.id || `user-${Date.now()}`,
-        email: values.email,
-        firstName: values.firstName,
-        lastName: values.lastName,
-        role: values.role,
-        organizationId: values.organizationId || undefined,
-        departmentId: values.departmentId || undefined,
-        managerId: values.managerId || undefined,
-        isActive: values.isActive,
-        lastLogin: user?.lastLogin,
-        createdAt: user?.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        permissions: values.permissions,
-        restrictions: values.restrictions,
-        twoFactorEnabled: values.twoFactorEnabled,
-        sessionTimeout: values.sessionTimeout,
-      };
+        const userData: UserType = {
+          id: user?.id || `user-${Date.now()}`,
+          email: values.email,
+          firstName: values.firstName,
+          lastName: values.lastName,
+          role: legacyRole,
+          managerId: values.managerId || undefined,
+          isActive: values.isActive,
+          lastLogin: user?.lastLogin,
+          createdAt: user?.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          permissions: values.permissions as Permission[],
+          restrictions: values.restrictions,
+          twoFactorEnabled: values.twoFactorEnabled,
+          sessionTimeout: values.sessionTimeout,
+        };
 
-      onSave(userData);
+        onSave(userData);
+
+        // 1. Update Companies
+        const { error: deleteError } = await supabase
+          .from('user_company_memberships')
+          .delete()
+          .eq('user_id', user!.id);
+
+        if (deleteError) throw deleteError;
+
+        const memberships = selectedCompanies.map(companyId => ({
+          user_id: user!.id,
+          company_id: companyId,
+          role: legacyRole
+        }));
+
+        const { error: insertError } = await supabase
+          .from('user_company_memberships')
+          .insert(memberships);
+
+        if (insertError) throw insertError;
+
+        // 2. Update Roles (Sync org_user_roles)
+        // Ensure org_user exists
+        const { data: orgUser, error: orgUserError } = await supabase
+          .from('org_users')
+          .select('id')
+          .eq('user_id', user!.id)
+          .maybeSingle(); // Use maybeSingle to avoid 406 if not found
+
+        let orgUserId = orgUser?.id;
+
+        if (!orgUserId) {
+          // Create org_user if missing (though it should exist via migration or trigger)
+          // We need organization_id. Assuming current user's org or fetching from profile.
+          // For this scope, we assume it exists or we skip.
+          // Best effort:
+          const { data: newOrgUser, error: createOrgUserError } = await supabase
+            .from('org_users')
+            .insert({
+              user_id: user!.id,
+              org_id: currentUser?.organizationId || '', // Fallback
+              status: 'active'
+            })
+            .select('id')
+            .single();
+          if (newOrgUser) orgUserId = newOrgUser.id;
+        }
+
+        if (orgUserId) {
+          // Sync Roles
+          await supabase.from('org_user_roles').delete().eq('org_user_id', orgUserId);
+
+          const roleAssignments = selectedRoles.map(roleId => ({
+            org_user_id: orgUserId!,
+            role_id: roleId
+          }));
+
+          await supabase.from('org_user_roles').insert(roleAssignments);
+        }
+
+        // Audit Log for Updates
+        await AuditLogger.log(
+          'user.update',
+          'user',
+          {
+            id: user?.id,
+            email: values.email,
+            roles: selectedRoles,
+            companies: selectedCompanies
+          },
+          {
+            privileged: selectedRoles.some(r => {
+              const role = availableOrgRoles.find(ar => ar.id === r);
+              return role?.key === 'ORG_OWNER' || role?.key === 'ORG_ADMIN';
+            })
+          }
+        );
+      } else {
+        // Create User via Edge Function
+        // We pass the legacy role to the edge function for initial creation
+        const { data, error: invokeError } = await supabase.functions.invoke('create-user', {
+          body: {
+            email: values.email,
+            full_name: `${values.firstName} ${values.lastName}`.trim(),
+            role: legacyRole,
+            country: 'Uganda',
+          }
+        });
+
+        if (invokeError) throw invokeError;
+        if (!data.success) throw new Error(data.message || "Failed to create user");
+
+        const newUserId = data.user_id;
+
+        // Construct a User object to return to the UI
+        const newUser: UserType = {
+          id: newUserId,
+          email: values.email,
+          firstName: values.firstName,
+          lastName: values.lastName,
+          role: legacyRole,
+          managerId: values.managerId || undefined,
+          isActive: false, // Default to inactive/pending until they accept invitation
+          lastLogin: undefined,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          permissions: values.permissions as Permission[],
+          restrictions: values.restrictions,
+          twoFactorEnabled: values.twoFactorEnabled,
+          sessionTimeout: values.sessionTimeout,
+        };
+        onSave(newUser);
+
+        // 1. Insert Companies
+        const memberships = selectedCompanies.map(companyId => ({
+          user_id: newUserId,
+          company_id: companyId,
+          role: legacyRole
+        }));
+
+        await supabase.from('user_company_memberships').insert(memberships);
+
+        // 2. Insert Roles
+        // Ensure org_user exists (create-user might not create it, migration does backfill but not live)
+        // We should create it explicitly.
+        const { data: newOrgUser, error: createOrgUserError } = await supabase
+          .from('org_users')
+          .insert({
+            user_id: newUserId,
+            org_id: currentUser?.organizationId || availableOrgRoles[0]?.org_id || '', // Fallback to first role's org if current user context missing
+            status: 'active'
+          })
+          .select('id')
+          .single();
+
+        if (newOrgUser) {
+          const roleAssignments = selectedRoles.map(roleId => ({
+            org_user_id: newOrgUser.id,
+            role_id: roleId
+          }));
+          await supabase.from('org_user_roles').insert(roleAssignments);
+        }
+
+        // Audit Log for Creation
+        await AuditLogger.log(
+          'user.create',
+          'user',
+          { id: newUserId, email: values.email, roles: selectedRoles, companies: selectedCompanies },
+          {
+            privileged: selectedRoles.some(r => {
+              const role = availableOrgRoles.find(ar => ar.id === r);
+              return role?.key === 'ORG_OWNER' || role?.key === 'ORG_ADMIN';
+            })
+          }
+        );
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to save user');
     } finally {
@@ -211,16 +470,25 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
     switch (role) {
       case 'super_admin':
         return 'bg-red-100 text-red-800 border-red-200';
+      case 'org_admin':
       case 'organization_admin':
         return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'ceo_executive':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'payroll_manager':
-        return 'bg-green-100 text-green-800 border-green-200';
+      case 'hr_admin':
       case 'hr_business_partner':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'project_manager':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'project_payroll_officer':
+        return 'bg-cyan-100 text-cyan-800 border-cyan-200';
+      case 'head_office_admin':
+        return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'finance_approver':
       case 'finance_controller':
         return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+      case 'viewer':
+      case 'ceo_executive':
+        return 'bg-slate-100 text-slate-800 border-slate-200';
+      case 'user':
       case 'employee':
         return 'bg-gray-100 text-gray-800 border-gray-200';
       default:
@@ -253,7 +521,7 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
             )}
           </DialogTitle>
           <DialogDescription>
-            {isEditing 
+            {isEditing
               ? 'Update user information, role, and permissions'
               : 'Create a new user account and send invitation email'
             }
@@ -325,10 +593,10 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
                       <FormControl>
                         <div className="relative">
                           <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                          <Input 
-                            placeholder="Enter email address" 
+                          <Input
+                            placeholder="Enter email address"
                             className="pl-10"
-                            {...field} 
+                            {...field}
                           />
                         </div>
                       </FormControl>
@@ -337,94 +605,136 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
                   )}
                 />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="role"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Role</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a role" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {availableRoles.map(([roleKey, roleDef]) => (
-                              <SelectItem key={roleKey} value={roleKey}>
-                                <div className="flex items-center gap-2">
-                                  <Badge 
-                                    variant="outline" 
-                                    className={getRoleBadgeColor(roleKey as UserRole)}
-                                  >
-                                    {roleDef.name}
-                                  </Badge>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormDescription>
-                          {roleDefinition.description}
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <div className="space-y-4 border rounded-lg p-4 bg-muted/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <h4 className="text-sm font-medium">Roles & Responsibilities</h4>
+                      <p className="text-xs text-muted-foreground">Assign multiple roles to define user access.</p>
+                    </div>
+                  </div>
 
-                  <FormField
-                    control={form.control}
-                    name="sessionTimeout"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Session Timeout (minutes)</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            min="30" 
-                            max="1440" 
-                            {...field}
-                            onChange={(e) => field.onChange(parseInt(e.target.value))}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Maximum session duration in minutes (30-1440)
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {loadingRoles ? (
+                    <div className="text-sm">Loading roles...</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {['Administration', 'HR & People', 'Payroll', 'Finance', 'Projects', 'Other'].map(category => {
+                        const categoryRoles = availableOrgRoles.filter(r => {
+                          // Heuristic mapping based on keys
+                          const k = r.key;
+                          if (category === 'Administration') return k.includes('OWNER') || k.includes('ADMIN') && !k.includes('PAYROLL');
+                          if (category === 'HR & People') return k.includes('HR');
+                          if (category === 'Payroll') return k.includes('PAYROLL');
+                          if (category === 'Finance') return k.includes('FINANCE') || k.includes('APPROVER');
+                          if (category === 'Projects') return k.includes('PROJECT');
+                          if (category === 'Other') return k.includes('VIEWER') || !k.match(/OWNER|ADMIN|HR|PAYROLL|FINANCE|PROJECT/);
+                          return false;
+                        });
+
+                        if (categoryRoles.length === 0) return null;
+
+                        return (
+                          <div key={category}>
+                            <h5 className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">{category}</h5>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {categoryRoles.map(role => (
+                                <div key={role.id} className={`flex items-start space-x-2 border p-2 rounded transition-colors ${selectedRoles.includes(role.id) ? 'bg-background border-primary' : 'hover:bg-muted/50'}`}>
+                                  <Checkbox
+                                    id={`role-${role.id}`}
+                                    checked={selectedRoles.includes(role.id)}
+                                    onCheckedChange={() => toggleRole(role.id)}
+                                    className="mt-1"
+                                  />
+                                  <div className="grid gap-1.5 leading-none">
+                                    <Label htmlFor={`role-${role.id}`} className="cursor-pointer text-sm font-medium leading-none">
+                                      {role.name}
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground pr-2">
+                                      {role.description}
+                                    </p>
+                                    {(role.key === 'ORG_OWNER' || role.key === 'ORG_ADMIN') && (
+                                      <div className="flex items-center text-amber-600 text-[10px] mt-1">
+                                        <AlertCircle className="w-3 h-3 mr-1" />
+                                        High Privilege
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <div className="text-xs text-muted-foreground mt-2">
+                    Selected: <span className="font-medium text-foreground">{selectedRoles.length}</span> roles
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="organizationId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Organization ID (Optional)</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter organization ID" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <FormField
+                  control={form.control}
+                  name="sessionTimeout"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Session Timeout (minutes)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="30"
+                          max="1440"
+                          {...field}
+                          onChange={(e) => field.onChange(parseInt(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Maximum session duration in minutes (30-1440)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                  <FormField
-                    control={form.control}
-                    name="departmentId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Department ID (Optional)</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter department ID" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+
+
+
+                {/* Company Access Section */}
+                <div className="space-y-4 border rounded-lg p-4 bg-muted/20">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium">Company Access Scope</h4>
+                      <p className="text-xs text-muted-foreground">Select which companies this user can access.</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedCompanies([])} className="text-xs h-8">
+                        Clear
+                      </Button>
+                      <Button type="button" variant="ghost" size="sm" onClick={toggleAllCompanies} className="text-xs h-8">
+                        {selectedCompanies.length === companies.length ? 'Deselect All' : 'Select All'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {loadingCompanies ? (
+                    <div className="text-sm text-muted-foreground p-2">Loading companies...</div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-48 overflow-y-auto p-1">
+                      {companies.map(company => (
+                        <div key={company.id} className="flex items-center space-x-2 border p-2 rounded hover:bg-muted/50 transition-colors">
+                          <Checkbox
+                            id={`company-${company.id}`}
+                            checked={selectedCompanies.includes(company.id)}
+                            onCheckedChange={() => toggleCompany(company.id)}
+                          />
+                          <Label htmlFor={`company-${company.id}`} className="flex-1 cursor-pointer text-sm font-normal">
+                            {company.name}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Selected: <span className="font-medium text-foreground">{selectedCompanies.length}</span> of {companies.length} companies
+                  </p>
                 </div>
 
                 <div className="flex items-center space-x-2">
@@ -455,29 +765,16 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
                 <div className="space-y-4">
                   <div>
                     <h4 className="text-sm font-medium mb-2">Default Role Permissions</h4>
-                    <Badge variant="outline" className={getRoleBadgeColor(selectedRole)}>
-                      {roleDefinition.name}
-                    </Badge>
                     <p className="text-sm text-muted-foreground mt-2">
-                      {roleDefinition.description}
+                      Permissions are derived from the selected roles above.
                     </p>
                   </div>
 
                   <div>
                     <h4 className="text-sm font-medium mb-3">Custom Permissions</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {roleDefinition.permissions.map((permission) => (
-                        <div key={permission} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={permission}
-                            checked={customPermissions.includes(permission)}
-                            onCheckedChange={() => handlePermissionToggle(permission)}
-                          />
-                          <Label htmlFor={permission} className="text-sm">
-                            {permission.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                          </Label>
-                        </div>
-                      ))}
+                      {/* Custom permissions support to be re-evaluated with multi-role */}
+                      <div className="text-sm text-muted-foreground">Custom permissions editing is temporarily disabled while multiple roles are active.</div>
                     </div>
                   </div>
                 </div>
@@ -510,60 +807,6 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
                 {!isEditing && (
                   <div className="space-y-4">
                     <div className="flex items-center space-x-2">
-                      <Checkbox
-                        checked={generatePassword}
-                        onCheckedChange={setGeneratePassword}
-                      />
-                      <Label>Generate temporary password</Label>
-                    </div>
-
-                    {generatePassword && (
-                      <FormField
-                        control={form.control}
-                        name="temporaryPassword"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Temporary Password</FormLabel>
-                            <FormControl>
-                              <div className="flex gap-2">
-                                <div className="relative flex-1">
-                                  <Input
-                                    type={showPassword ? "text" : "password"}
-                                    value={field.value || ''}
-                                    onChange={field.onChange}
-                                    placeholder="Temporary password"
-                                  />
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  onClick={handleGeneratePassword}
-                                >
-                                  <Key className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  onClick={() => setShowPassword(!showPassword)}
-                                >
-                                  {showPassword ? (
-                                    <EyeOff className="h-4 w-4" />
-                                  ) : (
-                                    <Eye className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </div>
-                            </FormControl>
-                            <FormDescription>
-                              A temporary password for initial login
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-
-                    <div className="flex items-center space-x-2">
                       <FormField
                         control={form.control}
                         name="sendInvitation"
@@ -573,12 +816,13 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
                               <Checkbox
                                 checked={field.value}
                                 onCheckedChange={field.onChange}
+                                disabled // Always send invitation for now
                               />
                             </FormControl>
                             <div className="space-y-1 leading-none">
                               <FormLabel>Send invitation email</FormLabel>
                               <FormDescription>
-                                Send an email invitation to the user
+                                An invitation email will be sent to the user to set their password.
                               </FormDescription>
                             </div>
                           </FormItem>
@@ -620,7 +864,7 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
           </form>
         </Form>
       </DialogContent>
-    </Dialog>
+    </Dialog >
   );
 }
 

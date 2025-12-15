@@ -47,18 +47,63 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
   const [userContext, setUserContext] = useState<UserContext | null>(null);
   const [claims, setClaims] = useState<any>(null);
 
-  // Fetch user profile and roles using new system
+  // Fetch user profile and roles directly from database
   const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
     try {
       debug('Fetching user profile for:', userId);
-      
-      // Use the new UserProfileService
-      const userProfile = await UserProfileService.getCurrentProfile();
-      
-      if (userProfile) {
-      log('User profile loaded:', userProfile);
+
+      // Query profile from profiles table (no role column here)
+      // Cast to any to bypass generated type mismatches
+      const { data: profileResult, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, email, first_name, last_name, organization_id, created_at, updated_at')
+        .eq('id', userId)
+        .single();
+
+      if (profileError || !profileResult) {
+        logError('Error fetching profile:', profileError);
+        return null;
       }
-      
+
+      const profileData = profileResult as any;
+
+      // Query role from user_roles table
+      const { data: roleResult } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      // Map the app_role enum to our role types
+      let role: 'super_admin' | 'org_admin' | 'user' = 'user';
+      const roleData = roleResult as any;
+      if (roleData?.role) {
+        // Map app_role values to our expected role types
+        const roleMapping: Record<string, 'super_admin' | 'org_admin' | 'user'> = {
+          'super_admin': 'super_admin',
+          'admin': 'org_admin',
+          'manager': 'org_admin',
+          'employee': 'user',
+          'org_admin': 'org_admin',
+          'user': 'user'
+        };
+        role = roleMapping[roleData.role] || 'user';
+      }
+
+      const userProfile: UserProfile = {
+        id: profileData.id,
+        email: profileData.email,
+        first_name: profileData.first_name,
+        last_name: profileData.last_name,
+        organization_id: profileData.organization_id || null,
+        role: role,
+        created_at: profileData.created_at,
+        updated_at: profileData.updated_at
+      };
+
+      log('User profile loaded with role:', userProfile);
       return userProfile;
     } catch (err) {
       logError('Error fetching user profile:', err);
@@ -71,20 +116,20 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
     try {
       debug('Refreshing session...');
       const { data, error } = await supabase.auth.refreshSession();
-      
+
       if (error) {
         logError('Session refresh error:', error);
         throw error;
       }
-      
+
       setSession(data.session);
       setUser(data.session?.user || null);
-      
+
       if (data.session?.user) {
         const userProfile = await fetchUserProfile(data.session.user.id);
         setProfile(userProfile);
       }
-      
+
       log('Session refreshed successfully');
     } catch (error) {
       logError('Failed to refresh session:', error);
@@ -97,22 +142,22 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
   // Initialize auth state
   useEffect(() => {
     debug('Initializing auth...');
-    
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         debug('Auth state changed:', event, session?.user?.email);
-        
+
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (session?.user) {
           // Update JWT claims and user context
-          const jwtClaims = JWTClaimsService.getCurrentClaims();
-          const userContext = JWTClaimsService.getCurrentUserContext();
+          const jwtClaims = JWTClaimsService.getClaimsFromSession(session);
+          const userContext = JWTClaimsService.getUserContextFromSession(session);
           setClaims(jwtClaims);
           setUserContext(userContext);
-          
+
           // Defer profile fetching to avoid blocking auth state change
           setTimeout(async () => {
             const userProfile = await fetchUserProfile(session.user.id);
@@ -123,7 +168,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
           setClaims(null);
           setUserContext(null);
         }
-        
+
         setIsLoading(false);
       }
     );
@@ -131,23 +176,23 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       debug('Initial session check:', session?.user?.email);
-      
+
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
         // Update JWT claims and user context
-        const jwtClaims = JWTClaimsService.getCurrentClaims();
-        const userContext = JWTClaimsService.getCurrentUserContext();
+        const jwtClaims = JWTClaimsService.getClaimsFromSession(session);
+        const userContext = JWTClaimsService.getUserContextFromSession(session);
         setClaims(jwtClaims);
         setUserContext(userContext);
-        
+
         fetchUserProfile(session.user.id).then(setProfile);
       } else {
         setClaims(null);
         setUserContext(null);
       }
-      
+
       setIsLoading(false);
     });
 
@@ -160,10 +205,10 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
   // Login function - Uses secure-login Edge Function
   const login = async (email: string, password: string) => {
     setIsLoading(true);
-    
+
     try {
       debug('Attempting login for:', email);
-      
+
       // Call secure-login Edge Function using Supabase client's invoke method
       // This handles authentication headers automatically
       const { data: result, error: invokeError } = await supabase.functions.invoke('secure-login', {
@@ -181,7 +226,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
           context: invokeError.context,
           stack: invokeError.stack,
         });
-        
+
         // Extract error message from context if available
         let errorMessage = 'Invalid email or password';
         if (invokeError.context) {
@@ -197,23 +242,23 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
             errorMessage = context.message;
           }
         }
-        
+
         if (invokeError.message && invokeError.message !== 'Edge Function returned a non-2xx status code') {
           errorMessage = invokeError.message;
         }
-        
+
         logError('Login error:', {
           error: invokeError,
           message: errorMessage,
           context: invokeError.context,
         });
-        
+
         toast({
           title: "Login Failed",
           description: errorMessage,
           variant: "destructive",
         });
-        
+
         throw new Error(errorMessage);
       }
 
@@ -221,13 +266,13 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
       if (!result) {
         const errorMessage = 'Invalid email or password';
         logError('Login error: No result from Edge Function');
-        
+
         toast({
           title: "Login Failed",
           description: errorMessage,
           variant: "destructive",
         });
-        
+
         throw new Error(errorMessage);
       }
 
@@ -235,13 +280,13 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
         // Generic error message (no disclosure of account status)
         const errorMessage = result.message || 'Invalid email or password';
         logError('Login error:', errorMessage);
-        
+
         toast({
           title: "Login Failed",
           description: errorMessage,
           variant: "destructive",
         });
-        
+
         throw new Error(errorMessage);
       }
 
@@ -257,8 +302,8 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
         setUser(result.user);
 
         // Update JWT claims
-        const jwtClaims = JWTClaimsService.getCurrentClaims();
-        const userContext = JWTClaimsService.getCurrentUserContext();
+        const jwtClaims = JWTClaimsService.getClaimsFromSession(result.session);
+        const userContext = JWTClaimsService.getUserContextFromSession(result.session);
         setClaims(jwtClaims);
         setUserContext(userContext);
 
@@ -277,16 +322,16 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
       }
     } catch (error: any) {
       logError('Login failed:', error);
-      
+
       // Always show generic error message
       const errorMessage = error.message || 'Invalid email or password';
-      
+
       toast({
         title: "Login Failed",
         description: errorMessage,
         variant: "destructive",
       });
-      
+
       throw error;
     } finally {
       setIsLoading(false);
@@ -296,10 +341,10 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
   // Logout function - Logs logout event
   const logout = async () => {
     setIsLoading(true);
-    
+
     try {
       debug('Logging out...');
-      
+
       const currentUserId = user?.id;
       const currentUserEmail = user?.email;
 
@@ -324,22 +369,22 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
           // Don't fail logout if logging fails
         }
       }
-      
+
       const { error } = await supabase.auth.signOut();
-      
+
       if (error) {
         logError('Logout error:', error);
         throw error;
       }
-      
+
       setUser(null);
       setProfile(null);
       setSession(null);
       setClaims(null);
       setUserContext(null);
-      
+
       log('Logout successful');
-      
+
       toast({
         title: "Logged out",
         description: "You have been successfully logged out.",

@@ -5,7 +5,10 @@ import {
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { useUserRole } from "@/hooks/use-user-role";
+import { RBACService } from "@/lib/services/auth/rbac";
 
 interface SidebarPayGroupType {
   id: string;
@@ -31,6 +34,51 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
   const [payRunsProjectsOpen, setPayRunsProjectsOpen] = useState(false);
   const [payGroupTypes, setPayGroupTypes] = useState<SidebarPayGroupType[]>([]);
   const location = useLocation();
+
+  const { userContext } = useSupabaseAuth();
+  const { role: dbRole, isSuperAdmin } = useUserRole();
+
+  const permissions = useMemo(() => {
+    // Prefer DB role (fresh) over JWT role (stale), but map/normalize if needed
+    // The explicit isSuperAdmin check from useUserRole is the most reliable source for super admin status
+    let role = userContext?.role;
+
+    if (isSuperAdmin) {
+      role = 'super_admin';
+    } else if (dbRole) {
+      // Map legacy role names if necessary (e.g. organization_admin -> org_admin)
+      if (dbRole === 'organization_admin') role = 'org_admin';
+      else if (dbRole === 'employee') role = 'user';
+      else role = dbRole as any;
+    }
+
+    if (!role) return {
+      canViewEmployees: false,
+      canViewProjects: false,
+      canViewPayGroups: false,
+      canViewPayGroupsHeadOffice: false,
+      canViewPayGroupsProjects: false,
+      canViewPayRuns: false,
+      canViewPayRunsHeadOffice: false,
+      canViewPayRunsProjects: false,
+      canViewReports: false,
+      canViewSettings: false
+    };
+
+    return {
+      canViewEmployees: RBACService.roleHasPermission(role, 'people.view'),
+      canViewProjects: RBACService.roleHasPermission(role, 'projects.view'),
+      canViewPayGroups: RBACService.roleHasPermission(role, 'paygroups.view'),
+      canViewPayGroupsHeadOffice: RBACService.roleHasScopedPermission(role, 'paygroups.view', 'head_office'),
+      canViewPayGroupsProjects: RBACService.roleHasScopedPermission(role, 'paygroups.view', 'project'),
+      canViewPayRuns: RBACService.roleHasPermission(role, 'payroll.view'),
+      canViewPayRunsHeadOffice: RBACService.roleHasScopedPermission(role, 'payroll.view', 'head_office'),
+      canViewPayRunsProjects: RBACService.roleHasScopedPermission(role, 'payroll.view', 'project'),
+      canViewReports: RBACService.roleHasPermission(role, 'reports.view'),
+      // Assuming settings is for admins
+      canViewSettings: role === 'super_admin' || role === 'org_admin',
+    };
+  }, [userContext?.role, dbRole, isSuperAdmin]);
 
   const isActive = (path: string) =>
     location.pathname === path
@@ -104,7 +152,7 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
     loadPayGroupTypes();
   }, []);
 
-  // Helper function to get type icon
+  // Helper function to get type icon (keeping checks for safety, though unused if strict)
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'regular': return <Users size={14} />;
@@ -117,7 +165,7 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
 
   return (
     <div className="flex flex-col text-sm pb-10 pl-4 pr-2">
-      {/* MY SECTIONS (for future roles) */}
+      {/* MY SECTIONS (Self-Service - Always Visible or base on user existence) */}
       <SectionHeader title="My Dashboard" />
       <NavItem to="/dashboard" icon={<BarChart3 size={16} />} label="Overview" />
       <NavItem to="/my/employees" icon={<Users size={16} />} label="My Employees" />
@@ -125,259 +173,233 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
       <NavItem to="/my/payruns" icon={<DollarSign size={16} />} label="My Pay Runs" />
 
       {/* EMPLOYEES */}
-      <SectionHeader title="Employees" />
-      <NavItem to="/employees" icon={<Users size={16} />} label="Employees" />
-
-      {/* PROJECTS */}
-      <SectionHeader title="Projects" />
-      <NavItem to="/projects" icon={<FolderKanban size={16} />} label="Projects" />
-
-      {/* PAY GROUPS */}
-      <SectionHeader title="Pay Groups" />
-
-      {/* All Pay Groups */}
-      <NavItem to="/paygroups" icon={<FolderKanban size={16} />} label="All Pay Groups" />
-
-      {/* Head Office */}
-      {collapsed ? (
-        <NavItem to="/paygroups/head-office/regular" icon={<Building2 size={16} />} label="Head Office" />
-      ) : (
+      {permissions.canViewEmployees && (
         <>
-          <button
-            onClick={() => setHeadOfficeOpen(!headOfficeOpen)}
-            className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-md text-slate-700 hover:bg-slate-50"
-          >
-            <span className="flex items-center gap-2">
-              <Building2 size={16} /> Head Office
-            </span>
-            <motion.div animate={{ rotate: headOfficeOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
-              <ChevronRight size={14} />
-            </motion.div>
-          </button>
-
-          <AnimatePresence initial={false}>
-            {headOfficeOpen && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: "easeInOut" }}
-                className="mt-1 space-y-0.5 overflow-hidden"
-              >
-                <motion.div whileHover={{ x: 4 }}>
-                  <Link to="/paygroups/head-office/regular" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/paygroups/head-office/regular")}`}>
-                    <Users size={15} /> Regular
-                  </Link>
-                </motion.div>
-                <motion.div whileHover={{ x: 4 }}>
-                  <Link to="/paygroups/head-office/expatriate" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/paygroups/head-office/expatriate")}`}>
-                    <Globe size={15} /> Expatriate
-                  </Link>
-                </motion.div>
-                <motion.div whileHover={{ x: 4 }}>
-                  <Link to="/paygroups/head-office/interns" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/paygroups/head-office/interns")}`}>
-                    <GraduationCap size={15} /> Interns
-                  </Link>
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <SectionHeader title="Employees" />
+          <NavItem to="/employees" icon={<Users size={16} />} label="Employees" />
         </>
       )}
 
-      {/* Projects */}
-      {collapsed ? (
-        <NavItem to="/paygroups/projects/expatriate" icon={<FolderTree size={16} />} label="Projects" />
-      ) : (
+      {/* PROJECTS */}
+      {permissions.canViewProjects && (
         <>
-          <button
-            onClick={() => setProjectsOpen(!projectsOpen)}
-            className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-md text-slate-700 hover:bg-slate-50"
-          >
-            <span className="flex items-center gap-2">
-              <FolderTree size={16} /> Projects
-            </span>
-            <motion.div animate={{ rotate: projectsOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
-              <ChevronRight size={14} />
-            </motion.div>
-          </button>
+          <SectionHeader title="Projects" />
+          <NavItem to="/projects" icon={<FolderKanban size={16} />} label="Projects" />
+        </>
+      )}
 
-          <AnimatePresence initial={false}>
-            {projectsOpen && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: "easeInOut" }}
-                className="mt-1 space-y-0.5 overflow-hidden"
-              >
-                {/* Manpower */}
-                <motion.div whileHover={{ x: 4 }}>
-                  <Link to="/paygroups/projects/manpower/daily" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/paygroups/projects/manpower/daily")}`}>
-                    <Briefcase size={15} /> Manpower
-                  </Link>
-                </motion.div>
+      {/* PAY GROUPS */}
+      {permissions.canViewPayGroups && (
+        <>
+          <SectionHeader title="Pay Groups" />
 
-                {/* IPPMS */}
-                <motion.div whileHover={{ x: 4 }}>
-                  <Link to="/paygroups/projects/ippms/piece-rate" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/paygroups/projects/ippms/piece-rate")}`}>
-                    <Package size={15} /> IPPMS
-                  </Link>
-                </motion.div>
+          <NavItem to="/paygroups" icon={<FolderKanban size={16} />} label="All Pay Groups" />
 
-                {/* Projects Expatriate */}
-                <motion.div whileHover={{ x: 4 }}>
-                  <Link to="/paygroups/projects/expatriate" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/paygroups/projects/expatriate")}`}>
-                    <Globe size={15} /> Expatriate
-                  </Link>
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* Head Office */}
+          {permissions.canViewPayGroupsHeadOffice && (
+            collapsed ? (
+              <NavItem to="/paygroups/head-office/regular" icon={<Building2 size={16} />} label="Head Office" />
+            ) : (
+              <>
+                <button
+                  onClick={() => setHeadOfficeOpen(!headOfficeOpen)}
+                  className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-md text-slate-700 hover:bg-slate-50"
+                >
+                  <span className="flex items-center gap-2">
+                    <Building2 size={16} /> Head Office
+                  </span>
+                  <motion.div animate={{ rotate: headOfficeOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
+                    <ChevronRight size={14} />
+                  </motion.div>
+                </button>
+
+                <AnimatePresence initial={false}>
+                  {headOfficeOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: "easeInOut" }}
+                      className="mt-1 space-y-0.5 overflow-hidden"
+                    >
+                      <motion.div whileHover={{ x: 4 }}>
+                        <Link to="/paygroups/head-office/regular" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/paygroups/head-office/regular")}`}>
+                          <Users size={15} /> Regular
+                        </Link>
+                      </motion.div>
+                      <motion.div whileHover={{ x: 4 }}>
+                        <Link to="/paygroups/head-office/expatriate" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/paygroups/head-office/expatriate")}`}>
+                          <Globe size={15} /> Expatriate
+                        </Link>
+                      </motion.div>
+                      <motion.div whileHover={{ x: 4 }}>
+                        <Link to="/paygroups/head-office/interns" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/paygroups/head-office/interns")}`}>
+                          <GraduationCap size={15} /> Interns
+                        </Link>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </>
+            )
+          )}
+
+          {/* Projects */}
+          {permissions.canViewPayGroupsProjects && (
+            collapsed ? (
+              <NavItem to="/paygroups/projects/expatriate" icon={<FolderTree size={16} />} label="Projects" />
+            ) : (
+              <>
+                <button
+                  onClick={() => setProjectsOpen(!projectsOpen)}
+                  className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-md text-slate-700 hover:bg-slate-50"
+                >
+                  <span className="flex items-center gap-2">
+                    <FolderTree size={16} /> Projects
+                  </span>
+                  <motion.div animate={{ rotate: projectsOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
+                    <ChevronRight size={14} />
+                  </motion.div>
+                </button>
+
+                <AnimatePresence initial={false}>
+                  {projectsOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: "easeInOut" }}
+                      className="mt-1 space-y-0.5 overflow-hidden"
+                    >
+                      {/* Manpower */}
+                      <motion.div whileHover={{ x: 4 }}>
+                        <Link to="/paygroups/projects/manpower/daily" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/paygroups/projects/manpower/daily")}`}>
+                          <Briefcase size={15} /> Manpower
+                        </Link>
+                      </motion.div>
+
+                      {/* IPPMS */}
+                      <motion.div whileHover={{ x: 4 }}>
+                        <Link to="/paygroups/projects/ippms/piece-rate" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/paygroups/projects/ippms/piece-rate")}`}>
+                          <Package size={15} /> IPPMS
+                        </Link>
+                      </motion.div>
+
+                      {/* Projects Expatriate */}
+                      <motion.div whileHover={{ x: 4 }}>
+                        <Link to="/paygroups/projects/expatriate" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/paygroups/projects/expatriate")}`}>
+                          <Globe size={15} /> Expatriate
+                        </Link>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </>
+            )
+          )}
         </>
       )}
 
       {/* PAY RUNS */}
-      <SectionHeader title="Pay Runs" />
-      <NavItem to="/payruns" icon={<DollarSign size={16} />} label="All Pay Runs" />
-
-      {/* Head Office Pay Runs */}
-      {collapsed ? (
-        <NavItem to="/payruns/head-office/regular" icon={<Building2 size={16} />} label="Head Office" />
-      ) : (
+      {permissions.canViewPayRuns && (
         <>
-          <button
-            onClick={() => setPayRunsHeadOfficeOpen(!payRunsHeadOfficeOpen)}
-            className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-md text-slate-700 hover:bg-slate-50"
-          >
-            <span className="flex items-center gap-2">
-              <Building2 size={16} /> Head Office
-            </span>
-            <motion.div animate={{ rotate: payRunsHeadOfficeOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
-              <ChevronRight size={14} />
-            </motion.div>
-          </button>
-          <AnimatePresence initial={false}>
-            {payRunsHeadOfficeOpen && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: "easeInOut" }}
-                className="mt-1 space-y-0.5 overflow-hidden"
-              >
-                <NavItem to="/payruns/head-office/regular" icon={<Users size={15} />} label="Regular" />
-                <NavItem to="/payruns/head-office/expatriate" icon={<Globe size={15} />} label="Expatriate" />
-                <NavItem to="/payruns/head-office/interns" icon={<GraduationCap size={15} />} label="Interns" />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </>
-      )}
+          <SectionHeader title="Pay Runs" />
+          <NavItem to="/payruns" icon={<DollarSign size={16} />} label="All Pay Runs" />
 
-      {/* Projects Pay Runs */}
-      {collapsed ? (
-        <NavItem to="/payruns/projects/expatriate" icon={<FolderTree size={16} />} label="Projects" />
-      ) : (
-        <>
-          <button
-            onClick={() => setPayRunsProjectsOpen(!payRunsProjectsOpen)}
-            className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-md text-slate-700 hover:bg-slate-50"
-          >
-            <span className="flex items-center gap-2">
-              <FolderTree size={16} /> Projects
-            </span>
-            <motion.div animate={{ rotate: payRunsProjectsOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
-              <ChevronRight size={14} />
-            </motion.div>
-          </button>
-          <AnimatePresence initial={false}>
-            {payRunsProjectsOpen && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: "easeInOut" }}
-                className="mt-1 space-y-0.5 overflow-hidden"
-              >
-                {/* Manpower Pay Runs */}
-                <motion.div whileHover={{ x: 4 }}>
-                  <Link to="/payruns/projects/manpower/daily" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/payruns/projects/manpower/daily")}`}>
-                    <Briefcase size={15} /> Manpower
-                  </Link>
-                </motion.div>
-                <NavItem to="/payruns/projects/ippms" icon={<Package size={15} />} label="IPPMS" />
-                <NavItem to="/payruns/projects/expatriate" icon={<Globe size={15} />} label="Expatriate" />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </>
-      )}
+          {/* Head Office Pay Runs */}
+          {permissions.canViewPayRunsHeadOffice && (
+            collapsed ? (
+              <NavItem to="/payruns/head-office/regular" icon={<Building2 size={16} />} label="Head Office" />
+            ) : (
+              <>
+                <button
+                  onClick={() => setPayRunsHeadOfficeOpen(!payRunsHeadOfficeOpen)}
+                  className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-md text-slate-700 hover:bg-slate-50"
+                >
+                  <span className="flex items-center gap-2">
+                    <Building2 size={16} /> Head Office
+                  </span>
+                  <motion.div animate={{ rotate: payRunsHeadOfficeOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
+                    <ChevronRight size={14} />
+                  </motion.div>
+                </button>
+                <AnimatePresence initial={false}>
+                  {payRunsHeadOfficeOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: "easeInOut" }}
+                      className="mt-1 space-y-0.5 overflow-hidden"
+                    >
+                      <NavItem to="/payruns/head-office/regular" icon={<Users size={15} />} label="Regular" />
+                      <NavItem to="/payruns/head-office/expatriate" icon={<Globe size={15} />} label="Expatriate" />
+                      <NavItem to="/payruns/head-office/interns" icon={<GraduationCap size={15} />} label="Interns" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </>
+            )
+          )}
 
-      {/* LOCAL PAYROLL */}
-      {collapsed ? (
-        <NavItem to="/payruns/local/monthly" icon={<Users size={16} />} label="Local" />
-      ) : (
-        <>
-          <button
-            onClick={() => setLocalOpen(!localOpen)}
-            className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-md text-slate-700 hover:bg-slate-50"
-          >
-            <span className="flex items-center gap-2">
-              <Users size={16} /> Local Payroll
-            </span>
-            <motion.div animate={{ rotate: localOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
-              <ChevronRight size={14} />
-            </motion.div>
-          </button>
-
-          <AnimatePresence initial={false}>
-            {localOpen && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: "easeInOut" }}
-                className="mt-1 space-y-0.5 overflow-hidden"
-              >
-                <motion.div whileHover={{ x: 4 }}>
-                  <Link to="/payruns/local/monthly" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/payruns/local/monthly")}`}>
-                    <Briefcase size={15} /> Monthly Payroll
-                  </Link>
-                </motion.div>
-                <motion.div whileHover={{ x: 4 }}>
-                  <Link to="/payruns/local/temporary" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/payruns/local/temporary")}`}>
-                    <Clock3 size={15} /> Temporary
-                  </Link>
-                </motion.div>
-                <motion.div whileHover={{ x: 4 }}>
-                  <Link to="/payruns/local/intern" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/payruns/local/intern")}`}>
-                    <GraduationCap size={15} /> Intern
-                  </Link>
-                </motion.div>
-                <motion.div whileHover={{ x: 4 }}>
-                  <Link to="/payruns/local/trainee" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/payruns/local/trainee")}`}>
-                    <UserSquare size={15} /> Trainee
-                  </Link>
-                </motion.div>
-                <motion.div whileHover={{ x: 4 }}>
-                  <Link to="/payruns/local/casual" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/payruns/local/casual")}`}>
-                    <Timer size={15} /> Casual
-                  </Link>
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* Projects Pay Runs */}
+          {permissions.canViewPayRunsProjects && (
+            collapsed ? (
+              <NavItem to="/payruns/projects/expatriate" icon={<FolderTree size={16} />} label="Projects" />
+            ) : (
+              <>
+                <button
+                  onClick={() => setPayRunsProjectsOpen(!payRunsProjectsOpen)}
+                  className="flex items-center justify-between w-full px-3.5 py-2.5 rounded-md text-slate-700 hover:bg-slate-50"
+                >
+                  <span className="flex items-center gap-2">
+                    <FolderTree size={16} /> Projects
+                  </span>
+                  <motion.div animate={{ rotate: payRunsProjectsOpen ? 90 : 0 }} transition={{ duration: 0.25 }}>
+                    <ChevronRight size={14} />
+                  </motion.div>
+                </button>
+                <AnimatePresence initial={false}>
+                  {payRunsProjectsOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: "easeInOut" }}
+                      className="mt-1 space-y-0.5 overflow-hidden"
+                    >
+                      {/* Manpower Pay Runs */}
+                      <motion.div whileHover={{ x: 4 }}>
+                        <Link to="/payruns/projects/manpower/daily" className={`flex items-center gap-2 pl-7 pr-3 py-1.5 rounded-md ${isActive("/payruns/projects/manpower/daily")}`}>
+                          <Briefcase size={15} /> Manpower
+                        </Link>
+                      </motion.div>
+                      <NavItem to="/payruns/projects/ippms" icon={<Package size={15} />} label="IPPMS" />
+                      <NavItem to="/payruns/projects/expatriate" icon={<Globe size={15} />} label="Expatriate" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </>
+            )
+          )}
         </>
       )}
 
       {/* REPORTS */}
-      <SectionHeader title="Reports" />
-      <NavItem to="/reports" icon={<FileText size={16} />} label="Reports" />
+      {permissions.canViewReports && (
+        <>
+          <SectionHeader title="Reports" />
+          <NavItem to="/reports" icon={<FileText size={16} />} label="Reports" />
+        </>
+      )}
 
       {/* SETTINGS */}
-      <SectionHeader title="Settings" />
-      <NavItem to="/settings" icon={<Settings size={16} />} label="Settings" />
+      {permissions.canViewSettings && (
+        <>
+          <SectionHeader title="Settings" />
+          <NavItem to="/settings" icon={<Settings size={16} />} label="Settings" />
+        </>
+      )}
     </div>
   );
 };

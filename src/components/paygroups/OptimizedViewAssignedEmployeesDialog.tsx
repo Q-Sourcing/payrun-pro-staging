@@ -5,12 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { 
-  UserPlus, 
-  ArrowLeft, 
-  Search, 
-  Trash2, 
-  Mail, 
+import {
+  UserPlus,
+  ArrowLeft,
+  Search,
+  Trash2,
+  Mail,
   Building2,
   Users,
   X
@@ -37,10 +37,10 @@ export default function OptimizedViewAssignedEmployeesDialog({
   const [searchTerm, setSearchTerm] = useState('');
 
   // Use optimized hooks with caching
-  const { 
-    data: assignedEmployees, 
+  const {
+    data: assignedEmployees,
     isLoading: loadingAssigned,
-    error: assignedError 
+    error: assignedError
   } = useEmployeesByPayGroup(payGroup.id, { active_only: true });
 
   const assignEmployeeMutation = useAssignEmployee();
@@ -112,15 +112,15 @@ export default function OptimizedViewAssignedEmployeesDialog({
                     </Badge>
                   )}
                 </DialogTitle>
-                <p className="text-sm text-gray-500 mt-1">
-                  {showAssign 
+                <p className="text-sm text-muted-foreground mt-1">
+                  {showAssign
                     ? `Add employees to ${payGroup.name} pay group`
                     : `Manage employees assigned to ${payGroup.name}`
                   }
                 </p>
               </div>
             </div>
-            
+
             {!showAssign && (
               <Button
                 onClick={() => setShowAssign(true)}
@@ -144,12 +144,12 @@ export default function OptimizedViewAssignedEmployeesDialog({
                 transition={{ duration: 0.3 }}
                 className="h-full flex flex-col"
               >
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 mb-4">
-                  <h4 className="font-medium text-blue-900 mb-1">Assigning to: {payGroup.name}</h4>
-                  <p className="text-sm text-blue-700 mb-2">
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-900 mb-4">
+                  <h4 className="font-medium text-blue-900 dark:text-blue-200 mb-1">Assigning to: {payGroup.name}</h4>
+                  <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
                     Showing only {payGroup.type} employees eligible for this pay group
                   </p>
-                  <p className="text-xs text-blue-600">
+                  <p className="text-xs text-blue-600 dark:text-blue-400">
                     💡 If an employee is already in another pay group, they will be moved to this one automatically.
                   </p>
                 </div>
@@ -169,7 +169,7 @@ export default function OptimizedViewAssignedEmployeesDialog({
                 <div className="flex-1 overflow-y-auto">
                   <div className="space-y-2">
                     {/* This would be populated with available employees */}
-                    <div className="text-center py-8 text-gray-500">
+                    <div className="text-center py-8 text-muted-foreground">
                       <UserPlus className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                       <p>Available employees will be listed here</p>
                       <p className="text-sm">Search functionality coming soon...</p>
@@ -215,22 +215,22 @@ export default function OptimizedViewAssignedEmployeesDialog({
                     <div className="flex items-center justify-center h-32">
                       <div className="text-center">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                        <p className="text-sm text-gray-600">Loading employees...</p>
+                        <p className="text-sm text-muted-foreground">Loading employees...</p>
                       </div>
                     </div>
                   ) : assignedError ? (
                     <div className="text-center py-8">
                       <p className="text-red-600 mb-2">Failed to load employees</p>
-                      <p className="text-sm text-gray-500">{assignedError.message}</p>
+                      <p className="text-sm text-muted-foreground">{assignedError.message}</p>
                     </div>
                   ) : displayEmployees.length === 0 ? (
                     <div className="text-center py-12">
                       <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      <h3 className="text-lg font-medium text-foreground mb-2">
                         {searchTerm ? 'No employees found' : 'No employees assigned yet'}
                       </h3>
-                      <p className="text-gray-500 mb-4">
-                        {searchTerm 
+                      <p className="text-muted-foreground mb-4">
+                        {searchTerm
                           ? 'Try adjusting your search terms'
                           : 'Get started by assigning employees to this pay group'
                         }
@@ -247,13 +247,13 @@ export default function OptimizedViewAssignedEmployeesDialog({
                       {displayEmployees.map((assignment) => {
                         const employee = assignment.employee;
                         const initials = `${employee.first_name[0]}${employee.last_name[0]}`.toUpperCase();
-                        
+
                         return (
                           <motion.div
                             key={assignment.id}
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="flex items-center justify-between p-4 bg-white border rounded-lg hover:shadow-sm transition-shadow"
+                            className="flex items-center justify-between p-4 bg-card border border-border rounded-lg hover:shadow-sm transition-shadow"
                           >
                             <div className="flex items-center space-x-3">
                               <Avatar className="h-10 w-10">
@@ -262,10 +262,10 @@ export default function OptimizedViewAssignedEmployeesDialog({
                                 </AvatarFallback>
                               </Avatar>
                               <div>
-                                <h4 className="font-medium text-gray-900">
+                                <h4 className="font-medium text-foreground">
                                   {employee.first_name} {employee.middle_name} {employee.last_name}
                                 </h4>
-                                <div className="flex items-center space-x-4 text-sm text-gray-500">
+                                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                                   <div className="flex items-center space-x-1">
                                     <Mail className="h-3 w-3" />
                                     <span>{employee.email}</span>
@@ -282,9 +282,9 @@ export default function OptimizedViewAssignedEmployeesDialog({
                                 </div>
                               </div>
                             </div>
-                            
+
                             <div className="flex items-center space-x-2">
-                              <div className="text-right text-sm text-gray-500">
+                              <div className="text-right text-sm text-muted-foreground">
                                 <p>Assigned {new Date(assignment.assigned_at).toLocaleDateString()}</p>
                                 {assignment.assigned_by && (
                                   <p className="text-xs">by {assignment.assigned_by}</p>

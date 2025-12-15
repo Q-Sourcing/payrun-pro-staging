@@ -227,9 +227,31 @@ export class PlatformAdminService {
 
       // Note: Deleting from auth.users requires Admin API
       // This should be done via an Edge Function with service role
+      // For now, we rely on the profile deletion and maybe a trigger or manual cleanup
+      // Or we should update this to use manage-users edge function if available
+      // But let's stick to the requested scope: Platform User Creation
     } catch (error: any) {
       console.error('Error deleting user:', error);
       throw new Error(`Failed to delete user: ${error.message}`);
+    }
+  }
+
+  /**
+   * Create a Platform User (Multi-Org)
+   */
+  static async createPlatformUser(data: any): Promise<any> {
+    try {
+      const { data: result, error } = await supabase.functions.invoke('create-platform-user', {
+        body: data
+      });
+
+      if (error) throw error;
+      if (!result.success) throw new Error(result.message || 'Failed to create platform user');
+
+      return result;
+    } catch (error: any) {
+      console.error('Error creating platform user:', error);
+      throw error;
     }
   }
 }

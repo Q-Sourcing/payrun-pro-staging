@@ -7,13 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { ApprovalWorkflows } from "./PayrollSettings/ApprovalWorkflows";
 
 export const PayrollSettingsSection = () => {
   const { toast } = useToast();
-  const [payFrequency, setPayFrequency] = useState("monthly");
-  const [autoSaveDrafts, setAutoSaveDrafts] = useState("yes");
-  const [requireApproval, setRequireApproval] = useState("yes");
-  const [approvalChain, setApprovalChain] = useState("single");
+
   const [taxPercentage, setTaxPercentage] = useState("0");
   const [autoCalculateTax, setAutoCalculateTax] = useState("yes");
   const [taxRounding, setTaxRounding] = useState("nearest");
@@ -40,10 +38,7 @@ export const PayrollSettingsSection = () => {
 
     if (settingsRow?.value) {
       const settings = settingsRow.value as any;
-      setPayFrequency(settings.payFrequency || "monthly");
-      setAutoSaveDrafts(settings.autoSaveDrafts || "yes");
-      setRequireApproval(settings.requireApproval || "yes");
-      setApprovalChain(settings.approvalChain || "single");
+
       setTaxPercentage(settings.taxPercentage || "0");
       setAutoCalculateTax(settings.autoCalculateTax || "yes");
       setTaxRounding(settings.taxRounding || "nearest");
@@ -58,10 +53,7 @@ export const PayrollSettingsSection = () => {
     if (!user) return;
 
     const settings = {
-      payFrequency,
-      autoSaveDrafts,
-      requireApproval,
-      approvalChain,
+
       taxPercentage,
       autoCalculateTax,
       taxRounding,
@@ -99,69 +91,11 @@ export const PayrollSettingsSection = () => {
         <CardTitle>Payroll Settings</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-muted-foreground">PAY RUN DEFAULTS</h3>
-          
-          <div className="space-y-2">
-            <Label>Default Pay Frequency</Label>
-            <Select value={payFrequency} onValueChange={setPayFrequency}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="weekly">Weekly</SelectItem>
-                <SelectItem value="biweekly">Bi-weekly</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
-                <SelectItem value="quarterly">Quarterly</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
 
-          <div className="space-y-2">
-            <Label>Auto-save Drafts</Label>
-            <RadioGroup value={autoSaveDrafts} onValueChange={setAutoSaveDrafts}>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="yes" id="auto-save-yes" />
-                <Label htmlFor="auto-save-yes">Yes</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="no" id="auto-save-no" />
-                <Label htmlFor="auto-save-no">No</Label>
-              </div>
-            </RadioGroup>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Require Approval</Label>
-            <RadioGroup value={requireApproval} onValueChange={setRequireApproval}>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="yes" id="approval-yes" />
-                <Label htmlFor="approval-yes">Yes</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="no" id="approval-no" />
-                <Label htmlFor="approval-no">No</Label>
-              </div>
-            </RadioGroup>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Approval Chain</Label>
-            <Select value={approvalChain} onValueChange={setApprovalChain}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="single">Single Approver</SelectItem>
-                <SelectItem value="multiple">Multiple Approvers</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
 
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-muted-foreground">TAX & COMPLIANCE</h3>
-          
+
           <div className="space-y-2">
             <Label>Default Tax Percentage (%)</Label>
             <Input
@@ -204,7 +138,7 @@ export const PayrollSettingsSection = () => {
 
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-muted-foreground">PAYMENT</h3>
-          
+
           <div className="space-y-2">
             <Label>Default Payment Method</Label>
             <Select value={paymentMethod} onValueChange={setPaymentMethod}>
@@ -243,6 +177,11 @@ export const PayrollSettingsSection = () => {
               </div>
             </RadioGroup>
           </div>
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold text-muted-foreground w-full border-b pb-2">APPROVAL WORKFLOWS</h3>
+          <ApprovalWorkflows />
         </div>
 
         <Button onClick={handleSave} className="w-full">Save Payroll Settings</Button>

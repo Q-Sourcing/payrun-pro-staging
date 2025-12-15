@@ -3,11 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Users, 
-  UserPlus, 
-  Shield, 
-  Activity, 
+import {
+  Users,
+  UserPlus,
+  Shield,
+  Activity,
   Search,
   Filter,
   Download,
@@ -30,24 +30,45 @@ interface UserManagementProps {
 
 // Helper function to convert Supabase profile to our User type
 const convertProfileToUser = (profile: any, supabaseUser: any): User | null => {
-  if (!profile || !supabaseUser) return null;
-  
-  // Map the first role from the roles array to our UserRole type
-  const primaryRole = profile.roles?.[0] as UserRole || 'employee';
-  
+  if (!supabaseUser) return null;
+
+  // Handle mixed profile shapes (legacy array vs new singular role)
+  let primaryRole: UserRole = 'employee';
+
+  // SUPER ADMIN FALLBACK: Check email whitelist first
+  // This matches logic in use-user-role.ts
+  const SUPER_ADMIN_EMAILS = ['nalungukevin@gmail.com'];
+  if (SUPER_ADMIN_EMAILS.includes(supabaseUser.email || '')) {
+    primaryRole = 'super_admin';
+  } else if (profile?.role) {
+    // New profile shape
+    primaryRole = profile.role as UserRole;
+  } else if (profile?.roles && Array.isArray(profile.roles)) {
+    // Legacy profile shape
+    primaryRole = profile.roles[0] as UserRole;
+  } else {
+    // Fallback if no profile or role found
+    const appRole = supabaseUser.app_metadata?.role || supabaseUser.user_metadata?.role;
+    if (appRole === 'super_admin') primaryRole = 'super_admin';
+  }
+
+  // Fallback for names
+  const firstName = profile?.first_name || supabaseUser.user_metadata?.first_name || '';
+  const lastName = profile?.last_name || supabaseUser.user_metadata?.last_name || '';
+
   return {
-    id: profile.id,
-    email: profile.email,
-    firstName: profile.first_name || '',
-    lastName: profile.last_name || '',
+    id: supabaseUser.id,
+    email: supabaseUser.email || '',
+    firstName,
+    lastName,
     role: primaryRole,
-    organizationId: null, // This would come from your database schema
+    organizationId: profile?.organization_id || supabaseUser.user_metadata?.organization_id || null,
     departmentId: null,
     managerId: null,
     isActive: true,
-    lastLogin: supabaseUser.last_sign_in_at,
-    createdAt: supabaseUser.created_at,
-    updatedAt: supabaseUser.updated_at || supabaseUser.created_at,
+    lastLogin: supabaseUser.last_sign_in_at || new Date().toISOString(),
+    createdAt: supabaseUser.created_at || new Date().toISOString(),
+    updatedAt: profile?.updated_at || supabaseUser.updated_at || new Date().toISOString(),
     permissions: ROLE_DEFINITIONS[primaryRole]?.permissions || [],
     restrictions: [],
     twoFactorEnabled: false,
@@ -57,10 +78,11 @@ const convertProfileToUser = (profile: any, supabaseUser: any): User | null => {
 
 export function UserManagement({ currentUser }: UserManagementProps) {
   const { user, profile } = useSupabaseAuth();
-  
+
   // Convert Supabase profile to our User type
+  // Use user even if profile is null (fallback logic inside convertProfileToUser)
   const convertedUser = convertProfileToUser(profile, user);
-  
+
   // Debug logging
   console.log('UserManagement Debug:', {
     user: user?.email,
@@ -69,7 +91,7 @@ export function UserManagement({ currentUser }: UserManagementProps) {
     hasAuth: !!user,
     hasProfile: !!profile
   });
-  
+
   const [activeTab, setActiveTab] = useState('users');
   const [showUserForm, setShowUserForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -155,7 +177,7 @@ export function UserManagement({ currentUser }: UserManagementProps) {
         sessionTimeout: 480
       }
     ];
-    
+
     setUsers(mockUsers);
     setIsLoading(false);
   }, []);
@@ -186,16 +208,16 @@ export function UserManagement({ currentUser }: UserManagementProps) {
   };
 
   const filteredUsers = users.filter(user => {
-    const matchesSearch = !searchTerm || 
+    const matchesSearch = !searchTerm ||
       user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesRole = selectedRole === 'all' || user.role === selectedRole;
-    const matchesStatus = selectedStatus === 'all' || 
+    const matchesStatus = selectedStatus === 'all' ||
       (selectedStatus === 'active' && user.isActive) ||
       (selectedStatus === 'inactive' && !user.isActive);
-    
+
     return matchesSearch && matchesRole && matchesStatus;
   });
 
@@ -210,7 +232,7 @@ export function UserManagement({ currentUser }: UserManagementProps) {
   };
 
   // Show loading state if we don't have user data yet
-  if (!user || !profile || !convertedUser) {
+  if (!user || !convertedUser) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -220,154 +242,155 @@ export function UserManagement({ currentUser }: UserManagementProps) {
 
   return (
     <UserManagementGuard>
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">User Management</h1>
-          <p className="text-muted-foreground">
-            Manage system users, roles, and permissions
-          </p>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">User Management</h1>
+            <p className="text-muted-foreground">
+              Manage system users, roles, and permissions
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm">
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+            <Button variant="outline" size="sm">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+            <Button onClick={handleCreateUser} size="sm">
+              <UserPlus className="h-4 w-4 mr-2" />
+              Add User
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-          <Button variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-          <Button onClick={handleCreateUser} size="sm">
-            <UserPlus className="h-4 w-4 mr-2" />
-            Add User
-          </Button>
-        </div>
-      </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Users</p>
-                <p className="text-2xl font-bold">{userStats.total}</p>
-              </div>
-              <Users className="h-8 w-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Active Users</p>
-                <p className="text-2xl font-bold text-green-600">{userStats.active}</p>
-              </div>
-              <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
-                <div className="h-3 w-3 rounded-full bg-green-600"></div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Inactive Users</p>
-                <p className="text-2xl font-bold text-red-600">{userStats.inactive}</p>
-              </div>
-              <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center">
-                <div className="h-3 w-3 rounded-full bg-red-600"></div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Admins</p>
-                <p className="text-2xl font-bold text-blue-600">{userStats.superAdmins + userStats.admins}</p>
-              </div>
-              <Shield className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Content */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="users" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Users
-          </TabsTrigger>
-          <TabsTrigger value="permissions" className="flex items-center gap-2">
-            <Shield className="h-4 w-4" />
-            Permissions
-          </TabsTrigger>
-          <TabsTrigger value="activity" className="flex items-center gap-2">
-            <Activity className="h-4 w-4" />
-            Activity Log
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            Settings
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="users" className="space-y-4">
-          <UserList
-            users={filteredUsers}
-            isLoading={isLoading}
-            onEditUser={handleEditUser}
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            selectedRole={selectedRole}
-            onRoleChange={setSelectedRole}
-            selectedStatus={selectedStatus}
-            onStatusChange={setSelectedStatus}
-          />
-        </TabsContent>
-
-        <TabsContent value="permissions" className="space-y-4">
-          <PermissionManager currentUser={convertedUser} />
-        </TabsContent>
-
-        <TabsContent value="activity" className="space-y-4">
-          <ActivityLog currentUser={convertedUser} />
-        </TabsContent>
-
-        <TabsContent value="settings" className="space-y-4">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
-            <CardHeader>
-              <CardTitle>User Management Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Configure user management preferences, security settings, and system defaults.
-              </p>
-              {/* Settings content will be implemented here */}
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Users</p>
+                  <p className="text-2xl font-bold">{userStats.total}</p>
+                </div>
+                <Users className="h-8 w-8 text-muted-foreground" />
+              </div>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
 
-      {/* User Form Modal */}
-      {showUserForm && (
-        <UserForm
-          user={editingUser}
-          onClose={handleUserFormClose}
-          onSave={handleUserSaved}
-          currentUser={convertedUser}
-        />
-      )}
-    </div>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Active Users</p>
+                  <p className="text-2xl font-bold text-green-600">{userStats.active}</p>
+                </div>
+                <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
+                  <div className="h-3 w-3 rounded-full bg-green-600"></div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Inactive Users</p>
+                  <p className="text-2xl font-bold text-red-600">{userStats.inactive}</p>
+                </div>
+                <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center">
+                  <div className="h-3 w-3 rounded-full bg-red-600"></div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Admins</p>
+                  <p className="text-2xl font-bold text-blue-600">{userStats.superAdmins + userStats.admins}</p>
+                </div>
+                <Shield className="h-8 w-8 text-blue-600" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Content */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="users" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Users
+            </TabsTrigger>
+            <TabsTrigger value="permissions" className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              Permissions
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              Activity Log
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Settings
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="users" className="space-y-4">
+            <UserList
+              users={filteredUsers}
+              isLoading={isLoading}
+              onEditUser={handleEditUser}
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              selectedRole={selectedRole}
+              onRoleChange={setSelectedRole}
+              selectedStatus={selectedStatus}
+              onStatusChange={setSelectedStatus}
+            />
+
+          </TabsContent>
+
+          <TabsContent value="permissions" className="space-y-4">
+            <PermissionManager currentUser={convertedUser} />
+          </TabsContent>
+
+          <TabsContent value="activity" className="space-y-4">
+            <ActivityLog currentUser={convertedUser} />
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>User Management Settings</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Configure user management preferences, security settings, and system defaults.
+                </p>
+                {/* Settings content will be implemented here */}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        {/* User Form Modal */}
+        {showUserForm && (
+          <UserForm
+            user={editingUser}
+            onClose={handleUserFormClose}
+            onSave={handleUserSaved}
+            currentUser={convertedUser}
+          />
+        )}
+      </div>
     </UserManagementGuard>
   );
 }

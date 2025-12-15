@@ -54,12 +54,12 @@ serve(async (req) => {
     const adminEmails: string[] = []
     const adminUserIds: string[] = []
 
-    ;(platformAdmins || []).forEach((admin: any) => {
-      if (admin.profiles?.email) {
-        adminEmails.push(admin.profiles.email)
-        adminUserIds.push(admin.user_id)
-      }
-    })
+      ; (platformAdmins || []).forEach((admin: any) => {
+        if (admin.profiles?.email) {
+          adminEmails.push(admin.profiles.email)
+          adminUserIds.push(admin.user_id)
+        }
+      })
 
     orgAdmins.forEach((admin: any) => {
       if (admin.profiles?.email && !adminEmails.includes(admin.profiles.email)) {
@@ -68,8 +68,19 @@ serve(async (req) => {
       }
     })
 
+    // Get org details if present
+    let orgName = '';
+    if (body.org_id) {
+      const { data: org } = await supabaseAdmin
+        .from('organizations')
+        .select('name')
+        .eq('id', body.org_id)
+        .single();
+      orgName = org?.name || '';
+    }
+
     // Check if email alerts are enabled
-    let emailAlertsEnabled = true
+    let emailAlertsEnabled = true;
     if (body.org_id) {
       const { data: settings } = await supabaseAdmin
         .from('organization_security_settings')
@@ -95,7 +106,7 @@ serve(async (req) => {
               <p><strong>User:</strong> ${body.locked_user_name} (${body.locked_user_email})</p>
               <p><strong>Reason:</strong> ${body.reason}</p>
               <p><strong>Locked At:</strong> ${new Date().toLocaleString()}</p>
-              ${body.org_id ? `<p><strong>Organization ID:</strong> ${body.org_id}</p>` : ''}
+              ${orgName ? `<p><strong>Organization:</strong> ${orgName}</p>` : ''}
             </div>
             
             <div style="margin-top: 20px; padding: 15px; background: #e7f3ff; border-radius: 8px;">

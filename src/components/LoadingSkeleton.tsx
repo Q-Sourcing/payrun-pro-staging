@@ -1,47 +1,43 @@
-export default function LoadingSkeleton() {
+import { Skeleton } from "@/components/ui/skeleton";
+
+interface LoadingSkeletonProps {
+  rows?: number;
+  columns?: number;
+  showHeader?: boolean;
+}
+
+export const LoadingSkeleton = ({
+  rows = 5,
+  columns = 4,
+  showHeader = true
+}: LoadingSkeletonProps) => {
   return (
-    <div className="animate-pulse space-y-4">
-      {/* Page Header Skeleton */}
-      <div className="space-y-3">
-        <div className="h-6 w-1/3 bg-slate-200 rounded"></div>
-        <div className="h-4 w-2/3 bg-slate-200 rounded"></div>
-      </div>
-      
-      {/* Filters/Actions Skeleton */}
-      <div className="flex gap-4 mb-6">
-        <div className="h-10 w-64 bg-slate-200 rounded-lg"></div>
-        <div className="h-10 w-32 bg-slate-200 rounded-lg"></div>
-        <div className="h-10 w-32 bg-slate-200 rounded-lg"></div>
-      </div>
-      
-      {/* Table Skeleton */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-        {/* Table Header */}
-        <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
-          <div className="flex gap-4">
-            <div className="h-4 w-24 bg-slate-200 rounded"></div>
-            <div className="h-4 w-32 bg-slate-200 rounded"></div>
-            <div className="h-4 w-20 bg-slate-200 rounded"></div>
-            <div className="h-4 w-40 bg-slate-200 rounded"></div>
-            <div className="h-4 w-28 bg-slate-200 rounded"></div>
-            <div className="h-4 w-24 bg-slate-200 rounded"></div>
+    <div className="bg-card border-border rounded-xl shadow-sm overflow-hidden">
+      {showHeader && (
+        <div className="bg-muted px-6 py-4 border-b border-border">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-9 w-32" />
           </div>
         </div>
-        
-        {/* Table Rows */}
-        <div className="space-y-3 p-4">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="flex gap-4 items-center py-2">
-              <div className="h-4 w-20 bg-slate-200 rounded"></div>
-              <div className="h-4 w-32 bg-slate-200 rounded"></div>
-              <div className="h-6 w-16 bg-slate-200 rounded-full"></div>
-              <div className="h-4 w-40 bg-slate-200 rounded"></div>
-              <div className="h-4 w-28 bg-slate-200 rounded"></div>
-              <div className="h-4 w-24 bg-slate-200 rounded"></div>
+      )}
+
+      <div className="divide-y divide-border">
+        {Array.from({ length: rows }).map((_, rowIndex) => (
+          <div key={rowIndex} className="px-6 py-4">
+            <div className="flex items-center gap-4">
+              {Array.from({ length: columns }).map((_, colIndex) => (
+                <Skeleton
+                  key={colIndex}
+                  className="h-4 flex-1"
+                />
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
     </div>
   );
-}
+};
+
+export default LoadingSkeleton;

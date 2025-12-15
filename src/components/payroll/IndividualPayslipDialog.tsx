@@ -12,10 +12,10 @@ import { PayslipPDFExport } from '@/lib/services/payslip-pdf-export';
 import { DEFAULT_PAYSLIP_TEMPLATES } from '@/lib/constants/payslip-templates';
 import { PayslipData, PayslipTemplateConfig, PayslipExportSettings } from '@/lib/types/payslip';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  FileText, 
-  Download, 
-  User, 
+import {
+  FileText,
+  Download,
+  User,
   Calendar,
   DollarSign,
   Building,
@@ -64,7 +64,7 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
       checkPayRunType();
       fetchEmployees();
       loadTemplateConfig();
-      
+
       // Auto-generate payslip data if employee is pre-selected
       if (initialEmployeeId) {
         setSelectedEmployee(initialEmployeeId);
@@ -98,7 +98,7 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
   const fetchEmployees = async () => {
     try {
       let employeeList: Employee[] = [];
-      
+
       if (isExpatriatePayRun) {
         // Fetch employees from expatriate pay run items
         const { data: expatItems, error: expatError } = await supabase
@@ -198,10 +198,10 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
         .select('payroll_type, pay_group_master:pay_group_master_id(type)')
         .eq('id', payRunId)
         .single();
-      
-      const isExpat = payRunData?.payroll_type === 'expatriate' || 
-                     (payRunData?.pay_group_master as any)?.type === 'expatriate';
-      
+
+      const isExpat = payRunData?.payroll_type === 'expatriate' ||
+        (payRunData?.pay_group_master as any)?.type === 'expatriate';
+
       // Also check if there are any expatriate pay run items
       if (!isExpat) {
         const { data: expatItems } = await supabase
@@ -209,13 +209,13 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
           .select('id')
           .eq('pay_run_id', payRunId)
           .limit(1);
-        
+
         if (expatItems && expatItems.length > 0) {
           setIsExpatriatePayRun(true);
           return;
         }
       }
-      
+
       setIsExpatriatePayRun(isExpat);
     } catch (error) {
       console.warn('Could not determine pay run type:', error);
@@ -249,7 +249,7 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
 
     try {
       setGenerating(true);
-      
+
       const exportSettings: PayslipExportSettings = {
         format: 'A4',
         orientation: 'portrait',
@@ -294,7 +294,7 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 border shadow-lg">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-background border-border shadow-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -307,7 +307,7 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
 
         <div className="space-y-6">
           {/* Selected Employee Information */}
-          <Card className="bg-white dark:bg-gray-800 border dark:border-gray-700">
+          <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <User className="h-5 w-5" />
@@ -316,7 +316,7 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
             </CardHeader>
             <CardContent>
               {selectedEmployeeData && (
-                <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="p-4 bg-muted rounded-lg">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label className="text-sm font-medium">Employee Details</Label>
@@ -348,7 +348,7 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
           </Card>
 
           {/* Template Selection */}
-          <Card className="bg-white dark:bg-gray-800 border dark:border-gray-700">
+          <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Palette className="h-5 w-5" />
@@ -377,7 +377,7 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
                 </div>
 
                 {templateConfig && (
-                  <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div className="p-3 bg-muted rounded-lg">
                     <p className="text-sm font-medium">
                       {DEFAULT_PAYSLIP_TEMPLATES.find(t => t.id === selectedTemplate)?.name}
                     </p>
@@ -391,7 +391,7 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
           </Card>
 
           {/* Actions */}
-          <Card className="bg-white dark:bg-gray-800 border dark:border-gray-700">
+          <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Download className="h-5 w-5" />
@@ -415,7 +415,7 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
                   <Alert>
                     <CheckCircle className="h-4 w-4" />
                     <AlertDescription>
-                      Payslip data ready for {payslipData.employee.name}. 
+                      Payslip data ready for {payslipData.employee.name}.
                       Click "Download Payslip PDF" to generate and download the payslip.
                     </AlertDescription>
                   </Alert>
@@ -435,7 +435,7 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
 
           {/* Preview Section */}
           {payslipData && templateConfig && (
-            <Card className="bg-white dark:bg-gray-800 border dark:border-gray-700">
+            <Card className="bg-card border-border">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Eye className="h-5 w-5" />

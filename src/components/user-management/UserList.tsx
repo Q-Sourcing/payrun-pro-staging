@@ -39,15 +39,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { 
-  Search, 
-  Filter, 
-  MoreHorizontal, 
-  Edit, 
-  Trash2, 
-  UserX, 
-  UserCheck, 
-  Mail, 
+import {
+  Search,
+  Filter,
+  MoreHorizontal,
+  Edit,
+  Trash2,
+  UserX,
+  UserCheck,
+  Mail,
   Eye,
   Shield,
   Clock,
@@ -59,6 +59,7 @@ import {
 } from 'lucide-react';
 import { User, UserRole } from '@/lib/types/roles';
 import { ROLE_DEFINITIONS } from '@/lib/types/roles';
+import { supabase } from '@/integrations/supabase/client';
 
 interface UserListProps {
   users: User[];
@@ -116,12 +117,34 @@ export function UserList({
     setShowDeleteDialog(true);
   };
 
-  const confirmDeleteUser = () => {
+  const confirmDeleteUser = async () => {
     if (userToDelete) {
-      console.log('Deleting user:', userToDelete.id);
-      // Implement delete logic here
-      setShowDeleteDialog(false);
-      setUserToDelete(null);
+      try {
+        console.log('Deleting user:', userToDelete.id);
+        const { data, error } = await supabase.functions.invoke('manage-users', {
+          method: 'DELETE',
+          body: {
+            id: userToDelete.id,
+            hard_delete: true // Super admin request implies hard delete capability
+          }
+        });
+
+        if (error) throw error;
+
+        if (!data.success) {
+          throw new Error(data.message || 'Failed to delete user');
+        }
+
+        // Success - notify and refresh
+        // For now, refreshing the page or calling a refresh handler if provided
+        window.location.reload(); // Simple refresh to ensure list is in sync
+      } catch (err: any) {
+        console.error('Delete failed:', err);
+        alert(`Failed to delete user: ${err.message}`);
+      } finally {
+        setShowDeleteDialog(false);
+        setUserToDelete(null);
+      }
     }
   };
 
@@ -134,16 +157,25 @@ export function UserList({
     switch (role) {
       case 'super_admin':
         return 'bg-red-100 text-red-800 border-red-200';
+      case 'org_admin':
       case 'organization_admin':
         return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'ceo_executive':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'payroll_manager':
-        return 'bg-green-100 text-green-800 border-green-200';
+      case 'hr_admin':
       case 'hr_business_partner':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'project_manager':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'project_payroll_officer':
+        return 'bg-cyan-100 text-cyan-800 border-cyan-200';
+      case 'head_office_admin':
+        return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'finance_approver':
       case 'finance_controller':
         return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+      case 'viewer':
+      case 'ceo_executive':
+        return 'bg-slate-100 text-slate-800 border-slate-200';
+      case 'user':
       case 'employee':
         return 'bg-gray-100 text-gray-800 border-gray-200';
       default:
@@ -153,17 +185,17 @@ export function UserList({
 
   const formatLastLogin = (lastLogin?: string) => {
     if (!lastLogin) return 'Never';
-    
+
     const now = new Date();
     const loginDate = new Date(lastLogin);
     const diffInHours = Math.floor((now.getTime() - loginDate.getTime()) / (1000 * 60 * 60));
-    
+
     if (diffInHours < 1) return 'Just now';
     if (diffInHours < 24) return `${diffInHours}h ago`;
-    
+
     const diffInDays = Math.floor(diffInHours / 24);
     if (diffInDays < 7) return `${diffInDays}d ago`;
-    
+
     return loginDate.toLocaleDateString();
   };
 
@@ -209,7 +241,7 @@ export function UserList({
                 />
               </div>
             </div>
-            
+
             <div className="flex gap-2">
               <Select value={selectedRole} onValueChange={onRoleChange}>
                 <SelectTrigger className="w-[140px]">
@@ -217,13 +249,15 @@ export function UserList({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Roles</SelectItem>
+                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="org_admin">Organization Admin</SelectItem>
+                  <SelectItem value="hr_admin">HR Admin</SelectItem>
+                  <SelectItem value="project_manager">Project Manager</SelectItem>
+                  <SelectItem value="project_payroll_officer">Project Payroll Officer</SelectItem>
+                  <SelectItem value="head_office_admin">Head Office Admin</SelectItem>
+                  <SelectItem value="finance_approver">Finance Approver</SelectItem>
+                  <SelectItem value="viewer">Viewer</SelectItem>
                   <SelectItem value="super_admin">Super Admin</SelectItem>
-                  <SelectItem value="organization_admin">Org Admin</SelectItem>
-                  <SelectItem value="ceo_executive">CEO/Executive</SelectItem>
-                  <SelectItem value="payroll_manager">Payroll Manager</SelectItem>
-                  <SelectItem value="hr_business_partner">HR Partner</SelectItem>
-                  <SelectItem value="finance_controller">Finance Controller</SelectItem>
-                  <SelectItem value="employee">Employee</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -305,7 +339,7 @@ export function UserList({
                     <Checkbox
                       checked={allSelected}
                       ref={(el) => {
-                        if (el) el.indeterminate = someSelected;
+                        if (el) (el as unknown as HTMLInputElement).indeterminate = someSelected;
                       }}
                       onCheckedChange={handleSelectAll}
                     />
@@ -325,7 +359,7 @@ export function UserList({
                     <TableCell>
                       <Checkbox
                         checked={selectedUsers.includes(user.id)}
-                        onCheckedChange={(checked) => 
+                        onCheckedChange={(checked) =>
                           handleSelectUser(user.id, checked as boolean)
                         }
                       />
@@ -349,23 +383,35 @@ export function UserList({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge 
-                        variant="outline" 
+                      <Badge
+                        variant="outline"
                         className={getRoleBadgeColor(user.role)}
                       >
-                        {ROLE_DEFINITIONS[user.role].name}
+                        {ROLE_DEFINITIONS[user.role]?.name || user.role}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge 
-                        variant={user.isActive ? "default" : "secondary"}
-                        className={user.isActive 
-                          ? "bg-green-100 text-green-800 border-green-200" 
-                          : "bg-gray-100 text-gray-800 border-gray-200"
+                      {(() => {
+                        if (user.isActive) {
+                          return (
+                            <Badge className="bg-green-100 text-green-800 border-green-200">
+                              Active
+                            </Badge>
+                          );
+                        } else if (!user.lastLogin) {
+                          return (
+                            <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                              Pending
+                            </Badge>
+                          );
+                        } else {
+                          return (
+                            <Badge variant="secondary" className="bg-gray-100 text-gray-800 border-gray-200">
+                              Inactive
+                            </Badge>
+                          );
                         }
-                      >
-                        {user.isActive ? 'Active' : 'Inactive'}
-                      </Badge>
+                      })()}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1 text-sm">
@@ -411,7 +457,7 @@ export function UserList({
                             Send Email
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={() => handleToggleUserStatus(user)}
                           >
                             {user.isActive ? (
@@ -426,7 +472,7 @@ export function UserList({
                               </>
                             )}
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={() => handleDeleteUser(user)}
                             className="text-red-600"
                           >
@@ -462,7 +508,7 @@ export function UserList({
                   <ChevronLeft className="h-4 w-4" />
                   Previous
                 </Button>
-                
+
                 <div className="flex items-center gap-1">
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
                     <Button
@@ -476,7 +522,7 @@ export function UserList({
                     </Button>
                   ))}
                 </div>
-                
+
                 <Button
                   variant="outline"
                   size="sm"

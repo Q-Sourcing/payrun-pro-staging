@@ -60,9 +60,9 @@ const PayRunsTab = () => {
     try {
       // Check if we're on the expatriate page
       const isExpatriatePage = window.location.pathname.includes('/expatriate');
-      
+
       let data, error;
-      
+
       if (isExpatriatePage) {
         // For expatriate page, fetch pay runs with expatriate pay groups
         const result = await supabase
@@ -80,7 +80,7 @@ const PayRunsTab = () => {
           `)
           .eq("payroll_type", "expatriate")
           .order("pay_run_date", { ascending: false });
-        
+
         data = result.data;
         error = result.error;
       } else {
@@ -99,18 +99,18 @@ const PayRunsTab = () => {
             pay_items (count)
           `)
           .order("pay_run_date", { ascending: false });
-        
+
         data = result.data;
         error = result.error;
       }
 
       if (error) throw error;
-      
+
       const payRunsWithCount = data?.map(run => ({
         ...run,
         pay_items_count: run.pay_items?.[0]?.count || 0
       })) || [];
-      
+
       setPayRuns(payRunsWithCount);
     } catch (err) {
       error("Error fetching pay runs:", err);
@@ -155,11 +155,11 @@ const PayRunsTab = () => {
   const formatCurrency = (amount: number, payRun?: PayRun) => {
     const country = payRun?.pay_group_master?.country || 'Uganda';
     const currencyCode = payRun?.pay_group_master?.currency || getCurrencyCodeFromCountry(country);
-    
+
     const currencyInfo = getCurrencyByCode(currencyCode);
     const symbol = currencyInfo?.symbol || currencyCode;
     const decimals = currencyInfo?.decimalPlaces ?? 2;
-    
+
     return `${symbol}${amount.toLocaleString('en-US', {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
@@ -202,7 +202,7 @@ const PayRunsTab = () => {
         } catch (err: any) {
           lastError = err;
           attempts++;
-          
+
           // Only retry on network errors
           if (err.message?.includes("Failed to fetch") && attempts < maxAttempts) {
             await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
@@ -217,7 +217,7 @@ const PayRunsTab = () => {
       error("Error deleting pay run:", error);
       toast({
         title: "Error",
-        description: error.message?.includes("Failed to fetch") 
+        description: error.message?.includes("Failed to fetch")
           ? "Network error. Please check your connection and try again."
           : "Failed to delete pay run",
         variant: "destructive",
@@ -239,8 +239,8 @@ const PayRunsTab = () => {
     <div className="space-y-6">
       {/* Action Button */}
       <div className="flex justify-end">
-        <Button 
-          onClick={() => setShowCreateDialog(true)} 
+        <Button
+          onClick={() => setShowCreateDialog(true)}
           className="btn-primary"
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -268,7 +268,7 @@ const PayRunsTab = () => {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="border border-border shadow-sm hover:shadow-md transition-shadow">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -351,8 +351,8 @@ const PayRunsTab = () => {
               <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
                 Get started by creating your first pay run to process employee payments.
               </p>
-              <Button 
-                onClick={() => setShowCreateDialog(true)} 
+              <Button
+                onClick={() => setShowCreateDialog(true)}
                 className="h-11 px-6 bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -362,57 +362,56 @@ const PayRunsTab = () => {
           ) : (
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader className="bg-gray-50 dark:bg-muted/50">
-                  <TableRow className="border-b-2 border-gray-200 dark:border-border">
-                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Pay Run Date</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Pay Group</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Pay Period</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Employees</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Gross Pay</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Net Pay</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Status</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-gray-900 dark:text-foreground">Actions</TableHead>
+                <TableHeader className="bg-muted/50">
+                  <TableRow className="border-b-2 border-border">
+                    <TableHead className="h-12 px-6 font-semibold text-foreground">Pay Run Date</TableHead>
+                    <TableHead className="h-12 px-6 font-semibold text-foreground">Pay Group</TableHead>
+                    <TableHead className="h-12 px-6 font-semibold text-foreground">Pay Period</TableHead>
+                    <TableHead className="h-12 px-6 font-semibold text-foreground">Employees</TableHead>
+                    <TableHead className="h-12 px-6 font-semibold text-foreground">Gross Pay</TableHead>
+                    <TableHead className="h-12 px-6 font-semibold text-foreground">Net Pay</TableHead>
+                    <TableHead className="h-12 px-6 font-semibold text-foreground">Status</TableHead>
+                    <TableHead className="h-12 px-6 font-semibold text-foreground">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {payRuns.map((payRun, index) => (
-                    <TableRow 
-                      key={payRun.id} 
-                      className={`border-b border-gray-200 dark:border-border hover:bg-blue-50 dark:hover:bg-muted/50 transition-colors ${
-                        index % 2 === 0 ? 'bg-white dark:bg-background' : 'bg-gray-50 dark:bg-muted/20'
-                      }`}
+                    <TableRow
+                      key={payRun.id}
+                      className={`border-b border-border hover:bg-muted/50 transition-colors ${index % 2 === 0 ? 'bg-background' : 'bg-muted/20'
+                        }`}
                     >
                       <TableCell className="px-6 py-4">
-                        <div className="font-medium text-gray-900 dark:text-foreground">
+                        <div className="font-medium text-foreground">
                           {formatDate(payRun.pay_run_date)}
                         </div>
                       </TableCell>
                       <TableCell className="px-6 py-4">
                         <div className="space-y-1">
-                          <div className="font-medium text-gray-900 dark:text-foreground">{payRun.pay_group_master.name}</div>
-                          <div className="text-sm text-gray-600 dark:text-muted-foreground">
+                          <div className="font-medium text-foreground">{payRun.pay_group_master.name}</div>
+                          <div className="text-sm text-muted-foreground">
                             {payRun.pay_group_master.country}
                             {payRun.pay_group_master.code && ` (${payRun.pay_group_master.code})`}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell className="px-6 py-4">
-                        <div className="text-sm text-gray-600 dark:text-muted-foreground">
+                        <div className="text-sm text-muted-foreground">
                           {formatDate(payRun.pay_period_start)} - {formatDate(payRun.pay_period_end)}
                         </div>
                       </TableCell>
                       <TableCell className="px-6 py-4">
-                        <Badge variant="secondary" className="font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700">
+                        <Badge variant="secondary" className="font-medium bg-muted text-muted-foreground border border-border">
                           {payRun.pay_items_count} employees
                         </Badge>
                       </TableCell>
                       <TableCell className="px-6 py-4">
-                        <div className="font-medium text-gray-900 dark:text-foreground">
+                        <div className="font-medium text-foreground">
                           {formatCurrency(payRun.total_gross_pay, payRun)}
                         </div>
                       </TableCell>
                       <TableCell className="px-6 py-4">
-                        <div className="font-semibold text-gray-900 dark:text-foreground">
+                        <div className="font-semibold text-foreground">
                           {formatCurrency(payRun.total_net_pay, payRun)}
                         </div>
                       </TableCell>
@@ -423,10 +422,10 @@ const PayRunsTab = () => {
                       </TableCell>
                       <TableCell className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
-                            className="h-8 px-3 text-xs font-medium border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                            className="h-8 px-3 text-xs font-medium border-border text-foreground hover:bg-muted"
                             onClick={() => {
                               setSelectedPayRun(payRun);
                               setShowDetailsDialog(true);
@@ -438,7 +437,7 @@ const PayRunsTab = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-8 px-3 text-xs font-medium border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400 dark:border-blue-600 dark:text-blue-300 dark:hover:bg-blue-900/20"
+                              className="h-8 px-3 text-xs font-medium border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900/30"
                               onClick={() => {
                                 setSelectedPayRun(payRun);
                                 setShowBankScheduleDialog(true);
@@ -451,7 +450,7 @@ const PayRunsTab = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                            className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
                             onClick={() => {
                               setPayRunToDelete(payRun.id);
                               setShowDeleteDialog(true);
@@ -470,8 +469,8 @@ const PayRunsTab = () => {
         </div>
       </div>
 
-      <CreatePayRunDialog 
-        open={showCreateDialog} 
+      <CreatePayRunDialog
+        open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         onPayRunCreated={fetchPayRuns}
       />
@@ -489,7 +488,7 @@ const PayRunsTab = () => {
             }}
             onPayRunUpdated={fetchPayRuns}
           />
-          
+
           <BankScheduleExportDialog
             open={showBankScheduleDialog}
             onOpenChange={setShowBankScheduleDialog}
@@ -510,8 +509,8 @@ const PayRunsTab = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDeletePayRun} 
+            <AlertDialogAction
+              onClick={handleDeletePayRun}
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >

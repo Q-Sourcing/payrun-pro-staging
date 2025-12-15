@@ -68,88 +68,101 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Authorization header required' 
+        JSON.stringify({
+          success: false,
+          message: 'Authorization header required'
         }),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
     // Extract the JWT token
     const token = authHeader.replace('Bearer ', '')
-    
+
     // Verify the token and get user info
     const { data: { user: currentUser }, error: authError } = await supabaseAdmin.auth.getUser(token)
-    
+
     if (authError || !currentUser) {
       console.error('Authentication failed:', authError)
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Invalid authentication token' 
+        JSON.stringify({
+          success: false,
+          message: 'Invalid authentication token'
         }),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
-    // Check if user has admin or super_admin role
-    const { data: userRoles, error: roleError } = await supabaseAdmin
-      .from('user_roles')
+    // Check permissions using user_profiles (standard for this app)
+    const { data: callerProfile, error: callerProfileError } = await supabaseAdmin
+      .from('user_profiles')
       .select('role')
-      .eq('user_id', currentUser.id)
-      .single()
+      .eq('id', currentUser.id)
+      .maybeSingle()
 
-    if (roleError || !userRoles) {
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Failed to verify user permissions' 
-        }),
-        { 
-          status: 403, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
+    const callerRole = callerProfile?.role || '';
 
-    const userRole = userRoles.role
-    const isAdmin = userRole === 'admin' || userRole === 'super_admin'
+    // Check Platform Admin
+    const { data: platformAdmin } = await supabaseAdmin
+      .from('platform_admins')
+      .select('allowed')
+      .eq('email', currentUser.email)
+      .maybeSingle()
+
+    const isPlatformAdmin = !!platformAdmin?.allowed
+
+    // Check Super Admin Whitelist
+    const SUPER_ADMIN_EMAILS = ['nalungukevin@gmail.com'];
+    const isWhitelisted = SUPER_ADMIN_EMAILS.includes(currentUser.email || '');
+
+    const isAdmin =
+      callerRole === 'super_admin' ||
+      callerRole === 'admin' ||
+      callerRole === 'org_admin' ||
+      callerRole === 'organization_admin' ||
+      isPlatformAdmin ||
+      isWhitelisted;
+
+    const userRole = callerRole; // Alias for backward compatibility with downstream code
 
     // Extract IP and user agent for audit logging
     const ipAddress = extractIpAddress(req)
     const userAgent = extractUserAgent(req)
 
+    // Log if denied
     if (!isAdmin) {
-      // Log denied access attempt
       await logAuditEvent(supabaseAdmin, {
         user_id: currentUser.id,
-        action: 'user.update',
+        action: 'user.update', // or user.delete, generic check here
         resource: 'users',
-        details: { attempted_action: 'update', reason: 'insufficient_permissions' },
+        details: { attempted_action: 'access_manage_users', reason: 'insufficient_permissions', role: callerRole },
         ip_address: ipAddress,
         user_agent: userAgent,
         result: 'denied',
       })
 
       return new Response(
-        JSON.stringify({ 
-          success: false, 
+        JSON.stringify({
+          success: false,
           message: 'Insufficient permissions. Admin role required.',
           code: 'PERMISSION_DENIED'
         }),
-        { 
-          status: 403, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
+
+    // Determine specific privileges
+    const isSuperAdmin = callerRole === 'super_admin' || isWhitelisted || isPlatformAdmin;
+    // Pass this down if needed, or re-check in delete block
 
     const url = new URL(req.url)
     const action = url.pathname.split('/').pop()
@@ -172,14 +185,14 @@ serve(async (req) => {
         })
 
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             message: validationError instanceof Error ? validationError.message : 'Invalid request data',
             code: 'VALIDATION_ERROR'
           } as UpdateUserResponse),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
@@ -203,14 +216,14 @@ serve(async (req) => {
         })
 
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             message: 'User not found',
             code: 'NOT_FOUND'
           } as UpdateUserResponse),
-          { 
-            status: 404, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
@@ -234,7 +247,7 @@ serve(async (req) => {
 
       if (profileError) {
         console.error('Error updating profile:', profileError)
-        
+
         await logAuditEvent(supabaseAdmin, {
           user_id: currentUser.id,
           action: 'user.update',
@@ -246,14 +259,14 @@ serve(async (req) => {
         })
 
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             message: 'Failed to update user profile: ' + profileError.message,
             code: 'UPDATE_ERROR'
           } as UpdateUserResponse),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
@@ -273,14 +286,14 @@ serve(async (req) => {
           })
 
           return new Response(
-            JSON.stringify({ 
-              success: false, 
+            JSON.stringify({
+              success: false,
               message: 'Only super admin can change user roles',
               code: 'PERMISSION_DENIED'
             } as UpdateUserResponse),
-            { 
-              status: 403, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            {
+              status: 403,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             }
           )
         }
@@ -292,7 +305,7 @@ serve(async (req) => {
 
         if (roleUpdateError) {
           console.error('Error updating role:', roleUpdateError)
-          
+
           await logAuditEvent(supabaseAdmin, {
             user_id: currentUser.id,
             action: 'user.update',
@@ -304,14 +317,14 @@ serve(async (req) => {
           })
 
           return new Response(
-            JSON.stringify({ 
-              success: false, 
+            JSON.stringify({
+              success: false,
               message: 'Failed to update user role: ' + roleUpdateError.message,
               code: 'UPDATE_ERROR'
             } as UpdateUserResponse),
-            { 
-              status: 400, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             }
           )
         }
@@ -326,7 +339,7 @@ serve(async (req) => {
 
         if (authUpdateError) {
           console.error('Error updating auth user:', authUpdateError)
-          
+
           await logAuditEvent(supabaseAdmin, {
             user_id: currentUser.id,
             action: 'user.update',
@@ -338,14 +351,14 @@ serve(async (req) => {
           })
 
           return new Response(
-            JSON.stringify({ 
-              success: false, 
+            JSON.stringify({
+              success: false,
               message: 'Failed to update user email: ' + authUpdateError.message,
               code: 'UPDATE_ERROR'
             } as UpdateUserResponse),
-            { 
-              status: 400, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             }
           )
         }
@@ -378,7 +391,7 @@ serve(async (req) => {
         user_id: currentUser.id,
         action: 'user.update',
         resource: 'users',
-        details: { 
+        details: {
           target_user_id: body.id,
           changes: {
             email: body.email !== undefined ? { old: existingProfile.email, new: body.email } : undefined,
@@ -395,14 +408,14 @@ serve(async (req) => {
       console.log(`User updated successfully: ${body.id} by ${currentUser.email}`)
 
       return new Response(
-        JSON.stringify({ 
-          success: true, 
+        JSON.stringify({
+          success: true,
           message: 'User updated successfully',
           user: updatedUser
         } as UpdateUserResponse),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
@@ -425,14 +438,14 @@ serve(async (req) => {
         })
 
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             message: validationError instanceof Error ? validationError.message : 'Invalid request data',
             code: 'VALIDATION_ERROR'
           } as DeleteUserResponse),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
@@ -450,14 +463,14 @@ serve(async (req) => {
         })
 
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             message: 'Cannot delete your own account',
             code: 'SELF_DELETION_DENIED'
           } as DeleteUserResponse),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
@@ -475,14 +488,14 @@ serve(async (req) => {
         })
 
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             message: 'Only super admin can perform hard delete',
             code: 'PERMISSION_DENIED'
           } as DeleteUserResponse),
-          { 
-            status: 403, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
@@ -490,10 +503,10 @@ serve(async (req) => {
       if (body.hard_delete) {
         // Hard delete - remove from database
         const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(body.id)
-        
+
         if (deleteError) {
           console.error('Error deleting user:', deleteError)
-          
+
           await logAuditEvent(supabaseAdmin, {
             user_id: currentUser.id,
             action: 'user.delete',
@@ -505,14 +518,14 @@ serve(async (req) => {
           })
 
           return new Response(
-            JSON.stringify({ 
-              success: false, 
+            JSON.stringify({
+              success: false,
               message: 'Failed to delete user: ' + deleteError.message,
               code: 'DELETE_ERROR'
             } as DeleteUserResponse),
-            { 
-              status: 400, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             }
           )
         }
@@ -531,13 +544,13 @@ serve(async (req) => {
         console.log(`User hard deleted: ${body.id} by ${currentUser.email}`)
 
         return new Response(
-          JSON.stringify({ 
-            success: true, 
-            message: 'User deleted successfully' 
+          JSON.stringify({
+            success: true,
+            message: 'User deleted successfully'
           } as DeleteUserResponse),
-          { 
-            status: 200, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       } else {
@@ -548,7 +561,7 @@ serve(async (req) => {
 
         if (banError) {
           console.error('Error banning user:', banError)
-          
+
           await logAuditEvent(supabaseAdmin, {
             user_id: currentUser.id,
             action: 'user.delete',
@@ -560,14 +573,14 @@ serve(async (req) => {
           })
 
           return new Response(
-            JSON.stringify({ 
-              success: false, 
+            JSON.stringify({
+              success: false,
               message: 'Failed to deactivate user: ' + banError.message,
               code: 'DELETE_ERROR'
             } as DeleteUserResponse),
-            { 
-              status: 400, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             }
           )
         }
@@ -586,39 +599,39 @@ serve(async (req) => {
         console.log(`User soft deleted (banned): ${body.id} by ${currentUser.email}`)
 
         return new Response(
-          JSON.stringify({ 
-            success: true, 
-            message: 'User deactivated successfully' 
+          JSON.stringify({
+            success: true,
+            message: 'User deactivated successfully'
           } as DeleteUserResponse),
-          { 
-            status: 200, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        message: 'Method not allowed' 
+      JSON.stringify({
+        success: false,
+        message: 'Method not allowed'
       }),
-      { 
-        status: 405, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 405,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
 
   } catch (error) {
     console.error('Unexpected error in manage-users function:', error)
-    
+
     // Try to log the error (but don't fail if logging fails)
     try {
       const ipAddress = extractIpAddress(req)
       const userAgent = extractUserAgent(req)
       const authHeader = req.headers.get('Authorization')
       const token = authHeader?.replace('Bearer ', '')
-      
+
       if (token) {
         const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
         if (serviceRoleKey) {
@@ -632,7 +645,7 @@ serve(async (req) => {
               }
             }
           )
-          
+
           const { data: { user } } = await supabaseAdmin.auth.getUser(token)
           if (user) {
             await logAuditEvent(supabaseAdmin, {
@@ -650,16 +663,16 @@ serve(async (req) => {
     } catch (logError) {
       console.error('Failed to log error:', logError)
     }
-    
+
     return new Response(
-      JSON.stringify({ 
-        success: false, 
+      JSON.stringify({
+        success: false,
         message: 'Internal server error: ' + (error instanceof Error ? error.message : 'Unknown error'),
         code: 'INTERNAL_ERROR'
       }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
   }

@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client'
+import { AuditLogger } from './audit-logger'
 
 export interface MultiTenantPayRun {
   id: string
@@ -88,13 +89,13 @@ export interface CreatePayRunData {
 
 export class MultiTenantPayrollService {
   // Get current user's organization ID from JWT
-  static getCurrentOrganizationId(): string | null {
+  static async getCurrentOrganizationId(): Promise<string | null> {
     try {
-      const { data } = supabase.auth.getSession()
+      const { data } = await supabase.auth.getSession()
       if (!data?.session?.access_token) return null
-      
+
       const payload = JSON.parse(atob(data.session.access_token.split('.')[1]))
-      return payload.organization_id || null
+      return payload.organization_id || payload.app_metadata?.organization_id || payload.user_metadata?.organization_id || null
     } catch {
       return null
     }
@@ -102,7 +103,7 @@ export class MultiTenantPayrollService {
 
   // List pay runs for current organization
   static async listPayRuns(organizationId?: string): Promise<MultiTenantPayRun[]> {
-    const orgId = organizationId || this.getCurrentOrganizationId()
+    const orgId = organizationId || await this.getCurrentOrganizationId()
     if (!orgId) throw new Error('No organization context available')
 
     const { data, error } = await supabase
@@ -214,6 +215,8 @@ export class MultiTenantPayrollService {
       throw new Error('Failed to create pay run')
     }
 
+    await AuditLogger.logPrivilegedAction('payroll.create', 'payroll_run', { id: result.id, ...data })
+
     return result
   }
 
@@ -264,9 +267,9 @@ export class MultiTenantPayrollService {
   static async upsertPayRunItem(item: Partial<MultiTenantPayRunItem>): Promise<MultiTenantPayRunItem> {
     const { data, error } = await supabase
       .from('pay_run_items')
-      .upsert(item, { 
+      .upsert(item, {
         onConflict: 'id',
-        ignoreDuplicates: false 
+        ignoreDuplicates: false
       })
       .select(`
         id,
@@ -394,6 +397,24 @@ export class MultiTenantPayrollService {
       console.error('Error updating pay run totals:', error)
       throw new Error('Failed to update pay run totals')
     }
+  }
+
+  // Update pay run status
+  static async updatePayRunStatus(payRunId: string, status: 'draft' | 'pending' | 'approved' | 'closed'): Promise<void> {
+    const { error } = await supabase
+      .from('master_payrolls')
+      .update({
+        payroll_status: status,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', payRunId)
+
+    if (error) {
+      console.error('Error updating pay run status:', error)
+      throw new Error('Failed to update pay run status')
+    }
+
+    await AuditLogger.logPrivilegedAction('payroll.status_change', 'payroll_run', { id: payRunId, status })
   }
 
   // Format currency
