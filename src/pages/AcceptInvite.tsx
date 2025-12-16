@@ -60,19 +60,14 @@ export default function AcceptInvite() {
             if (!token) throw new Error("Missing token");
 
             // 1. Verify the token (logs the user in)
-            // For 'invite' flow, we use verifyOtp with token_hash if it's a hash, 
-            // or exchangeCodeForSession if it's a code?
-            // GenerateLink usually returns a token that works with verifyOtp.
-
-            const { data: sessionData, error: verifyError } = await supabase.auth.verifyOtp({
+            const { error: verifyError } = await supabase.auth.verifyOtp({
                 token_hash: token,
                 type: type as any,
             });
 
             if (verifyError) {
                 console.error('Verify OTP Error:', verifyError);
-                // Fallback: sometimes the link might be an implicit grant or recovery flow?
-                throw verifyError;
+                throw new Error("Invalid or expired invitation link.");
             }
 
             // 2. Set the user's password
@@ -82,12 +77,21 @@ export default function AcceptInvite() {
 
             if (updateError) throw updateError;
 
+            // 3. Complete Invite (Provisioning)
+            // Call the Edge Function to finalize permissions
+            const { data: completeData, error: completeError } = await supabase.functions.invoke('complete-invite');
+
+            if (completeError) {
+                console.error('Complete Invite Error:', completeError);
+                throw new Error("Failed to set up account permissions. Please contact support.");
+            }
+
             toast({
                 title: "Account Setup Complete",
                 description: "You have successfully set your password and logged in."
             });
 
-            // 3. Navigate to dashboard
+            // 4. Navigate to dashboard
             navigate('/dashboard');
 
         } catch (error: any) {
