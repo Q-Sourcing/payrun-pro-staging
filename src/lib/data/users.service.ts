@@ -36,7 +36,7 @@ export class UsersService {
     try {
       // Get profiles
       let profilesQuery = supabase
-        .from('profiles')
+        .from('user_profiles')
         .select('*', { count: 'exact' })
         .range(from, to)
         .order('created_at', { ascending: false });
@@ -115,7 +115,7 @@ export class UsersService {
   static async getUserById(id: string): Promise<UserWithRole | null> {
     try {
       const { data: profile, error: profileError } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .select('*')
         .eq('id', id)
         .single();
@@ -130,7 +130,7 @@ export class UsersService {
         .from('user_roles')
         .select('role')
         .eq('user_id', id)
-        .single();
+        .maybeSingle();
 
       if (roleError && roleError.code !== 'PGRST116') throw roleError;
 

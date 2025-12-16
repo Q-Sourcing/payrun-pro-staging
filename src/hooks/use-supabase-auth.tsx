@@ -52,10 +52,10 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
     try {
       debug('Fetching user profile for:', userId);
 
-      // Query profile from profiles table (no role column here)
+      // Query profile from user_profiles table (new table name)
       // Cast to any to bypass generated type mismatches
       const { data: profileResult, error: profileError } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .select('id, email, first_name, last_name, organization_id, created_at, updated_at')
         .eq('id', userId)
         .single();
@@ -73,8 +73,8 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
         .select('role')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+        .order('created_at', { ascending: false })
+        .maybeSingle();
 
       // Map the app_role enum to our role types
       let role: 'super_admin' | 'org_admin' | 'user' = 'user';
