@@ -75,81 +75,68 @@ export function CreateUserWizard({ open, onOpenChange }: CreateUserWizardProps) 
     const handleSubmit = async () => {
         setLoading(true);
         try {
-            // 1. Create Auth User
-            const userRes = await createUser(formData);
-            if (!userRes.success || !userRes.user_id) {
-                throw new Error(userRes.error || userRes.message || "Failed to create user");
-            }
-            const userId = userRes.user_id;
-            console.log("User created:", userId);
+            const { supabase } = await import("@/lib/supabase");
 
-            // 2. Platform Admin Assignment
-            if (platformAdmin) {
-                await upsertPlatformAdmin({
-                    email: formData.email,
-                    full_name: formData.full_name,
-                    role: platformRole as any,
-                    allowed: true,
-                });
-            }
+            // Construct payload for create-platform-user
+            const orgs = selectedOrgIds.map(orgId => {
+                const roleKey = orgRoles[orgId] || "member";
+                return {
+                    orgId: orgId,
+                    roles: [roleKey], // API expects array of role KEYS
+                    companyIds: [] // Todo in future: allow company selection
+                };
+            });
 
-            // 3. Org & Role Assignment
-            for (const orgId of selectedOrgIds) {
-                // Add user to org
-                await addOrgUser(orgId, formData.email, activateUser ? "active" : "disabled");
+            const platformRoles = platformAdmin ? [platformRole] : [];
+            const [firstName, ...lastNameParts] = formData.full_name.split(' ');
+            const lastName = lastNameParts.join(' ') || '';
 
-                // Assign Role (if selected)
-                const roleKey = orgRoles[orgId];
-                if (roleKey) {
-                    // We need to fetch roles for this org to find the role ID from the key
-                    // This is a bit inefficient in a loop, but okay for MVP admin wizard
-                    // In a real app we might cache this or fetch once upfront
-                    const roles = await listOrgRoles(orgId);
-                    const role = roles.find(r => r.key === roleKey);
-                    if (role) {
-                        const orgUserId = await getOrgUserId(orgId, userId);
-                        if (orgUserId) {
-                            await toggleOrgUserRole(orgUserId, role.id, true);
-                        }
-                    }
+            const payload = {
+                email: formData.email,
+                firstName: firstName || "User",
+                lastName: lastName || "User",
+                orgs: orgs,
+                platformRoles: platformRoles,
+                sendInvite: sendInvite
+            };
+
+            const { data, error } = await supabase.functions.invoke('create-platform-user', {
+                body: payload
+            });
+
+            if (error) {
+                // Parse error message if possible
+                let msg = error.message;
+                try {
+                    const body = JSON.parse(await error.context.json());
+                    if (body.message) msg = body.message;
+                } catch (e) {
+                    // ignore
                 }
+                throw new Error(msg || "Failed to invite user via Edge Function");
             }
 
-            // 4. Invitation (Handled by backend usually or separate invite API call if create-user doesn't)
-            // For this implementation plan, we assume create-user handles basic setup.
-            // If `sendInvite` is true, we might need a separate trigger if not built-in.
+            if (!data.success) {
+                throw new Error(data.message || "Unknown server error");
+            }
+
+            console.log("User invited successfully:", data.userId);
 
             await qc.invalidateQueries();
             onOpenChange(false);
             resetForm();
+            alert("Invitation sent successfully!");
 
         } catch (error) {
             console.error("Wizard Error:", error);
-            alert("Failed to create user: " + (error instanceof Error ? error.message : "Unknown error"));
+            alert("Failed to invite user: " + (error instanceof Error ? error.message : "Unknown error"));
         } finally {
             setLoading(false);
         }
     };
 
-    // Helper to get org_user_id (since addOrgUser doesn't return it directly in current API wrapper)
-    // We might need to adjust `addOrgUser` or fetch the list.
-    // For now, let's assume `addOrgUser` works and we might skip precise role assignment in MVP 
-    // if getting ID is too hard without API changes, OR we optimistically fetch.
-    // Actually, `toggleOrgUserRole` needs `org_user_id`. 
-    // Optimization: `addOrgUser` should probably return the created OrgUser. 
-    // If not, we have to list users and find by email.
-    const getOrgUserId = async (orgId: string, userId: string): Promise<string | null> => {
-        // This is a hacky workaround if API API doesn't return ID.
-        // Ideally API should update.
-        // Let's assume for this component we might skip specific logic or accept the risk of race condition/complexity
-        // OR we just update the API to return the user. 
-        // I will implement a fetch lookup here for robustness.
-        // Note: This relies on the user being visible in the list immediately.
-        const { supabase } = await import("@/lib/supabase");
-        const { data } = await supabase.from('org_users').select('id').eq('org_id', orgId).eq('user_id', userId).single();
-        if (!data) return null;
-        return data.id;
-    }
+    // removed getOrgUserId logic as it is no longer needed
+
 
     const resetForm = () => {
         setStep("details");
