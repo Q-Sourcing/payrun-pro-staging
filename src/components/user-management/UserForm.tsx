@@ -414,7 +414,7 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
           // Try to parse detailed error
           let msg = invokeError.message;
           try {
-            const body = JSON.parse(await invokeError.context.json());
+            const body = await invokeError.context.json();
             if (body.message) msg = body.message;
           } catch (e) { }
           throw new Error(msg || "Failed to invite user");
