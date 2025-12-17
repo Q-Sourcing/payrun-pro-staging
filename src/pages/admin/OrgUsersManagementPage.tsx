@@ -126,32 +126,24 @@ export default function OrgUsersManagementPage() {
 
     setIsCreating(true);
     try {
-      // 1. Call Edge Function to create/invite user
-      const { data, error } = await supabase.functions.invoke('create-user', {
+      // Call the org-scoped invite function
+      const { data, error } = await supabase.functions.invoke('invite-org-user', {
         body: {
           email: newEmail,
-          full_name: `${newFirstName} ${newLastName}`.trim(),
-          role: 'employee', // Default to employee, role assignment handled in step 2 if needed or by edge function defaults
-          country: 'Uganda', // Defaulting for now, could be a field
+          firstName: newFirstName,
+          lastName: newLastName,
+          orgId: orgId,
+          companyIds: [], // Default to no companies, can be updated later
+          roles: ['EMPLOYEE'], // Default role, can be updated later
+          sendInvite: true
         }
       });
 
       if (error) throw error;
-      if (!data.success) throw new Error(data.message || "Failed to create user");
-
-      const userId = data.user_id;
-
-      // 2. Add to Organization (OrgUser link)
-      // The Edge function might create the user and profile, but we need to link to THIS org.
-      // addOrgUser checks if profile exists (it should now) and creates org_user link.
-      await addOrgUser(orgId, newEmail);
-
-      // 3. Assign specific Org Role if selected (optional, for now default to what addOrgUser does or enhance)
-      // Ideally OrgUser creation sets a default role, or we can set it here.
-      // For now, minimal viable: basic org membership.
+      if (!data.success) throw new Error(data.message || "Failed to invite user");
 
       toast({
-        title: "User created",
+        title: "User invited",
         description: `Successfully invited ${newEmail} to the organization.`,
       });
 
@@ -165,7 +157,7 @@ export default function OrgUsersManagementPage() {
       console.error(err);
       toast({
         title: "Error",
-        description: err.message || "Failed to create user.",
+        description: err.message || "Failed to invite user.",
         variant: "destructive",
       });
     } finally {

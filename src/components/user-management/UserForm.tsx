@@ -381,82 +381,75 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
           }
         );
       } else {
-        // Create User via Edge Function
-        // We pass the legacy role to the edge function for initial creation
-        const { data, error: invokeError } = await supabase.functions.invoke('create-user', {
-          body: {
-            email: values.email,
-            full_name: `${values.firstName} ${values.lastName}`.trim(),
-            role: legacyRole,
-            country: 'Uganda',
-          }
+        // Create User via Edge Function (Enterprise Invite Flow)
+        // 1. Map Role IDs to Keys
+        const roleKeys = selectedRoles.map(rId => {
+          const r = availableOrgRoles.find(ar => ar.id === rId);
+          return r?.key || 'EMPLOYEE';
         });
 
-        if (invokeError) throw invokeError;
-        if (!data.success) throw new Error(data.message || "Failed to create user");
+        // 2. Prepare Payload
+        // We assume the current user's organization is the target, or fallback to the first role's org
+        const targetOrgId = currentUser?.organizationId || availableOrgRoles[0]?.org_id;
 
-        const newUserId = data.user_id;
+        if (!targetOrgId) {
+          throw new Error("Could not determine organization context.");
+        }
 
-        // Construct a User object to return to the UI
-        const newUser: UserType = {
-          id: newUserId,
+        const payload = {
           email: values.email,
           firstName: values.firstName,
           lastName: values.lastName,
-          role: legacyRole,
+          orgId: targetOrgId,
+          roles: roleKeys,
+          companyIds: selectedCompanies,
+          sendInvite: values.sendInvitation
+        };
+
+        const { data, error: invokeError } = await supabase.functions.invoke('invite-org-user', {
+          body: payload
+        });
+
+        if (invokeError) {
+          // Try to parse detailed error
+          let msg = invokeError.message;
+          try {
+            const body = JSON.parse(await invokeError.context.json());
+            if (body.message) msg = body.message;
+          } catch (e) { }
+          throw new Error(msg || "Failed to invite user");
+        }
+
+        if (!data.success) throw new Error(data.message || "Failed to create user invitation");
+
+        // Success - Optimistic UI Update or just close
+        // The user is not "Active" yet, they are "Invited". 
+        // We return a placeholder user object so the UI might update or just rely on invalidation.
+        const newUser: UserType = {
+          id: data.inviteId || `pending-${Date.now()}`,
+          email: values.email,
+          firstName: values.firstName,
+          lastName: values.lastName,
+          role: roleKeys[0] as UserRole, // Approximation
           managerId: values.managerId || undefined,
-          isActive: false, // Default to inactive/pending until they accept invitation
+          isActive: false, // Pending
           lastLogin: undefined,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          permissions: values.permissions as Permission[],
-          restrictions: values.restrictions,
+          permissions: [],
+          restrictions: [],
           twoFactorEnabled: values.twoFactorEnabled,
           sessionTimeout: values.sessionTimeout,
         };
+
         onSave(newUser);
 
-        // 1. Insert Companies
-        const memberships = selectedCompanies.map(companyId => ({
-          user_id: newUserId,
-          company_id: companyId,
-          role: legacyRole
-        }));
-
-        await supabase.from('user_company_memberships').insert(memberships);
-
-        // 2. Insert Roles
-        // Ensure org_user exists (create-user might not create it, migration does backfill but not live)
-        // We should create it explicitly.
-        const { data: newOrgUser, error: createOrgUserError } = await supabase
-          .from('org_users')
-          .insert({
-            user_id: newUserId,
-            org_id: currentUser?.organizationId || availableOrgRoles[0]?.org_id || '', // Fallback to first role's org if current user context missing
-            status: 'active'
-          })
-          .select('id')
-          .single();
-
-        if (newOrgUser) {
-          const roleAssignments = selectedRoles.map(roleId => ({
-            org_user_id: newOrgUser.id,
-            role_id: roleId
-          }));
-          await supabase.from('org_user_roles').insert(roleAssignments);
-        }
-
-        // Audit Log for Creation
+        // Log Audit
         await AuditLogger.log(
-          'user.create',
+          'user.invite',
           'user',
-          { id: newUserId, email: values.email, roles: selectedRoles, companies: selectedCompanies },
-          {
-            privileged: selectedRoles.some(r => {
-              const role = availableOrgRoles.find(ar => ar.id === r);
-              return role?.key === 'ORG_OWNER' || role?.key === 'ORG_ADMIN';
-            })
-          }
+          { email: values.email, roles: roleKeys, companies: selectedCompanies },
+          { privileged: roleKeys.some(k => k.includes('ADMIN') || k.includes('OWNER')) }
         );
       }
     } catch (err: any) {

@@ -77,21 +77,19 @@ export default function AcceptInvite() {
 
             if (updateError) throw updateError;
 
-            // 3. Complete Invite (Provisioning)
-            // Call the Edge Function to finalize permissions
-            const { data: completeData, error: completeError } = await supabase.functions.invoke('complete-invite');
-
-            if (completeError) {
-                console.error('Complete Invite Error:', completeError);
-                throw new Error("Failed to set up account permissions. Please contact support.");
-            }
+            // Password updated successfully
+            // The database trigger (activate_invited_user) will automatically:
+            // - Update org_users.status to 'active'
+            // - Assign roles to org_user_roles
+            // - Assign companies to user_company_memberships
+            // - Mark user_invites as 'accepted'
 
             toast({
                 title: "Account Setup Complete",
                 description: "You have successfully set your password and logged in."
             });
 
-            // 4. Navigate to dashboard
+            // 3. Navigate to dashboard
             navigate('/dashboard');
 
         } catch (error: any) {

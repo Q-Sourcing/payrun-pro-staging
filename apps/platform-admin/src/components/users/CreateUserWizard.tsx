@@ -12,10 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 
-import { createUser } from "@/api/users";
-import type { CreateUserPayload } from "@/api/users";
-import { upsertPlatformAdmin } from "@/api/platformAdmins";
-import { addOrgUser, toggleOrgUserRole, listOrgRoles } from "@/api/orgAdmin";
 import { fetchTenants } from "@/api/tenants";
 
 // --- Types ---
@@ -35,7 +31,7 @@ export function CreateUserWizard({ open, onOpenChange }: CreateUserWizardProps) 
     const [loading, setLoading] = useState(false);
 
     // Form State
-    const [formData, setFormData] = useState<CreateUserPayload>({
+    const [formData, setFormData] = useState({
         email: "",
         full_name: "",
         country: "Uganda", // Default

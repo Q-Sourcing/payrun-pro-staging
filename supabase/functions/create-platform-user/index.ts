@@ -1,25 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { z } from 'https://esm.sh/zod@3.22.4'
-import { Resend } from 'npm:resend'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Validation Schema
-const OrgAssignmentSchema = z.object({
-    orgId: z.string().uuid(),
-    companyIds: z.array(z.string().uuid()).default([]),
-    roles: z.array(z.string()).min(1, "At least one role required per organization")
-})
-
+// Validation Schema - PLATFORM ONLY
 const CreatePlatformUserSchema = z.object({
     email: z.string().email(),
     firstName: z.string().min(1),
     lastName: z.string().min(1),
-    orgs: z.array(OrgAssignmentSchema).default([]),
     platformRoles: z.array(z.string()).default([]), // e.g. ['super_admin', 'support_admin']
     sendInvite: z.boolean().default(true)
 })
@@ -32,6 +24,8 @@ serve(async (req) => {
     }
 
     try {
+        console.log('[create-platform-user] Request received')
+
         // 1. Setup Admin Client
         const supabaseAdmin = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
@@ -39,15 +33,24 @@ serve(async (req) => {
             { auth: { autoRefreshToken: false, persistSession: false } }
         )
 
-        // 2. Auth Check (Platform Admin Only)
+        // 2. Auth Check - PLATFORM ADMIN ONLY
         const authHeader = req.headers.get('Authorization')
-        if (!authHeader) throw new Error('Missing Authorization header')
+        if (!authHeader) {
+            console.error('[create-platform-user] Missing Authorization header')
+            throw new Error('Missing Authorization header')
+        }
+
         const token = authHeader.replace('Bearer ', '')
         const { data: { user: caller }, error: authError } = await supabaseAdmin.auth.getUser(token)
 
-        if (authError || !caller) throw new Error('Unauthorized')
+        if (authError || !caller) {
+            console.error('[create-platform-user] Authentication failed')
+            throw new Error('Unauthorized')
+        }
 
-        // Check caller permission
+        console.log('[create-platform-user] Caller authenticated:', caller.email)
+
+        // Check Platform Admin Permission
         const { data: callerProfile } = await supabaseAdmin
             .from('user_profiles')
             .select('role')
@@ -65,148 +68,137 @@ serve(async (req) => {
         const isPlatformAdmin = !!platformAdmin?.allowed || callerProfile?.role === 'super_admin' || isWhitelisted;
 
         if (!isPlatformAdmin) {
-            return new Response(JSON.stringify({ success: false, message: 'Forbidden: Platform Admin access required' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            console.error('[create-platform-user] User is not a platform admin')
+            return new Response(
+                JSON.stringify({ success: false, message: 'Forbidden: Platform Admin access required' }),
+                { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
         }
+
+        console.log('[create-platform-user] Platform admin authorization passed')
 
         // 3. Parse & Validate Input
         const body = await req.json()
-        const input = CreatePlatformUserSchema.parse(body)
+        const input: CreatePlatformUserRequest = CreatePlatformUserSchema.parse(body)
 
-        console.log(`Creating/Updating platform user invite: ${input.email}`)
+        console.log('[create-platform-user] Input validated for:', input.email)
 
         // 4. Check for Existing User
-        const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers()
-        const existingUser = existingUsers.users.find(u => u.email?.toLowerCase() === input.email.toLowerCase())
+        const { data: existingAuthUser } = await supabaseAdmin.auth.admin.getUserByEmail(input.email)
 
-        if (existingUser) {
-            // If user exists, we might still want to add roles, but for "Invite" flow, 
-            // maybe we just add the pending roles to the `user_invites` table? 
-            // Or if they are already active, we should just assign them directly? 
-            // FOR NOW: Let's assume we proceed with "Deferred" even for existing users, 
-            // effectively "Inviting them to a new specific role/org".
-            // However, `generateLink` sends a "magic link" / "invite" type.
-            // If they are active, they just login. 
-            // Complexity: If user exists, simplest path is: 
-            // Assign permissions immediately (old flow) OR 
-            // create an "invite" to the new org that they must accept?
-            // Prompt says: "Every user enters via an invite... User not already active".
-            // Step 3.A: "User not already active".
-            // If user IS active, we probably shouldn't be using "Invite User" flow for them in the same way.
-            // But let's support re-inviting or adding roles. 
-            // For strict Enterprise compliance as per prompt: "User | Not already active".
-            // If active, return error? Or just Fallback to direct assignment?
-            // Let's ERROR if active for "New User Invite".
-            // Actually, often you'd invite an existing user to a NEW tenant.
-            // Let's BLOCK for now to adhere to "User not already active" per prompt.
-
-            return new Response(JSON.stringify({ success: false, message: 'User already exists. Use "Add Existing User" flow.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        if (existingAuthUser?.user) {
+            console.log('[create-platform-user] User already exists:', existingAuthUser.user.id)
+            return new Response(
+                JSON.stringify({
+                    success: false,
+                    message: 'User with this email already exists',
+                    userId: existingAuthUser.user.id
+                }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
         }
 
-        // 5. Create Invite Record (Deferred Provisioning)
-        // Resolve Org Name for Email
-        let inviteOrgName = 'PayRun Pro';
-        let tenantId = null;
-        if (input.orgs.length > 0) {
-            const primaryOrgId = input.orgs[0].orgId;
-            tenantId = primaryOrgId; // Assign primary tenant for context
-            const { data: org } = await supabaseAdmin.from('organizations').select('name').eq('id', primaryOrgId).single();
-            if (org) {
-                inviteOrgName = org.name;
-            }
-        }
+        // 5. Generate Auth Invite Link
+        console.log('[create-platform-user] Generating auth invite link...')
 
-        // Calculate Expiry (e.g. 7 days)
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 7);
-
-        const roleData = {
-            orgs: input.orgs,
-            platformRoles: input.platformRoles,
-            firstName: input.firstName, // Store names to apply on acceptance
-            lastName: input.lastName
-        };
-
-        // Insert into user_invites
-        const { data: inviteRecord, error: inviteError } = await supabaseAdmin
-            .from('user_invites')
-            .insert({
-                email: input.email,
-                inviter_id: caller.id,
-                tenant_id: tenantId,
-                role_data: roleData,
-                status: 'pending',
-                expires_at: expiresAt.toISOString()
-            })
-            .select('id')
-            .single();
-
-        if (inviteError) throw inviteError;
-
-        console.log(`Invite record created: ${inviteRecord.id}`);
-
-        // 6. Generate Auth Invite Link (Supabase)
-        // This creates a user in `auth.users` with `invited_at` set foundationally.
         const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
             type: 'invite',
             email: input.email,
             options: {
-                redirectTo: `${req.headers.get('origin') ?? 'https://payroll.flipafrica.app'}/accept-invite`,
+                redirectTo: `${req.headers.get('origin') ?? 'https://payroll.flipafrica.app'}/platform-admin`,
                 data: {
                     first_name: input.firstName,
                     last_name: input.lastName,
                     full_name: `${input.firstName} ${input.lastName}`,
-                    organization_name: inviteOrgName
+                    is_platform_user: true
                 }
             }
-        });
+        })
 
-        if (linkError) throw linkError;
+        if (linkError) {
+            console.error('[create-platform-user] Failed to generate invite link:', linkError)
+            throw linkError
+        }
 
-        // 7. Send Custom Email via Resend
-        if (input.sendInvite && linkData.properties?.action_link) {
-            const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-            if (RESEND_API_KEY) {
-                const resend = new Resend(RESEND_API_KEY);
-                const inviteLink = linkData.properties.action_link;
+        console.log('[create-platform-user] Auth invite link generated successfully')
 
-                // Extract token and construct clean frontend URL
-                const urlObj = new URL(inviteLink);
-                const token = urlObj.searchParams.get('token') || urlObj.searchParams.get('access_token');
+        // 6. Get Newly Created Auth User
+        const { data: newAuthUser } = await supabaseAdmin.auth.admin.getUserByEmail(input.email)
 
-                // Construct Frontend URL: /accept-invite?token=...
-                const frontendUrl = `${req.headers.get('origin') ?? 'https://payroll.flipafrica.app'}/accept-invite?token=${token}&type=invite&invite_id=${inviteRecord.id}`;
+        if (!newAuthUser?.user) {
+            console.error('[create-platform-user] Auth user not found after generateLink')
+            throw new Error('Failed to create auth user')
+        }
 
-                await resend.emails.send({
-                    from: 'PayRun Pro <onboarding@resend.dev>', // Should be verified domain in prod
-                    to: input.email,
-                    subject: `You've been invited to ${inviteOrgName}`,
-                    html: `
-                        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-                            <h2>Welcome to PayRun Pro!</h2>
-                            <p>You have been invited to join <strong>${inviteOrgName}</strong>.</p>
-                            <p>Please click the button below to set up your account and password:</p>
-                            <a href="${frontendUrl}" style="display: inline-block; background-color: #0070f3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin: 16px 0;">Accept Invitation</a>
-                            <p style="color: #666; font-size: 14px;">This link will expire in 7 days.</p>
-                            <p style="color: #888; font-size: 12px; margin-top: 32px;">If you did not expect this invitation, you can ignore this email.</p>
-                        </div>
-                    `
-                });
-                console.log(`Invite email sent to ${input.email}`);
-            } else {
-                console.warn('RESEND_API_KEY not set, skipping email.');
+        const userId = newAuthUser.user.id
+        console.log('[create-platform-user] Auth user created:', userId)
+
+        // 7. Create Platform User Profile (NO ORG ASSIGNMENT)
+        console.log('[create-platform-user] Creating platform user profile...')
+
+        const { error: profileError } = await supabaseAdmin
+            .from('user_profiles')
+            .insert({
+                id: userId,
+                email: input.email,
+                first_name: input.firstName,
+                last_name: input.lastName,
+                role: 'admin' // Platform-level admin
+            })
+
+        if (profileError) {
+            console.error('[create-platform-user] Failed to create user_profiles:', profileError)
+            throw profileError
+        }
+
+        // 8. Assign Platform Admin Record (if applicable)
+        if (input.platformRoles.includes('super_admin') || input.platformRoles.includes('platform_admin')) {
+            const { error: platformAdminError } = await supabaseAdmin
+                .from('platform_admins')
+                .insert({
+                    email: input.email,
+                    allowed: true
+                })
+
+            if (platformAdminError) {
+                console.warn('[create-platform-user] Failed to create platform_admins record:', platformAdminError)
+                // Don't fail the whole operation
             }
         }
 
+        console.log('[create-platform-user] Platform user created successfully')
+
+        // 9. Success Response (NO EMAIL SENDING - platform admins handle this separately)
         return new Response(
-            JSON.stringify({ success: true, inviteId: inviteRecord.id, message: 'Invitation sent successfully' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            JSON.stringify({
+                success: true,
+                message: 'Platform user created successfully',
+                userId: userId,
+                inviteLink: linkData.properties?.action_link
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
 
     } catch (error: any) {
-        console.error('Create Platform User Error:', error)
+        console.error('[create-platform-user] Error:', error)
+
+        if (error instanceof z.ZodError) {
+            return new Response(
+                JSON.stringify({
+                    success: false,
+                    message: 'Validation error',
+                    errors: error.errors
+                }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+        }
+
         return new Response(
-            JSON.stringify({ success: false, message: error.message }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            JSON.stringify({
+                success: false,
+                message: error.message || 'Internal server error'
+            }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
     }
 })
