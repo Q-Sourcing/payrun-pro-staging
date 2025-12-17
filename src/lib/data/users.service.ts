@@ -45,7 +45,9 @@ export class UsersService {
         profilesQuery = profilesQuery.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`);
       }
 
+      console.log('[UsersService] Fetching profiles with options:', options);
       const { data: profiles, error: profilesError, count } = await profilesQuery;
+      console.log('[UsersService] Profiles result:', { count: profiles?.length, total: count, error: profilesError });
 
       if (profilesError) throw profilesError;
 
@@ -54,10 +56,13 @@ export class UsersService {
       let userRolesMap: Record<string, UserRole> = {};
 
       if (profileIds.length > 0) {
+        console.log('[UsersService] Fetching roles for profiles:', profileIds);
         const { data: userRoles, error: rolesError } = await supabase
           .from('user_roles')
           .select('user_id, role')
           .in('user_id', profileIds);
+
+        console.log('[UsersService] Roles result:', userRoles?.length, rolesError);
 
         if (rolesError) throw rolesError;
 
@@ -316,6 +321,21 @@ export class UsersService {
   /**
    * Generate a temporary password
    */
+  /**
+   * Revoke an invitation
+   */
+  static async revokeInvite(inviteId: string): Promise<void> {
+    const { error } = await supabase
+      .from('user_invites')
+      .update({ status: 'revoked' })
+      .eq('id', inviteId);
+
+    if (error) {
+      console.error('Error revoking invite:', error);
+      throw new Error(`Failed to revoke invite: ${error.message}`);
+    }
+  }
+
   private static generateTemporaryPassword(): string {
     const length = 12;
     const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';

@@ -25,7 +25,9 @@ BEGIN
             -- Get invite data to know which roles to assign
             SELECT * INTO invite_rec
             FROM public.user_invites
-            WHERE email = NEW.email AND status = 'pending'
+            WHERE email = NEW.email 
+              AND status = 'pending'
+              AND expires_at > now()
             ORDER BY created_at DESC
             LIMIT 1;
 

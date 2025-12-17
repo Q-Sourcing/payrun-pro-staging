@@ -149,8 +149,11 @@ serve(async (req) => {
         expiresAt.setDate(expiresAt.getDate() + 7) // 7 day expiry
 
         const roleData = {
-            roles: input.roles,
-            companyIds: input.companyIds
+            orgs: [{
+                orgId: input.orgId,
+                roles: input.roles,
+                companyIds: input.companyIds
+            }]
         }
 
         const { data: inviteRecord, error: inviteError } = await supabaseAdmin

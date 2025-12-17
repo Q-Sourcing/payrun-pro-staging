@@ -18,20 +18,68 @@ export default function AcceptInvite() {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
 
-    // Extract token from URL
+    // Extract token/code from URL
     const token = searchParams.get('token') || searchParams.get('access_token');
-    const type = searchParams.get('type') || 'invite'; // 'recovery' or 'invite'
+    const code = searchParams.get('code');
+    const type = searchParams.get('type') || 'invite';
+
+    // Check hash for access_token (Implicit flow fallback)
+    useEffect(() => {
+        const hash = window.location.hash;
+        if (hash && hash.includes('access_token')) {
+            // Supabase client auto-handles hash processing on load, 
+            // but we can ensure we don't redirect to login if session is recovering
+            console.log('Detected hash token, waiting for session...');
+        }
+    }, []);
 
     useEffect(() => {
-        if (!token) {
-            toast({
-                variant: "destructive",
-                title: "Invalid Link",
-                description: "No invitation token found. Please check your email link."
-            });
-            navigate('/login');
-        }
-    }, [token, navigate, toast]);
+        const handleAuth = async () => {
+            // Case 1: PKCE Code
+            if (code) {
+                setLoading(true);
+                const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+                setLoading(false);
+
+                if (error) {
+                    console.error('Exchange Code Error:', error);
+                    toast({
+                        variant: "destructive",
+                        title: "Invalid Link",
+                        description: "Could not verify invitation code. It may be expired."
+                    });
+                    navigate('/login');
+                } else {
+                    console.log('Session established via code');
+                }
+                return;
+            }
+
+            // Case 2: Existing Session (Auto-handled by Supabase client from hash)
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                console.log('Session already active');
+                return;
+            }
+
+            // Case 3: Magic Link Token (Legacy/OTP)
+            if (!token && !code) {
+                // Wait a brief moment for session to restore from hash if present
+                const hash = window.location.hash;
+                if (hash && hash.includes('access_token')) return;
+
+                console.warn('No token, code, or session found');
+                toast({
+                    variant: "destructive",
+                    title: "Invalid Link",
+                    description: "No invitation token found. Please check your email link."
+                });
+                navigate('/login');
+            }
+        };
+
+        handleAuth();
+    }, [token, code, navigate, toast]);
 
     const handleAccept = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -57,17 +105,22 @@ export default function AcceptInvite() {
         setLoading(true);
 
         try {
-            if (!token) throw new Error("Missing token");
+            // 1. Verify session or token
+            const { data: { session } } = await supabase.auth.getSession();
 
-            // 1. Verify the token (logs the user in)
-            const { error: verifyError } = await supabase.auth.verifyOtp({
-                token_hash: token,
-                type: type as any,
-            });
+            if (!session) {
+                if (!token) throw new Error("No session or token available");
 
-            if (verifyError) {
-                console.error('Verify OTP Error:', verifyError);
-                throw new Error("Invalid or expired invitation link.");
+                // Fallback to verifyOtp for legacy magic links
+                const { error: verifyError } = await supabase.auth.verifyOtp({
+                    token_hash: token,
+                    type: type as any,
+                });
+
+                if (verifyError) {
+                    console.error('Verify OTP Error:', verifyError);
+                    throw new Error("Invalid or expired invitation link.");
+                }
             }
 
             // 2. Set the user's password
