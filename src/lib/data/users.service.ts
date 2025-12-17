@@ -157,49 +157,72 @@ export class UsersService {
   /**
    * Create a new user (creates auth user, profile, and role) - Uses Edge Function
    */
-  static async createUser(data: CreateUserInput, password?: string): Promise<UserWithRole> {
-    try {
-      // Validate input
-      const validatedData = createUserSchema.parse(data);
+  static async createUser(userData: CreateUserInput, password?: string): Promise<UserWithRole> {
+    const validatedData = createUserSchema.parse(userData);
 
-      // Get session token
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session?.access_token) {
-        throw new Error('Authentication required');
-      }
-
-      // Call Edge Function
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const response = await fetch(`${supabaseUrl}/functions/v1/create-user`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          email: validatedData.email,
-          password: password || this.generateTemporaryPassword(),
-          full_name: `${validatedData.first_name} ${validatedData.last_name}`,
-          role: validatedData.role,
-          country: 'UG', // Default country - should be configurable
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || 'Failed to create user');
-      }
-
-      // Fetch the created user
-      return await this.getUserById(result.user_id);
-    } catch (error: any) {
-      console.error('Error creating user:', error);
-      if (error.issues) {
-        throw new Error(error.issues.map((issue: any) => issue.message).join(', '));
-      }
-      throw new Error(`Failed to create user: ${error?.message || 'Unknown error'}`);
+    // Get current session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw new Error('No authenticated session');
     }
+
+    // Get current user's organization ID
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('organization_id')
+      .eq('id', session.user.id)
+      .single();
+
+    if (!profile?.organization_id) {
+      throw new Error('Current user does not have an organization assigned');
+    }
+
+    // Call invite-org-user Edge Function instead of legacy create-user
+    const { data, error } = await supabase.functions.invoke('invite-org-user', {
+      body: {
+        email: validatedData.email,
+        firstName: validatedData.first_name,
+        lastName: validatedData.last_name,
+        orgId: profile.organization_id,
+        roles: [validatedData.role],
+        companyIds: [], // Defaults to empty
+        sendInvite: true
+      }
+    });
+
+    if (error) {
+      console.error('Error inviting user:', error);
+      // Try to parse detailed error
+      let msg = error.message;
+      try {
+        if (error.context) {
+          const body = await error.context.json();
+          if (body.message) msg = body.message;
+        }
+      } catch (e) { }
+      throw new Error(msg || 'Failed to invite user');
+    }
+
+    if (!data.success) {
+      throw new Error(data.message || 'Failed to invite user');
+    }
+
+    // Return mock user object matching the interface
+    // verifying that the user was created/invited
+    return {
+      id: data.userId,
+      email: validatedData.email,
+      firstName: validatedData.first_name,
+      lastName: validatedData.last_name,
+      role: validatedData.role as UserRole,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      permissions: [],
+      restrictions: [],
+      twoFactorEnabled: false,
+      sessionTimeout: 480
+    };
   }
 
   /**
