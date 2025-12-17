@@ -177,7 +177,7 @@ export class UsersService {
       throw new Error('Current user does not have an organization assigned');
     }
 
-    // Call invite-org-user Edge Function instead of legacy create-user
+    // Call invite-org-user Edge Function
     const { data, error } = await supabase.functions.invoke('invite-org-user', {
       body: {
         email: validatedData.email,
