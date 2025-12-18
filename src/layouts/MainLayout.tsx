@@ -189,7 +189,7 @@ export default function MainLayout() {
                   <span className="text-xs text-slate-500 dark:text-slate-400">Company:</span>
                   <div className="min-w-[180px]">
                     <Select
-                      value={companyId || undefined}
+                      value={companyId || ''}
                       onValueChange={(val) => {
                         setCompanyId(val);
                         if (typeof window !== 'undefined') localStorage.setItem('active_company_id', val);

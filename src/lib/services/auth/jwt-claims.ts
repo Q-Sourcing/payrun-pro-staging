@@ -26,6 +26,19 @@ export interface UserContext {
 }
 
 export class JWTClaimsService {
+  private static currentSession: Session | null = null
+  private static cachedClaims: JWTClaims | null = null
+  private static cachedContext: UserContext | null = null
+
+  /**
+   * Cache the active session for synchronous helpers
+   */
+  static setCurrentSession(session: Session | null): void {
+    this.currentSession = session
+    this.cachedClaims = this.getClaimsFromSession(session)
+    this.cachedContext = this.getUserContextFromSession(session)
+  }
+
   /**
    * Get current user's JWT claims
    */
@@ -62,22 +75,18 @@ export class JWTClaimsService {
     }
   }
 
-  /**
-   * Get current user's JWT claims (Deprecated: Use getClaimsFromSession)
-   */
   static getCurrentClaims(): JWTClaims | null {
-    // This method is problematic because getSession is async in v2
-    // Returning null to avoid errors, but clients should use getClaimsFromSession
-    console.warn('JWTClaimsService.getCurrentClaims is deprecated and may not work. Use getClaimsFromSession instead.')
-    return null
+    if (!this.cachedClaims && this.currentSession) {
+      this.cachedClaims = this.getClaimsFromSession(this.currentSession)
+    }
+    return this.cachedClaims
   }
 
-  /**
-   * Get current user context (Deprecated: Use getUserContextFromSession)
-   */
   static getCurrentUserContext(): UserContext | null {
-    console.warn('JWTClaimsService.getCurrentUserContext is deprecated. Use getUserContextFromSession instead.')
-    return null
+    if (!this.cachedContext && this.currentSession) {
+      this.cachedContext = this.getUserContextFromSession(this.currentSession)
+    }
+    return this.cachedContext
   }
 
   /**
@@ -212,6 +221,7 @@ export class JWTClaimsService {
         console.warn('Failed to refresh session:', error)
         return false
       }
+      this.setCurrentSession(data.session ?? null)
       return !!data.session
     } catch (error) {
       console.warn('Error refreshing session:', error)

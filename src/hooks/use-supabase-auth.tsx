@@ -123,6 +123,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
       }
 
       setSession(data.session);
+      JWTClaimsService.setCurrentSession(data.session ?? null);
       setUser(data.session?.user || null);
 
       if (data.session?.user) {
@@ -136,6 +137,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
       setSession(null);
       setUser(null);
       setProfile(null);
+      JWTClaimsService.setCurrentSession(null);
     }
   };
 
@@ -149,6 +151,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
         debug('Auth state changed:', event, session?.user?.email);
 
         setSession(session);
+        JWTClaimsService.setCurrentSession(session ?? null);
         setUser(session?.user ?? null);
 
         if (session?.user) {
@@ -178,6 +181,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
       debug('Initial session check:', session?.user?.email);
 
       setSession(session);
+      JWTClaimsService.setCurrentSession(session ?? null);
       setUser(session?.user ?? null);
 
       if (session?.user) {
@@ -299,6 +303,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
         });
 
         setSession(result.session);
+        JWTClaimsService.setCurrentSession(result.session);
         setUser(result.user);
 
         // Update JWT claims
@@ -380,6 +385,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
       setUser(null);
       setProfile(null);
       setSession(null);
+      JWTClaimsService.setCurrentSession(null);
       setClaims(null);
       setUserContext(null);
 

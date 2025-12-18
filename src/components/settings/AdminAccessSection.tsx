@@ -236,8 +236,11 @@ export function AdminAccessSection() {
                     <div className="text-xs text-muted-foreground">{u.email ?? ""}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant={u.status === "active" ? "secondary" : "outline"}>
-                      {u.status === "active" ? "Active" : "Disabled"}
+                    <Badge
+                      variant={u.status === "active" ? "secondary" : "outline"}
+                      className={u.status === "invited" ? "text-amber-700 border-amber-200 bg-amber-50" : undefined}
+                    >
+                      {u.status === "active" ? "Active" : u.status === "invited" ? "Invited" : "Disabled"}
                     </Badge>
                     <Badge variant={u.license_assigned ? "secondary" : "outline"}>
                       {u.license_assigned ? "Assigned" : "Not Assigned"}
@@ -536,6 +539,5 @@ export function AdminAccessSection() {
     </div>
   );
 }
-
 
 

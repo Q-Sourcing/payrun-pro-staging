@@ -43,7 +43,7 @@ export default function OrgUsersManagementPage() {
   const [roleKey, setRoleKey] = useState<string>("");
   const [companyId, setCompanyId] = useState<string>("");
   const [license, setLicense] = useState<"" | "assigned" | "unassigned">("");
-  const [status, setStatus] = useState<"" | "active" | "disabled">("");
+  const [status, setStatus] = useState<"" | "active" | "disabled" | "invited">("");
 
   const pageSize = 25;
 
@@ -252,6 +252,7 @@ export default function OrgUsersManagementPage() {
               <option value="">Any status</option>
               <option value="active">Active</option>
               <option value="disabled">Disabled</option>
+              <option value="invited">Invited</option>
             </select>
           </div>
 
@@ -288,6 +289,10 @@ export default function OrgUsersManagementPage() {
                       .map((cid) => companyIdToName.get(cid))
                       .filter(Boolean) as string[];
                     const companiesLabel = `${companyNames.length} ${companyNames.length === 1 ? "company" : "companies"}`;
+                    const statusLabel = u.status === "active" ? "Active" : u.status === "invited" ? "Invited" : "Disabled";
+                    const statusClass =
+                      u.status === "invited" ? "text-amber-700 border-amber-200 bg-amber-50" : undefined;
+                    const statusVariant = u.status === "active" ? "secondary" : "outline";
                     return (
                       <TableRow key={u.id}>
                         <TableCell>
@@ -313,8 +318,8 @@ export default function OrgUsersManagementPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={u.status === "active" ? "secondary" : "outline"}>
-                            {u.status === "active" ? "Active" : "Disabled"}
+                          <Badge variant={statusVariant} className={statusClass}>
+                            {statusLabel}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
@@ -498,18 +503,29 @@ export default function OrgUsersManagementPage() {
                     <div>
                       <div className="text-sm font-medium">Status</div>
                       <div className="text-xs text-muted-foreground">
-                        {drawerUser.status === "active" ? "Active" : "Disabled"}
+                        {drawerUser.status === "active"
+                          ? "Active"
+                          : drawerUser.status === "invited"
+                            ? "Invited (awaiting acceptance)"
+                            : "Disabled"}
                       </div>
                     </div>
                     <Switch
                       checked={drawerUser.status === "active"}
+                      disabled={drawerUser.status === "invited"}
                       onCheckedChange={async (checked) => {
+                        if (drawerUser.status === "invited") return;
                         await setOrgUserStatus(drawerUser.id, checked ? "active" : "disabled");
                         setDrawerUser({ ...drawerUser, status: checked ? "active" : "disabled" });
                         await qc.invalidateQueries({ queryKey: ["admin-org-users-page", orgId] });
                       }}
                     />
                   </div>
+                  {drawerUser.status === "invited" && (
+                    <div className="text-xs text-muted-foreground">
+                      Invitation pending. Status switches to Active automatically once the user accepts.
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-sm font-medium">License</div>
@@ -620,6 +636,3 @@ export default function OrgUsersManagementPage() {
     </div>
   );
 }
-
-
-

@@ -141,6 +141,23 @@ serve(async (req) => {
             .single()
 
         const orgName = org?.name || 'the organization'
+        const origin = req.headers.get('origin') || req.headers.get('referer');
+        console.log('[invite-org-user] Detected origin:', origin);
+
+        let baseUrl = 'https://payroll.flipafrica.app';
+        if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+            baseUrl = origin.endsWith('/') ? origin.slice(0, -1) : origin;
+        }
+
+        const redirectUrl = `${baseUrl}/accept-invite`;
+        console.log('[invite-org-user] Generated redirect URL:', redirectUrl);
+        const userMetadata = {
+            first_name: input.firstName,
+            last_name: input.lastName,
+            full_name: `${input.firstName} ${input.lastName}`,
+            organization_id: input.orgId,
+            organization_name: orgName
+        }
 
         // 7. Create Invite Record
         console.log('[invite-org-user] Creating invite record...')
@@ -176,44 +193,122 @@ serve(async (req) => {
 
         console.log('[invite-org-user] Invite record created:', inviteRecord.id)
 
-        // 8. Generate Auth Invite Link
-        console.log('[invite-org-user] Generating auth invite link...')
+        // 8. Create Auth User & Handle Email Delivery
+        console.log('[invite-org-user] Preparing auth invite delivery...')
 
-        const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-            type: 'invite',
-            email: input.email,
-            options: {
-                redirectTo: `${req.headers.get('origin') ?? 'https://payroll.flipafrica.app'}/accept-invite`,
-                data: {
-                    first_name: input.firstName,
-                    last_name: input.lastName,
-                    full_name: `${input.firstName} ${input.lastName}`,
-                    organization_id: input.orgId,
-                    organization_name: orgName
+        const resendKey = Deno.env.get('RESEND_API_KEY')
+        const shouldSendCustomEmail = input.sendInvite && !!resendKey
+        let inviteLink: string | null = null
+        let userId: string | null = null
+        let emailDelivery: 'resend' | 'supabase' | 'none' = 'none'
+
+        if (!input.sendInvite || shouldSendCustomEmail) {
+            console.log('[invite-org-user] Generating auth invite link...')
+
+            const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+                type: 'invite',
+                email: input.email,
+                options: {
+                    redirectTo: redirectUrl,
+                    data: userMetadata
+                }
+            })
+
+            if (linkError) {
+                console.error('[invite-org-user] Failed to generate invite link:', linkError)
+                throw linkError
+            }
+
+            inviteLink = linkData.properties?.action_link ?? null
+            userId = linkData.user?.id ?? null
+            console.log('[invite-org-user] Auth invite link generated successfully')
+
+            if (shouldSendCustomEmail) {
+                if (!inviteLink) {
+                    console.error('[invite-org-user] Missing invite link from generateLink response')
+                    throw new Error('Invite link missing from auth response')
+                }
+
+                console.log('[invite-org-user] Sending invite email via Resend...')
+                const resend = new Resend(resendKey!)
+
+                const emailHtml = `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
+                <h1 style="color: #0066cc; margin-bottom: 20px;">You're Invited!</h1>
+                <p>Hi ${input.firstName},</p>
+                <p>You've been invited to join <strong>${orgName}</strong> on PayRun Pro.</p>
+                <p>Click the button below to accept your invitation and set up your account:</p>
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${inviteLink}" 
+                     style="background-color: #0066cc; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                    Accept Invitation
+                  </a>
+                </div>
+                <p style="color: #666; font-size: 14px;">This invitation will expire in 7 days.</p>
+                <p style="color: #666; font-size: 14px;">If you didn't expect this invitation, you can safely ignore this email.</p>
+              </div>
+            </body>
+          </html>
+        `
+
+                try {
+                    await resend.emails.send({
+                        from: 'PayRun Pro <noreply@payroll.flipafrica.app>',
+                        to: input.email,
+                        subject: `You're invited to ${orgName}`,
+                        html: emailHtml
+                    })
+                    console.log('[invite-org-user] Email sent successfully via Resend')
+                    emailDelivery = 'resend'
+                } catch (emailError) {
+                    console.error('[invite-org-user] Email send failed (Resend):', emailError)
+                    throw emailError
                 }
             }
-        })
+        } else {
+            console.log('[invite-org-user] RESEND_API_KEY not set - using Supabase invite email')
+            const { data: inviteResponse, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+                input.email,
+                {
+                    redirectTo: redirectUrl,
+                    data: userMetadata
+                }
+            )
 
-        if (linkError) {
-            console.error('[invite-org-user] Failed to generate invite link:', linkError)
-            throw linkError
+            if (inviteError) {
+                console.error('[invite-org-user] Failed to send Supabase invite email:', inviteError)
+                throw inviteError
+            }
+
+            userId = inviteResponse.user?.id ?? null
+            emailDelivery = 'supabase'
         }
 
-        console.log('[invite-org-user] Auth invite link generated successfully')
-
-        // 9. Get Newly Created Auth User
-        const { data: { users: newUsers } } = await supabaseAdmin.auth.admin.listUsers()
-        const newAuthUser = newUsers.find(u => u.email?.toLowerCase() === input.email.toLowerCase())
-
-        if (!newAuthUser) {
-            console.error('[invite-org-user] Auth user not found after generateLink')
-            throw new Error('Failed to create auth user')
+        if (!userId) {
+            console.warn('[invite-org-user] User ID missing after invite, attempting fallback lookup')
+            const { data: { users }, error: fallbackError } = await supabaseAdmin.auth.admin.listUsers()
+            if (fallbackError) {
+                console.error('[invite-org-user] Fallback listUsers failed:', fallbackError)
+                throw fallbackError
+            }
+            const fallbackUser = users.find(u => u.email?.toLowerCase() === input.email.toLowerCase())
+            if (!fallbackUser) {
+                console.error('[invite-org-user] Auth user not found after invite flow')
+                throw new Error('Failed to create auth user')
+            }
+            userId = fallbackUser.id
         }
 
-        const userId = newAuthUser.id
         console.log('[invite-org-user] Auth user created:', userId)
 
-        // 10. Create Visibility Records
+        // 9. Create Visibility Records
         console.log('[invite-org-user] Creating visibility records...')
 
         // Create user_profiles uses upsert to handle race condition with trigger
@@ -254,58 +349,7 @@ serve(async (req) => {
 
         console.log('[invite-org-user] Visibility records created. User is now visible as "Invited"')
 
-        // 11. Send Email (if requested)
-        if (input.sendInvite && linkData.properties?.action_link) {
-            console.log('[invite-org-user] Sending invite email...')
-
-            const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-            if (!RESEND_API_KEY) {
-                console.warn('[invite-org-user] RESEND_API_KEY not set, skipping email')
-            } else {
-                const resend = new Resend(RESEND_API_KEY)
-
-                const emailHtml = `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            </head>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
-                <h1 style="color: #0066cc; margin-bottom: 20px;">You're Invited!</h1>
-                <p>Hi ${input.firstName},</p>
-                <p>You've been invited to join <strong>${orgName}</strong> on PayRun Pro.</p>
-                <p>Click the button below to accept your invitation and set up your account:</p>
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="${linkData.properties.action_link}" 
-                     style="background-color: #0066cc; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-                    Accept Invitation
-                  </a>
-                </div>
-                <p style="color: #666; font-size: 14px;">This invitation will expire in 7 days.</p>
-                <p style="color: #666; font-size: 14px;">If you didn't expect this invitation, you can safely ignore this email.</p>
-              </div>
-            </body>
-          </html>
-        `
-
-                try {
-                    await resend.emails.send({
-                        from: 'PayRun Pro <noreply@flipafrica.app>',
-                        to: input.email,
-                        subject: `You're invited to ${orgName}`,
-                        html: emailHtml
-                    })
-                    console.log('[invite-org-user] Email sent successfully')
-                } catch (emailError) {
-                    console.error('[invite-org-user] Email send failed:', emailError)
-                    // Don't fail the whole operation if email fails
-                }
-            }
-        }
-
-        // 12. Success Response
+        // 10. Success Response
         console.log('[invite-org-user] Invite completed successfully')
 
         return new Response(
@@ -314,7 +358,8 @@ serve(async (req) => {
                 message: 'User invited successfully',
                 userId: userId,
                 inviteId: inviteRecord.id,
-                status: 'invited'
+                status: 'invited',
+                emailDelivery
             }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )

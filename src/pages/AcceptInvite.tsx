@@ -23,26 +23,31 @@ export default function AcceptInvite() {
     const code = searchParams.get('code');
     const type = searchParams.get('type') || 'invite';
 
-    // Check hash for access_token (Implicit flow fallback)
+    // Diagnostic logging
     useEffect(() => {
-        const hash = window.location.hash;
-        if (hash && hash.includes('access_token')) {
-            // Supabase client auto-handles hash processing on load, 
-            // but we can ensure we don't redirect to login if session is recovering
-            console.log('Detected hash token, waiting for session...');
-        }
-    }, []);
+        console.log('[AcceptInvite] Current URL:', window.location.href);
+        console.log('[AcceptInvite] Search Params:', {
+            token: token ? '***' : null,
+            code: code ? '***' : null,
+            type,
+            access_token: searchParams.get('access_token') ? '***' : null
+        });
+        console.log('[AcceptInvite] Hash:', window.location.hash ? 'Present' : 'None');
+    }, [token, code, type, searchParams]);
 
     useEffect(() => {
         const handleAuth = async () => {
+            console.log('[AcceptInvite] Handling Auth...');
+
             // Case 1: PKCE Code
             if (code) {
+                console.log('[AcceptInvite] Detected PKCE code, exchanging...');
                 setLoading(true);
                 const { data, error } = await supabase.auth.exchangeCodeForSession(code);
                 setLoading(false);
 
                 if (error) {
-                    console.error('Exchange Code Error:', error);
+                    console.error('[AcceptInvite] Exchange Code Error:', error);
                     toast({
                         variant: "destructive",
                         title: "Invalid Link",
@@ -50,25 +55,28 @@ export default function AcceptInvite() {
                     });
                     navigate('/login');
                 } else {
-                    console.log('Session established via code');
+                    console.log('[AcceptInvite] Session established via code');
                 }
                 return;
             }
 
-            // Case 2: Existing Session (Auto-handled by Supabase client from hash)
+            // Case 2: Existing Session (may have been restored from hash by client)
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
-                console.log('Session already active');
+                console.log('[AcceptInvite] Session already active for:', session.user.email);
                 return;
             }
 
-            // Case 3: Magic Link Token (Legacy/OTP)
+            // Case 3: Initial Landing check
             if (!token && !code) {
-                // Wait a brief moment for session to restore from hash if present
+                // Check if hash contains access_token (implicit flow)
                 const hash = window.location.hash;
-                if (hash && hash.includes('access_token')) return;
+                if (hash && hash.includes('access_token')) {
+                    console.log('[AcceptInvite] Detected hash token, waiting for Supabase to process it...');
+                    return;
+                }
 
-                console.warn('No token, code, or session found');
+                console.warn('[AcceptInvite] No token, code, or session found. Redirecting to login...');
                 toast({
                     variant: "destructive",
                     title: "Invalid Link",

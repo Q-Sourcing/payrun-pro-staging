@@ -1,4 +1,5 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react'
+import { supabase } from '@/integrations/supabase/client'
 import { JWTClaimsService, UserContext, JWTClaims } from '@/lib/services/auth/jwt-claims'
 import { UserProfileService, UserProfile } from '@/lib/services/auth/user-profiles'
 import { RBACService, Permission, Role } from '@/lib/services/auth/rbac'
@@ -8,16 +9,16 @@ interface AuthContextType {
   userContext: UserContext | null
   userProfile: UserProfile | null
   isLoading: boolean
-  
+
   // JWT claims
   claims: JWTClaims | null
   isTokenExpired: boolean
   timeUntilExpiration: number | null
-  
+
   // Role and permissions
   role: Role | null
   permissions: Permission[]
-  
+
   // Permission checks
   hasPermission: (permission: Permission) => boolean
   hasAnyPermission: (permissions: Permission[]) => boolean
@@ -27,26 +28,26 @@ interface AuthContextType {
   canCreateResource: (resource: string) => boolean
   canUpdateResource: (resource: string) => boolean
   canDeleteResource: (resource: string) => boolean
-  
+
   // Role checks
   isSuperAdmin: () => boolean
   isOrgAdmin: () => boolean
   isUser: () => boolean
-  
+
   // Organization checks
   getCurrentOrganizationId: () => string | null
   canAccessOrganization: (organizationId: string) => boolean
-  
+
   // Impersonation
   isImpersonated: boolean
   impersonatedBy: string | null
   impersonatedRole: string | null
   canImpersonate: () => boolean
-  
+
   // Profile management
   refreshProfile: () => Promise<void>
   updateProfile: (data: Partial<UserProfile>) => Promise<void>
-  
+
   // Token management
   refreshSession: () => Promise<boolean>
 }
@@ -67,15 +68,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const loadUserData = async () => {
     try {
       setIsLoading(true)
-      
+
+      // Get current session
+      const { data: { session } } = await supabase.auth.getSession()
+      JWTClaimsService.setCurrentSession(session ?? null)
+
       // Get JWT claims
-      const jwtClaims = JWTClaimsService.getCurrentClaims()
+      const jwtClaims = JWTClaimsService.getClaimsFromSession(session)
       setClaims(jwtClaims)
-      
+
       // Get user context
-      const context = JWTClaimsService.getCurrentUserContext()
+      const context = JWTClaimsService.getUserContextFromSession(session)
       setUserContext(context)
-      
+
       // Get user profile if authenticated
       if (context) {
         const profile = await UserProfileService.getCurrentProfile()
@@ -106,7 +111,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Update profile
   const updateProfile = async (data: Partial<UserProfile>) => {
     if (!userContext) throw new Error('Not authenticated')
-    
+
     try {
       const updatedProfile = await UserProfileService.updateProfile(userContext.userId, data)
       setUserProfile(updatedProfile)
@@ -137,13 +142,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Set up periodic token refresh
   useEffect(() => {
-    if (!userContext) return
+    if (!claims) return
 
     const interval = setInterval(async () => {
-      const timeUntilExpiration = JWTClaimsService.getTimeUntilExpiration()
-      
+      const now = Math.floor(Date.now() / 1000)
+      const timeUntilExpiration = Math.max(0, claims.exp - now)
+
       // Refresh if token expires in less than 5 minutes
-      if (timeUntilExpiration && timeUntilExpiration < 300) {
+      if (timeUntilExpiration < 300) {
         await refreshSession()
       }
     }, 60000) // Check every minute
@@ -186,11 +192,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Role checks
   const isSuperAdmin = (): boolean => {
-    return JWTClaimsService.isSuperAdmin()
+    return userContext?.role === 'super_admin'
   }
 
   const isOrgAdmin = (): boolean => {
-    return JWTClaimsService.isOrgAdmin()
+    return userContext?.role === 'org_admin' || userContext?.role === 'super_admin'
   }
 
   const isUser = (): boolean => {
@@ -199,11 +205,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Organization checks
   const getCurrentOrganizationId = (): string | null => {
-    return JWTClaimsService.getCurrentOrganizationId()
+    return userContext?.organizationId || null
   }
 
   const canAccessOrganization = (organizationId: string): boolean => {
-    return JWTClaimsService.canAccessOrganization(organizationId)
+    if (!userContext) return false
+    if (userContext.role === 'super_admin') return true
+    return userContext.organizationId === organizationId
   }
 
   // Impersonation
@@ -212,30 +220,30 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const impersonatedRole = userContext?.impersonatedRole || null
 
   const canImpersonate = (): boolean => {
-    return JWTClaimsService.canImpersonate()
+    return isSuperAdmin()
   }
 
   // Computed values
   const role = userContext?.role || null
   const permissions = userContext ? RBACService.getCurrentUserPermissions() : []
-  const isTokenExpired = JWTClaimsService.isTokenExpired()
-  const timeUntilExpiration = JWTClaimsService.getTimeUntilExpiration()
+  const isTokenExpired = claims ? (claims.exp < Math.floor(Date.now() / 1000)) : true
+  const timeUntilExpiration = claims ? Math.max(0, claims.exp - Math.floor(Date.now() / 1000)) : null
 
   const value: AuthContextType = {
     // User context
     userContext,
     userProfile,
     isLoading,
-    
+
     // JWT claims
     claims,
     isTokenExpired,
     timeUntilExpiration,
-    
+
     // Role and permissions
     role,
     permissions,
-    
+
     // Permission checks
     hasPermission,
     hasAnyPermission,
@@ -245,26 +253,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
     canCreateResource,
     canUpdateResource,
     canDeleteResource,
-    
+
     // Role checks
     isSuperAdmin,
     isOrgAdmin,
     isUser,
-    
+
     // Organization checks
     getCurrentOrganizationId,
     canAccessOrganization,
-    
+
     // Impersonation
     isImpersonated,
     impersonatedBy,
     impersonatedRole,
     canImpersonate,
-    
+
     // Profile management
     refreshProfile,
     updateProfile,
-    
+
     // Token management
     refreshSession
   }

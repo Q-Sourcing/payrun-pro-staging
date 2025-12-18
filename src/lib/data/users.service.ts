@@ -72,6 +72,26 @@ export class UsersService {
         }, {} as Record<string, UserRole>);
       }
 
+      // Get org_users status
+      let userStatusMap: Record<string, string> = {};
+      if (profileIds.length > 0 && organization_id) {
+        console.log('[UsersService] Fetching org_users status for profiles:', profileIds);
+        const { data: orgUsers, error: orgUsersError } = await supabase
+          .from('org_users')
+          .select('user_id, status')
+          .in('user_id', profileIds)
+          .eq('org_id', organization_id); // Filter by the requested org context
+
+        if (orgUsersError) {
+          console.error('[UsersService] Error fetching org_users:', orgUsersError);
+        } else {
+          userStatusMap = (orgUsers || []).reduce((acc, ou) => {
+            acc[ou.user_id] = ou.status;
+            return acc;
+          }, {} as Record<string, string>);
+        }
+      }
+
       // Filter by role if specified
       let filteredProfiles = profiles || [];
       if (role) {
@@ -79,20 +99,27 @@ export class UsersService {
       }
 
       // Transform to UserWithRole format
-      const transformedData: UserWithRole[] = filteredProfiles.map(profile => ({
-        id: profile.id,
-        email: profile.email,
-        firstName: profile.first_name || '',
-        lastName: profile.last_name || '',
-        role: userRolesMap[profile.id] || 'employee',
-        isActive: true, // Default - would need to check auth.users table
-        createdAt: profile.created_at || new Date().toISOString(),
-        updatedAt: profile.updated_at || new Date().toISOString(),
-        permissions: [],
-        restrictions: [],
-        twoFactorEnabled: false,
-        sessionTimeout: 480,
-      }));
+      const transformedData: UserWithRole[] = filteredProfiles.map(profile => {
+        const orgStatus = userStatusMap[profile.id]; // 'active', 'invited', 'inactive'
+        const isInvited = orgStatus === 'invited';
+        const isActive = orgStatus === 'active' || isInvited; // Treat invited as "active" for visibility, or handle in UI
+
+        return {
+          id: profile.id,
+          email: profile.email,
+          firstName: profile.first_name || '',
+          lastName: profile.last_name || '',
+          role: userRolesMap[profile.id] || 'employee',
+          isActive: isActive,
+          status: orgStatus || 'active', // Add explicit status field if interface allows, otherwise rely on isActive logic
+          createdAt: profile.created_at || new Date().toISOString(),
+          updatedAt: profile.updated_at || new Date().toISOString(),
+          permissions: [],
+          restrictions: [],
+          twoFactorEnabled: false,
+          sessionTimeout: 480,
+        };
+      });
 
       return {
         data: transformedData,
