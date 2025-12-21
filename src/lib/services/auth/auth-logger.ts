@@ -192,21 +192,22 @@ export class AuthLogger {
       };
 
       // Insert into auth_events table
-      // Note: This will be called from Edge Functions with service role
+      // Note: This will be called from Edge Functions or Client with RLS
       const { data, error } = await supabase
         .from('auth_events')
         .insert(eventData)
         .select('id')
-        .single();
+        .maybeSingle();
 
       if (error) {
-        console.error('Error logging auth event:', error);
+        // Log to console but don't throw to avoid blocking the main auth flow
+        console.error('[AuthLogger] Error logging auth event to PostgREST:', error.message, error.details);
         return null;
       }
 
       return data?.id || null;
     } catch (error) {
-      console.error('Error in AuthLogger.log:', error);
+      console.error('[AuthLogger] Critical failure in logging logic:', error);
       return null;
     }
   }

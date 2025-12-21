@@ -3,12 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Users, 
-  DollarSign, 
-  TrendingUp, 
-  Shield, 
-  Activity, 
+import {
+  Users,
+  DollarSign,
+  TrendingUp,
+  Shield,
+  Activity,
   AlertTriangle,
   CheckCircle,
   Clock,
@@ -70,7 +70,7 @@ export const RoleBasedDashboard = ({ currentUser }: RoleBasedDashboardProps) => 
 
   const getRoleMetrics = (role: UserRole) => {
     switch (role) {
-      case 'super_admin':
+      case 'PLATFORM_SUPER_ADMIN':
         return {
           totalUsers: 1250,
           activeUsers: 1180,
@@ -78,7 +78,7 @@ export const RoleBasedDashboard = ({ currentUser }: RoleBasedDashboardProps) => 
           systemHealth: 99.8,
           lastSync: '2 minutes ago'
         };
-      case 'organization_admin':
+      case 'ORG_ADMIN':
         return {
           totalEmployees: 450,
           activeEmployees: 425,
@@ -86,15 +86,7 @@ export const RoleBasedDashboard = ({ currentUser }: RoleBasedDashboardProps) => 
           totalCost: 125000,
           lastPayroll: '1 week ago'
         };
-      case 'ceo_executive':
-        return {
-          totalPayroll: 2500000,
-          departmentCount: 8,
-          budgetUtilization: 85.5,
-          headcountGrowth: 12.3,
-          costPerEmployee: 5500
-        };
-      case 'payroll_manager':
+      case 'COMPANY_PAYROLL_ADMIN':
         return {
           teamSize: 25,
           pendingApprovals: 8,
@@ -102,7 +94,7 @@ export const RoleBasedDashboard = ({ currentUser }: RoleBasedDashboardProps) => 
           overtimeHours: 45,
           attendanceRate: 96.2
         };
-      case 'employee':
+      case 'SELF_USER':
         return {
           currentPay: 3500,
           ytdEarnings: 42000,
@@ -110,7 +102,7 @@ export const RoleBasedDashboard = ({ currentUser }: RoleBasedDashboardProps) => 
           nextPayday: '2024-01-15',
           taxWithholding: 850
         };
-      case 'hr_business_partner':
+      case 'ORG_HR_ADMIN':
         return {
           totalEmployees: 450,
           newHires: 12,
@@ -118,7 +110,7 @@ export const RoleBasedDashboard = ({ currentUser }: RoleBasedDashboardProps) => 
           pendingReviews: 25,
           complianceScore: 98.5
         };
-      case 'finance_controller':
+      case 'ORG_FINANCE_CONTROLLER':
         return {
           totalPayroll: 2500000,
           taxLiabilities: 125000,
@@ -138,19 +130,19 @@ export const RoleBasedDashboard = ({ currentUser }: RoleBasedDashboardProps) => 
     ];
 
     switch (role) {
-      case 'super_admin':
+      case 'PLATFORM_SUPER_ADMIN':
         return [
           ...baseActivities,
           { id: 3, type: 'system', message: 'System backup completed', timestamp: '1 hour ago' },
           { id: 4, type: 'user', message: 'New user created', timestamp: '3 hours ago' }
         ];
-      case 'organization_admin':
+      case 'ORG_ADMIN':
         return [
           ...baseActivities,
           { id: 3, type: 'payroll', message: 'Payroll processed', timestamp: '1 hour ago' },
           { id: 4, type: 'employee', message: 'New employee added', timestamp: '2 hours ago' }
         ];
-      case 'payroll_manager':
+      case 'COMPANY_PAYROLL_ADMIN':
         return [
           ...baseActivities,
           { id: 3, type: 'approval', message: 'Overtime approved', timestamp: '1 hour ago' },
@@ -163,17 +155,17 @@ export const RoleBasedDashboard = ({ currentUser }: RoleBasedDashboardProps) => 
 
   const getRoleAlerts = (role: UserRole) => {
     switch (role) {
-      case 'super_admin':
+      case 'PLATFORM_SUPER_ADMIN':
         return [
           { id: 1, type: 'warning', message: 'System maintenance scheduled for tonight', priority: 'medium' },
           { id: 2, type: 'info', message: 'New integration available', priority: 'low' }
         ];
-      case 'organization_admin':
+      case 'ORG_ADMIN':
         return [
           { id: 1, type: 'warning', message: 'Payroll deadline approaching', priority: 'high' },
           { id: 2, type: 'info', message: 'New employee onboarding required', priority: 'medium' }
         ];
-      case 'payroll_manager':
+      case 'COMPANY_PAYROLL_ADMIN':
         return [
           { id: 1, type: 'warning', message: 'Overtime approval pending', priority: 'high' },
           { id: 2, type: 'info', message: 'Timesheet submission reminder', priority: 'medium' }
@@ -185,28 +177,28 @@ export const RoleBasedDashboard = ({ currentUser }: RoleBasedDashboardProps) => 
 
   const getQuickActions = (role: UserRole) => {
     switch (role) {
-      case 'super_admin':
+      case 'PLATFORM_SUPER_ADMIN':
         return [
           { id: 1, label: 'System Settings', icon: Settings, action: '/settings' },
           { id: 2, label: 'User Management', icon: Users, action: '/users' },
           { id: 3, label: 'System Health', icon: Activity, action: '/health' },
           { id: 4, label: 'Audit Logs', icon: FileText, action: '/audit' }
         ];
-      case 'organization_admin':
+      case 'ORG_ADMIN':
         return [
           { id: 1, label: 'Process Payroll', icon: DollarSign, action: '/payroll' },
           { id: 2, label: 'Add Employee', icon: UserCheck, action: '/employees' },
           { id: 3, label: 'Reports', icon: BarChart3, action: '/reports' },
           { id: 4, label: 'Settings', icon: Settings, action: '/settings' }
         ];
-      case 'payroll_manager':
+      case 'COMPANY_PAYROLL_ADMIN':
         return [
           { id: 1, label: 'Approve Overtime', icon: Clock, action: '/approvals' },
           { id: 2, label: 'Team Timesheets', icon: Calendar, action: '/timesheets' },
           { id: 3, label: 'Department Reports', icon: PieChart, action: '/reports' },
           { id: 4, label: 'Leave Requests', icon: Calendar, action: '/leave' }
         ];
-      case 'employee':
+      case 'SELF_USER':
         return [
           { id: 1, label: 'View Payslip', icon: FileText, action: '/payslip' },
           { id: 2, label: 'Submit Timesheet', icon: Clock, action: '/timesheet' },
@@ -221,18 +213,16 @@ export const RoleBasedDashboard = ({ currentUser }: RoleBasedDashboardProps) => 
   const getRoleBadgeColor = (role: UserRole) => {
     const roleDef = ROLE_DEFINITIONS[role];
     switch (roleDef.level) {
-      case 10:
+      case 100:
         return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100";
-      case 8:
+      case 80:
         return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100";
-      case 7:
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100";
-      case 6:
+      case 75:
         return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100";
-      case 5:
+      case 70:
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100";
+      case 50:
         return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100";
-      case 4:
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100";
       case 1:
         return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-100";
       default:
@@ -406,14 +396,14 @@ export const RoleBasedDashboard = ({ currentUser }: RoleBasedDashboardProps) => 
               <CardContent className="space-y-4">
                 <div>
                   <p className="text-sm font-medium">Role Level</p>
-                  <p className="text-lg font-bold">{role.level}/10</p>
+                  <p className="text-lg font-bold">{role.level}/100</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium">Description</p>
                   <p className="text-sm text-muted-foreground">{role.description}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium">Access Level</p>
+                  <p className="text-sm font-medium">Scope</p>
                   <div className="space-y-1">
                     <div className="flex justify-between text-sm">
                       <span>Employees:</span>

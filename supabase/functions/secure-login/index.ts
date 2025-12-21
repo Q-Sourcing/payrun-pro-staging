@@ -1,4 +1,6 @@
+// @ts-ignore: Deno type definitions
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+// @ts-ignore: Supabase client type definitions
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -42,12 +44,12 @@ function getIpAddress(req: Request): string | null {
 
 // Helper function to get geolocation from IP
 async function getGeoLocation(ipAddress: string | null): Promise<any> {
-  if (!ipAddress || 
-      ipAddress === '127.0.0.1' || 
-      ipAddress === '::1' ||
-      ipAddress.startsWith('192.168.') ||
-      ipAddress.startsWith('10.') ||
-      ipAddress.startsWith('172.16.')) {
+  if (!ipAddress ||
+    ipAddress === '127.0.0.1' ||
+    ipAddress === '::1' ||
+    ipAddress.startsWith('192.168.') ||
+    ipAddress.startsWith('10.') ||
+    ipAddress.startsWith('172.16.')) {
     return {
       country: 'Local',
       city: 'Local',
@@ -127,7 +129,7 @@ async function logAuthEvent(
 async function getUserOrgId(supabaseAdmin: any, userId: string): Promise<string | null> {
   try {
     const { data, error } = await supabaseAdmin
-      .from('profiles')
+      .from('user_profiles')
       .select('organization_id')
       .eq('id', userId)
       .single();
@@ -165,7 +167,8 @@ async function getLockoutThreshold(supabaseAdmin: any, orgId: string | null): Pr
   }
 }
 
-serve(async (req) => {
+// @ts-ignore: Deno type definitions
+serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -176,19 +179,19 @@ serve(async (req) => {
 
   if (req.method !== 'POST') {
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        message: 'Method not allowed' 
+      JSON.stringify({
+        success: false,
+        message: 'Method not allowed'
       } as LoginResponse),
-      { 
-        status: 405, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 405,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
   }
 
   try {
-    // Get the service role key from environment
+    // @ts-ignore: Deno type definitions
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
     if (!serviceRoleKey) {
       throw new Error('SUPABASE_SERVICE_ROLE_KEY not found in environment')
@@ -196,6 +199,7 @@ serve(async (req) => {
 
     // Create Supabase client with service role
     const supabaseAdmin = createClient(
+      // @ts-ignore: Deno type definitions
       Deno.env.get('SUPABASE_URL') ?? '',
       serviceRoleKey,
       {
@@ -209,7 +213,7 @@ serve(async (req) => {
     // Parse request body
     let email: string;
     let password: string;
-    
+
     try {
       const body = await req.json();
       email = body.email;
@@ -217,128 +221,220 @@ serve(async (req) => {
     } catch (parseError) {
       console.error('Error parsing request body:', parseError);
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Invalid request format' 
+        JSON.stringify({
+          success: false,
+          message: 'Invalid request format'
         } as LoginResponse),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
     if (!email || !password) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Invalid email or password' // Generic error
+        JSON.stringify({
+          success: false,
+          message: 'Invalid email or password'
         } as LoginResponse),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
     // Get IP address and user agent
-    const ipAddress = getIpAddress(req)
-    const userAgent = req.headers.get('user-agent')
+    const ipAddress = getIpAddress(req);
+    const userAgent = req.headers.get('user-agent');
 
-    // Find user by email
-    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.listUsers()
-    const user = userData?.users?.find(u => u.email === email.toLowerCase())
+    console.log(`[secure-login] Attempting login for ${email} (IP: ${ipAddress})`);
 
-    if (!user) {
-      // Log failed login attempt (user not found)
+    // Find user profile by email - Use case-insensitive matching
+    // Defensive approach: Try full select first, fallback to basic if it fails (e.g. missing columns)
+    let { data: profile, error: profileError } = await supabaseAdmin
+      .from('user_profiles')
+      .select('id, email, locked_at, failed_login_attempts, organization_id')
+      .ilike('email', email.trim())
+      .maybeSingle();
+
+    if (profileError) {
+      console.warn(`[secure-login] Full profile lookup failed, likely missing columns. Falling back to basic lookup. Error: ${profileError.message}`);
+      // Fallback to basic lookup without lockout fields
+      const { data: basicProfile, error: basicError } = await supabaseAdmin
+        .from('user_profiles')
+        .select('id, email, organization_id')
+        .ilike('email', email.trim())
+        .maybeSingle();
+
+      if (basicError) {
+        console.error(`[secure-login] Basic profile lookup also failed for ${email}:`, basicError);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            message: 'A database error occurred. Please verify migrations are applied.'
+          } as LoginResponse),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      profile = basicProfile;
+      profileError = null;
+    }
+
+    if (!profile) {
+      console.warn(`[secure-login] User profile not found for email: ${email}`);
+      // Log failed login attempt
       await logAuthEvent(
         supabaseAdmin,
         {
-          user_id: null,
+          user_id: undefined,
           event_type: 'login_failed',
           success: false,
-          reason: 'User not found',
+          reason: 'User profile not found',
         },
         ipAddress,
         userAgent
-      )
+      );
 
-      // Return generic error (don't disclose if user exists)
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Invalid email or password' // Generic error
+        JSON.stringify({
+          success: false,
+          message: 'Invalid email or password'
         } as LoginResponse),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
-      )
+      );
     }
 
-    // Check if account is locked
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('locked_at, failed_login_attempts, organization_id')
-      .eq('id', user.id)
-      .single()
+    const user = { id: profile.id, email: profile.email };
 
-    if (profileError) {
-      console.error('Error fetching profile:', profileError)
-    }
-
-    const isLocked = profile?.locked_at !== null
+    // Check for account lockout (only if column exists)
+    const isLocked = profile.locked_at ? true : false;
 
     if (isLocked) {
-      // Log locked account login attempt
       await logAuthEvent(
         supabaseAdmin,
         {
           user_id: user.id,
-          org_id: profile?.organization_id || null,
+          org_id: profile.organization_id || undefined,
           event_type: 'login_failed',
           success: false,
           reason: 'Account is locked',
         },
         ipAddress,
         userAgent
-      )
+      );
 
-      // Return generic error (don't disclose account is locked)
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Invalid email or password' // Generic error
+        JSON.stringify({
+          success: false,
+          message: 'Invalid email or password'
         } as LoginResponse),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
-      )
+      );
     }
 
-    // Attempt authentication
+    // Attempt authentication with Supabase Auth
+    // Use the exact email from the profile (which we matched case-insensitively)
     const { data: authData, error: authError } = await supabaseAdmin.auth.signInWithPassword({
-      email: email.toLowerCase(),
+      email: profile.email,
       password: password,
-    })
+    });
 
     if (authError || !authData.user) {
-      // Authentication failed - increment failed attempts
-      const orgId = profile?.organization_id || null
-      const threshold = await getLockoutThreshold(supabaseAdmin, orgId)
+      console.warn(`[secure-login] Auth failed for ${email}:`, authError?.message || 'No user data returned');
 
-      // Increment failed attempts
-      const { data: incrementResult, error: incrementError } = await supabaseAdmin.rpc(
-        'increment_failed_login_attempts',
-        { _user_id: user.id }
-      )
+      // Handle lockout increments only if profile has the necessary fields
+      const orgId = profile.organization_id || null;
+      if ('failed_login_attempts' in profile) {
+        try {
+          const threshold = await getLockoutThreshold(supabaseAdmin, orgId);
+          const { data: incrementResult, error: incrementError } = await supabaseAdmin.rpc(
+            'increment_failed_login_attempts',
+            { _user_id: user.id }
+          );
 
-      if (!incrementError) {
-        const newCount = incrementResult || 0
-        const shouldLock = newCount >= threshold
+          if (!incrementError) {
+            const newCount = incrementResult || 0;
+            const shouldLock = newCount >= threshold;
 
-        // Log failed login
+            await logAuthEvent(
+              supabaseAdmin,
+              {
+                user_id: user.id,
+                org_id: orgId || undefined,
+                event_type: 'login_failed',
+                success: false,
+                reason: `Failed login attempt ${newCount} of ${threshold}`,
+              },
+              ipAddress,
+              userAgent
+            );
+
+            if (shouldLock) {
+              await supabaseAdmin
+                .from('user_profiles')
+                .update({
+                  locked_at: new Date().toISOString(),
+                  locked_by: null,
+                  lockout_reason: 'Failed login attempts exceeded threshold',
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', user.id);
+
+              await logAuthEvent(
+                supabaseAdmin,
+                {
+                  user_id: user.id,
+                  org_id: orgId || undefined,
+                  event_type: 'account_locked',
+                  success: true,
+                  reason: 'Failed login attempts exceeded threshold',
+                },
+                ipAddress,
+                userAgent
+              );
+
+              // Get profile for metadata in notification
+              const { data: userProfile } = await supabaseAdmin
+                .from('user_profiles')
+                .select('email, first_name, last_name')
+                .eq('id', user.id)
+                .single();
+
+              const userName = userProfile
+                ? `${userProfile.first_name || ''} ${userProfile.last_name || ''}`.trim() || userProfile.email
+                : user.email;
+
+              // Notify admins
+              // @ts-ignore: Deno type definitions
+              fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/notify-account-locked`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${serviceRoleKey}`,
+                },
+                body: JSON.stringify({
+                  locked_user_id: user.id,
+                  locked_user_email: user.email,
+                  locked_user_name: userName,
+                  org_id: orgId,
+                  reason: 'Failed login attempts exceeded threshold',
+                }),
+              }).catch(err => console.error('Failed to send lockout notification:', err));
+            }
+          }
+        } catch (lockoutError) {
+          console.error('[secure-login] Error in lockout increment logic:', lockoutError);
+        }
+      } else {
+        // Log simple failed login if no lockout fields
         await logAuthEvent(
           supabaseAdmin,
           {
@@ -346,90 +442,32 @@ serve(async (req) => {
             org_id: orgId || undefined,
             event_type: 'login_failed',
             success: false,
-            reason: `Failed login attempt ${newCount} of ${threshold}`,
+            reason: authError?.message || 'Authentication failed',
           },
           ipAddress,
           userAgent
-        )
-
-        // Lock account if threshold reached
-        if (shouldLock) {
-          await supabaseAdmin
-            .from('profiles')
-            .update({
-              locked_at: new Date().toISOString(),
-              locked_by: null,
-              lockout_reason: 'Failed login attempts exceeded threshold',
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', user.id)
-
-          // Log lockout event
-          await logAuthEvent(
-            supabaseAdmin,
-            {
-              user_id: user.id,
-              org_id: orgId || undefined,
-              event_type: 'account_locked',
-              success: true,
-              reason: 'Failed login attempts exceeded threshold',
-            },
-            ipAddress,
-            userAgent
-          )
-
-          // Get user profile for notifications
-          const { data: userProfile } = await supabaseAdmin
-            .from('profiles')
-            .select('email, first_name, last_name')
-            .eq('id', user.id)
-            .single()
-
-          const userName = userProfile 
-            ? `${userProfile.first_name || ''} ${userProfile.last_name || ''}`.trim() || userProfile.email
-            : user.email || 'Unknown'
-
-          // Notify admins (async - don't wait)
-          // Trigger notification in background
-          fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/notify-account-locked`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${serviceRoleKey}`,
-            },
-            body: JSON.stringify({
-              locked_user_id: user.id,
-              locked_user_email: user.email,
-              locked_user_name: userName,
-              org_id: orgId,
-              reason: 'Failed login attempts exceeded threshold',
-            }),
-          }).catch(err => console.error('Failed to send lockout notification:', err))
-        }
+        );
       }
 
-      // Return generic error (don't disclose reason)
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Invalid email or password' // Generic error
+        JSON.stringify({
+          success: false,
+          message: 'Invalid email or password'
         } as LoginResponse),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
-      )
+      );
     }
 
     // Login successful - reset failed attempts
     await supabaseAdmin.rpc('reset_failed_login_attempts', {
       _user_id: user.id,
-    })
+    });
 
-    // Get user's organization
-    const orgId = await getUserOrgId(supabaseAdmin, user.id)
+    const orgId = profile.organization_id || null;
 
-    // Log successful login
     await logAuthEvent(
       supabaseAdmin,
       {
@@ -440,34 +478,33 @@ serve(async (req) => {
       },
       ipAddress,
       userAgent
-    )
+    );
 
-    // Return session data
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         message: 'Login successful',
         session: authData.session,
         user: authData.user
       } as LoginResponse),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
-    )
+    );
 
   } catch (error) {
-    console.error('Unexpected error in secure-login function:', error)
+    console.error('Unexpected error in secure-login function:', error);
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        message: 'An error occurred during login. Please try again.' // Generic error
+      JSON.stringify({
+        success: false,
+        message: 'An error occurred during login. Please try again.'
       } as LoginResponse),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
-    )
+    );
   }
-})
+});
 

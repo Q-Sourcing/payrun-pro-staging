@@ -95,7 +95,7 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
       firstName: user?.firstName || '',
       lastName: user?.lastName || '',
       email: user?.email || '',
-      role: user?.role || 'employee',
+      role: user?.role || 'SELF_USER',
       managerId: user?.managerId || '',
       isActive: user?.isActive ?? true,
       twoFactorEnabled: user?.twoFactorEnabled ?? false,
@@ -107,7 +107,7 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
   });
 
   // Multi-Role State
-  const [availableOrgRoles, setAvailableOrgRoles] = useState<{ id: string; key: string; name: string; description: string | null }[]>([]);
+  const [availableOrgRoles, setAvailableOrgRoles] = useState<{ id: string; key: string; name: string; description: string | null; org_id?: string }[]>([]);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]); // Array of role IDs
   const [loadingRoles, setLoadingRoles] = useState(false);
 
@@ -236,16 +236,16 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
     setCustomPermissions(newPermissions as Permission[]);
   };
 
-  const canManageSuperAdmins = currentUser?.role === 'super_admin';
+  const canManageSuperAdmins = currentUser?.role === 'PLATFORM_SUPER_ADMIN';
   const canEditUser = (targetUser: UserType | null) => {
     if (!targetUser) return true; // Creating new user
     if (!currentUser) return false;
 
-    // Super admins can edit anyone
-    if (currentUser.role === 'super_admin') return true;
+    // Platform super admins can edit anyone
+    if (currentUser.role === 'PLATFORM_SUPER_ADMIN') return true;
 
     // Organization admins can edit users in their organization
-    if (currentUser.role === 'organization_admin') {
+    if (currentUser.role === 'ORG_ADMIN') {
       return currentUser.organizationId === targetUser.organizationId;
     }
 
@@ -272,7 +272,7 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
     // Simple heuristic: just pick the first one's key for now, or default to 'employee'
     // In a real scenario, we'd rank them.
     const primaryRoleObj = availableOrgRoles.find(r => r.id === selectedRoles[0]);
-    const legacyRole = (primaryRoleObj?.key.toLowerCase() as UserRole) || 'employee';
+    const legacyRole = (primaryRoleObj?.key.toUpperCase() as UserRole) || 'SELF_USER';
     // Note: This casting might be rough if keys don't match exactly. 
     // Ideally we map ORG_ADMIN -> org_admin.
     // For now, we assume keys are somewhat compatible or we default safe.
@@ -390,7 +390,7 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
 
         // 2. Prepare Payload
         // We assume the current user's organization is the target, or fallback to the first role's org
-        const targetOrgId = currentUser?.organizationId || availableOrgRoles[0]?.org_id;
+        const targetOrgId = currentUser?.organizationId || (availableOrgRoles[0] as any)?.org_id;
 
         if (!targetOrgId) {
           throw new Error("Could not determine organization context.");
@@ -459,38 +459,16 @@ export function UserForm({ user, onClose, onSave, currentUser }: UserFormProps) 
     }
   };
 
-  const getRoleBadgeColor = (role: UserRole) => {
-    switch (role) {
-      case 'super_admin':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'org_admin':
-      case 'organization_admin':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'hr_admin':
-      case 'hr_business_partner':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'project_manager':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'project_payroll_officer':
-        return 'bg-cyan-100 text-cyan-800 border-cyan-200';
-      case 'head_office_admin':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'finance_approver':
-      case 'finance_controller':
-        return 'bg-indigo-100 text-indigo-800 border-indigo-200';
-      case 'viewer':
-      case 'ceo_executive':
-        return 'bg-slate-100 text-slate-800 border-slate-200';
-      case 'user':
-      case 'employee':
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
+  const getRoleBadgeColor = (role: string) => {
+    if (role.startsWith('PLATFORM_')) return 'bg-red-100 text-red-800 border-red-200';
+    if (role.startsWith('ORG_')) return 'bg-purple-100 text-purple-800 border-purple-200';
+    if (role.startsWith('COMPANY_')) return 'bg-blue-100 text-blue-800 border-blue-200';
+    if (role.startsWith('PROJECT_')) return 'bg-cyan-100 text-cyan-800 border-cyan-200';
+    return 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
   const availableRoles = Object.entries(ROLE_DEFINITIONS).filter(([roleKey]) => {
-    if (roleKey === 'super_admin') {
+    if (roleKey === 'PLATFORM_SUPER_ADMIN') {
       return canManageSuperAdmins;
     }
     return true;

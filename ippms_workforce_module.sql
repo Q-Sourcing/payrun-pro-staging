@@ -71,10 +71,10 @@ as $$
   )
   select
     coalesce(public.is_platform_admin(auth.uid()), false)
-    or public.has_permission(auth.uid(), 'process_payroll')
-    or public.has_permission(auth.uid(), 'approve_payroll')
-    or public.has_permission(auth.uid(), 'view_organization_employees')
-    or public.has_permission(auth.uid(), 'edit_organization_employees')
+    or public.has_permission(auth.uid(), 'payroll.prepare')
+    or public.has_permission(auth.uid(), 'payroll.approve')
+    or public.has_permission(auth.uid(), 'people.view')
+    or public.has_permission(auth.uid(), 'people.edit')
     or (select (c->>'role') in ('platform_admin','org_admin','super_admin','admin') from jwt)
     or (select (c->>'app_role') in ('platform_admin','org_admin','super_admin','admin') from jwt)
     or auth.role() = 'service_role';

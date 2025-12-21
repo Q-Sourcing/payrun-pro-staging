@@ -4,8 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+
 import { CreateCompanyUnitDialog } from '@/components/company-units/CreateCompanyUnitDialog';
 import { CreateDepartmentDialog } from '@/components/departments/CreateDepartmentDialog';
+import { CompanyUnitsService } from '@/lib/services/company-units.service';
+import { EmployeeCategoriesService } from '@/lib/services/employee-categories.service';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { ALL_COUNTRIES } from '@/lib/constants/countries';
 import { useOrg } from '@/lib/tenant/OrgContext';
@@ -13,6 +16,7 @@ import { useOrg } from '@/lib/tenant/OrgContext';
 export interface CascadingSelectorValue {
   countryId?: string;
   companyId?: string;
+  categoryId?: string;
   companyUnitId?: string;
   departmentId?: string;
   employeeTypeId?: string;
@@ -25,17 +29,19 @@ interface CascadingOrgSelectorsProps {
   value: CascadingSelectorValue;
   onChange: (val: Partial<CascadingSelectorValue>) => void;
   mode: SelectorMode;
+  showCategory?: boolean;
   disabledFields?: (keyof CascadingSelectorValue)[];
   requiredFields?: (keyof CascadingSelectorValue)[];
   className?: string;
 }
 
 export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
-  value, onChange, mode, disabledFields = [], requiredFields = [], className = ''
+  value, onChange, mode, showCategory = false, disabledFields = [], requiredFields = [], className = ''
 }) => {
   // Data
   const [countries, setCountries] = useState<Array<{ id: string; name: string }>>([]);
   const [companies, setCompanies] = useState<Array<{ id: string; name: string; country_id: string }>>([]);
+  const [categories, setCategories] = useState<Array<{ id: string; name: string; key: string }>>([]);
   const [companyUnits, setCompanyUnits] = useState<Array<{ id: string; name: string; company_id: string }>>([]);
   const [departments, setDepartments] = useState<Array<{ id: string; name: string; company_unit_id: string }>>([]);
   const [employeeTypes, setEmployeeTypes] = useState<Array<{ id: string; name: string }>>([]);
@@ -54,8 +60,8 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
       setLoading(l => ({ ...l, countries: true, employeeTypes: true }));
       try {
         const [countryRes, typeRes] = await Promise.all([
-          supabase.from('countries').select('id, name').order('name'),
-          supabase.from('employee_types').select('id, name').order('name')
+          supabase.from('countries' as any).select('id, name').order('name'),
+          supabase.from('employee_types' as any).select('id, name').order('name')
         ]);
         if (!cancelled) {
           // Handle countries - use fallback if table doesn't exist or is empty
@@ -68,9 +74,9 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
             }));
             setCountries(fallbackCountries);
           } else {
-            setCountries(countryRes.data);
+            setCountries(countryRes.data as any[]);
           }
-          setEmployeeTypes(typeRes.data || []);
+          setEmployeeTypes((typeRes.data || []) as any[]);
           setLoading(l => ({ ...l, countries: false, employeeTypes: false }));
         }
       } catch (error) {
@@ -214,7 +220,27 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
     return () => { cancelled = true };
   }, [value.companyId, onChange, organizationId]);
 
-  // Load company units when companyId changes
+  // Load categories
+  useEffect(() => {
+    let cancelled = false;
+    if (organizationId && showCategory) {
+      setLoading(l => ({ ...l, categories: true }));
+      EmployeeCategoriesService.getCategoriesByOrg(organizationId)
+        .then(data => {
+          if (!cancelled) {
+            setCategories(data.map(c => ({ id: c.id, name: c.label, key: c.key })));
+            setLoading(l => ({ ...l, categories: false }));
+          }
+        })
+        .catch(err => {
+          console.error('Error loading categories:', err);
+          if (!cancelled) setLoading(l => ({ ...l, categories: false }));
+        });
+    }
+    return () => { cancelled = true };
+  }, [organizationId, showCategory]);
+
+  // Load company units when companyId or categoryId changes
   useEffect(() => {
     let cancelled = false;
 
@@ -234,12 +260,37 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
 
     (async () => {
       try {
-        console.log('Fetching company units for company:', companyIdToUse);
-        const { data, error } = await supabase
-          .from('company_units')
-          .select('id, name, company_id')
-          .eq('company_id', companyIdToUse)
-          .order('name');
+        console.log('Fetching company units for company:', companyIdToUse, 'category:', value.categoryId);
+
+        let data, error;
+
+        // Use service to fetch filtered units if service is available, otherwise fallback to direct query (though we imported service)
+        // Since we imported CompanyUnitsService, we should use it, but existing code used direct supabase
+        // We will switch to using the service for consistency with the new filtering logic
+        try {
+          // If categoryId is present (or even if not), we can use the service which supports filtering
+          // However, the service method signature might be different from what we need if we want *all* units when no category is selected.
+          // let's check: getCompanyUnitsByCompanyAndCategory(companyId, categoryId, options)
+          // If categoryId is undefined, it should return all? need to verify service.
+          // Actually, let's keep it simple. If we have a categoryId, we filter.
+
+          if (value.categoryId) {
+            data = await CompanyUnitsService.getCompanyUnitsByCompanyAndCategory(companyIdToUse, value.categoryId);
+            // Mapper to match expected shape if needed (Service returns CompanyUnit[], we need id, name, company_id)
+            // CompanyUnit has these fields.
+          } else {
+            // Fallback to fetching all for the company
+            const res = await supabase
+              .from('company_units')
+              .select('id, name, company_id')
+              .eq('company_id', companyIdToUse)
+              .order('name');
+            data = res.data;
+            error = res.error;
+          }
+        } catch (e) {
+          error = e;
+        }
 
         if (!cancelled) {
           if (error) {
@@ -277,7 +328,7 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
       }
     })();
     return () => { cancelled = true };
-  }, [value.companyId, companies]);
+  }, [value.companyId, value.categoryId, companies]);
 
   // Load departments when companyUnitId changes
   useEffect(() => {
@@ -294,7 +345,7 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
     (async () => {
       try {
         const { data, error } = await supabase
-          .from('departments')
+          .from('departments' as any)
           .select('id, name, company_unit_id')
           .eq('company_unit_id', value.companyUnitId)
           .order('name');
@@ -304,7 +355,7 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
             console.error('Error loading departments:', error);
             setDepartments([]);
           } else {
-            setDepartments(data || []);
+            setDepartments(data as any[] || []);
           }
           setLoading(l => ({ ...l, departments: false }));
         }
@@ -327,7 +378,7 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
     (async () => {
       try {
         // Only select columns that exist - company_unit_id and employee_type_id may not exist
-        let query: any = supabase.from('pay_groups').select('id, name');
+        let query: any = supabase.from('pay_groups' as any).select('id, name');
 
         // Try to filter by company_unit_id if it exists and is provided
         if (value.companyUnitId) {
@@ -365,9 +416,13 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
   // State-resets: when upstream selector changes, reset downstreams
   useEffect(() => {
     // If companyId is cleared, also clear companyUnitId, departmentId, and payGroupId
-    if (!value.companyId && (value.companyUnitId || value.departmentId || value.payGroupId)) {
-      onChange({ companyUnitId: undefined, departmentId: undefined, payGroupId: undefined });
+    if (!value.companyId && (value.companyUnitId || value.departmentId || value.payGroupId || value.categoryId)) {
+      onChange({ companyUnitId: undefined, departmentId: undefined, payGroupId: undefined, categoryId: undefined });
     }
+    // If categoryId changes/cleared, clear companyUnitId?
+    // If category changes, the available units change. So we probably should clear unit.
+    // BUT we need to be careful not to loop. logic below handles clearing.
+
     // If companyUnitId is cleared, also clear departmentId and payGroupId
     if (!value.companyUnitId && (value.departmentId || value.payGroupId)) {
       onChange({ departmentId: undefined, payGroupId: undefined });
@@ -377,6 +432,21 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
       onChange({ payGroupId: undefined });
     }
   }, [value.companyId, value.companyUnitId, value.departmentId, value.employeeTypeId]);
+
+  // When category changes, clear company unit if it's no longer valid? 
+  // For now let's just let the user re-select if they want.
+  useEffect(() => {
+    if (value.categoryId && value.companyUnitId) {
+      // potentially check if current unit is valid for new category?
+      // For simplicity, we might just leave it or clear it. 
+      // Safe default: Clear unit when category changes to ensure consistency?
+      // But this effect runs on value change, so if we clear, we trigger another change.
+      // We'll rely on the user to pick a new unit if the list changes.
+      // onChange({ companyUnitId: undefined }); 
+      // Actually, standard behavior is usually to clear downstream.
+      onChange({ companyUnitId: undefined });
+    }
+  }, [value.categoryId]);
 
   // Render helpers
   const showCountry = mode === 'employee' || mode === 'paygroup';
@@ -448,6 +518,36 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
           </div>
         );
       })()}
+
+
+      {showCategory && (
+        <div>
+          <label className="block text-sm font-medium">Employee Category{isRequired('categoryId') && ' *'}</label>
+          <Select
+            value={value.categoryId || ''}
+            onValueChange={v => onChange({ categoryId: v || undefined })}
+            disabled={isDisabled('categoryId') || loading.categories || !value.companyId}
+            aria-required={isRequired('categoryId')}
+          >
+            <SelectTrigger aria-label="Select category">
+              <SelectValue placeholder={loading.categories ? 'Loading categories...' : 'All Categories'} />
+            </SelectTrigger>
+            <SelectContent
+              allowClear={true}
+              onClear={() => onChange({ categoryId: undefined })}
+              currentValue={value.categoryId}
+            >
+              {categories.map(c => (
+                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+              {!loading.categories && categories.length === 0 && (
+                <div className="px-3 text-xs text-muted">No categories found</div>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {showCompanyUnit && (
         <div>
           <div className="flex items-center justify-between mb-1">
@@ -621,11 +721,11 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
           onChange({ companyUnitId: companyUnit.id });
           // Reload company units
           if (value.companyId) {
-            supabase.from('company_units')
+            supabase.from('company_units' as any)
               .select('id, name, company_id')
               .eq('company_id', value.companyId)
               .order('name')
-              .then(r => {
+              .then((r: any) => {
                 setCompanyUnits(r.data || []);
               });
           }
@@ -641,11 +741,11 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
           onChange({ departmentId: department.id });
           // Reload departments
           if (value.companyUnitId) {
-            supabase.from('departments')
+            supabase.from('departments' as any)
               .select('id, name, company_unit_id')
               .eq('company_unit_id', value.companyUnitId)
               .order('name')
-              .then(r => {
+              .then((r: any) => {
                 setDepartments(r.data || []);
               });
           }

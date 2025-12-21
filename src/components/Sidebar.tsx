@@ -7,7 +7,6 @@ import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useMemo } from "react";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { useUserRole } from "@/hooks/use-user-role";
 import { RBACService } from "@/lib/services/auth/rbac";
 
 interface SidebarPayGroupType {
@@ -22,9 +21,10 @@ interface SidebarProps {
   activeTab: string;
   onNavigate: (tab: string) => void;
   collapsed?: boolean;
+  onSettingsClick?: () => void;
 }
 
-export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigate, collapsed = false }) => {
+export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigate, collapsed = false, onSettingsClick }) => {
   const [localOpen, setLocalOpen] = useState(false);
   const [payGroupsOpen, setPayGroupsOpen] = useState(false);
   const [headOfficeOpen, setHeadOfficeOpen] = useState(false);
@@ -36,23 +36,9 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
   const location = useLocation();
 
   const { userContext } = useSupabaseAuth();
-  const { role: dbRole, isSuperAdmin } = useUserRole();
 
   const permissions = useMemo(() => {
-    // Prefer DB role (fresh) over JWT role (stale), but map/normalize if needed
-    // The explicit isSuperAdmin check from useUserRole is the most reliable source for super admin status
-    let role = userContext?.role;
-
-    if (isSuperAdmin) {
-      role = 'super_admin';
-    } else if (dbRole) {
-      // Map legacy role names if necessary (e.g. organization_admin -> org_admin)
-      if (dbRole === 'organization_admin') role = 'org_admin';
-      else if (dbRole === 'employee') role = 'user';
-      else role = dbRole as any;
-    }
-
-    if (!role) return {
+    if (!userContext) return {
       canViewEmployees: false,
       canViewProjects: false,
       canViewPayGroups: false,
@@ -66,19 +52,18 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
     };
 
     return {
-      canViewEmployees: RBACService.roleHasPermission(role, 'people.view'),
-      canViewProjects: RBACService.roleHasPermission(role, 'projects.view'),
-      canViewPayGroups: RBACService.roleHasPermission(role, 'paygroups.view'),
-      canViewPayGroupsHeadOffice: RBACService.roleHasScopedPermission(role, 'paygroups.view', 'head_office'),
-      canViewPayGroupsProjects: RBACService.roleHasScopedPermission(role, 'paygroups.view', 'project'),
-      canViewPayRuns: RBACService.roleHasPermission(role, 'payroll.view'),
-      canViewPayRunsHeadOffice: RBACService.roleHasScopedPermission(role, 'payroll.view', 'head_office'),
-      canViewPayRunsProjects: RBACService.roleHasScopedPermission(role, 'payroll.view', 'project'),
-      canViewReports: RBACService.roleHasPermission(role, 'reports.view'),
-      // Assuming settings is for admins
-      canViewSettings: role === 'super_admin' || role === 'org_admin',
+      canViewEmployees: RBACService.hasPermission('people.view'),
+      canViewProjects: RBACService.hasPermission('projects.view'),
+      canViewPayGroups: RBACService.hasPermission('paygroups.view'),
+      canViewPayGroupsHeadOffice: RBACService.hasScopedPermission('people.view', 'ORGANIZATION'),
+      canViewPayGroupsProjects: RBACService.hasScopedPermission('people.view', 'PROJECT'),
+      canViewPayRuns: RBACService.hasPermission('payroll.view'),
+      canViewPayRunsHeadOffice: RBACService.hasScopedPermission('payroll.view', 'ORGANIZATION'),
+      canViewPayRunsProjects: RBACService.hasScopedPermission('payroll.view', 'PROJECT'),
+      canViewReports: RBACService.hasPermission('reports.view'),
+      canViewSettings: RBACService.isPlatformAdmin() || RBACService.isOrgAdmin(),
     };
-  }, [userContext?.role, dbRole, isSuperAdmin]);
+  }, [userContext]);
 
   const isActive = (path: string) =>
     location.pathname === path
@@ -397,7 +382,16 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
       {permissions.canViewSettings && (
         <>
           <SectionHeader title="Settings" />
-          <NavItem to="/settings" icon={<Settings size={16} />} label="Settings" />
+          <motion.div whileHover={{ x: collapsed ? 0 : 4 }}>
+            <button
+              onClick={onSettingsClick}
+              className={`flex items-center gap-2 px-3.5 py-2.5 rounded-md w-full text-slate-700 hover:bg-slate-50 hover:text-blue-700 ${collapsed ? 'justify-center' : ''}`}
+              title={collapsed ? "Settings" : undefined}
+            >
+              <Settings size={16} />
+              {!collapsed && <span>Settings</span>}
+            </button>
+          </motion.div>
         </>
       )}
     </div>

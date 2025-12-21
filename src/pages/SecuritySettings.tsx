@@ -21,8 +21,8 @@ export function SecuritySettingsPage() {
   const [lockoutThreshold, setLockoutThreshold] = useState(5);
   const [emailAlertsEnabled, setEmailAlertsEnabled] = useState(true);
 
-  // Check if user has permission (org_super_admin or platform_admin)
-  const canAccess = hasRole('org_super_admin') || hasRole('platform_admin');
+  // Check if user has permission (ORG_ADMIN or PLATFORM_SUPER_ADMIN)
+  const canAccess = hasRole('ORG_ADMIN') || hasRole('PLATFORM_SUPER_ADMIN');
 
   useEffect(() => {
     if (!canAccess || !profile?.organization_id) {

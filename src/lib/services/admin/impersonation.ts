@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client'
 
 export interface ImpersonationRequest {
   target_org_id: string
-  target_role: 'org_admin' | 'user'
+  target_role: 'ORG_ADMIN' | 'SELF_USER' | string
   target_user_id?: string
   ttl_seconds?: number
 }
@@ -49,7 +49,7 @@ export class ImpersonationService {
         throw new Error('No active session found')
       }
 
-      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/impersonate`, {
+      const response = await fetch(`${(supabase as any).supabaseUrl}/functions/v1/impersonate`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -136,7 +136,7 @@ export class ImpersonationService {
   }
 
   static async endImpersonationSession(sessionId: string): Promise<void> {
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('impersonation_logs')
       .update({ impersonation_end: new Date().toISOString() })
       .eq('id', sessionId)
@@ -148,9 +148,9 @@ export class ImpersonationService {
   }
 
   // Helper method to check if current session is impersonated
-  static isImpersonated(): boolean {
+  static async isImpersonated(): Promise<boolean> {
     try {
-      const { data } = supabase.auth.getSession()
+      const { data } = await supabase.auth.getSession()
       if (!data?.session?.access_token) return false
 
       // Decode JWT to check for impersonation claims
@@ -162,15 +162,15 @@ export class ImpersonationService {
   }
 
   // Helper method to get impersonation context
-  static getImpersonationContext(): {
+  static async getImpersonationContext(): Promise<{
     isImpersonated: boolean
     impersonatedBy?: string
     impersonatedRole?: string
     organizationId?: string
     organizationName?: string
-  } {
+  }> {
     try {
-      const { data } = supabase.auth.getSession()
+      const { data } = await supabase.auth.getSession()
       if (!data?.session?.access_token) {
         return { isImpersonated: false }
       }

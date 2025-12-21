@@ -1,10 +1,28 @@
 import { supabase } from '@/integrations/supabase/client'
 import { Session } from '@supabase/supabase-js'
 
+export type ScopeType = 'GLOBAL' | 'ORGANIZATION' | 'COMPANY' | 'PROJECT' | 'SELF'
+
+export type RBACRoleEntry = {
+  role: string
+  scope_type: ScopeType
+  scope_id: string | null
+  org_id: string | null
+}
+
 export interface JWTClaims {
   sub: string
   email: string
-  role: 'super_admin' | 'org_admin' | 'hr_admin' | 'project_manager' | 'project_payroll_officer' | 'head_office_admin' | 'finance_approver' | 'user' | 'viewer'
+  app_metadata?: {
+    rbac_roles?: RBACRoleEntry[]
+    rbac_permissions?: string[]
+    is_platform_admin?: boolean
+    organization_id?: string
+    [key: string]: any
+  }
+  user_metadata?: {
+    [key: string]: any
+  }
   organization_id?: string
   impersonated_by?: string
   impersonated_role?: string
@@ -17,7 +35,9 @@ export interface JWTClaims {
 export interface UserContext {
   userId: string
   email: string
-  role: 'super_admin' | 'org_admin' | 'hr_admin' | 'project_manager' | 'project_payroll_officer' | 'head_office_admin' | 'finance_approver' | 'user' | 'viewer'
+  roles: RBACRoleEntry[]
+  permissions: string[]
+  isPlatformAdmin: boolean
   organizationId?: string
   isImpersonated: boolean
   impersonatedBy?: string
@@ -63,11 +83,24 @@ export class JWTClaimsService {
     const claims = this.getClaimsFromSession(session)
     if (!claims) return null
 
+    // Extract from app_metadata or top level (fallback)
+    const roles = claims.app_metadata?.rbac_roles || (claims as any).rbac_roles || []
+    const permissions = claims.app_metadata?.rbac_permissions || (claims as any).rbac_permissions || []
+    const isPlatformAdmin = !!(claims.app_metadata?.is_platform_admin || (claims as any).is_platform_admin)
+    const organizationId = claims.app_metadata?.organization_id || claims.organization_id
+
     return {
       userId: claims.sub,
       email: claims.email,
-      role: claims.role,
-      organizationId: claims.organization_id,
+      roles: roles.map((r: any) => ({
+        role: r.role,
+        scope_type: r.scope_type,
+        scope_id: r.scope_id,
+        org_id: r.org_id
+      })),
+      permissions,
+      isPlatformAdmin,
+      organizationId,
       isImpersonated: !!(claims.impersonated_by && claims.impersonated_role),
       impersonatedBy: claims.impersonated_by,
       impersonatedRole: claims.impersonated_role,
@@ -90,25 +123,26 @@ export class JWTClaimsService {
   }
 
   /**
-   * Check if current user has a specific role
+   * Check if current user has a specific role (in any scope)
    */
-  static hasRole(role: 'super_admin' | 'org_admin' | 'hr_admin' | 'project_manager' | 'project_payroll_officer' | 'head_office_admin' | 'finance_approver' | 'user' | 'viewer'): boolean {
+  static hasRole(roleCode: string): boolean {
     const context = this.getCurrentUserContext()
-    return context?.role === role
+    return !!context?.roles.some(r => r.role === roleCode)
   }
 
   /**
    * Check if current user is super admin
    */
   static isSuperAdmin(): boolean {
-    return this.hasRole('super_admin')
+    const context = this.getCurrentUserContext()
+    return !!context?.isPlatformAdmin || this.hasRole('PLATFORM_SUPER_ADMIN')
   }
 
   /**
    * Check if current user is org admin
    */
   static isOrgAdmin(): boolean {
-    return this.hasRole('org_admin') || this.hasRole('super_admin')
+    return this.isSuperAdmin() || this.hasRole('ORG_ADMIN')
   }
 
   /**
@@ -126,8 +160,8 @@ export class JWTClaimsService {
     const context = this.getCurrentUserContext()
     if (!context) return false
 
-    // Super admin can access all organizations
-    if (context.role === 'super_admin') return true
+    // Platform admin can access all organizations
+    if (context.isPlatformAdmin) return true
 
     // Others can only access their own organization
     return context.organizationId === organizationId
@@ -140,7 +174,7 @@ export class JWTClaimsService {
     const context = this.getCurrentUserContext()
     if (!context) return false
 
-    return context.role === 'super_admin' || context.role === 'org_admin'
+    return this.isOrgAdmin()
   }
 
   /**
@@ -236,36 +270,10 @@ export class JWTClaimsService {
     const context = this.getCurrentUserContext()
     if (!context) return false
 
-    switch (action) {
-      case 'admin.dashboard':
-        return this.canAccessAdminDashboard()
+    // Platform Admins bypass everything
+    if (context.isPlatformAdmin) return true
 
-      case 'admin.impersonate':
-        return this.canImpersonate()
-
-      case 'users.manage':
-        return this.canManageUsers()
-
-      case 'organizations.view':
-        return context.role === 'super_admin'
-
-      case 'organizations.manage':
-        return context.role === 'super_admin'
-
-      case 'payroll.view':
-        return true // All authenticated users can view payroll
-
-      case 'payroll.manage':
-        return this.isOrgAdmin()
-
-      case 'employees.view':
-        return true // All authenticated users can view employees
-
-      case 'employees.manage':
-        return this.isOrgAdmin()
-
-      default:
-        return false
-    }
+    const permissionKey = resource ? `${resource}.${action}` : action
+    return context.permissions.includes(permissionKey)
   }
 }

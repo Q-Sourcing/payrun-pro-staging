@@ -8,6 +8,7 @@
     "build": "node env-manager.js && vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "type-check": "tsc --noEmit",
     "preview": "vite preview",
     "link:staging": "supabase link --project-ref sbphmrjoappwlervnbtm",
     "link:prod": "supabase link --project-ref kctwfgbjmhnfqtxhagib",

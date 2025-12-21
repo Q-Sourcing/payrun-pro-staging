@@ -11,9 +11,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
-import { CompanyUnitsService, CreateCompanyUnitInput } from '@/lib/services/company-units.service';
 import { supabase } from '@/integrations/supabase/client';
+import { CompanyUnit, CompanyUnitsService } from '@/lib/services/company-units.service';
+import { EmployeeCategoriesService, EmployeeCategory } from '@/lib/services/employee-categories.service';
+import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
+import { Check, X } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface CreateCompanyUnitDialogProps {
   open: boolean;
@@ -33,29 +38,31 @@ export const CreateCompanyUnitDialog: React.FC<CreateCompanyUnitDialogProps> = (
   onSuccess,
   defaultCompanyId,
 }) => {
-  const [formData, setFormData] = useState<CreateCompanyUnitInput>({
+  const [formData, setFormData] = useState({
     name: '',
     company_id: defaultCompanyId || '',
-    kind: undefined,
+    categoryIds: [] as string[],
     description: '',
   });
-  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(false);
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [categories, setCategories] = useState<EmployeeCategory[]>([]);
   const [loadingCompanies, setLoadingCompanies] = useState(false);
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [loadingCategories, setLoadingCategories] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
   useEffect(() => {
     if (open) {
       loadCompanies();
+      loadCategories();
+      setFormData(prev => ({
+        ...prev,
+        company_id: defaultCompanyId || prev.company_id
+      }));
+      setErrors({});
     }
-  }, [open]);
-
-  useEffect(() => {
-    if (defaultCompanyId) {
-      setFormData(prev => ({ ...prev, company_id: defaultCompanyId }));
-    }
-  }, [defaultCompanyId]);
+  }, [open, defaultCompanyId]);
 
   const loadCompanies = async () => {
     setLoadingCompanies(true);
@@ -79,6 +86,36 @@ export const CreateCompanyUnitDialog: React.FC<CreateCompanyUnitDialogProps> = (
     }
   };
 
+  const loadCategories = async () => {
+    try {
+      setLoadingCategories(true);
+      // For now, we assume the first organization context. 
+      // In a real app, this would come from an OrgContext.
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('organization_id')
+        .eq('id', user.id)
+        .single();
+
+      if (profile?.organization_id) {
+        const list = await EmployeeCategoriesService.getCategoriesByOrg(profile.organization_id);
+        setCategories(list);
+      }
+    } catch (error) {
+      console.error('Error loading categories:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load categories',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -92,14 +129,22 @@ export const CreateCompanyUnitDialog: React.FC<CreateCompanyUnitDialogProps> = (
       setErrors({ company_id: 'Company is required' });
       return;
     }
+    // Categories are optional in N:M, but let's warn if none selected?
+    // User requirement said "assign more than one", might imply at least one.
+    // Let's make it required for now to align with old behavior.
+    if (formData.categoryIds.length === 0) {
+      setErrors({ categoryIds: 'At least one category is required' });
+      return;
+    }
 
     setLoading(true);
     try {
       const companyUnit = await CompanyUnitsService.createCompanyUnit({
-        name: formData.name.trim(),
+        name: formData.name,
         company_id: formData.company_id,
-        kind: formData.kind || undefined,
-        description: formData.description?.trim() || undefined,
+        categoryIds: formData.categoryIds, // New N:M
+        category_id: formData.categoryIds[0], // Legacy primary for fallback
+        description: formData.description,
       });
 
       toast({
@@ -108,7 +153,7 @@ export const CreateCompanyUnitDialog: React.FC<CreateCompanyUnitDialogProps> = (
       });
 
       onSuccess({ id: companyUnit.id, name: companyUnit.name });
-      setFormData({ name: '', company_id: defaultCompanyId || '', kind: undefined, description: '' });
+      setFormData({ name: '', company_id: defaultCompanyId || '', categoryIds: [], description: '' });
       onOpenChange(false);
     } catch (error: any) {
       toast({
@@ -123,9 +168,21 @@ export const CreateCompanyUnitDialog: React.FC<CreateCompanyUnitDialogProps> = (
   };
 
   const handleClose = () => {
-    setFormData({ name: '', company_id: defaultCompanyId || '', kind: undefined, description: '' });
+    setFormData({ name: '', company_id: defaultCompanyId || '', categoryIds: [], description: '' });
     setErrors({});
     onOpenChange(false);
+  };
+
+  const toggleCategory = (catId: string) => {
+    setFormData(prev => {
+      const exists = prev.categoryIds.includes(catId);
+      return {
+        ...prev,
+        categoryIds: exists
+          ? prev.categoryIds.filter(id => id !== catId)
+          : [...prev.categoryIds, catId]
+      };
+    });
   };
 
   return (
@@ -176,6 +233,56 @@ export const CreateCompanyUnitDialog: React.FC<CreateCompanyUnitDialogProps> = (
               {errors.company_id && <p className="text-sm text-red-500">{errors.company_id}</p>}
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="category">
+                Employee Categories <span className="text-red-500">*</span>
+              </Label>
+              <div className={`border rounded-md p-3 ${errors.categoryIds ? 'border-red-500' : 'border-slate-200'} bg-white`}>
+                {loadingCategories ? (
+                  <div className="text-sm text-slate-500 italic p-2">Loading categories...</div>
+                ) : categories.length === 0 ? (
+                  <div className="text-sm text-slate-500 italic p-2">No categories found.</div>
+                ) : (
+                  <ScrollArea className="h-40">
+                    <div className="space-y-2">
+                      {categories.map(cat => (
+                        <div key={cat.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`cat-${cat.id}`}
+                            checked={formData.categoryIds.includes(cat.id)}
+                            onCheckedChange={() => toggleCategory(cat.id)}
+                          />
+                          <label
+                            htmlFor={`cat-${cat.id}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          >
+                            {cat.label}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1 mt-2">
+                {formData.categoryIds.map(id => {
+                  const c = categories.find(cat => cat.id === id);
+                  return c ? (
+                    <Badge key={id} variant="secondary" className="text-xs">
+                      {c.label}
+                      <button
+                        type="button"
+                        className="ml-1 hover:text-red-500 focus:outline-none"
+                        onClick={() => toggleCategory(id)}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ) : null;
+                })}
+              </div>
+              {errors.categoryIds && <p className="text-sm text-red-500">{errors.categoryIds}</p>}
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="company-unit-description">Description (Optional)</Label>

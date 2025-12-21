@@ -10,12 +10,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Shield, 
-  Users, 
-  Plus, 
-  Edit, 
-  Trash2, 
+import {
+  Shield,
+  Users,
+  Plus,
+  Edit,
+  Trash2,
   Eye,
   AlertTriangle,
   CheckCircle,
@@ -47,46 +47,23 @@ export const RoleManagement = ({ currentUser }: RoleManagementProps) => {
   const accessControl = new AccessControlService(currentUser);
 
   const getRoleIcon = (role: UserRole) => {
-    switch (role) {
-      case 'super_admin':
-        return Crown;
-      case 'organization_admin':
-        return Shield;
-      case 'ceo_executive':
-        return Briefcase;
-      case 'payroll_manager':
-        return DollarSign;
-      case 'employee':
-        return User;
-      case 'hr_business_partner':
-        return Users;
-      case 'finance_controller':
-        return BarChart3;
-      default:
-        return User;
-    }
+    if (role.startsWith('PLATFORM_SUPER')) return Crown;
+    if (role.includes('ADMIN')) return Shield;
+    if (role.includes('AUDITOR')) return Eye;
+    if (role.includes('MANAGER')) return Briefcase;
+    if (role.includes('PAYROLL')) return DollarSign;
+    if (role.includes('FINANCE')) return BarChart3;
+    if (role.includes('USER') || role.includes('CONTRACTOR')) return User;
+    return User;
   };
 
   const getRoleBadgeColor = (role: UserRole) => {
     const roleDef = ROLE_DEFINITIONS[role];
-    switch (roleDef.level) {
-      case 10:
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100";
-      case 8:
-        return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100";
-      case 7:
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100";
-      case 6:
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100";
-      case 5:
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100";
-      case 4:
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100";
-      case 1:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-100";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-100";
-    }
+    if (roleDef.level >= 90) return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100";
+    if (roleDef.level >= 70) return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100";
+    if (roleDef.level >= 40) return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100";
+    if (roleDef.level >= 10) return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100";
+    return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-100";
   };
 
   const getPermissionCategory = (permission: Permission): string => {
@@ -160,7 +137,7 @@ export const RoleManagement = ({ currentUser }: RoleManagementProps) => {
                         </div>
                         <div>
                           <CardTitle className="text-lg">{role.name}</CardTitle>
-                          <p className="text-sm text-muted-foreground">Level {role.level}/10</p>
+                          <p className="text-sm text-muted-foreground">LVL {role.level}</p>
                         </div>
                       </div>
                       <Badge className={getRoleBadgeColor(role.id)}>
@@ -172,24 +149,18 @@ export const RoleManagement = ({ currentUser }: RoleManagementProps) => {
                     <p className="text-sm text-muted-foreground mb-3">
                       {role.description}
                     </p>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Employees:</span>
-                        <span className="capitalize">{role.canAccess.employees}</span>
+                    {role.canAccess && (
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Employees:</span>
+                          <span className="capitalize">{role.canAccess.employees}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Payroll:</span>
+                          <span className="capitalize">{role.canAccess.payroll}</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Payroll:</span>
-                        <span className="capitalize">{role.canAccess.payroll}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Reports:</span>
-                        <span className="capitalize">{role.canAccess.reports}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>System:</span>
-                        <span className="capitalize">{role.canAccess.system}</span>
-                      </div>
-                    </div>
+                    )}
                     <div className="mt-4 flex gap-2">
                       <Button
                         variant="outline"
@@ -241,12 +212,12 @@ export const RoleManagement = ({ currentUser }: RoleManagementProps) => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {Object.values(ROLE_DEFINITIONS).flatMap(role => role.permissions).filter((permission, index, self) => 
+                    {Object.values(ROLE_DEFINITIONS).flatMap(role => role.permissions).filter((permission, index, self) =>
                       self.indexOf(permission) === index
                     ).map(permission => {
                       const Icon = getPermissionIcon(permission);
                       const category = getPermissionCategory(permission);
-                      
+
                       return (
                         <TableRow key={permission}>
                           <TableCell>
@@ -309,13 +280,13 @@ export const RoleManagement = ({ currentUser }: RoleManagementProps) => {
                             {role.level === 10 && (
                               <Badge variant="destructive">
                                 <Crown className="h-3 w-3 mr-1" />
-                                Highest
+                                Tier 1
                               </Badge>
                             )}
-                            {role.level === 1 && (
+                            {role.level < 10 && (
                               <Badge variant="secondary">
                                 <User className="h-3 w-3 mr-1" />
-                                Basic
+                                Self Service
                               </Badge>
                             )}
                           </div>
@@ -361,9 +332,9 @@ export const RoleManagement = ({ currentUser }: RoleManagementProps) => {
                   </div>
                 </div>
               </div>
-              
+
               <div>
-                <Label>Access Levels</Label>
+                <Label>Scopes</Label>
                 <div className="grid grid-cols-2 gap-4 mt-2">
                   <div className="p-3 border rounded">
                     <div className="text-sm font-medium">Employees</div>

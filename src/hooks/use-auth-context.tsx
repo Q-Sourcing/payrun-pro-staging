@@ -192,15 +192,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Role checks
   const isSuperAdmin = (): boolean => {
-    return userContext?.role === 'super_admin'
+    return RBACService.isPlatformAdmin()
   }
 
   const isOrgAdmin = (): boolean => {
-    return userContext?.role === 'org_admin' || userContext?.role === 'super_admin'
+    return RBACService.isOrgAdmin()
   }
 
   const isUser = (): boolean => {
-    return userContext?.role === 'user'
+    return userContext?.roles.some(r => r.role === 'SELF_USER') || false
   }
 
   // Organization checks
@@ -210,7 +210,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const canAccessOrganization = (organizationId: string): boolean => {
     if (!userContext) return false
-    if (userContext.role === 'super_admin') return true
+    if (userContext.isPlatformAdmin) return true
     return userContext.organizationId === organizationId
   }
 
@@ -224,7 +224,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   // Computed values
-  const role = userContext?.role || null
+  const role = (userContext?.roles[0]?.role as Role) || null
   const permissions = userContext ? RBACService.getCurrentUserPermissions() : []
   const isTokenExpired = claims ? (claims.exp < Math.floor(Date.now() / 1000)) : true
   const timeUntilExpiration = claims ? Math.max(0, claims.exp - Math.floor(Date.now() / 1000)) : null

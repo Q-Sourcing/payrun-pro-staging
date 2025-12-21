@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Users, 
-  DollarSign, 
-  Calendar, 
-  FileText, 
-  Settings, 
+import {
+  Users,
+  DollarSign,
+  Calendar,
+  FileText,
+  Settings,
   Shield,
   BarChart3,
   Activity,
@@ -39,10 +39,10 @@ interface RoleBasedNavigationProps {
   onTabChange: (tab: string) => void;
 }
 
-export const RoleBasedNavigation = ({ 
-  currentUser, 
-  activeTab, 
-  onTabChange 
+export const RoleBasedNavigation = ({
+  currentUser,
+  activeTab,
+  onTabChange
 }: RoleBasedNavigationProps) => {
   const [accessControl] = useState(new AccessControlService(currentUser));
 
@@ -59,7 +59,7 @@ export const RoleBasedNavigation = ({
 
     // Add role-specific items
     const roleDef = ROLE_DEFINITIONS[currentUser.role];
-    
+
     // Employee management
     if (accessControl.canView('employees').hasPermission) {
       baseItems.push({
@@ -211,7 +211,7 @@ export const RoleBasedNavigation = ({
     }
 
     // Personal items for employees
-    if (currentUser.role === 'employee') {
+    if (currentUser.role === 'SELF_USER' || currentUser.role === 'SELF_CONTRACTOR') {
       baseItems.push(
         {
           id: "payslips",
@@ -245,26 +245,12 @@ export const RoleBasedNavigation = ({
 
   const navigationItems = getNavigationItems();
 
-  const getRoleBadgeColor = (role: UserRole) => {
-    const roleDef = ROLE_DEFINITIONS[role];
-    switch (roleDef.level) {
-      case 10:
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100";
-      case 8:
-        return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100";
-      case 7:
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100";
-      case 6:
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100";
-      case 5:
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100";
-      case 4:
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100";
-      case 1:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-100";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-100";
-    }
+  const getRoleBadgeColor = (role: string) => {
+    if (role.startsWith('PLATFORM_')) return 'bg-red-100 text-red-800 border-red-200';
+    if (role.startsWith('ORG_')) return 'bg-purple-100 text-purple-800 border-purple-200';
+    if (role.startsWith('COMPANY_')) return 'bg-blue-100 text-blue-800 border-blue-200';
+    if (role.startsWith('PROJECT_')) return 'bg-cyan-100 text-cyan-800 border-cyan-200';
+    return 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
   const canAccessItem = (item: NavigationItem): boolean => {
@@ -308,7 +294,7 @@ export const RoleBasedNavigation = ({
             </Badge>
           )}
         </Button>
-        
+
         {hasChildren && (
           <div className="ml-4 space-y-1">
             {item.children!.map(child => renderNavigationItem(child, level + 1))}
@@ -368,7 +354,7 @@ export const RoleBasedNavigation = ({
       <div className="p-3 border rounded-lg">
         <div className="text-sm font-medium mb-2">Quick Actions</div>
         <div className="space-y-1">
-          {currentUser.role === 'employee' && (
+          {(currentUser.role === 'SELF_USER' || currentUser.role === 'SELF_CONTRACTOR') && (
             <>
               <Button variant="outline" size="sm" className="w-full justify-start">
                 <FileText className="h-4 w-4 mr-2" />
@@ -380,14 +366,14 @@ export const RoleBasedNavigation = ({
               </Button>
             </>
           )}
-          
+
           {accessControl.canView('employees').hasPermission && (
             <Button variant="outline" size="sm" className="w-full justify-start">
               <Users className="h-4 w-4 mr-2" />
               View Employees
             </Button>
           )}
-          
+
           {accessControl.canView('reports').hasPermission && (
             <Button variant="outline" size="sm" className="w-full justify-start">
               <BarChart3 className="h-4 w-4 mr-2" />

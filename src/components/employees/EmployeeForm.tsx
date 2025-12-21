@@ -15,9 +15,11 @@ import { PayGroupCategory, HeadOfficeSubType, ProjectsSubType, ManpowerFrequency
 import { EMPLOYEE_TYPE_TO_PROJECT_TYPE, Project } from "@/lib/types/projects";
 import { ProjectsService } from "@/lib/services/projects.service";
 import { PayGroupsService } from "@/lib/services/paygroups.service";
+import { PayGroup } from "@/lib/types/paygroups";
 import { CompaniesService, Company } from "@/lib/services/companies.service";
-import { CompanyUnitsService, CompanyUnit } from "@/lib/services/company-units.service";
-import { DepartmentsService, Department } from "@/lib/services/departments.service";
+import { CompanyUnitsService, CompanyUnit } from '@/lib/services/company-units.service';
+import { EmployeeCategoriesService, EmployeeCategory } from '@/lib/services/employee-categories.service';
+import { DepartmentsService, Department } from '@/lib/services/departments.service';
 import { BanksService, Bank } from "@/lib/services/banks.service";
 import { useOrg } from "@/lib/tenant/OrgContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -126,7 +128,8 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
   const { userContext, profile } = useSupabaseAuth(); // Use auth context for roles
 
   // Get user role from JWT claims or fall back to profile.role from database
-  const userRole = userContext?.role || profile?.role;
+  const userRole = (userContext?.roles && userContext.roles.length > 0 ? userContext.roles[0] : null) || profile?.role;
+  const userRoleCode = (typeof userRole === 'object' && userRole !== null) ? (userRole as any).role : userRole;
 
   // RBAC Permission Checks - Simplified to always allow both categories
   // TODO: Re-enable proper RBAC once user_roles table RLS is fixed
@@ -216,6 +219,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
   const [activeCompanyName, setActiveCompanyName] = useState<string>("");
   const [activeCompanyShortCode, setActiveCompanyShortCode] = useState<string>("");
   const [companyUnits, setCompanyUnits] = useState<CompanyUnit[]>([]);
+  const [categories, setCategories] = useState<EmployeeCategory[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
   const [allowedPayTypes, setAllowedPayTypes] = useState<string[]>(["hourly", "salary", "piece_rate", "daily_rate"]);
@@ -284,12 +288,12 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
         try {
           const { data } = await supabase
             .from('companies')
-            .select('name, short_code')
+            .select('name')
             .eq('id', companyId)
             .single();
           if (data) {
             setActiveCompanyName(data.name);
-            setActiveCompanyShortCode(data.short_code || "");
+            setActiveCompanyShortCode(""); // short_code doesn't exist
           }
         } catch (error) {
           console.error('Error loading company name:', error);
@@ -304,21 +308,40 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
     void loadActiveCompany();
   }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load company units when company changes
+  // Load categories
+  useEffect(() => {
+    const loadCategories = async () => {
+      if (organizationId) {
+        try {
+          const list = await EmployeeCategoriesService.getCategoriesByOrg(organizationId);
+          setCategories(list);
+        } catch (error) {
+          console.error('Error loading categories:', error);
+        }
+      }
+    };
+    void loadCategories();
+  }, [organizationId]);
+
+  // Load company units when company or category changes
   useEffect(() => {
     const load = async () => {
       if (watchCompanyId) {
         try {
-          const list = await CompanyUnitsService.getCompanyUnitsByCompany(watchCompanyId);
-          // Filter by category kind if category is selected
-          const filtered = watchCategory
-            ? list.filter((cu) => {
-              const kind = (cu as any).kind;
-              if (watchCategory === "head_office") return kind === "head_office";
-              if (watchCategory === "projects") return kind === "project";
-              return true;
-            })
-            : list;
+          // Find the category ID if the watchCategory is a key (for backward compatibility or if using keys internally)
+          // or if it's already the ID.
+          let categoryId: string | undefined;
+          if (watchCategory) {
+            const cat = categories.find(c => c.id === watchCategory || c.key === watchCategory);
+            categoryId = cat?.id;
+          }
+
+          const filtered = await CompanyUnitsService.getCompanyUnitsByCompanyAndCategory(
+            watchCompanyId,
+            categoryId,
+            { includeUnclassified: true }
+          );
+
           setCompanyUnits(filtered);
         } catch (error) {
           console.error('Error loading company units:', error);
@@ -332,7 +355,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
       }
     };
     void load();
-  }, [watchCompanyId, watchCategory]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [watchCompanyId, watchCategory, categories]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load departments when company unit changes
   useEffect(() => {
@@ -752,21 +775,24 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <Select
-                  value={form.getValues("category") || ""}
-                  disabled={(mode === "edit" && userRole !== 'org_admin' && userRole !== 'super_admin') || (canCreateHeadOffice !== canCreateProject)} // Disabled in edit (unless Admin) OR if only one option available
+                  disabled={categories.length === 0}
                   onValueChange={(value: PayGroupCategory) => {
                     form.setValue("category", value || "");
                     form.setValue("employee_type", "");
                     form.setValue("pay_frequency", "");
                     form.setValue("project_id", "");
                   }}
+                  value={form.getValues("category") || ""}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {canCreateHeadOffice && <SelectItem value="head_office">Head Office</SelectItem>}
-                    {canCreateProject && <SelectItem value="projects">Projects</SelectItem>}
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.key}>
+                        {cat.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

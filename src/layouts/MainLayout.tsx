@@ -13,6 +13,7 @@ import { useOrgNames } from "@/lib/tenant/useOrgNames";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
+import { SettingsModal } from "@/components/settings/SettingsModal";
 
 export default function MainLayout() {
   const { user, profile, logout } = useSupabaseAuth();
@@ -29,6 +30,7 @@ export default function MainLayout() {
   // Sidebar is collapsed if NOT pinned AND NOT hovered (we start expanded if pinned)
   // Actually, we use a state for 'collapsed' but drive it via mouse events and pin state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(!isPinned);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const { organizationId, companyId, setCompanyId } = useOrg();
   const { organizationName, companyName } = useOrgNames();
@@ -109,6 +111,7 @@ export default function MainLayout() {
             activeTab="employees"
             onNavigate={() => { }}
             collapsed={sidebarCollapsed}
+            onSettingsClick={() => setIsSettingsOpen(true)}
           />
 
           {/* Super Admin Link */}
@@ -254,6 +257,11 @@ export default function MainLayout() {
           </div>
         </div>
       </main>
+
+      <SettingsModal
+        open={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
+      />
     </div>
   );
 }

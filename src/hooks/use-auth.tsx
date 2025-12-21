@@ -23,20 +23,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const login = async (email: string, password: string, rememberMe = false) => {
     setIsLoading(true);
-    
+
     try {
       // Simulate login - in real app, this would call your backend
       debug('Login attempt:', { email, password: '[REDACTED]', rememberMe });
-      
+
       // For demo purposes, create a mock user
       const mockUser: User = {
         id: '1',
         email: email,
         firstName: 'Demo',
         lastName: 'User',
-        role: 'super_admin' as UserRole,
+        role: 'PLATFORM_SUPER_ADMIN' as UserRole,
         organizationId: null,
-        departmentId: null,
         managerId: null,
         isActive: true,
         lastLogin: new Date().toISOString(),
@@ -47,12 +46,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         twoFactorEnabled: false,
         sessionTimeout: 480
       };
-      
+
       setUser(mockUser);
-      
+
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
     } catch (error: any) {
       throw new Error(error.message || 'Login failed');
     } finally {
@@ -62,20 +61,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const register = async (email: string, password: string, firstName: string, lastName: string) => {
     setIsLoading(true);
-    
+
     try {
       // Simulate registration - in real app, this would call your backend
       console.log('Registration attempt:', { email, firstName, lastName });
-      
+
       // For demo purposes, create a mock user
       const mockUser: User = {
         id: '1',
         email: email,
         firstName: firstName,
         lastName: lastName,
-        role: 'employee' as UserRole,
+        role: 'SELF_USER' as UserRole,
         organizationId: null,
-        departmentId: null,
         managerId: null,
         isActive: true,
         lastLogin: new Date().toISOString(),
@@ -86,12 +84,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         twoFactorEnabled: false,
         sessionTimeout: 480
       };
-      
+
       setUser(mockUser);
-      
+
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
     } catch (error: any) {
       throw new Error(error.message || 'Registration failed');
     } finally {
@@ -101,7 +99,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = async () => {
     setIsLoading(true);
-    
+
     try {
       setUser(null);
       console.log('User logged out');

@@ -51,7 +51,7 @@ export interface UserManagementResponse<T = any> {
 
 class UserManagementService {
   private baseUrl = '/api/users';
-  
+
   /**
    * Create a new user
    */
@@ -62,10 +62,10 @@ class UserManagementService {
     userAgent?: string
   ): Promise<UserManagementResponse<User>> {
     try {
-      log('Creating new user', { 
-        email: userData.email, 
+      log('Creating new user', {
+        email: userData.email,
         role: userData.role,
-        createdBy: currentUser.email 
+        createdBy: currentUser.email
       });
 
       // Validate permissions
@@ -119,7 +119,6 @@ class UserManagementService {
         lastName: userData.lastName,
         role: userData.role,
         organizationId: userData.organizationId,
-        departmentId: userData.departmentId,
         managerId: userData.managerId,
         isActive: true,
         lastLogin: undefined,
@@ -138,7 +137,7 @@ class UserManagementService {
         userEmail: currentUser.email,
         action: 'create_user',
         resource: 'user',
-        details: { 
+        details: {
           createdUserId: newUser.id,
           createdUserEmail: newUser.email,
           createdUserRole: newUser.role,
@@ -165,7 +164,7 @@ class UserManagementService {
 
     } catch (err: any) {
       error('Failed to create user', err);
-      
+
       await this.logAuditEntry({
         userId: currentUser.id,
         userName: `${currentUser.firstName} ${currentUser.lastName}`,
@@ -216,7 +215,7 @@ class UserManagementService {
           userEmail: currentUser.email,
           action: 'update_user',
           resource: 'user',
-          details: { 
+          details: {
             targetUserId: userId,
             targetUserEmail: existingUser.email,
             attemptedChanges: Object.keys(userData),
@@ -259,7 +258,7 @@ class UserManagementService {
         userEmail: currentUser.email,
         action: 'update_user',
         resource: 'user',
-        details: { 
+        details: {
           targetUserId: userId,
           targetUserEmail: existingUser.email,
           changes,
@@ -288,9 +287,9 @@ class UserManagementService {
         userEmail: currentUser.email,
         action: 'update_user',
         resource: 'user',
-        details: { 
+        details: {
           targetUserId: userId,
-          error: err.message 
+          error: err.message
         },
         ipAddress,
         userAgent,
@@ -333,7 +332,7 @@ class UserManagementService {
           userEmail: currentUser.email,
           action: 'delete_user',
           resource: 'user',
-          details: { 
+          details: {
             targetUserId: userId,
             targetUserEmail: targetUser.email,
             reason: 'insufficient_permissions'
@@ -358,7 +357,7 @@ class UserManagementService {
           userEmail: currentUser.email,
           action: 'delete_user',
           resource: 'user',
-          details: { 
+          details: {
             targetUserId: userId,
             reason: 'self_deletion_attempt'
           },
@@ -384,7 +383,7 @@ class UserManagementService {
         userEmail: currentUser.email,
         action: 'delete_user',
         resource: 'user',
-        details: { 
+        details: {
           deletedUserId: userId,
           deletedUserEmail: targetUser.email,
           deletedUserRole: targetUser.role
@@ -411,9 +410,9 @@ class UserManagementService {
         userEmail: currentUser.email,
         action: 'delete_user',
         resource: 'user',
-        details: { 
+        details: {
           targetUserId: userId,
-          error: err.message 
+          error: err.message
         },
         ipAddress,
         userAgent,
@@ -499,53 +498,54 @@ class UserManagementService {
    */
   private canCreateUser(currentUser: User, targetRole: UserRole): boolean {
     // Super admins can create anyone
-    if (currentUser.role === 'super_admin') return true;
-    
+    if (currentUser.role === 'PLATFORM_SUPER_ADMIN') return true;
+
     // Organization admins can create users up to their level
-    if (currentUser.role === 'organization_admin') {
-      const roleHierarchy = {
-        'super_admin': 10,
-        'organization_admin': 8,
-        'ceo_executive': 7,
-        'payroll_manager': 6,
-        'finance_controller': 5,
-        'hr_business_partner': 4,
-        'employee': 1
+    if (currentUser.role === 'ORG_ADMIN') {
+      const roleHierarchy: Record<string, number> = {
+        'PLATFORM_SUPER_ADMIN': 100,
+        'ORG_ADMIN': 80,
+        'ORG_HR_ADMIN': 70,
+        'ORG_FINANCE_CONTROLLER': 75,
+        'ORG_AUDITOR': 60,
+        'COMPANY_PAYROLL_ADMIN': 50,
+        'COMPANY_HR': 45,
+        'SELF_USER': 1
       };
-      
+
       return (roleHierarchy[targetRole] || 0) <= (roleHierarchy[currentUser.role] || 0);
     }
-    
+
     return false;
   }
 
   private canEditUser(currentUser: User, targetUser: User, newRole?: UserRole): boolean {
     // Super admins can edit anyone
-    if (currentUser.role === 'super_admin') return true;
-    
+    if (currentUser.role === 'PLATFORM_SUPER_ADMIN') return true;
+
     // Organization admins can edit users in their organization
-    if (currentUser.role === 'organization_admin') {
+    if (currentUser.role === 'ORG_ADMIN') {
       if (currentUser.organizationId !== targetUser.organizationId) return false;
-      
+
       // Can't promote users to higher roles than themselves
-      if (newRole && newRole === 'super_admin') return false;
-      
+      if (newRole === 'PLATFORM_SUPER_ADMIN') return false;
+
       return true;
     }
-    
+
     return false;
   }
 
   private canDeleteUser(currentUser: User, targetUser: User): boolean {
     // Super admins can delete anyone
-    if (currentUser.role === 'super_admin') return true;
-    
+    if (currentUser.role === 'PLATFORM_SUPER_ADMIN') return true;
+
     // Organization admins can delete users in their organization (except super admins)
-    if (currentUser.role === 'organization_admin') {
-      return currentUser.organizationId === targetUser.organizationId && 
-             targetUser.role !== 'super_admin';
+    if (currentUser.role === 'ORG_ADMIN') {
+      return currentUser.organizationId === targetUser.organizationId &&
+        targetUser.role !== 'PLATFORM_SUPER_ADMIN';
     }
-    
+
     return false;
   }
 
@@ -563,28 +563,28 @@ class UserManagementService {
   }
 
   private async sendUserInvitation(user: User, password: string, invitedBy: User): Promise<void> {
-    log('Sending user invitation', { 
-      userEmail: user.email, 
-      invitedBy: invitedBy.email 
+    log('Sending user invitation', {
+      userEmail: user.email,
+      invitedBy: invitedBy.email
     });
-    
+
     // Mock implementation - replace with actual email service
     // This would integrate with your email service (SendGrid, AWS SES, etc.)
   }
 
   private async logAuditEntry(entry: Omit<AuditLogEntry, 'id'>): Promise<string> {
     const auditId = `audit-${Date.now()}`;
-    
-    log('Audit log entry', { 
-      auditId, 
-      action: entry.action, 
+
+    log('Audit log entry', {
+      auditId,
+      action: entry.action,
       user: entry.userEmail,
-      result: entry.result 
+      result: entry.result
     });
-    
+
     // Mock implementation - replace with actual database call
     // This would call the log_user_management_action function from the database
-    
+
     return auditId;
   }
 }

@@ -3,13 +3,21 @@ import type { UserRole, Permission } from '@/lib/types/roles';
 
 // User role enum
 export const userRoleEnum = z.enum([
-  'super_admin',
-  'organization_admin',
-  'ceo_executive',
-  'payroll_manager',
-  'employee',
-  'hr_business_partner',
-  'finance_controller',
+  'PLATFORM_SUPER_ADMIN',
+  'PLATFORM_AUDITOR',
+  'ORG_ADMIN',
+  'ORG_HR_ADMIN',
+  'ORG_FINANCE_CONTROLLER',
+  'ORG_AUDITOR',
+  'ORG_VIEWER',
+  'COMPANY_PAYROLL_ADMIN',
+  'COMPANY_HR',
+  'COMPANY_VIEWER',
+  'PROJECT_MANAGER',
+  'PROJECT_PAYROLL_OFFICER',
+  'PROJECT_VIEWER',
+  'SELF_USER',
+  'SELF_CONTRACTOR',
 ]);
 
 // Create user schema
@@ -19,7 +27,6 @@ export const createUserSchema = z.object({
   last_name: z.string().min(1, 'Last name is required').max(100, 'Last name is too long'),
   role: userRoleEnum,
   organization_id: z.string().uuid('Invalid organization ID').optional(),
-  department_id: z.string().max(100, 'Department ID is too long').optional(),
   manager_id: z.string().uuid('Invalid manager ID').optional(),
   is_active: z.boolean().default(true),
   two_factor_enabled: z.boolean().default(false),

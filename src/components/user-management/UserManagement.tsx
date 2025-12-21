@@ -33,13 +33,13 @@ const convertProfileToUser = (profile: any, supabaseUser: any): User | null => {
   if (!supabaseUser) return null;
 
   // Handle mixed profile shapes (legacy array vs new singular role)
-  let primaryRole: UserRole = 'employee';
+  let primaryRole: UserRole = 'SELF_USER';
 
   // SUPER ADMIN FALLBACK: Check email whitelist first
   // This matches logic in use-user-role.ts
   const SUPER_ADMIN_EMAILS = ['nalungukevin@gmail.com'];
   if (SUPER_ADMIN_EMAILS.includes(supabaseUser.email || '')) {
-    primaryRole = 'super_admin';
+    primaryRole = 'PLATFORM_SUPER_ADMIN';
   } else if (profile?.role) {
     // New profile shape
     primaryRole = profile.role as UserRole;
@@ -49,7 +49,7 @@ const convertProfileToUser = (profile: any, supabaseUser: any): User | null => {
   } else {
     // Fallback if no profile or role found
     const appRole = supabaseUser.app_metadata?.role || supabaseUser.user_metadata?.role;
-    if (appRole === 'super_admin') primaryRole = 'super_admin';
+    if (appRole === 'PLATFORM_SUPER_ADMIN' || appRole === 'super_admin') primaryRole = 'PLATFORM_SUPER_ADMIN';
   }
 
   // Fallback for names
@@ -63,7 +63,6 @@ const convertProfileToUser = (profile: any, supabaseUser: any): User | null => {
     lastName,
     role: primaryRole,
     organizationId: profile?.organization_id || supabaseUser.user_metadata?.organization_id || null,
-    departmentId: null,
     managerId: null,
     isActive: true,
     lastLogin: supabaseUser.last_sign_in_at || new Date().toISOString(),
@@ -109,15 +108,14 @@ export function UserManagement({ currentUser }: UserManagementProps) {
         email: 'nalungukevin@gmail.com',
         firstName: 'Nalungu',
         lastName: 'Kevin',
-        role: 'super_admin' as UserRole,
+        role: 'PLATFORM_SUPER_ADMIN' as UserRole,
         organizationId: null,
-        departmentId: null,
         managerId: null,
         isActive: true,
         lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
         createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
         updatedAt: new Date().toISOString(),
-        permissions: ROLE_DEFINITIONS.super_admin.permissions,
+        permissions: ROLE_DEFINITIONS.PLATFORM_SUPER_ADMIN?.permissions || [],
         restrictions: [],
         twoFactorEnabled: true,
         sessionTimeout: 480
@@ -127,15 +125,14 @@ export function UserManagement({ currentUser }: UserManagementProps) {
         email: 'john.doe@company.com',
         firstName: 'John',
         lastName: 'Doe',
-        role: 'organization_admin' as UserRole,
+        role: 'ORG_ADMIN' as UserRole,
         organizationId: 'org-1',
-        departmentId: 'hr',
         managerId: '1',
         isActive: true,
         lastLogin: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
         createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(), // 15 days ago
         updatedAt: new Date().toISOString(),
-        permissions: ROLE_DEFINITIONS.organization_admin.permissions,
+        permissions: ROLE_DEFINITIONS.ORG_ADMIN?.permissions || [],
         restrictions: [],
         twoFactorEnabled: false,
         sessionTimeout: 480
@@ -145,15 +142,14 @@ export function UserManagement({ currentUser }: UserManagementProps) {
         email: 'jane.smith@company.com',
         firstName: 'Jane',
         lastName: 'Smith',
-        role: 'payroll_manager' as UserRole,
+        role: 'COMPANY_PAYROLL_ADMIN' as UserRole,
         organizationId: 'org-1',
-        departmentId: 'payroll',
         managerId: '2',
         isActive: true,
         lastLogin: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(), // 3 hours ago
         createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
         updatedAt: new Date().toISOString(),
-        permissions: ROLE_DEFINITIONS.payroll_manager.permissions,
+        permissions: ROLE_DEFINITIONS.COMPANY_PAYROLL_ADMIN?.permissions || [],
         restrictions: [],
         twoFactorEnabled: true,
         sessionTimeout: 480
@@ -163,15 +159,14 @@ export function UserManagement({ currentUser }: UserManagementProps) {
         email: 'mike.wilson@company.com',
         firstName: 'Mike',
         lastName: 'Wilson',
-        role: 'employee' as UserRole,
+        role: 'SELF_USER' as UserRole,
         organizationId: 'org-1',
-        departmentId: 'sales',
         managerId: '2',
         isActive: false,
         lastLogin: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
         createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(), // 60 days ago
         updatedAt: new Date().toISOString(),
-        permissions: ROLE_DEFINITIONS.employee.permissions,
+        permissions: ROLE_DEFINITIONS.SELF_USER?.permissions || [],
         restrictions: [],
         twoFactorEnabled: false,
         sessionTimeout: 480
@@ -225,10 +220,10 @@ export function UserManagement({ currentUser }: UserManagementProps) {
     total: users.length,
     active: users.filter(u => u.isActive).length,
     inactive: users.filter(u => !u.isActive).length,
-    superAdmins: users.filter(u => u.role === 'super_admin').length,
-    admins: users.filter(u => u.role === 'organization_admin').length,
-    managers: users.filter(u => u.role === 'payroll_manager').length,
-    employees: users.filter(u => u.role === 'employee').length
+    superAdmins: users.filter(u => u.role === 'PLATFORM_SUPER_ADMIN').length,
+    admins: users.filter(u => u.role === 'ORG_ADMIN').length,
+    managers: users.filter(u => u.role === 'COMPANY_PAYROLL_ADMIN' || u.role === 'PROJECT_MANAGER').length,
+    employees: users.filter(u => u.role === 'SELF_USER').length
   };
 
   // Show loading state if we don't have user data yet

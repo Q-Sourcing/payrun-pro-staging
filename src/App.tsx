@@ -76,6 +76,7 @@ import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import ProjectDetailPage from "./components/projects/ProjectDetailPage";
 import CompanyPicker from "./components/auth/CompanyPicker";
+import Diagnostics from "./pages/Diagnostics";
 
 // Query client is now imported from optimized configuration
 
@@ -194,7 +195,6 @@ const App = () => {
                   <Route path="payruns/projects/expatriate" element={<ProjectsExpatriatePayRunsPage />} />
 
                   <Route path="reports" element={<ReportsTab />} />
-                  <Route path="settings" element={<Settings />} />
                   <Route path="settings/security" element={<SecuritySettingsPage />} />
                   <Route path="admin/super-admin" element={<SuperAdmin />} />
                   <Route path="platform-admin" element={<PlatformAdminDashboard />} />
@@ -209,6 +209,7 @@ const App = () => {
                   <Route path="payruns/local/intern" element={<LocalPayrollIntern />} />
                   <Route path="payruns/local/trainee" element={<LocalPayrollTrainee />} />
                   <Route path="payruns/local/casual" element={<LocalPayrollCasual />} />
+                  <Route path="diagnostics" element={<Diagnostics />} />
                 </Route>
 
                 {/* Catch-all route */}

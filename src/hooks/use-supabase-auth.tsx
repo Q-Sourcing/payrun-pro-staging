@@ -7,7 +7,7 @@ import { JWTClaimsService, UserContext } from '@/lib/services/auth/jwt-claims';
 import { UserProfileService, UserProfile } from '@/lib/services/auth/user-profiles';
 import { AuthLogger } from '@/lib/services/auth/auth-logger';
 
-export type UserRole = 'super_admin' | 'org_admin' | 'user';
+export type UserRole = string;
 
 export interface LegacyUserProfile {
   id: string;
@@ -26,7 +26,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
-  // New JWT claims integration
+  // OBAC Integration
   userContext: UserContext | null;
   claims: any;
   isTokenExpired: boolean;
@@ -47,13 +47,12 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
   const [userContext, setUserContext] = useState<UserContext | null>(null);
   const [claims, setClaims] = useState<any>(null);
 
-  // Fetch user profile and roles directly from database
+  // Fetch user profile and roles directly from OBAC system
   const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
     try {
       debug('Fetching user profile for:', userId);
 
-      // Query profile from user_profiles table (new table name)
-      // Cast to any to bypass generated type mismatches
+      // Query profile from user_profiles table
       const { data: profileResult, error: profileError } = await supabase
         .from('user_profiles')
         .select('id, email, first_name, last_name, organization_id, created_at, updated_at')
@@ -67,29 +66,23 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
 
       const profileData = profileResult as any;
 
-      // Query role from user_roles table
-      const { data: roleResult } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .order('created_at', { ascending: false })
-        .maybeSingle();
+      // Query active role assignments from OBAC system
+      const { data: assignments } = await (supabase
+        .from('rbac_assignments' as any)
+        .select('role_code, scope_type, scope_id')
+        .eq('user_id', userId) as any);
 
-      // Map the app_role enum to our role types
-      let role: 'super_admin' | 'org_admin' | 'user' = 'user';
-      const roleData = roleResult as any;
-      if (roleData?.role) {
-        // Map app_role values to our expected role types
-        const roleMapping: Record<string, 'super_admin' | 'org_admin' | 'user'> = {
-          'super_admin': 'super_admin',
-          'admin': 'org_admin',
-          'manager': 'org_admin',
-          'employee': 'user',
-          'org_admin': 'org_admin',
-          'user': 'user'
-        };
-        role = roleMapping[roleData.role] || 'user';
+      const userRoles = assignments || [];
+
+      // Map roles for UI display (prioritize highest role for the primary 'role' field)
+      let primaryRole: string = 'SELF_USER';
+      if (userRoles.length > 0) {
+        // Simple priority heuristic for backward compatibility
+        const roleCodes = userRoles.map((a: any) => a.role_code);
+        if (roleCodes.includes('PLATFORM_SUPER_ADMIN')) primaryRole = 'PLATFORM_SUPER_ADMIN';
+        else if (roleCodes.includes('ORG_ADMIN')) primaryRole = 'ORG_ADMIN';
+        else if (roleCodes.includes('ORG_HR_ADMIN')) primaryRole = 'ORG_ADMIN';
+        else primaryRole = 'SELF_USER';
       }
 
       const userProfile: UserProfile = {
@@ -98,12 +91,12 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
         first_name: profileData.first_name,
         last_name: profileData.last_name,
         organization_id: profileData.organization_id || null,
-        role: role,
+        role: primaryRole as any,
         created_at: profileData.created_at,
         updated_at: profileData.updated_at
       };
 
-      log('User profile loaded with role:', userProfile);
+      log('User profile loaded with OBAC roles:', userRoles);
       return userProfile;
     } catch (err) {
       logError('Error fetching user profile:', err);
@@ -224,15 +217,9 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
 
       // Handle invocation errors
       if (invokeError) {
-        debug('Edge Function invocation error:', {
-          name: invokeError.name,
-          message: invokeError.message,
-          context: invokeError.context,
-          stack: invokeError.stack,
-        });
-
-        // Extract error message from context if available
         let errorMessage = 'Invalid email or password';
+
+        // Comprehensive error message extraction
         if (invokeError.context) {
           const context = invokeError.context as any;
           if (context.body) {
@@ -242,19 +229,17 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
             } catch {
               errorMessage = context.body || errorMessage;
             }
-          } else if (context.message) {
-            errorMessage = context.message;
           }
         }
 
-        if (invokeError.message && invokeError.message !== 'Edge Function returned a non-2xx status code') {
+        // Fallback to error message if context body didn't yield anything
+        if (errorMessage === 'Invalid email or password' && invokeError.message && invokeError.message !== 'Edge Function returned a non-2xx status code') {
           errorMessage = invokeError.message;
         }
 
-        logError('Login error:', {
+        logError('Login error (Invocation):', {
           error: invokeError,
-          message: errorMessage,
-          context: invokeError.context,
+          extractedMessage: errorMessage
         });
 
         toast({
@@ -358,7 +343,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
         try {
           // Get user's organization
           const { data: profile } = await supabase
-            .from('profiles')
+            .from('user_profiles')
             .select('organization_id')
             .eq('id', currentUserId)
             .single();

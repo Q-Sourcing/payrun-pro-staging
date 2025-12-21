@@ -12,13 +12,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { 
-  Shield, 
-  Users, 
-  Settings, 
-  Eye, 
-  EyeOff, 
-  Lock, 
+import {
+  Shield,
+  Users,
+  Settings,
+  Eye,
+  EyeOff,
+  Lock,
   Unlock,
   CheckCircle,
   AlertTriangle,
@@ -26,7 +26,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { User, UserRole, Permission } from '@/lib/types/roles';
-import { ROLE_DEFINITIONS, PERMISSION_MATRIX } from '@/lib/types/roles';
+import { ROLE_DEFINITIONS } from '@/lib/types/roles';
 
 interface PermissionManagerProps {
   currentUser?: User | null;
@@ -40,104 +40,69 @@ interface PermissionGroup {
 }
 
 export function PermissionManager({ currentUser }: PermissionManagerProps) {
-  const [selectedRole, setSelectedRole] = useState<UserRole>('employee');
-  const [customPermissions, setCustomPermissions] = useState<Record<UserRole, Permission[]>>({});
+  const [selectedRole, setSelectedRole] = useState<UserRole>('ORG_ADMIN');
+  const [customPermissions, setCustomPermissions] = useState<Record<string, Permission[]>>({});
   const [isEditing, setIsEditing] = useState(false);
 
   const permissionGroups: PermissionGroup[] = [
     {
-      name: 'Employee Management',
+      name: 'People',
       permissions: [
-        'view_all_employees',
-        'view_organization_employees',
-        'view_department_employees',
-        'view_own_data',
-        'edit_all_employees',
-        'edit_organization_employees',
-        'edit_department_employees',
-        'edit_own_data'
+        'people.view',
+        'people.view_self',
+        'people.create',
+        'people.edit',
+        'people.view_sensitive',
+        'people.assign_project'
       ],
-      description: 'Permissions related to viewing and managing employee data',
+      description: 'Permissions for viewing and managing people and personal data',
       icon: Users
     },
     {
-      name: 'Payroll Processing',
+      name: 'Payroll',
       permissions: [
-        'process_payroll',
-        'approve_payroll'
+        'payroll.view',
+        'payroll.view_self',
+        'payroll.prepare',
+        'payroll.submit',
+        'payroll.approve',
+        'payroll.rollback',
+        'payroll.finalize',
+        'payroll.run'
       ],
-      description: 'Permissions for payroll processing and approval',
+      description: 'Permissions for payroll preparation, submission, and processing',
       icon: Settings
     },
     {
-      name: 'Reports & Analytics',
+      name: 'Finance & Exports',
       permissions: [
-        'view_financial_reports',
-        'view_executive_reports',
-        'view_department_reports',
-        'view_own_reports'
+        'finance.view_reports',
+        'finance.view_bank_details',
+        'payroll.export_bank',
+        'payroll.export_mobile_money',
+        'reports.view',
+        'reports.export'
       ],
-      description: 'Permissions for viewing various types of reports',
+      description: 'Permissions for financial data access and bank exports',
       icon: Eye
     },
     {
-      name: 'User Management',
+      name: 'User & Security Admin',
       permissions: [
-        'manage_users',
-        'manage_organization_users',
-        'manage_department_users'
+        'admin.manage_users',
+        'admin.assign_roles',
+        'admin.impersonate'
       ],
-      description: 'Permissions for managing user accounts and roles',
+      description: 'Permissions for user management and platform security',
       icon: Shield
     },
     {
-      name: 'System Configuration',
+      name: 'Audit',
       permissions: [
-        'system_configuration',
-        'organization_configuration',
-        'manage_integrations',
-        'view_system_health'
+        'admin.activity_logs.view'
       ],
-      description: 'Permissions for system and organization configuration',
-      icon: Settings
-    },
-    {
-      name: 'Audit & Compliance',
-      permissions: [
-        'view_audit_logs',
-        'view_sensitive_data'
-      ],
-      description: 'Permissions for audit trails and sensitive data access',
+      description: 'Permissions for viewing system-wide activity logs',
       icon: Lock
-    },
-    {
-      name: 'Approvals & Workflow',
-      permissions: [
-        'approve_expenses',
-        'approve_leave',
-        'approve_overtime'
-      ],
-      description: 'Permissions for approving various requests',
-      icon: CheckCircle
-    },
-    {
-      name: 'Financial Management',
-      permissions: [
-        'manage_budgets'
-      ],
-      description: 'Permissions for budget management',
-      icon: Settings
-    },
-    {
-      name: 'Data Operations',
-      permissions: [
-        'export_data',
-        'export_bank_schedule',
-        'bulk_operations',
-        'delete_records'
-      ],
-      description: 'Permissions for data export and bulk operations',
-      icon: RefreshCw
     }
   ];
 
@@ -148,7 +113,7 @@ export function PermissionManager({ currentUser }: PermissionManagerProps) {
     const newPermissions = currentPermissions.includes(permission)
       ? currentPermissions.filter(p => p !== permission)
       : [...currentPermissions, permission];
-    
+
     setCustomPermissions(prev => ({
       ...prev,
       [selectedRole]: newPermissions
@@ -160,7 +125,7 @@ export function PermissionManager({ currentUser }: PermissionManagerProps) {
     const newPermissions = enabled
       ? [...currentPermissions, ...group.permissions.filter(p => !currentPermissions.includes(p))]
       : currentPermissions.filter(p => !group.permissions.includes(p));
-    
+
     setCustomPermissions(prev => ({
       ...prev,
       [selectedRole]: newPermissions
@@ -183,27 +148,14 @@ export function PermissionManager({ currentUser }: PermissionManagerProps) {
   };
 
   const getRoleBadgeColor = (role: UserRole) => {
-    switch (role) {
-      case 'super_admin':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'organization_admin':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'ceo_executive':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'payroll_manager':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'hr_business_partner':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'finance_controller':
-        return 'bg-indigo-100 text-indigo-800 border-indigo-200';
-      case 'employee':
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
+    if (role.startsWith('PLATFORM_')) return 'bg-red-100 text-red-800 border-red-200';
+    if (role.startsWith('ORG_')) return 'bg-purple-100 text-purple-800 border-purple-200';
+    if (role.startsWith('COMPANY_')) return 'bg-blue-100 text-blue-800 border-blue-200';
+    if (role.startsWith('PROJECT_')) return 'bg-cyan-100 text-cyan-800 border-cyan-200';
+    return 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
-  const canManagePermissions = currentUser?.role === 'super_admin';
+  const canManagePermissions = currentUser?.role === 'PLATFORM_SUPER_ADMIN';
 
   if (!canManagePermissions) {
     return (
@@ -255,8 +207,8 @@ export function PermissionManager({ currentUser }: PermissionManagerProps) {
                 onClick={() => setSelectedRole(roleKey as UserRole)}
                 className="flex items-center gap-2"
               >
-                <Badge 
-                  variant="outline" 
+                <Badge
+                  variant="outline"
                   className={getRoleBadgeColor(roleKey as UserRole)}
                 >
                   {roleDef.name}
@@ -271,8 +223,8 @@ export function PermissionManager({ currentUser }: PermissionManagerProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Badge 
-              variant="outline" 
+            <Badge
+              variant="outline"
               className={getRoleBadgeColor(selectedRole)}
             >
               {roleDefinition.name}
@@ -291,8 +243,8 @@ export function PermissionManager({ currentUser }: PermissionManagerProps) {
               <p className="text-sm text-muted-foreground mb-4">
                 {roleDefinition.description}
               </p>
-              
-              <h4 className="font-medium mb-2">Access Level</h4>
+
+              <h4 className="font-medium mb-2">Scope</h4>
               <div className="space-y-2">
                 {Object.entries(roleDefinition.canAccess).map(([resource, access]) => (
                   <div key={resource} className="flex justify-between text-sm">
@@ -304,7 +256,7 @@ export function PermissionManager({ currentUser }: PermissionManagerProps) {
                 ))}
               </div>
             </div>
-            
+
             <div>
               <h4 className="font-medium mb-2">Permission Summary</h4>
               <div className="space-y-2">
@@ -315,7 +267,7 @@ export function PermissionManager({ currentUser }: PermissionManagerProps) {
                 <div className="flex justify-between text-sm">
                   <span>Permission Groups:</span>
                   <span className="font-medium">
-                    {permissionGroups.filter(group => 
+                    {permissionGroups.filter(group =>
                       group.permissions.some(p => currentPermissions.includes(p))
                     ).length} / {permissionGroups.length}
                   </span>
@@ -364,16 +316,16 @@ export function PermissionManager({ currentUser }: PermissionManagerProps) {
                       </span>
                       <Checkbox
                         checked={allEnabled}
-                        ref={(el) => {
+                        ref={(el: any) => {
                           if (el) el.indeterminate = someEnabled;
                         }}
-                        onCheckedChange={(checked) => 
+                        onCheckedChange={(checked) =>
                           handleGroupToggle(group, checked as boolean)
                         }
                       />
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {groupPermissions.map((permission) => (
                       <div key={permission} className="flex items-center space-x-2">
@@ -382,8 +334,8 @@ export function PermissionManager({ currentUser }: PermissionManagerProps) {
                           checked={currentPermissions.includes(permission)}
                           onCheckedChange={() => handlePermissionToggle(permission)}
                         />
-                        <Label 
-                          htmlFor={`${selectedRole}-${permission}`} 
+                        <Label
+                          htmlFor={`${selectedRole}-${permission}`}
                           className="text-sm flex-1"
                         >
                           {permission.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
@@ -416,8 +368,8 @@ export function PermissionManager({ currentUser }: PermissionManagerProps) {
                     checked={currentPermissions.includes(permission)}
                     onCheckedChange={() => handlePermissionToggle(permission)}
                   />
-                  <Label 
-                    htmlFor={`all-${permission}`} 
+                  <Label
+                    htmlFor={`all-${permission}`}
                     className="text-sm flex-1"
                   >
                     {permission.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}

@@ -3,13 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { 
-  Activity, 
-  Users, 
-  Building2, 
-  Settings, 
-  Shield, 
-  Database, 
+import {
+  Activity,
+  Users,
+  Building2,
+  Settings,
+  Shield,
+  Database,
   BarChart3,
   AlertCircle,
   CheckCircle2,
@@ -87,11 +87,11 @@ export default function SuperAdminPage() {
     setLoadingHealth(true);
     try {
       // Check database connectivity
-      const { error: dbError } = await supabase.from('profiles').select('id').limit(1);
-      
+      const { error: dbError } = await supabase.from('user_profiles').select('id').limit(1);
+
       // Check auth service
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       // Check storage (if applicable)
       const { data: storageData, error: storageError } = await supabase.storage.listBuckets();
 

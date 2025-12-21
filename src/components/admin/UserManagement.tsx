@@ -27,7 +27,7 @@ export function UserManagement() {
     email: '',
     first_name: '',
     last_name: '',
-    role: 'user' as Role,
+    role: 'SELF_USER' as Role,
     organization_id: ''
   })
   const { toast } = useToast()
@@ -57,7 +57,7 @@ export function UserManagement() {
 
     // Filter by search term
     if (searchTerm) {
-      filtered = filtered.filter(user => 
+      filtered = filtered.filter(user =>
         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.last_name?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -107,7 +107,7 @@ export function UserManagement() {
         email: '',
         first_name: '',
         last_name: '',
-        role: 'user',
+        role: 'SELF_USER',
         organization_id: ''
       })
       setIsCreateDialogOpen(false)
@@ -176,11 +176,11 @@ export function UserManagement() {
   // Get role badge variant
   const getRoleBadgeVariant = (role: Role) => {
     switch (role) {
-      case 'super_admin':
+      case 'PLATFORM_SUPER_ADMIN':
         return 'destructive'
-      case 'org_admin':
+      case 'ORG_ADMIN':
         return 'default'
-      case 'user':
+      case 'SELF_USER':
         return 'secondary'
       default:
         return 'outline'
@@ -256,9 +256,9 @@ export function UserManagement() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="user">User</SelectItem>
-                      <SelectItem value="org_admin">Organization Admin</SelectItem>
-                      <SelectItem value="super_admin">Super Admin</SelectItem>
+                      <SelectItem value="SELF_USER">User</SelectItem>
+                      <SelectItem value="ORG_ADMIN">Organization Admin</SelectItem>
+                      <SelectItem value="PLATFORM_SUPER_ADMIN">Super Admin</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -301,9 +301,9 @@ export function UserManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Roles</SelectItem>
-                  <SelectItem value="user">User</SelectItem>
-                  <SelectItem value="org_admin">Org Admin</SelectItem>
-                  <SelectItem value="super_admin">Super Admin</SelectItem>
+                  <SelectItem value="SELF_USER">User</SelectItem>
+                  <SelectItem value="ORG_ADMIN">Org Admin</SelectItem>
+                  <SelectItem value="PLATFORM_SUPER_ADMIN">Super Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -350,7 +350,7 @@ export function UserManagement() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={getRoleBadgeVariant(user.role)}>
+                    <Badge variant={getRoleBadgeVariant(user.role as Role)}>
                       {RBACService.getRoleDisplayName(user.role)}
                     </Badge>
                   </TableCell>
@@ -438,17 +438,17 @@ export function UserManagement() {
               </div>
               <div>
                 <Label htmlFor="edit-role">Role</Label>
-                <Select 
-                  value={selectedUser.role} 
+                <Select
+                  value={selectedUser.role}
                   onValueChange={(value: Role) => setSelectedUser({ ...selectedUser, role: value })}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="org_admin">Organization Admin</SelectItem>
-                    <SelectItem value="super_admin">Super Admin</SelectItem>
+                    <SelectItem value="SELF_USER">User</SelectItem>
+                    <SelectItem value="ORG_ADMIN">Organization Admin</SelectItem>
+                    <SelectItem value="PLATFORM_SUPER_ADMIN">Super Admin</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

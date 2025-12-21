@@ -1,6 +1,6 @@
 import { ReactNode } from 'react'
 import { useSupabaseAuth } from '@/hooks/use-supabase-auth'
-import { RBACService, Permission, Role } from '@/lib/services/auth/rbac'
+import { RBACService, Permission, Role, Scope } from '@/lib/services/auth/rbac'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Lock } from 'lucide-react'
 
@@ -8,17 +8,22 @@ interface PermissionGuardProps {
   children: ReactNode
   permission?: Permission
   permissions?: Permission[]
-  role?: Role
-  roles?: Role[]
+  scopeType?: Scope
+  scopeId?: string | null
   requireAll?: boolean
   fallback?: ReactNode
   showError?: boolean
+  // Deprecated direct role checks - will be removed in future refactors
+  role?: Role
+  roles?: Role[]
 }
 
 export function PermissionGuard({
   children,
   permission,
   permissions,
+  scopeType = 'GLOBAL',
+  scopeId = null,
   requireAll = true,
   role,
   roles,
@@ -35,10 +40,9 @@ export function PermissionGuard({
     )
   }
 
-  // If not authenticated or no role, deny access
-  if (!isAuthenticated || !userContext?.role) {
+  // If not authenticated, deny access
+  if (!isAuthenticated || !userContext) {
     if (fallback) return <>{fallback}</>
-    // Start with deny
     return showError ? (
       <div className="flex items-center justify-center p-8">
         <Alert className="max-w-md">
@@ -51,38 +55,36 @@ export function PermissionGuard({
     ) : null;
   }
 
-  const userRole = userContext.role
+  // LEGACY SUPPORT: Check roles directly if provided
+  if (role || roles) {
+    const userRoleCodes = userContext.roles.map(r => r.role)
+    let hasRoleMatch = false
+    if (role) hasRoleMatch = userRoleCodes.includes(role)
+    else if (roles) hasRoleMatch = roles.some(r => userRoleCodes.includes(r))
 
-  // Check role permissions
-  let hasRolePermission = true
-  if (role) {
-    hasRolePermission = userRole === role
-  } else if (roles && roles.length > 0) {
-    hasRolePermission = roles.includes(userRole)
+    if (!hasRoleMatch) {
+      if (fallback) return <>{fallback}</>
+      return showError ? (
+        <div className="flex items-center justify-center p-8">
+          <Alert className="max-w-md">
+            <Lock className="h-4 w-4" />
+            <AlertDescription>
+              You don't have the required role to access this resource.
+            </AlertDescription>
+          </Alert>
+        </div>
+      ) : null;
+    }
   }
 
-  if (!hasRolePermission) {
-    if (fallback) return <>{fallback}</>
-    return showError ? (
-      <div className="flex items-center justify-center p-8">
-        <Alert className="max-w-md">
-          <Lock className="h-4 w-4" />
-          <AlertDescription>
-            You don't have the required role to access this resource.
-          </AlertDescription>
-        </Alert>
-      </div>
-    ) : null;
-  }
-
-  // Check granular permissions
+  // MODERN: Check granular permissions with scope
   let hasSpecificPermission = true
   if (permission) {
-    hasSpecificPermission = RBACService.roleHasPermission(userRole, permission)
+    hasSpecificPermission = RBACService.hasScopedPermission(permission, scopeType, scopeId)
   } else if (permissions && permissions.length > 0) {
     hasSpecificPermission = requireAll
-      ? permissions.every(p => RBACService.roleHasPermission(userRole, p))
-      : permissions.some(p => RBACService.roleHasPermission(userRole, p))
+      ? permissions.every(p => RBACService.hasScopedPermission(p, scopeType, scopeId))
+      : permissions.some(p => RBACService.hasScopedPermission(p, scopeType, scopeId))
   }
 
   if (!hasSpecificPermission) {
@@ -103,26 +105,21 @@ export function PermissionGuard({
   return <>{children}</>
 }
 
-// Convenience components for common permission checks
+/**
+ * CONVENIENCE COMPONENTS (New OBAC Taxonomy)
+ */
+
 export function SuperAdminOnly({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) {
   return (
-    <PermissionGuard role="super_admin" fallback={fallback}>
+    <PermissionGuard role="PLATFORM_SUPER_ADMIN" fallback={fallback}>
       {children}
     </PermissionGuard>
   )
 }
 
-export function OrgAdminOnly({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) {
+export function OrgAdminOnly({ children, fallback, scopeId }: { children: ReactNode; fallback?: ReactNode; scopeId?: string }) {
   return (
-    <PermissionGuard roles={['super_admin', 'org_admin']} fallback={fallback}>
-      {children}
-    </PermissionGuard>
-  )
-}
-
-export function AdminOnly({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) {
-  return (
-    <PermissionGuard roles={['super_admin', 'org_admin']} fallback={fallback}>
+    <PermissionGuard role="ORG_ADMIN" scopeType="ORGANIZATION" scopeId={scopeId} fallback={fallback}>
       {children}
     </PermissionGuard>
   )
@@ -130,47 +127,19 @@ export function AdminOnly({ children, fallback }: { children: ReactNode; fallbac
 
 export function RequirePermission({
   permission,
+  scopeType = 'GLOBAL',
+  scopeId,
   children,
   fallback
 }: {
   permission: Permission;
+  scopeType?: Scope;
+  scopeId?: string | null;
   children: ReactNode;
   fallback?: ReactNode
 }) {
   return (
-    <PermissionGuard permission={permission} fallback={fallback}>
-      {children}
-    </PermissionGuard>
-  )
-}
-
-export function RequireAnyPermission({
-  permissions,
-  children,
-  fallback
-}: {
-  permissions: Permission[];
-  children: ReactNode;
-  fallback?: ReactNode
-}) {
-  return (
-    <PermissionGuard permissions={permissions} requireAll={false} fallback={fallback}>
-      {children}
-    </PermissionGuard>
-  )
-}
-
-export function RequireAllPermissions({
-  permissions,
-  children,
-  fallback
-}: {
-  permissions: Permission[];
-  children: ReactNode;
-  fallback?: ReactNode
-}) {
-  return (
-    <PermissionGuard permissions={permissions} requireAll={true} fallback={fallback}>
+    <PermissionGuard permission={permission} scopeType={scopeType} scopeId={scopeId} fallback={fallback}>
       {children}
     </PermissionGuard>
   )

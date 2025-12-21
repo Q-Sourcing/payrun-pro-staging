@@ -141,16 +141,30 @@ serve(async (req) => {
             .single()
 
         const orgName = org?.name || 'the organization'
-        const origin = req.headers.get('origin') || req.headers.get('referer');
-        console.log('[invite-org-user] Detected origin:', origin);
 
-        let baseUrl = 'https://payroll.flipafrica.app';
-        if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
-            baseUrl = origin.endsWith('/') ? origin.slice(0, -1) : origin;
+        // Dynamic Base URL detection
+        const origin = req.headers.get('origin') || req.headers.get('referer');
+        console.log('[invite-org-user] Header-based origin detection:', origin);
+
+        let baseUrl = 'https://payroll.flipafrica.app'; // Production fallback
+
+        if (origin) {
+            try {
+                const originUrl = new URL(origin);
+                // Trust the origin if it's localhost or an authorized domain
+                if (originUrl.hostname === 'localhost' ||
+                    originUrl.hostname === '127.0.0.1' ||
+                    originUrl.hostname.endsWith('.flipafrica.app') ||
+                    originUrl.hostname.endsWith('.vercel.app')) {
+                    baseUrl = `${originUrl.protocol}//${originUrl.host}`;
+                }
+            } catch (e) {
+                console.warn('[invite-org-user] Failed to parse origin URL:', origin);
+            }
         }
 
         const redirectUrl = `${baseUrl}/accept-invite`;
-        console.log('[invite-org-user] Generated redirect URL:', redirectUrl);
+        console.log('[invite-org-user] Using redirect URL:', redirectUrl);
         const userMetadata = {
             first_name: input.firstName,
             last_name: input.lastName,

@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { StepProps } from './types';
 
 const PLATFORM_ROLES = [
-    { key: 'super_admin', name: 'Platform Super Admin', description: 'Full access to all platform and tenant settings.' },
+    { key: 'PLATFORM_SUPER_ADMIN', name: 'Platform Super Admin', description: 'Full access to all platform and tenant settings.' },
     { key: 'support_admin', name: 'Platform Support', description: 'Access to support tools and read-only tenant data.' },
     { key: 'compliance', name: 'Compliance Officer', description: 'Access to audit logs and compliance reports.' },
     { key: 'billing', name: 'Billing Admin', description: 'Manage billing and subscriptions.' },

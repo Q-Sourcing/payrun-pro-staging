@@ -43,96 +43,96 @@ const Settings = () => {
       id: "company",
       label: "Company Settings",
       icon: Building2,
-      requiredRole: 'organization_admin' as const,
+      requiredRole: 'ORG_ADMIN' as const,
       requiredPermission: 'organization_configuration'
     },
     {
       id: "employee",
       label: "Employee Settings",
       icon: Users,
-      requiredRole: 'hr_business_partner' as const,
+      requiredRole: 'ORG_HR_ADMIN' as const,
       requiredPermission: 'view_organization_employees'
     },
     {
       id: "payroll",
       label: "Payroll Settings",
       icon: DollarSign,
-      requiredRole: 'payroll_manager' as const,
+      requiredRole: 'COMPANY_PAYROLL_ADMIN' as const,
       requiredPermission: 'process_payroll'
     },
     {
       id: "payslip-designer",
       label: "Payslip Designer",
       icon: FileText,
-      requiredRole: 'payroll_manager' as const,
+      requiredRole: 'COMPANY_PAYROLL_ADMIN' as const,
       requiredPermission: 'process_payroll'
     },
     {
       id: "theme",
       label: "Display & Theme",
       icon: Palette,
-      requiredRole: 'employee' as const // Everyone can access theme
+      requiredRole: 'SELF_USER' as const // Everyone can access theme
     },
     {
       id: "security",
       label: "Security & Access",
       icon: Shield,
-      requiredRole: 'organization_admin' as const,
+      requiredRole: 'ORG_ADMIN' as const,
       requiredPermission: 'organization_configuration'
     },
     {
       id: "notifications",
       label: "Notifications",
       icon: Bell,
-      requiredRole: 'employee' as const // Everyone can access notifications
+      requiredRole: 'SELF_USER' as const // Everyone can access notifications
     },
     {
       id: "integrations",
       label: "Integrations",
       icon: RefreshCw,
-      requiredRole: 'organization_admin' as const,
+      requiredRole: 'ORG_ADMIN' as const,
       requiredPermission: 'manage_integrations'
     },
     {
       id: "user-management",
       label: "User Management",
       icon: Users,
-      requiredRole: 'organization_admin' as const,
+      requiredRole: 'ORG_ADMIN' as const,
       requiredPermission: 'manage_organization_users'
     },
     {
       id: "admin-obac",
       label: "Admin (Access Control)",
       icon: Shield,
-      requiredRole: 'organization_admin' as const,
+      requiredRole: 'ORG_ADMIN' as const,
       requiredPermission: 'manage_organization_users'
     },
     {
       id: "emails",
       label: "Email & Logic",
       icon: Mail,
-      requiredRole: 'organization_admin' as const,
+      requiredRole: 'ORG_ADMIN' as const,
       requiredPermission: 'organization_configuration'
     },
     {
       id: "system",
       label: "System Settings",
       icon: SettingsIcon,
-      requiredRole: 'super_admin' as const,
+      requiredRole: 'PLATFORM_SUPER_ADMIN' as const,
       requiredPermission: 'system_configuration'
     },
     {
       id: "data",
       label: "Data Management",
       icon: Database,
-      requiredRole: 'organization_admin' as const,
+      requiredRole: 'ORG_ADMIN' as const,
       requiredPermission: 'export_data'
     },
     {
       id: "about",
       label: "About & Help",
       icon: Info,
-      requiredRole: 'employee' as const // Everyone can access about
+      requiredRole: 'SELF_USER' as const // Everyone can access about
     },
   ];
 
@@ -162,19 +162,19 @@ const Settings = () => {
     switch (activeSection) {
       case "company":
         return (
-          <SettingsSectionGuard requiredRole="organization_admin" requiredPermission="organization_configuration">
+          <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration">
             <CompanySettingsSection />
           </SettingsSectionGuard>
         );
       case "employee":
         return (
-          <SettingsSectionGuard requiredRole="hr_business_partner" requiredPermission="view_organization_employees">
+          <SettingsSectionGuard requiredRole="ORG_HR_ADMIN" requiredPermission="view_organization_employees">
             <EmployeeSettingsSection />
           </SettingsSectionGuard>
         );
       case "payslip-designer":
         return (
-          <SettingsSectionGuard requiredRole="payroll_manager" requiredPermission="process_payroll">
+          <SettingsSectionGuard requiredRole="COMPANY_PAYROLL_ADMIN" requiredPermission="process_payroll">
             <PayslipDesignerSection />
           </SettingsSectionGuard>
         );
@@ -184,13 +184,13 @@ const Settings = () => {
         return <AboutSection />;
       case "payroll":
         return (
-          <SettingsSectionGuard requiredRole="payroll_manager" requiredPermission="process_payroll">
+          <SettingsSectionGuard requiredRole="COMPANY_PAYROLL_ADMIN" requiredPermission="process_payroll">
             <PayrollSettingsSection />
           </SettingsSectionGuard>
         );
       case "security":
         return (
-          <SettingsSectionGuard requiredRole="organization_admin" requiredPermission="organization_configuration">
+          <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration">
             <div className="space-y-4">
               <SecuritySettingsSection />
               <Card>
@@ -215,37 +215,37 @@ const Settings = () => {
         return <NotificationsSection />;
       case "integrations":
         return (
-          <SettingsSectionGuard requiredRole="organization_admin" requiredPermission="manage_integrations">
+          <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="manage_integrations">
             <IntegrationsSection />
           </SettingsSectionGuard>
         );
       case "user-management":
         return (
-          <SettingsSectionGuard requiredRole="organization_admin" requiredPermission="manage_organization_users">
+          <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="manage_organization_users">
             <UserManagement />
           </SettingsSectionGuard>
         );
       case "admin-obac":
         return (
-          <SettingsSectionGuard requiredRole="organization_admin" requiredPermission="manage_organization_users">
+          <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="manage_organization_users">
             <AdminAccessSection />
           </SettingsSectionGuard>
         );
       case "system":
         return (
-          <SettingsSectionGuard requiredRole="super_admin" requiredPermission="system_configuration">
+          <SettingsSectionGuard requiredRole="PLATFORM_SUPER_ADMIN" requiredPermission="system_configuration">
             <SystemSettingsSection />
           </SettingsSectionGuard>
         );
       case "data":
         return (
-          <SettingsSectionGuard requiredRole="organization_admin" requiredPermission="export_data">
+          <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="export_data">
             <DataManagementSection />
           </SettingsSectionGuard>
         );
       case "emails":
         return (
-          <SettingsSectionGuard requiredRole="organization_admin" requiredPermission="organization_configuration">
+          <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration">
             <EmailSettingsSection />
           </SettingsSectionGuard>
         );

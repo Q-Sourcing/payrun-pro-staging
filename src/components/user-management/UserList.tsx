@@ -153,34 +153,12 @@ export function UserList({
     // Implement status toggle logic here
   };
 
-  const getRoleBadgeColor = (role: UserRole) => {
-    switch (role) {
-      case 'super_admin':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'org_admin':
-      case 'organization_admin':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'hr_admin':
-      case 'hr_business_partner':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'project_manager':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'project_payroll_officer':
-        return 'bg-cyan-100 text-cyan-800 border-cyan-200';
-      case 'head_office_admin':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'finance_approver':
-      case 'finance_controller':
-        return 'bg-indigo-100 text-indigo-800 border-indigo-200';
-      case 'viewer':
-      case 'ceo_executive':
-        return 'bg-slate-100 text-slate-800 border-slate-200';
-      case 'user':
-      case 'employee':
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
+  const getRoleBadgeColor = (role: string) => {
+    if (role.startsWith('PLATFORM_')) return 'bg-red-100 text-red-800 border-red-200';
+    if (role.startsWith('ORG_')) return 'bg-purple-100 text-purple-800 border-purple-200';
+    if (role.startsWith('COMPANY_')) return 'bg-blue-100 text-blue-800 border-blue-200';
+    if (role.startsWith('PROJECT_')) return 'bg-cyan-100 text-cyan-800 border-cyan-200';
+    return 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
   const formatLastLogin = (lastLogin?: string) => {
@@ -249,15 +227,13 @@ export function UserList({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Roles</SelectItem>
-                  <SelectItem value="user">User</SelectItem>
-                  <SelectItem value="org_admin">Organization Admin</SelectItem>
-                  <SelectItem value="hr_admin">HR Admin</SelectItem>
-                  <SelectItem value="project_manager">Project Manager</SelectItem>
-                  <SelectItem value="project_payroll_officer">Project Payroll Officer</SelectItem>
-                  <SelectItem value="head_office_admin">Head Office Admin</SelectItem>
-                  <SelectItem value="finance_approver">Finance Approver</SelectItem>
-                  <SelectItem value="viewer">Viewer</SelectItem>
-                  <SelectItem value="super_admin">Super Admin</SelectItem>
+                  <SelectItem value="PLATFORM_SUPER_ADMIN">Platform Super Admin</SelectItem>
+                  <SelectItem value="ORG_ADMIN">Org Admin</SelectItem>
+                  <SelectItem value="ORG_HR_ADMIN">Org HR Admin</SelectItem>
+                  <SelectItem value="ORG_FINANCE_CONTROLLER">Finance Controller</SelectItem>
+                  <SelectItem value="COMPANY_PAYROLL_ADMIN">Company Payroll</SelectItem>
+                  <SelectItem value="PROJECT_MANAGER">Project Manager</SelectItem>
+                  <SelectItem value="SELF_USER">Standard User</SelectItem>
                 </SelectContent>
               </Select>
 

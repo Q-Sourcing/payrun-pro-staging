@@ -7,7 +7,7 @@ export interface UserProfile {
   first_name: string | null
   last_name: string | null
   organization_id: string | null
-  role: 'super_admin' | 'org_admin' | 'user'
+  role: string
   created_at: string
   updated_at: string
   organization?: {
@@ -23,14 +23,14 @@ export interface CreateUserProfileData {
   first_name?: string
   last_name?: string
   organization_id?: string
-  role: 'super_admin' | 'org_admin' | 'user'
+  role: string
 }
 
 export interface UpdateUserProfileData {
   first_name?: string
   last_name?: string
   organization_id?: string
-  role?: 'super_admin' | 'org_admin' | 'user'
+  role?: string
 }
 
 export class UserProfileService {
@@ -296,7 +296,7 @@ export class UserProfileService {
   /**
    * Update user role (super admin only)
    */
-  static async updateUserRole(userId: string, role: 'super_admin' | 'org_admin' | 'user'): Promise<UserProfile> {
+  static async updateUserRole(userId: string, role: string): Promise<UserProfile> {
     try {
       if (!JWTClaimsService.isSuperAdmin()) {
         throw new Error('Insufficient permissions')

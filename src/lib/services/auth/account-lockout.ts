@@ -47,7 +47,7 @@ export class AccountLockoutService {
   private static async getUserOrgId(userId: string): Promise<string | null> {
     try {
       const { data, error } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .select('organization_id')
         .eq('id', userId)
         .single();
@@ -69,7 +69,7 @@ export class AccountLockoutService {
   static async checkLockoutStatus(userId: string): Promise<LockoutStatus> {
     try {
       const { data, error } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .select('failed_login_attempts, locked_at, locked_by, lockout_reason')
         .eq('id', userId)
         .single();
@@ -171,7 +171,7 @@ export class AccountLockoutService {
       const orgId = await this.getUserOrgId(userId);
 
       const { error } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .update({
           locked_at: new Date().toISOString(),
           locked_by: lockedBy,
@@ -220,7 +220,7 @@ export class AccountLockoutService {
       const orgId = await this.getUserOrgId(userId);
 
       const { error } = await supabase
-        .from('profiles')
+        .from('user_profiles')
         .update({
           locked_at: null,
           locked_by: null,

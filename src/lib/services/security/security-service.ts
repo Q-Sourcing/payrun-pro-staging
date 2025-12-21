@@ -43,9 +43,9 @@ export class SecurityService {
         throw new Error('Authentication required');
       }
 
-      // Query profiles table directly with filters
+      // Query user_profiles table directly with filters
       let query = supabase
-        .from('profiles')
+        .from('user_profiles')
         .select(`
           id,
           email,

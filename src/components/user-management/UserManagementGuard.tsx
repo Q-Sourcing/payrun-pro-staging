@@ -19,13 +19,13 @@ const convertProfileToUser = (profile: any, supabaseUser: any): User | null => {
   if (!supabaseUser) return null;
 
   // Handle mixed profile shapes (legacy array vs new singular role)
-  let primaryRole: UserRole = 'employee';
+  let primaryRole: UserRole = 'SELF_USER';
 
   // SUPER ADMIN FALLBACK: Check email whitelist first
   // This matches logic in use-user-role.ts
   const SUPER_ADMIN_EMAILS = ['nalungukevin@gmail.com'];
   if (SUPER_ADMIN_EMAILS.includes(supabaseUser.email || '')) {
-    primaryRole = 'super_admin';
+    primaryRole = 'PLATFORM_SUPER_ADMIN';
   } else if (profile?.role) {
     // New profile shape
     primaryRole = profile.role as UserRole;
@@ -35,7 +35,7 @@ const convertProfileToUser = (profile: any, supabaseUser: any): User | null => {
   } else {
     // Fallback if no profile or role found
     const appRole = supabaseUser.app_metadata?.role || supabaseUser.user_metadata?.role;
-    if (appRole === 'super_admin') primaryRole = 'super_admin';
+    if (appRole === 'PLATFORM_SUPER_ADMIN' || appRole === 'super_admin') primaryRole = 'PLATFORM_SUPER_ADMIN';
   }
 
   // Fallback for names
@@ -49,7 +49,6 @@ const convertProfileToUser = (profile: any, supabaseUser: any): User | null => {
     lastName,
     role: primaryRole,
     organizationId: profile?.organization_id || supabaseUser.user_metadata?.organization_id || null,
-    departmentId: null,
     managerId: null,
     isActive: true,
     lastLogin: supabaseUser.last_sign_in_at || new Date().toISOString(),
@@ -181,14 +180,22 @@ export function UserManagementGuard({
  * Check if user has the required role or higher
  */
 function hasRequiredRole(user: User, requiredRole: UserRole): boolean {
-  const roleHierarchy = {
-    'super_admin': 10,
-    'organization_admin': 8,
-    'ceo_executive': 7,
-    'payroll_manager': 6,
-    'finance_controller': 5,
-    'hr_business_partner': 4,
-    'employee': 1
+  const roleHierarchy: Record<UserRole, number> = {
+    'PLATFORM_SUPER_ADMIN': 100,
+    'PLATFORM_AUDITOR': 90,
+    'ORG_ADMIN': 80,
+    'ORG_HR_ADMIN': 70,
+    'ORG_FINANCE_CONTROLLER': 75,
+    'ORG_AUDITOR': 60,
+    'ORG_VIEWER': 10,
+    'COMPANY_PAYROLL_ADMIN': 50,
+    'COMPANY_HR': 45,
+    'COMPANY_VIEWER': 5,
+    'PROJECT_MANAGER': 40,
+    'PROJECT_PAYROLL_OFFICER': 35,
+    'PROJECT_VIEWER': 2,
+    'SELF_USER': 1,
+    'SELF_CONTRACTOR': 1
   };
 
   const userLevel = roleHierarchy[user.role] || 0;
@@ -209,7 +216,7 @@ function hasRequiredPermission(user: User, requiredPermission: Permission): bool
  * Check if user can access user management features
  */
 function canAccessUserManagement(user: User): boolean {
-  return user.role === 'super_admin' || user.role === 'organization_admin';
+  return user.role === 'PLATFORM_SUPER_ADMIN' || user.role === 'ORG_ADMIN';
 }
 
 /**
@@ -217,18 +224,19 @@ function canAccessUserManagement(user: User): boolean {
  */
 export function canCreateUserWithRole(currentUser: User, targetRole: UserRole): boolean {
   // Super admins can create anyone
-  if (currentUser.role === 'super_admin') return true;
+  if (currentUser.role === 'PLATFORM_SUPER_ADMIN') return true;
 
   // Organization admins can create users up to their level
-  if (currentUser.role === 'organization_admin') {
-    const roleHierarchy = {
-      'super_admin': 10,
-      'organization_admin': 8,
-      'ceo_executive': 7,
-      'payroll_manager': 6,
-      'finance_controller': 5,
-      'hr_business_partner': 4,
-      'employee': 1
+  if (currentUser.role === 'ORG_ADMIN') {
+    const roleHierarchy: Record<string, number> = {
+      'PLATFORM_SUPER_ADMIN': 100,
+      'ORG_ADMIN': 80,
+      'ORG_HR_ADMIN': 70,
+      'ORG_FINANCE_CONTROLLER': 75,
+      'ORG_AUDITOR': 60,
+      'COMPANY_PAYROLL_ADMIN': 50,
+      'COMPANY_HR': 45,
+      'SELF_USER': 1
     };
 
     return (roleHierarchy[targetRole] || 0) <= (roleHierarchy[currentUser.role] || 0);
@@ -242,10 +250,10 @@ export function canCreateUserWithRole(currentUser: User, targetRole: UserRole): 
  */
 export function canEditUser(currentUser: User, targetUser: User): boolean {
   // Super admins can edit anyone
-  if (currentUser.role === 'super_admin') return true;
+  if (currentUser.role === 'PLATFORM_SUPER_ADMIN') return true;
 
   // Organization admins can edit users in their organization
-  if (currentUser.role === 'organization_admin') {
+  if (currentUser.role === 'ORG_ADMIN') {
     return currentUser.organizationId === targetUser.organizationId;
   }
 
@@ -257,12 +265,12 @@ export function canEditUser(currentUser: User, targetUser: User): boolean {
  */
 export function canDeleteUser(currentUser: User, targetUser: User): boolean {
   // Super admins can delete anyone
-  if (currentUser.role === 'super_admin') return true;
+  if (currentUser.role === 'PLATFORM_SUPER_ADMIN') return true;
 
   // Organization admins can delete users in their organization (except super admins)
-  if (currentUser.role === 'organization_admin') {
+  if (currentUser.role === 'ORG_ADMIN') {
     return currentUser.organizationId === targetUser.organizationId &&
-      targetUser.role !== 'super_admin';
+      targetUser.role !== 'PLATFORM_SUPER_ADMIN';
   }
 
   return false;
@@ -272,12 +280,12 @@ export function canDeleteUser(currentUser: User, targetUser: User): boolean {
  * Get user's accessible roles for user creation
  */
 export function getAccessibleRolesForCreation(user: User): UserRole[] {
-  if (user.role === 'super_admin') {
+  if (user.role === 'PLATFORM_SUPER_ADMIN') {
     return Object.keys(ROLE_DEFINITIONS) as UserRole[];
   }
 
-  if (user.role === 'organization_admin') {
-    return ['organization_admin', 'ceo_executive', 'payroll_manager', 'finance_controller', 'hr_business_partner', 'employee'];
+  if (user.role === 'ORG_ADMIN') {
+    return ['ORG_ADMIN', 'ORG_HR_ADMIN', 'ORG_FINANCE_CONTROLLER', 'COMPANY_PAYROLL_ADMIN', 'COMPANY_HR', 'SELF_USER'];
   }
 
   return [];

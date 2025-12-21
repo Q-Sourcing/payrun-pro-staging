@@ -65,7 +65,7 @@ export default function EmployeesOverview() {
       const { data } = await supabase
         .from('companies')
         .select('id, name')
-        .eq('org_id', organizationId)
+        .eq('organization_id', organizationId)
         .order('name');
 
       setCompanies(data || []);
@@ -86,7 +86,7 @@ export default function EmployeesOverview() {
       let query = supabase
         .from('employees')
         .select('*', { count: 'exact' })
-        .eq('org_id', organizationId);
+        .eq('organization_id', organizationId);
 
       // Apply filters
       if (statusFilter !== 'all') {

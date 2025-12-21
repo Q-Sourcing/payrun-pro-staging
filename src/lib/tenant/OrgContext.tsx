@@ -1,17 +1,18 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { UserRole } from '@/lib/types/roles';
 
 interface OrgContextValue {
   organizationId: string | null;
-  role: 'super_admin' | 'org_admin' | 'user' | null;
+  role: UserRole | null;
   companyId: string | null;
   companyUnitId: string | null;
   isPlatformAdmin: boolean;
   selectedOrganizationId: string | null; // For platform admin context switching
-  setCompanyId: (companyId: string|null) => void;
-  setCompanyUnitId: (companyUnitId: string|null) => void;
-  setSelectedOrganizationId: (orgId: string|null) => void;
+  setCompanyId: (companyId: string | null) => void;
+  setCompanyUnitId: (companyUnitId: string | null) => void;
+  setSelectedOrganizationId: (orgId: string | null) => void;
 }
 
 const OrgContext = createContext<OrgContextValue | undefined>(undefined);
@@ -21,11 +22,11 @@ const PLATFORM_ADMIN_EMAIL = 'nalungukevin@gmail.com';
 export const OrgProvider = ({ children }: { children: ReactNode }) => {
   const { user, session, profile, isLoading } = useSupabaseAuth();
   const [organizationId, setOrganizationId] = useState<string | null>(null);
-  const [role, setRole] = useState<'super_admin' | 'org_admin' | 'user' | null>(null);
+  const [role, setRole] = useState<UserRole | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [companyUnitId, setCompanyUnitId] = useState<string | null>(null);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
-  
+
   // Check if user is platform admin
   const isPlatformAdmin = user?.email?.toLowerCase() === PLATFORM_ADMIN_EMAIL.toLowerCase() ||
     localStorage.getItem('login_mode') === 'platform_admin';
@@ -56,11 +57,11 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
             }
           }
         }
-      } catch {}
+      } catch { }
 
       // Platform admin mode - use selected organization or default
       if (isPlatformAdmin) {
-        const selectedOrg = selectedOrganizationId || 
+        const selectedOrg = selectedOrganizationId ||
           (typeof window !== 'undefined' ? localStorage.getItem('active_organization_id') : null);
         if (selectedOrg) {
           setOrganizationId(selectedOrg);
@@ -79,7 +80,7 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
               localStorage.setItem('active_organization_id', orgs.data[0].id);
             }
           }
-        } catch {}
+        } catch { }
         return;
       }
 
@@ -102,14 +103,14 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
               return;
             }
           }
-        } catch {}
+        } catch { }
       }
 
       // 2) user_profiles via loaded profile
       if (profile?.organization_id) {
         setOrganizationId(profile.organization_id);
         if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', profile.organization_id);
-        setRole((profile.role || 'user') as any);
+        setRole((profile.role || 'SELF_USER') as any);
         return;
       }
 
@@ -125,7 +126,7 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
             return;
           }
         }
-      } catch {}
+      } catch { }
 
       // 4) Query user_profiles directly for this user (in case profile context not populated yet)
       try {
@@ -134,11 +135,11 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
           if (!up.error && up.data?.organization_id) {
             setOrganizationId(up.data.organization_id);
             if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', up.data.organization_id);
-            setRole((up.data.role || 'user') as any);
+            setRole((up.data.role || 'SELF_USER') as any);
             return;
           }
         }
-      } catch {}
+      } catch { }
 
       // 5) Heuristic fallbacks: first visible organization → else infer from companies/pay_groups/employees
       try {
@@ -148,7 +149,7 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
           if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', orgs.data[0].id);
           return;
         }
-      } catch {}
+      } catch { }
       try {
         const comps = await supabase.from('companies').select('organization_id').limit(1);
         if (!comps.error && comps.data && comps.data.length > 0 && comps.data[0].organization_id) {
@@ -156,7 +157,7 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
           if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', comps.data[0].organization_id);
           return;
         }
-      } catch {}
+      } catch { }
       try {
         const pgs = await supabase.from('pay_groups').select('organization_id').limit(1);
         if (!pgs.error && pgs.data && pgs.data.length > 0 && pgs.data[0].organization_id) {
@@ -164,7 +165,7 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
           if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', pgs.data[0].organization_id);
           return;
         }
-      } catch {}
+      } catch { }
       try {
         const emps = await supabase.from('employees').select('organization_id').limit(1);
         if (!emps.error && emps.data && emps.data.length > 0 && emps.data[0].organization_id) {
@@ -172,7 +173,7 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
           if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', emps.data[0].organization_id);
           return;
         }
-      } catch {}
+      } catch { }
     }
 
     // Avoid running while auth is still loading to reduce flicker

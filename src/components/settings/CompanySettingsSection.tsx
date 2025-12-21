@@ -10,7 +10,8 @@ import { ALL_COUNTRIES } from "@/lib/constants/countries";
 import { useOrg } from "@/lib/tenant/OrgContext";
 import { useOrgNames } from "@/lib/tenant/useOrgNames";
 import { useUserRole } from "@/hooks/use-user-role";
-import { Pencil } from "lucide-react";
+import { Pencil, Settings as GearIcon } from "lucide-react";
+import { OrganizationSetupModal } from "../organization-setup/OrganizationSetupModal";
 
 export const CompanySettingsSection = () => {
   const { toast } = useToast();
@@ -36,6 +37,7 @@ export const CompanySettingsSection = () => {
     dateFormat: "DD/MM/YYYY",
     financialYearStart: "January",
   });
+  const [showOrgSetup, setShowOrgSetup] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -155,95 +157,102 @@ export const CompanySettingsSection = () => {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Company Settings</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardTitle className="text-xl">Company Settings</CardTitle>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowOrgSetup(true)}
+            title="Organization Setup"
+            className="hover:bg-slate-100"
+          >
+            <GearIcon className="h-5 w-5 text-slate-500" />
+          </Button>
+          {!readOnly && (
+            <Button variant="outline" size="sm" onClick={() => setEditingName(!editingName)}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        <OrganizationSetupModal open={showOrgSetup} onClose={() => setShowOrgSetup(false)} />
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-muted-foreground">BASIC INFORMATION</h3>
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="flex items-center justify-between">
-                <Label>Company Name *</Label>
-                {isSuperAdmin && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2"
-                    onClick={() => {
-                      if (editingName) {
-                        loadSettings();
-                        setEditingName(false);
-                      } else {
-                        setEditingName(true);
-                      }
-                    }}
-                  >
-                    <Pencil className="h-4 w-4 mr-1" />
-                    {editingName ? "Cancel" : "Edit"}
-                  </Button>
-                )}
-              </div>
+            <div className="space-y-2">
+              <Label>Company Name *</Label>
               <Input
                 value={formData.companyName}
                 onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
                 disabled={!isSuperAdmin || !editingName}
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Legal Name</Label>
               <Input
                 value={formData.legalName}
                 onChange={(e) => setFormData(prev => ({ ...prev, legalName: e.target.value }))}
+                disabled={readOnly}
               />
             </div>
           </div>
-          <div>
+          <div className="space-y-2">
             <Label>Tax ID / Business Number</Label>
             <Input
               value={formData.taxId}
               onChange={(e) => setFormData(prev => ({ ...prev, taxId: e.target.value }))}
+              disabled={readOnly}
             />
           </div>
         </div>
 
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-muted-foreground">CONTACT INFORMATION</h3>
-          <div>
+          <div className="space-y-2">
             <Label>Address</Label>
             <Input
               value={formData.address}
               onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+              disabled={readOnly}
             />
           </div>
           <div className="grid grid-cols-3 gap-4">
-            <div>
+            <div className="space-y-2">
               <Label>City</Label>
               <Input
                 value={formData.city}
                 onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                disabled={readOnly}
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>State/Region</Label>
               <Input
                 value={formData.state}
                 onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value }))}
+                disabled={readOnly}
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Postal Code</Label>
               <Input
                 value={formData.postalCode}
                 onChange={(e) => setFormData(prev => ({ ...prev, postalCode: e.target.value }))}
+                disabled={readOnly}
               />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-4">
-            <div>
+            <div className="space-y-2">
               <Label>Country</Label>
-              <Select value={formData.country} onValueChange={(value) => setFormData(prev => ({ ...prev, country: value }))}>
+              <Select
+                value={formData.country}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, country: value }))}
+                disabled={readOnly}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -256,27 +265,30 @@ export const CompanySettingsSection = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Phone</Label>
               <Input
                 value={formData.phone}
                 onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                disabled={readOnly}
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Email</Label>
               <Input
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                disabled={readOnly}
               />
             </div>
           </div>
-          <div>
+          <div className="space-y-2">
             <Label>Website</Label>
             <Input
               value={formData.website}
               onChange={(e) => setFormData(prev => ({ ...prev, website: e.target.value }))}
+              disabled={readOnly}
             />
           </div>
         </div>
@@ -284,9 +296,13 @@ export const CompanySettingsSection = () => {
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-muted-foreground">CURRENCY & LOCALIZATION</h3>
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="space-y-2">
               <Label>Date Format</Label>
-              <Select value={formData.dateFormat} onValueChange={(value) => setFormData(prev => ({ ...prev, dateFormat: value }))}>
+              <Select
+                value={formData.dateFormat}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, dateFormat: value }))}
+                disabled={readOnly}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -297,9 +313,13 @@ export const CompanySettingsSection = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Financial Year Start</Label>
-              <Select value={formData.financialYearStart} onValueChange={(value) => setFormData(prev => ({ ...prev, financialYearStart: value }))}>
+              <Select
+                value={formData.financialYearStart}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, financialYearStart: value }))}
+                disabled={readOnly}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
