@@ -38,9 +38,9 @@ const ReportsTab = () => {
 
   const fetchPayGroups = async () => {
     try {
-      const { data, error } = await supabase
-        .from("pay_groups")
-        .select("id, name, country")
+      const { data, error } = await (supabase
+        .from("pay_groups" as any)
+        .select("id, name, country") as any)
         .order("name");
 
       if (error) throw error;
@@ -54,9 +54,9 @@ const ReportsTab = () => {
     setLoading(true);
     try {
       // Get employees count
-      let employeesQuery = supabase
-        .from("employees")
-        .select("id, country", { count: "exact" })
+      let employeesQuery = (supabase
+        .from("employees" as any)
+        .select("id, country", { count: "exact" }) as any)
         .eq("status", "active");
 
       if (selectedPayGroup !== "all") {
@@ -73,9 +73,9 @@ const ReportsTab = () => {
       const startDate = startOfMonth(new Date());
       const endDate = endOfMonth(new Date());
 
-      let payRunsQuery = supabase
-        .from("pay_runs")
-        .select("total_net_pay", { count: "exact" })
+      let payRunsQuery = (supabase
+        .from("pay_runs" as any)
+        .select("total_net_pay", { count: "exact" }) as any)
         .gte("pay_run_date", startDate.toISOString())
         .lte("pay_run_date", endDate.toISOString())
         .eq("status", "processed");
@@ -142,22 +142,22 @@ const ReportsTab = () => {
       }
 
       // Fetch pay runs for the period
-      let query = supabase
-        .from("pay_runs")
+      let query = (supabase
+        .from("pay_runs" as any)
         .select(`
           *,
           pay_groups (name, country),
           pay_items (
             *,
-            employees (first_name, middle_name, last_name, email, department)
+            employees (first_name, middle_name, last_name, email, sub_department)
           )
-        `)
+        `) as any)
         .gte("pay_run_date", startDate.toISOString())
         .lte("pay_run_date", endDate.toISOString())
         .order("pay_run_date", { ascending: false });
 
       if (selectedPayGroup !== "all") {
-        query = query.eq("pay_group_id", selectedPayGroup);
+        query = (query as any).eq("pay_group_id", selectedPayGroup);
       }
 
       const { data, error } = await query;
@@ -214,12 +214,12 @@ const ReportsTab = () => {
         run.status
       ]);
     } else if (reportType === 'employee_summary') {
-      headers = ['Employee Name', 'Email', 'Department', 'Pay Date', 'Gross Pay', 'Tax Deduction', 'Net Pay'];
+      headers = ['Employee Name', 'Email', 'Sub-Department', 'Pay Date', 'Gross Pay', 'Tax Deduction', 'Net Pay'];
       rows = data.flatMap(run =>
         (run.pay_items || []).map((item: any) => [
           `${item.employees?.first_name || ''} ${item.employees?.middle_name || ''} ${item.employees?.last_name || ''}`.trim(),
           item.employees?.email || '',
-          item.employees?.department || '',
+          item.employees?.sub_department || '',
           format(new Date(run.pay_run_date), 'yyyy-MM-dd'),
           item.gross_pay?.toString() || '0',
           item.tax_deduction?.toString() || '0',
@@ -436,10 +436,10 @@ const ReportsTab = () => {
               <Button
                 variant="outline"
                 className="w-full justify-start"
-                onClick={() => generateReport('department_breakdown', 'monthly')}
+                onClick={() => generateReport('sub_department_breakdown', 'monthly')}
               >
                 <Download className="h-4 w-4 mr-2" />
-                Department Breakdown
+                Sub-Department Breakdown
               </Button>
               <Button
                 variant="outline"

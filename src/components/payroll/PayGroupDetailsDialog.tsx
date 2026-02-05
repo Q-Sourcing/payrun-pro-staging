@@ -10,7 +10,7 @@ import { Users, Calendar, Pencil, UserPlus, DollarSign } from "lucide-react";
 import { getCurrencyByCode, formatCurrency as formatCurrencyUtil } from "@/lib/constants/countries";
 import { format } from "date-fns";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { RBACService } from "@/lib/services/auth/rbac";
+import { RBACService, Scope } from "@/lib/services/auth/rbac";
 import { PayGroupCategory } from "@/lib/types/paygroups";
 
 interface Employee {
@@ -23,7 +23,7 @@ interface Employee {
   status: string;
   created_at: string;
   currency: string;
-  department?: string | null;
+  sub_department?: string | null;
 }
 
 interface PayGroup {
@@ -58,18 +58,16 @@ const PayGroupDetailsDialog = ({
   const { userContext } = useSupabaseAuth();
 
   const canRunPayroll = useMemo(() => {
-    if (!userContext?.role || !payGroup) return false;
-    const scope = payGroup.category === 'projects' ? 'project' : 'head_office';
-    // Users need 'payroll.run' or 'payroll.process' depending on granular definition
-    // Usually 'payroll.run' is the action button
-    return RBACService.roleHasScopedPermission(userContext.role, 'payroll.run', scope);
-  }, [userContext?.role, payGroup]);
+    if (!payGroup) return false;
+    const scope: Scope = payGroup.category === 'projects' ? 'PROJECT' : 'ORGANIZATION';
+    return RBACService.hasScopedPermission('payroll.run', scope);
+  }, [userContext, payGroup]);
 
   const canEditPayGroup = useMemo(() => {
-    if (!userContext?.role || !payGroup) return false;
-    const scope = payGroup.category === 'projects' ? 'project' : 'head_office';
-    return RBACService.roleHasScopedPermission(userContext.role, 'paygroups.edit', scope);
-  }, [userContext?.role, payGroup]);
+    if (!userContext || !payGroup) return false;
+    const scope: Scope = payGroup.category === 'projects' ? 'PROJECT' : 'ORGANIZATION';
+    return RBACService.hasScopedPermission('paygroups.edit', scope);
+  }, [userContext, payGroup]);
 
   useEffect(() => {
     if (open && payGroupId) {
@@ -83,24 +81,24 @@ const PayGroupDetailsDialog = ({
     setLoading(true);
     try {
       // Fetch pay group details
-      const { data: pgData, error: pgError } = await supabase
+      const { data: pgData, error: pgError } = await (supabase
         .from("pay_groups")
         .select("*")
         .eq("id", payGroupId)
-        .single();
+        .single() as any);
 
       if (pgError) throw pgError;
-      setPayGroup(pgData as PayGroup);
+      setPayGroup(pgData as any);
 
       // Fetch employees in this pay group
-      const { data: empData, error: empError } = await supabase
+      const { data: empData, error: empError } = await (supabase
         .from("employees")
         .select("*")
         .eq("pay_group_id", payGroupId)
-        .order("first_name");
+        .order("first_name") as any);
 
       if (empError) throw empError;
-      setEmployees(empData || []);
+      setEmployees((empData || []) as any);
     } catch (error) {
       console.error("Error fetching pay group details:", error);
       toast({
@@ -276,7 +274,7 @@ const PayGroupDetailsDialog = ({
                       <TableHead>Employee Name</TableHead>
                       <TableHead>Pay Type</TableHead>
                       <TableHead>Pay Rate</TableHead>
-                      <TableHead>Department</TableHead>
+                      <TableHead>Sub-Department</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Join Date</TableHead>
                     </TableRow>
@@ -289,7 +287,7 @@ const PayGroupDetailsDialog = ({
                           <Badge variant="outline">{formatPayType(employee.pay_type)}</Badge>
                         </TableCell>
                         <TableCell>{formatPayRate(employee.pay_rate, employee.pay_type, employee.currency)}</TableCell>
-                        <TableCell>{employee.department || "-"}</TableCell>
+                        <TableCell>{employee.sub_department || "-"}</TableCell>
                         <TableCell>
                           <Badge variant={employee.status === "active" ? "default" : "secondary"}>
                             {employee.status}

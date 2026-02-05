@@ -34,7 +34,7 @@ const BulkUploadEmployeesDialog = ({ open, onOpenChange, onEmployeesAdded }: Bul
       "status",
       "employee_type"
     ];
-    
+
     const sampleData = [
       "EMP-023,John,M,Doe,john.doe@example.com,+256700000000,Uganda,UGX,salary,5000000,,active,local",
       ",Jane,,Smith,jane.smith@example.com,+254700000000,Kenya,KES,hourly,1500,,active,expatriate"
@@ -122,16 +122,16 @@ const BulkUploadEmployeesDialog = ({ open, onOpenChange, onEmployeesAdded }: Bul
       }
 
       // Validate required fields and set defaults
-      const validEmployees = employees.filter(emp => 
-        emp.first_name && 
-        emp.email && 
-        emp.country && 
-        emp.currency && 
-        emp.pay_type && 
+      const validEmployees = employees.filter(emp =>
+        emp.first_name &&
+        emp.email &&
+        emp.country &&
+        emp.currency &&
+        emp.pay_type &&
         emp.pay_rate
       ).map(emp => ({
         ...emp,
-        employee_type: emp.employee_type || 'local' // Default to local if not specified
+        employee_type: emp.employee_type || 'regular' // Default to regular if not specified
       }));
 
       if (validEmployees.length === 0) {

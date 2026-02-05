@@ -5,9 +5,10 @@ import { X } from "lucide-react";
 interface SettingsModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    onAdvancedModeChange?: (isAdvanced: boolean, mode: 'payroll' | 'org' | null) => void;
 }
 
-export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
+export const SettingsModal = ({ open, onOpenChange, onAdvancedModeChange }: SettingsModalProps) => {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[1200px] w-[95vw] md:w-[75vw] max-h-[90vh] overflow-y-auto p-0 gap-0">
@@ -26,7 +27,7 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
                 </DialogHeader>
 
                 <div className="p-6">
-                    <SettingsContent />
+                    <SettingsContent onAdvancedModeChange={onAdvancedModeChange} />
                 </div>
             </DialogContent>
         </Dialog>

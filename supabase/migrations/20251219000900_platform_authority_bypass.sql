@@ -120,7 +120,7 @@ UPDATE public.projects SET organization_id = '00000000-0000-0000-0000-0000000000
 
 -- Organizations
 DROP POLICY IF EXISTS "organizations_select_policy" ON public.organizations;
-CREATE POLICY "organizations_select_policy" ON public.organizations
+DROP POLICY IF EXISTS "organizations_select_policy" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "organizations_select_policy" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "organizations_select_policy" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "organizations_select_policy" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "organizations_select_policy" ON public.organizations; CREATE POLICY "organizations_select_policy" ON public.organizations
 FOR SELECT TO authenticated
 USING (
     public.is_platform_admin() OR
@@ -129,7 +129,7 @@ USING (
 
 -- Companies
 DROP POLICY IF EXISTS "companies_select_policy" ON public.companies;
-CREATE POLICY "companies_select_policy" ON public.companies
+DROP POLICY IF EXISTS "companies_select_policy" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "companies_select_policy" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "companies_select_policy" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "companies_select_policy" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "companies_select_policy" ON public.companies; CREATE POLICY "companies_select_policy" ON public.companies
 FOR SELECT TO authenticated
 USING (
     public.is_platform_admin() OR
@@ -139,7 +139,7 @@ USING (
 
 -- Projects
 DROP POLICY IF EXISTS "projects_select_policy" ON public.projects;
-CREATE POLICY "projects_select_policy" ON public.projects
+DROP POLICY IF EXISTS "projects_select_policy" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "projects_select_policy" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "projects_select_policy" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "projects_select_policy" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "projects_select_policy" ON public.projects; CREATE POLICY "projects_select_policy" ON public.projects
 FOR SELECT TO authenticated
 USING (
     public.is_platform_admin() OR
@@ -149,7 +149,7 @@ USING (
 
 -- Employees
 DROP POLICY IF EXISTS "employees_select_policy" ON public.employees;
-CREATE POLICY "employees_select_policy" ON public.employees
+DROP POLICY IF EXISTS "employees_select_policy" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "employees_select_policy" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "employees_select_policy" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "employees_select_policy" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "employees_select_policy" ON public.employees; CREATE POLICY "employees_select_policy" ON public.employees
 FOR SELECT TO authenticated
 USING (
     public.is_platform_admin() OR
@@ -163,7 +163,7 @@ USING (
 
 -- Pay Runs
 DROP POLICY IF EXISTS "pay_runs_select_policy" ON public.pay_runs;
-CREATE POLICY "pay_runs_select_policy" ON public.pay_runs
+DROP POLICY IF EXISTS "pay_runs_select_policy" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "pay_runs_select_policy" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "pay_runs_select_policy" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "pay_runs_select_policy" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "pay_runs_select_policy" ON public.pay_runs; CREATE POLICY "pay_runs_select_policy" ON public.pay_runs
 FOR SELECT TO authenticated
 USING (
     public.is_platform_admin() OR
@@ -175,7 +175,7 @@ USING (
 ALTER TABLE public.rbac_assignments ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can view their own role assignments" ON public.rbac_assignments;
 DROP POLICY IF EXISTS "rbac_assignments_select_policy" ON public.rbac_assignments;
-CREATE POLICY "rbac_assignments_select_policy" ON public.rbac_assignments
+DROP POLICY IF EXISTS "rbac_assignments_select_policy" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "rbac_assignments_select_policy" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "rbac_assignments_select_policy" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "rbac_assignments_select_policy" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "rbac_assignments_select_policy" ON public.rbac_assignments; CREATE POLICY "rbac_assignments_select_policy" ON public.rbac_assignments
 FOR SELECT TO authenticated
 USING (
     public.is_platform_admin() OR

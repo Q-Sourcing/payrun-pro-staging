@@ -77,7 +77,7 @@ export class PayRunsService {
     const to = from + safeLimit - 1;
 
     try {
-      let query = supabase
+      let query = (supabase as any)
         .from('pay_runs')
         .select(`
           *,
@@ -135,7 +135,7 @@ export class PayRunsService {
       let payItemsCounts: Record<string, number> = {};
 
       if (payRunIds.length > 0) {
-        const { data: payItemsData } = await supabase
+        const { data: payItemsData } = await (supabase as any)
           .from('pay_items')
           .select('pay_run_id')
           .in('pay_run_id', payRunIds);
@@ -194,7 +194,7 @@ export class PayRunsService {
    */
   static async getPayRunById(id: string): Promise<PayRunWithDetails | null> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('pay_runs')
         .select(`
           *,
@@ -216,7 +216,7 @@ export class PayRunsService {
       }
 
       // Get pay items count
-      const { count } = await supabase
+      const { count } = await (supabase as any)
         .from('pay_items')
         .select('id', { count: 'exact', head: true })
         .eq('pay_run_id', id);
@@ -260,7 +260,7 @@ export class PayRunsService {
   /**
    * Create a new pay run - Uses Edge Function
    */
-  static async createPayRun(data: CreatePayRunInput): Promise<PayRun> {
+  static async createPayRun(data: CreatePayRunInput): Promise<PayRun & { debug?: any }> {
     try {
       // Validate input
       const validatedData = createPayRunSchema.parse(data);
@@ -276,26 +276,28 @@ export class PayRunsService {
 
       // Call Edge Function
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const response = await fetch(`${supabaseUrl}/functions/v1/manage-payruns`, {
+      const functionName = validatedData.category === 'head_office' ? 'manage-head-office-payruns' : 'manage-payruns';
+      const response = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-        pay_run_date: validatedData.pay_run_date || new Date().toISOString().split('T')[0],
-        pay_period_start: validatedData.pay_period_start,
-        pay_period_end: validatedData.pay_period_end,
-        pay_group_id: validatedData.pay_group_id,
-        pay_group_master_id: validatedData.pay_group_master_id,
-        status: validatedData.status || 'draft',
-        category: validatedData.category,
-        employee_type: validatedData.employee_type,
-        pay_frequency: validatedData.pay_frequency,
-        payroll_type: validatedData.payroll_type,
-        exchange_rate: validatedData.exchange_rate,
-        days_worked: validatedData.days_worked,
-        created_by: validatedData.created_by || user?.id,
+          pay_run_date: validatedData.pay_run_date || new Date().toISOString().split('T')[0],
+          pay_period_start: validatedData.pay_period_start,
+          pay_period_end: validatedData.pay_period_end,
+          pay_group_id: validatedData.pay_group_id,
+          pay_group_master_id: validatedData.pay_group_master_id,
+          status: validatedData.status || 'draft',
+          category: validatedData.category,
+          employee_type: validatedData.employee_type,
+          pay_frequency: validatedData.pay_frequency,
+          payroll_type: validatedData.payroll_type,
+          project_id: validatedData.project_id,
+          exchange_rate: validatedData.exchange_rate,
+          days_worked: validatedData.days_worked,
+          created_by: validatedData.created_by || user?.id,
         }),
       });
 
@@ -331,11 +333,12 @@ export class PayRunsService {
       }
 
       // Get current user
-        const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
 
       // Call Edge Function
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const response = await fetch(`${supabaseUrl}/functions/v1/manage-payruns`, {
+      const functionName = (validatedData as any).category === 'head_office' ? 'manage-head-office-payruns' : 'manage-payruns';
+      const response = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -353,6 +356,7 @@ export class PayRunsService {
           employee_type: validatedData.employee_type,
           pay_frequency: validatedData.pay_frequency,
           payroll_type: validatedData.payroll_type,
+          project_id: validatedData.project_id,
           exchange_rate: validatedData.exchange_rate,
           days_worked: validatedData.days_worked,
           total_gross_pay: validatedData.total_gross_pay,
@@ -393,7 +397,14 @@ export class PayRunsService {
 
       // Call Edge Function
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const response = await fetch(`${supabaseUrl}/functions/v1/manage-payruns`, {
+      // We need to know the category to decide which function to call for delete
+      // However, delete usually just takes an ID. 
+      // For now, we'll try manage-head-office-payruns first if it's likely HO, 
+      // or we can fetch the pay run first to check its category.
+      const existing = await this.getPayRunById(id);
+      const functionName = existing?.category === 'head_office' ? 'manage-head-office-payruns' : 'manage-payruns';
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -471,7 +482,7 @@ export class PayRunsService {
    */
   static async getPayRunSummary(options: Omit<PayRunsQueryOptions, 'page' | 'limit'> = {}): Promise<PayRunSummary> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('pay_runs')
         .select('status, total_gross_pay, total_deductions, total_net_pay');
 

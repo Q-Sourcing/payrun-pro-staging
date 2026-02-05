@@ -1,0 +1,186 @@
+Initialising login role...
+Connecting to remote database...
+Do you want to push these migrations to the remote database?
+ • 20251224020000_hardened_ho_rls.sql
+ • 20251224030000_fix_pay_runs_fk.sql
+ • 20251224040000_repair_pay_group_master.sql
+ • 20251224050000_fix_approval_steps_fk.sql
+ • 20251224060000_fix_deletion_constraints.sql
+ • 20251224070000_fix_pay_run_status_enum.sql
+ • 20251224081000_migrate_local_to_regular.sql
+ • 20251224081100_repair_pay_group_master.sql
+ • 20251229120000_payroll_approval_enhancements.sql
+ • 20251229155200_flexible_payroll_approvals.sql
+ • 20251229170000_fix_rls_recursion.sql
+ • 20251229180000_unify_permission_checks.sql
+ • 20251229190000_fix_rbac_read_policy.sql
+ • 20251229200000_create_approval_configs.sql
+ • 20251229210000_add_rejected_status.sql
+ • 20251230090000_update_submit_payrun_rpc.sql
+ • 20260103130000_enable_notification_email_trigger.sql
+ • 20260103160000_wrap_email_trigger.sql
+ • 20260104000000_rename_departments_to_sub_departments.sql
+ • 20260104203000_create_notification_templates.sql
+ • 20260105000000_enhance_rbac_grants.sql
+
+ [Y/n] Applying migration 20251224020000_hardened_ho_rls.sql...
+NOTICE (00000): policy "Users can view pay group members for their organization" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Users can insert pay group members for their organization" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Users can update pay group members for their organization" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Users can delete pay group members for their organization" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "ho_membership_select_policy" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "ho_membership_select_policy" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "ho_membership_select_policy" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "ho_membership_select_policy" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "ho_membership_manage_policy" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "ho_membership_manage_policy" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "ho_membership_manage_policy" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "ho_membership_manage_policy" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "ho_pg_regular_select_policy" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "ho_pg_regular_select_policy" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "ho_pg_regular_select_policy" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "ho_pg_regular_select_policy" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "ho_pg_regular_manage_policy" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "ho_pg_regular_manage_policy" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "ho_pg_regular_manage_policy" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "ho_pg_regular_manage_policy" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "ho_pg_interns_select_policy" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "ho_pg_interns_select_policy" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "ho_pg_interns_select_policy" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "ho_pg_interns_select_policy" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "ho_pg_interns_manage_policy" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "ho_pg_interns_manage_policy" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "ho_pg_interns_manage_policy" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "ho_pg_interns_manage_policy" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "ho_pg_expatriates_select_policy" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "ho_pg_expatriates_select_policy" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "ho_pg_expatriates_select_policy" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "ho_pg_expatriates_select_policy" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "ho_pg_expatriates_manage_policy" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "ho_pg_expatriates_manage_policy" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "ho_pg_expatriates_manage_policy" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "ho_pg_expatriates_manage_policy" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+Applying migration 20251224030000_fix_pay_runs_fk.sql...
+NOTICE (00000): constraint "fk_pay_runs_paygroup" of relation "pay_runs" does not exist, skipping
+NOTICE (00000): constraint "pay_runs_pay_group_id_fkey" of relation "pay_runs" does not exist, skipping
+Applying migration 20251224040000_repair_pay_group_master.sql...
+Applying migration 20251224050000_fix_approval_steps_fk.sql...
+Applying migration 20251224060000_fix_deletion_constraints.sql...
+Applying migration 20251224070000_fix_pay_run_status_enum.sql...
+Applying migration 20251224081000_migrate_local_to_regular.sql...
+Applying migration 20251224081100_repair_pay_group_master.sql...
+Applying migration 20251229120000_payroll_approval_enhancements.sql...
+NOTICE (42P07): relation "approval_workflow_versions" already exists, skipping
+NOTICE (00000): policy "Workflow Versions Readable by Org Members" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Workflow Versions Readable by Org Members" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Workflow Versions Readable by Org Members" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Workflow Versions Readable by Org Members" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Workflow Versions Managed by Admins" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Workflow Versions Managed by Admins" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Workflow Versions Managed by Admins" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Workflow Versions Managed by Admins" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (42P07): relation "idx_org_settings_org_id" already exists, skipping
+NOTICE (42P07): relation "idx_approval_workflows_org_scopes" already exists, skipping
+NOTICE (42P07): relation "idx_workflow_steps_approver_type" already exists, skipping
+NOTICE (42P07): relation "idx_workflow_versions_workflow_id" already exists, skipping
+NOTICE (42P07): relation "idx_payrun_steps_status" already exists, skipping
+NOTICE (42P07): relation "idx_payrun_steps_override_by" already exists, skipping
+Applying migration 20251229155200_flexible_payroll_approvals.sql...
+NOTICE (42P07): relation "payroll_approval_configs" already exists, skipping
+NOTICE (42P07): relation "payroll_approval_categories" already exists, skipping
+NOTICE (00000): policy "Configs are viewable by org members" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Configs are viewable by org members" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Configs are viewable by org members" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Configs are viewable by org members" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Configs are viewable by org members" for relation "public.payroll_approval_configs" does not exist, skipping
+NOTICE (00000): policy "Configs are manageable by admins" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Configs are manageable by admins" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Configs are manageable by admins" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Configs are manageable by admins" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Configs are manageable by admins" for relation "public.payroll_approval_configs" does not exist, skipping
+NOTICE (00000): policy "Categories mapping viewable by org members" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Categories mapping viewable by org members" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Categories mapping viewable by org members" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Categories mapping viewable by org members" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Categories mapping viewable by org members" for relation "public.payroll_approval_categories" does not exist, skipping
+NOTICE (00000): policy "Categories mapping manageable by admins" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Categories mapping manageable by admins" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Categories mapping manageable by admins" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Categories mapping manageable by admins" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Categories mapping manageable by admins" for relation "public.payroll_approval_categories" does not exist, skipping
+Applying migration 20251229170000_fix_rls_recursion.sql...
+NOTICE (00000): policy "Super admins can view all users" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Super admins can view all users" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Super admins can view all users" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Super admins can view all users" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Super admins can view all users" for relation "public.users" does not exist, skipping
+NOTICE (00000): policy "Organization admins can view organization users" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Organization admins can view organization users" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Organization admins can view organization users" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Organization admins can view organization users" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Organization admins can view organization users" for relation "public.users" does not exist, skipping
+NOTICE (00000): policy "Organization admins can view organization users" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Organization admins can view organization users" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Organization admins can view organization users" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Organization admins can view organization users" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Organization admins can view organization users" for relation "public.users" does not exist, skipping
+NOTICE (00000): policy "Department managers can view department users" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Department managers can view department users" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Department managers can view department users" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Department managers can view department users" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Department managers can view department users" for relation "public.users" does not exist, skipping
+NOTICE (00000): policy "Department managers can view department users" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Department managers can view department users" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Department managers can view department users" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Department managers can view department users" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Department managers can view department users" for relation "public.users" does not exist, skipping
+Applying migration 20251229180000_unify_permission_checks.sql...
+Applying migration 20251229190000_fix_rbac_read_policy.sql...
+NOTICE (00000): policy "Users can read own rbac assignments" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Users can read own rbac assignments" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Users can read own rbac assignments" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Users can read own rbac assignments" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Users can read own rbac assignments" for relation "public.rbac_assignments" does not exist, skipping
+NOTICE (00000): policy "Super admins can view all rbac assignments" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Super admins can view all rbac assignments" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Super admins can view all rbac assignments" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Super admins can view all rbac assignments" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Super admins can view all rbac assignments" for relation "public.rbac_assignments" does not exist, skipping
+NOTICE (00000): policy "Users can read own legacy role" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Users can read own legacy role" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Users can read own legacy role" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Users can read own legacy role" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Users can read own legacy role" for relation "public.user_roles" does not exist, skipping
+Applying migration 20251229200000_create_approval_configs.sql...
+NOTICE (42P07): relation "payroll_approval_configs" already exists, skipping
+NOTICE (42P07): relation "payroll_approval_categories" already exists, skipping
+NOTICE (00000): policy "Configs Readable by Org Members" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Configs Readable by Org Members" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Configs Readable by Org Members" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Configs Readable by Org Members" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Configs Managed by Admins" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Configs Managed by Admins" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Configs Managed by Admins" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Configs Managed by Admins" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Categories Readable by Org Members" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Categories Readable by Org Members" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Categories Readable by Org Members" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Categories Readable by Org Members" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Categories Managed by Admins" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Categories Managed by Admins" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Categories Managed by Admins" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Categories Managed by Admins" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (42P07): relation "idx_approval_configs_org" already exists, skipping
+NOTICE (42P07): relation "idx_approval_categories_cat" already exists, skipping
+Applying migration 20251229210000_add_rejected_status.sql...
+NOTICE (42710): enum label "rejected" already exists, skipping
+Applying migration 20251230090000_update_submit_payrun_rpc.sql...
+Applying migration 20260103130000_enable_notification_email_trigger.sql...
+NOTICE (42710): extension "pg_net" already exists, skipping
+Applying migration 20260103160000_wrap_email_trigger.sql...
+Applying migration 20260104000000_rename_departments_to_sub_departments.sql...
+ERROR: column "department" does not exist (SQLSTATE 42703)                      
+At statement: 4                                                                 
+-- Pay Runs table (if it exists there)                                          
+ALTER TABLE IF EXISTS public.pay_runs RENAME COLUMN department TO sub_department
+Try rerunning the command with --debug to troubleshoot the error.

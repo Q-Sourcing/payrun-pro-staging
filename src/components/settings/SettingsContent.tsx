@@ -1,11 +1,9 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ThemeSettings } from "@/components/settings/ThemeSettings";
-import { CompanySettingsSection } from "@/components/settings/CompanySettingsSection";
 import { EmployeeSettingsSection } from "@/components/settings/EmployeeSettingsSection";
 import { AboutSection } from "@/components/settings/AboutSection";
-import { PayrollSettingsSection } from "@/components/settings/PayrollSettingsSection";
 import { SecuritySettingsSection } from "@/components/settings/SecuritySettingsSection";
 import { NotificationsSection } from "@/components/settings/NotificationsSection";
 import { IntegrationsSection } from "@/components/settings/IntegrationsSection";
@@ -28,14 +26,27 @@ import {
     RefreshCw,
     Database,
     Info,
-    Settings as SettingsIcon,
     Mail,
-    FileText
+    FileText,
+    Settings as SettingsIcon,
+    Building2 as BuildingIcon
 } from "lucide-react";
+import { AdvancedSettingsLayout } from "./AdvancedSettingsLayout";
+import { PayrollSettingsSection } from "./PayrollSettingsSection";
+import { CompanySettingsSection } from "./CompanySettingsSection";
+import PayrollAdvancedSettings from "@/pages/PayrollAdvancedSettings";
+import { OrganizationSetupModal } from "../organization-setup/OrganizationSetupModal";
+import { OrganizationSetupLayout } from "@/components/organization-setup/OrganizationSetupLayout";
 
-export const SettingsContent = () => {
+export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange?: (isAdvanced: boolean, mode: 'payroll' | 'org' | null) => void }) => {
     const [activeSection, setActiveSection] = useState("theme");
+    const [activeAdvancedMode, setActiveAdvancedMode] = useState<'payroll' | 'org' | null>(null);
     const { role, isSuperAdmin } = useUserRole();
+
+    // Trigger external notification when advanced mode changes
+    useEffect(() => {
+        onAdvancedModeChange?.(!!activeAdvancedMode, activeAdvancedMode);
+    }, [activeAdvancedMode, onAdvancedModeChange]);
 
     // Define menu items with role requirements
     const allMenuItems = [
@@ -158,12 +169,12 @@ export const SettingsContent = () => {
         return true;
     });
 
-    const renderSection = () => {
+    const renderStandardContent = () => {
         switch (activeSection) {
             case "company":
                 return (
                     <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration">
-                        <CompanySettingsSection />
+                        <CompanySettingsSection onOpenAdvanced={() => setActiveAdvancedMode('org')} />
                     </SettingsSectionGuard>
                 );
             case "employee":
@@ -185,7 +196,7 @@ export const SettingsContent = () => {
             case "payroll":
                 return (
                     <SettingsSectionGuard requiredRole="ORG_FINANCE_CONTROLLER" requiredPermission="process_payroll">
-                        <PayrollSettingsSection />
+                        <PayrollSettingsSection onOpenAdvanced={() => setActiveAdvancedMode('payroll')} />
                     </SettingsSectionGuard>
                 );
             case "security":
@@ -254,6 +265,34 @@ export const SettingsContent = () => {
         }
     };
 
+    // 2. ADVANCED MODE SWITCHER
+    if (activeAdvancedMode === 'payroll') {
+        return (
+            <AdvancedSettingsLayout
+                title="Payroll Settings"
+                description="Configure advanced payroll features including approvals, locks, overrides, and compliance settings."
+                icon={DollarSign}
+                onBack={() => setActiveAdvancedMode(null)}
+            >
+                <PayrollAdvancedSettings isEmbedded={true} onBack={() => setActiveAdvancedMode(null)} />
+            </AdvancedSettingsLayout>
+        );
+    }
+
+    if (activeAdvancedMode === 'org') {
+        return (
+            <AdvancedSettingsLayout
+                title="Organization Settings"
+                description="Configure your organization structure, units, and employee categories for precise payroll management."
+                icon={BuildingIcon}
+                onBack={() => setActiveAdvancedMode(null)}
+                subtitle="Setup"
+            >
+                <OrganizationSetupLayout onBack={() => setActiveAdvancedMode(null)} />
+            </AdvancedSettingsLayout>
+        );
+    }
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="md:col-span-1">
@@ -289,7 +328,7 @@ export const SettingsContent = () => {
             </div>
 
             <div className="md:col-span-3">
-                {renderSection()}
+                {renderStandardContent()}
             </div>
         </div>
     );

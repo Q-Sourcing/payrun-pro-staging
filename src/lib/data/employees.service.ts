@@ -8,7 +8,7 @@ export interface Employee {
   last_name: string;
   email: string;
   employee_type: string;
-  department?: string;
+  sub_department?: string;
   created_at: string;
   updated_at: string;
 }
@@ -56,11 +56,11 @@ export class EmployeesService {
 
     try {
       // Simple query first
-      let query = supabase
+      let query = (supabase
         .from('employees')
         .select('*', { count: 'exact' })
         .range(from, to)
-        .order('first_name');
+        .order('first_name')) as any;
 
       // Apply filters
       if (search) {
@@ -71,57 +71,83 @@ export class EmployeesService {
         query = query.eq('employee_type', employee_type);
       }
 
-      const { data: employees, error, count } = await query;
+      const { data: employees, error, count } = await (query as any);
 
       if (error) throw error;
 
-      let transformedData: EmployeeWithPayGroup[] = (employees || []).map(emp => ({
+      let transformedData: EmployeeWithPayGroup[] = (employees || []).map((emp: any) => ({
         id: emp.id,
         first_name: emp.first_name,
         middle_name: emp.middle_name,
         last_name: emp.last_name,
         email: emp.email,
         employee_type: emp.employee_type,
-        department: emp.department,
+        sub_department: emp.sub_department,
         created_at: emp.created_at,
         updated_at: emp.updated_at
       }));
 
       // If pay group info is needed, fetch it separately
       if (include_pay_group && employees && employees.length > 0) {
-        const employeeIds = employees.map(e => e.id);
+        const employeeIds = employees.map((e: any) => e.id);
 
-        // Fetch pay groups for employees with direct assignment
-        const { data: empWithGroups } = await supabase
+        // 1. Fetch legacy/project pay groups
+        const { data: legacyAssignments } = await supabase
           .from('employees')
-          .select('id, pay_group_id')
+          .select('id, pay_group_id, category')
           .in('id', employeeIds)
-          .not('pay_group_id', 'is', null);
+          .not('pay_group_id', 'is', null) as any;
 
-        // Get unique pay group IDs
-        const payGroupIds = [...new Set((empWithGroups || []).map(e => e.pay_group_id).filter(Boolean))];
+        // 2. Fetch Head Office memberships
+        const { data: hoMemberships } = await supabase
+          .from('head_office_pay_group_members' as any)
+          .select('employee_id, pay_group_id, pay_group_type')
+          .in('employee_id', employeeIds)
+          .eq('active', true) as any;
 
-        if (payGroupIds.length > 0) {
-          // Fetch pay group details
-          const { data: payGroups } = await supabase
-            .from('pay_groups')
-            .select('id, name, country')
-            .in('id', payGroupIds as string[]);
+        // Collect all PayGroup IDs to fetch details
+        const allPgIds = [
+          ...new Set([
+            ...(legacyAssignments || []).map((a: any) => a.pay_group_id),
+            ...(hoMemberships || []).map((m: any) => m.pay_group_id)
+          ])
+        ].filter(Boolean) as string[];
 
-          // Merge pay group info
-          const payGroupMap = new Map((payGroups || []).map(pg => [pg.id, pg]));
-          
+        if (allPgIds.length > 0) {
+          // We need to check multiple tables for Head Office
+          const [
+            { data: regularPg },
+            { data: internPg },
+            { data: expatriatePg },
+            { data: legacyPg }
+          ] = await Promise.all([
+            supabase.from('head_office_pay_groups_regular' as any).select('id, name').in('id', allPgIds),
+            supabase.from('head_office_pay_groups_interns' as any).select('id, name').in('id', allPgIds),
+            supabase.from('head_office_pay_groups_expatriates' as any).select('id, name').in('id', allPgIds),
+            supabase.from('pay_groups').select('id, name').in('id', allPgIds) // Still needed for projects
+          ]) as any[];
+
+          const namesMap = new Map<string, { name: string, type: string }>();
+          (regularPg || []).forEach((p: any) => namesMap.set(p.id, { name: p.name, type: 'regular' }));
+          (internPg || []).forEach((p: any) => namesMap.set(p.id, { name: p.name, type: 'intern' }));
+          (expatriatePg || []).forEach((p: any) => namesMap.set(p.id, { name: p.name, type: 'expatriate' }));
+          (legacyPg || []).forEach((p: any) => namesMap.set(p.id, { name: p.name, type: 'project' }));
+
           transformedData = transformedData.map(emp => {
-            const empGroup = empWithGroups?.find(e => e.id === emp.id);
-            const payGroup = empGroup?.pay_group_id ? payGroupMap.get(empGroup.pay_group_id) : null;
-            
-            if (payGroup) {
+            // Priority: HO Membership first
+            const hoMember = hoMemberships?.find((m: any) => m.employee_id === emp.id);
+            const legacyAss = legacyAssignments?.find((a: any) => a.id === emp.id);
+
+            const pgId = hoMember?.pay_group_id || legacyAss?.pay_group_id;
+            const details = pgId ? namesMap.get(pgId) : null;
+
+            if (details) {
               return {
                 ...emp,
                 current_pay_group: {
-                  id: payGroup.id,
-                  name: payGroup.name,
-                  type: 'local'
+                  id: pgId!,
+                  name: details.name,
+                  type: details.type
                 }
               };
             }
@@ -147,14 +173,14 @@ export class EmployeesService {
    */
   static async getEmployeesByProject(projectId: string, organizationId?: string): Promise<EmployeeWithPayGroup[]> {
     try {
-      let query = supabase
+      let query = (supabase
         .from('employees')
-        .select('id, first_name, middle_name, last_name, email, employee_type, department, pay_type, pay_group_id, status, project_id, category, pay_frequency, currency, country')
-        .eq('project_id', projectId);
+        .select('id, first_name, middle_name, last_name, email, employee_type, sub_department, pay_type, pay_group_id, status, project_id, category, pay_frequency, currency, country')
+        .eq('project_id', projectId)) as any;
       if (organizationId) {
         query = (query as any).eq('organization_id', organizationId);
       }
-      const { data, error } = await query.order('first_name');
+      const { data, error } = await (query as any).order('first_name');
       if (error) throw error;
       return (data || []).map((emp: any) => ({
         id: emp.id,
@@ -163,7 +189,7 @@ export class EmployeesService {
         last_name: emp.last_name,
         email: emp.email,
         employee_type: emp.employee_type,
-        department: emp.department,
+        sub_department: emp.sub_department,
         created_at: '',
         updated_at: '',
         // passthrough fields useful for UI
@@ -188,7 +214,7 @@ export class EmployeesService {
   static async assignToProject(employeeId: string, projectId: string) {
     const { error } = await supabase
       .from('employees')
-      .update({ project_id: projectId, category: 'projects' })
+      .update({ project_id: projectId, category: 'projects' } as any)
       .eq('id', employeeId);
     if (error) throw error;
   }
@@ -214,13 +240,13 @@ export class EmployeesService {
     status: string | null;
   }>> {
     const { organizationId, projectId, payType, employeeType } = params;
-    let query = supabase
+    let query = (supabase
       .from('employees')
       .select('id, first_name, middle_name, last_name, email, employee_number, project_id, pay_type, employee_type, status, category')
       .eq('project_id', projectId)
       .eq('category', 'projects')
       .eq('pay_type', payType)
-      .eq('status', 'active');
+      .eq('status', 'active')) as any;
 
     if (employeeType) {
       query = query.eq('employee_type', employeeType);
@@ -229,7 +255,7 @@ export class EmployeesService {
       query = (query as any).eq('organization_id', organizationId);
     }
 
-    const { data, error } = await query.order('first_name');
+    const { data, error } = await (query.order('first_name') as any);
     if (error) throw error;
     return (data || []) as any[];
   }
@@ -240,7 +266,7 @@ export class EmployeesService {
   static async removeFromProject(employeeId: string) {
     const { error } = await supabase
       .from('employees')
-      .update({ project_id: null })
+      .update({ project_id: null } as any)
       .eq('id', employeeId);
     if (error) throw error;
   }
@@ -274,7 +300,7 @@ export class EmployeesService {
           last_name,
           email,
           employee_type,
-          department,
+          sub_department,
           created_at,
           updated_at
         `)
@@ -286,7 +312,7 @@ export class EmployeesService {
         throw error;
       }
 
-      return data;
+      return data as any;
     } catch (error) {
       console.error('Error fetching employee:', error);
       throw new Error(`Failed to fetch employee: ${error.message}`);
@@ -324,7 +350,7 @@ export class EmployeesService {
 
       if (error) throw error;
 
-      const counts = (data || []).reduce((acc, emp) => {
+      const counts = (data || []).reduce((acc: any, emp: any) => {
         acc[emp.employee_type] = (acc[emp.employee_type] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
@@ -354,7 +380,7 @@ export class EmployeesService {
         employee_type: validatedData.employee_type,
         employee_category: validatedData.employee_category,
         employment_status: validatedData.employment_status || 'Active',
-        department: validatedData.department,
+        sub_department: validatedData.sub_department,
         project: validatedData.project,
         country: validatedData.country,
         pay_type: validatedData.pay_type,
@@ -381,9 +407,33 @@ export class EmployeesService {
         .from('employees')
         .insert(insertData)
         .select()
-        .single();
+        .single() as any;
 
       if (error) throw error;
+
+      // Sync Head Office membership if applicable
+      if (validatedData.category === 'head_office' && validatedData.pay_group_id) {
+        // Fetch the master entry to confirm the type
+        const { data: masterEntry } = await (supabase
+          .from('pay_group_master' as any)
+          .select('id, employee_type')
+          .eq('source_id', validatedData.pay_group_id)
+          .single() as any);
+
+        let pgType: any = 'regular';
+        const empType = masterEntry?.employee_type || validatedData.employee_type;
+
+        if (empType.toLowerCase().includes('intern')) pgType = 'intern';
+        else if (empType.toLowerCase().includes('expatriate')) pgType = 'expatriate';
+        else pgType = 'regular';
+
+        await (supabase.from('head_office_pay_group_members' as any).insert({
+          pay_group_id: validatedData.pay_group_id,
+          employee_id: employee.id,
+          pay_group_type: pgType,
+          active: true
+        }) as any);
+      }
 
       return {
         id: employee.id,
@@ -392,7 +442,7 @@ export class EmployeesService {
         last_name: employee.last_name || '',
         email: employee.email,
         employee_type: employee.employee_type,
-        department: employee.department,
+        sub_department: employee.sub_department,
         created_at: employee.created_at,
         updated_at: employee.updated_at,
       };
@@ -439,7 +489,7 @@ export class EmployeesService {
         updateData.employment_status = validatedData.employment_status;
         updateData.status = validatedData.employment_status === 'Active' ? 'active' : 'inactive';
       }
-      if (validatedData.department !== undefined) updateData.department = validatedData.department;
+      if (validatedData.sub_department !== undefined) updateData.sub_department = validatedData.sub_department;
       if (validatedData.project !== undefined) updateData.project = validatedData.project;
       if (validatedData.country !== undefined) updateData.country = validatedData.country;
       if (validatedData.pay_type !== undefined) updateData.pay_type = validatedData.pay_type;
@@ -466,9 +516,40 @@ export class EmployeesService {
         .update(updateData)
         .eq('id', id)
         .select()
-        .single();
+        .single() as any;
 
       if (error) throw error;
+
+      // Sync Head Office membership if pay_group_id or category changed
+      if (validatedData.category === 'head_office' && validatedData.pay_group_id) {
+        // Fetch the master entry to confirm the type
+        const { data: masterEntry } = await (supabase
+          .from('pay_group_master' as any)
+          .select('id, employee_type')
+          .eq('source_id', validatedData.pay_group_id)
+          .single() as any);
+
+        let pgType: any = 'regular';
+        const empType = masterEntry?.employee_type || validatedData.employee_type || employee.employee_type;
+
+        if (empType.toLowerCase().includes('intern')) pgType = 'intern';
+        else if (empType.toLowerCase().includes('expatriate')) pgType = 'expatriate';
+        else pgType = 'regular';
+
+        // Deactivate old memberships
+        await (supabase
+          .from('head_office_pay_group_members' as any)
+          .update({ active: false })
+          .eq('employee_id', id) as any);
+
+        // Add new membership
+        await (supabase.from('head_office_pay_group_members' as any).insert({
+          pay_group_id: validatedData.pay_group_id,
+          employee_id: id,
+          pay_group_type: pgType,
+          active: true
+        }) as any);
+      }
 
       return {
         id: employee.id,
@@ -477,7 +558,7 @@ export class EmployeesService {
         last_name: employee.last_name || '',
         email: employee.email,
         employee_type: employee.employee_type,
-        department: employee.department,
+        sub_department: employee.sub_department,
         created_at: employee.created_at,
         updated_at: employee.updated_at,
       };
@@ -515,7 +596,7 @@ export class EmployeesService {
             status: 'inactive',
             employment_status: 'Terminated',
             updated_at: new Date().toISOString(),
-          })
+          } as any)
           .eq('id', id);
 
         if (error) throw error;
@@ -531,18 +612,17 @@ export class EmployeesService {
    */
   private static async generateEmployeeNumber(): Promise<string> {
     try {
-      // Get the latest employee number
-      const { data, error } = await supabase
-        .from('employees')
+      const { data, error } = await (supabase
+        .from('employees' as any)
         .select('employee_number')
         .order('created_at', { ascending: false })
-        .limit(1);
+        .limit(1) as any);
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error && (error as any).code !== 'PGRST116') throw error;
 
-      if (data && data.length > 0 && data[0].employee_number) {
+      if (data && data.length > 0 && (data[0] as any).employee_number) {
         // Extract number from existing employee number (format: EMP-000001)
-        const lastNumber = parseInt(data[0].employee_number.replace('EMP-', ''), 10);
+        const lastNumber = parseInt((data[0] as any).employee_number.replace('EMP-', ''), 10);
         const nextNumber = (lastNumber + 1).toString().padStart(6, '0');
         return `EMP-${nextNumber}`;
       }

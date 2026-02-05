@@ -14,19 +14,19 @@ CREATE TABLE IF NOT EXISTS public.settings (
 ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
-CREATE POLICY "Users can view their own settings"
+DROP POLICY IF EXISTS "Users can view their own settings" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can view their own settings" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can view their own settings" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can view their own settings" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Users can view their own settings"
   ON public.settings FOR SELECT
   USING (auth.uid() = user_id OR user_id IS NULL);
 
-CREATE POLICY "Users can insert their own settings"
+DROP POLICY IF EXISTS "Users can insert their own settings" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can insert their own settings" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can insert their own settings" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can insert their own settings" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Users can insert their own settings"
   ON public.settings FOR INSERT
   WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
 
-CREATE POLICY "Users can update their own settings"
+DROP POLICY IF EXISTS "Users can update their own settings" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can update their own settings" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can update their own settings" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can update their own settings" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Users can update their own settings"
   ON public.settings FOR UPDATE
   USING (auth.uid() = user_id OR user_id IS NULL);
 
-CREATE POLICY "Users can delete their own settings"
+DROP POLICY IF EXISTS "Users can delete their own settings" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can delete their own settings" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can delete their own settings" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can delete their own settings" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Users can delete their own settings"
   ON public.settings FOR DELETE
   USING (auth.uid() = user_id OR user_id IS NULL);
 

@@ -36,14 +36,14 @@ interface GeneratePayrollSummaryDialogProps {
 }
 
 export const GeneratePayrollSummaryDialog = ({ open, onOpenChange, payRunId }: GeneratePayrollSummaryDialogProps) => {
-  const [reportType, setReportType] = useState<"comprehensive" | "employer" | "tax" | "department">("comprehensive");
+  const [reportType, setReportType] = useState<"comprehensive" | "employer" | "tax" | "sub_department">("comprehensive");
   const [exportFormat, setExportFormat] = useState<"pdf" | "excel" | "csv">("pdf");
   const [includeLogo, setIncludeLogo] = useState(true);
   const [includeExecutiveSummary, setIncludeExecutiveSummary] = useState(true);
   const [includeBreakdown, setIncludeBreakdown] = useState(true);
   const [includeContributions, setIncludeContributions] = useState(true);
   const [includeTaxSummary, setIncludeTaxSummary] = useState(true);
-  const [includeDepartmental, setIncludeDepartmental] = useState(true);
+  const [includeDepartmental, setIncludeDepartmental] = useState(true); // Label will be updated to Sub-Departmental Costing
   const [includePaymentInstructions, setIncludePaymentInstructions] = useState(true);
   const [includeCompliance, setIncludeCompliance] = useState(true);
   const [includeComparative, setIncludeComparative] = useState(false);
@@ -64,12 +64,12 @@ export const GeneratePayrollSummaryDialog = ({ open, onOpenChange, payRunId }: G
   const { userContext } = useSupabaseAuth();
 
   const canExport = useMemo(() => {
-    if (!userContext?.role || !payRunContext) return false;
-    // Default to head_office if context/category is missing
+    if (!payRunContext?.payRun) return false;
     const category = payRunContext.payRun.pay_group_master?.category;
     const scope = category === 'projects' ? 'project' : 'head_office';
-    return RBACService.roleHasScopedPermission(userContext.role, 'payroll.export', scope);
-  }, [userContext?.role, payRunContext]);
+    // Use hasScopedPermission instead of roleHasScopedPermission
+    return RBACService.hasScopedPermission('payroll.export', scope as any);
+  }, [userContext, payRunContext]);
 
   useEffect(() => {
     if (open) {
@@ -122,8 +122,8 @@ export const GeneratePayrollSummaryDialog = ({ open, onOpenChange, payRunId }: G
   };
 
   const loadPayRunContext = async (): Promise<PayRunContext> => {
-    const { data, error } = await supabase
-      .from("pay_runs")
+    const { data, error } = await (supabase
+      .from("pay_runs" as any)
       .select(`
         *,
         pay_group_master:pay_group_master_id(name, country, category),
@@ -136,13 +136,13 @@ export const GeneratePayrollSummaryDialog = ({ open, onOpenChange, payRunId }: G
             email,
             pay_type,
             pay_rate,
-            department,
+            sub_department,
             employee_type
           )
         )
       `)
       .eq("id", payRunId)
-      .single();
+      .single() as any);
 
     if (error) throw error;
 
@@ -153,8 +153,8 @@ export const GeneratePayrollSummaryDialog = ({ open, onOpenChange, payRunId }: G
     const logoDataUrl = await fetchLogoDataUrl();
 
     const context: PayRunContext = {
-      payRun: data,
-      payItems,
+      payRun: data as any,
+      payItems: (data as any).pay_items || [],
       currency,
       employerNSSF,
       totalEmployerCost,
@@ -542,7 +542,7 @@ export const GeneratePayrollSummaryDialog = ({ open, onOpenChange, payRunId }: G
     XLSX.utils.book_append_sheet(wb, ws1, "Executive Summary");
 
     // Worksheet 2: Employee Details
-    const employeeHeaders = ["Name", "Email", "Pay Type", "Department", "Gross Pay", "Tax Deduction", "Benefit Deductions", "Total Deductions", "Net Pay", "Status"];
+    const employeeHeaders = ["Name", "Email", "Pay Type", "Sub-Department", "Gross Pay", "Tax Deduction", "Benefit Deductions", "Total Deductions", "Net Pay", "Status"];
     const employeeData = payItems.map(item => {
       const fullName = [item.employees.first_name, item.employees.middle_name, item.employees.last_name]
         .filter(Boolean).join(' ');
@@ -550,7 +550,7 @@ export const GeneratePayrollSummaryDialog = ({ open, onOpenChange, payRunId }: G
         fullName,
         item.employees.email,
         item.employees.pay_type,
-        item.employees.department || "N/A",
+        item.employees.sub_department || "N/A",
         item.gross_pay,
         item.tax_deduction,
         item.benefit_deductions,
@@ -707,9 +707,9 @@ export const GeneratePayrollSummaryDialog = ({ open, onOpenChange, payRunId }: G
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="department" id="department" />
-                  <Label htmlFor="department" className="font-normal">
-                    Departmental Cost Analysis
+                  <RadioGroupItem value="sub_department" id="sub_department" />
+                  <Label htmlFor="sub_department" className="font-normal">
+                    Sub-Departmental Cost Analysis
                   </Label>
                 </div>
               </RadioGroup>
@@ -775,7 +775,7 @@ export const GeneratePayrollSummaryDialog = ({ open, onOpenChange, payRunId }: G
                     onCheckedChange={(checked) => setIncludeDepartmental(checked as boolean)}
                   />
                   <Label htmlFor="departmental" className="font-normal">
-                    Department/project costing
+                    Sub-Department/project costing
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">

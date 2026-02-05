@@ -42,7 +42,7 @@ ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
 
 -- Auth Events Select
 DROP POLICY IF EXISTS "auth_events_select_policy" ON public.auth_events;
-CREATE POLICY "auth_events_select_policy" ON public.auth_events
+DROP POLICY IF EXISTS "auth_events_select_policy" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "auth_events_select_policy" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "auth_events_select_policy" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "auth_events_select_policy" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "auth_events_select_policy" ON public.auth_events; CREATE POLICY "auth_events_select_policy" ON public.auth_events
 FOR SELECT TO authenticated
 USING (
     public.is_platform_admin() OR 
@@ -57,13 +57,13 @@ USING (
 
 -- Auth Events Insert (Allow anyone to log their own events)
 DROP POLICY IF EXISTS "auth_events_insert_policy" ON public.auth_events;
-CREATE POLICY "auth_events_insert_policy" ON public.auth_events
+DROP POLICY IF EXISTS "auth_events_insert_policy" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "auth_events_insert_policy" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "auth_events_insert_policy" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "auth_events_insert_policy" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "auth_events_insert_policy" ON public.auth_events; CREATE POLICY "auth_events_insert_policy" ON public.auth_events
 FOR INSERT TO authenticated
 WITH CHECK (user_id = auth.uid());
 
 -- Activity Logs Select
 DROP POLICY IF EXISTS "activity_logs_select_policy" ON public.activity_logs;
-CREATE POLICY "activity_logs_select_policy" ON public.activity_logs
+DROP POLICY IF EXISTS "activity_logs_select_policy" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "activity_logs_select_policy" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "activity_logs_select_policy" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "activity_logs_select_policy" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "activity_logs_select_policy" ON public.activity_logs; CREATE POLICY "activity_logs_select_policy" ON public.activity_logs
 FOR SELECT TO authenticated
 USING (
     public.is_platform_admin() OR 
@@ -72,7 +72,7 @@ USING (
 
 -- Activity Logs Insert
 DROP POLICY IF EXISTS "activity_logs_insert_policy" ON public.activity_logs;
-CREATE POLICY "activity_logs_insert_policy" ON public.activity_logs
+DROP POLICY IF EXISTS "activity_logs_insert_policy" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "activity_logs_insert_policy" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "activity_logs_insert_policy" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "activity_logs_insert_policy" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "activity_logs_insert_policy" ON public.activity_logs; CREATE POLICY "activity_logs_insert_policy" ON public.activity_logs
 FOR INSERT TO authenticated
 WITH CHECK (user_id = auth.uid());
 

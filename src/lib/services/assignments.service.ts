@@ -58,7 +58,7 @@ export class AssignmentsService {
    */
   static async getAssignmentsByPayGroup(payGroupId: string) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('paygroup_employees')
         .select(`
           *,
@@ -68,7 +68,7 @@ export class AssignmentsService {
             middle_name,
             last_name,
             email,
-            department
+            sub_department
           )
         `)
         .eq('pay_group_id', payGroupId)
@@ -88,7 +88,7 @@ export class AssignmentsService {
    */
   static async getAssignmentsByEmployee(employeeId: string) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('paygroup_employees')
         .select(`
           *,
@@ -116,7 +116,7 @@ export class AssignmentsService {
    */
   static async deactivateAssignment(assignmentId: string) {
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('paygroup_employees')
         .update({ active: false })
         .eq('id', assignmentId);
@@ -134,7 +134,7 @@ export class AssignmentsService {
    */
   static async getPayrollConfiguration(organizationId: string) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('payroll_configurations')
         .select('*')
         .eq('organization_id', organizationId)
@@ -153,7 +153,7 @@ export class AssignmentsService {
    */
   static async updatePayrollConfiguration(organizationId: string, useStrictMode: boolean) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('payroll_configurations')
         .upsert({
           organization_id: organizationId,

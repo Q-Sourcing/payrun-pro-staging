@@ -2,11 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { logAuditEvent, extractIpAddress, extractUserAgent } from '../_shared/audit-logger.ts'
 import { validateRequest, CreatePayItemRequestSchema, UpdatePayItemRequestSchema, DeletePayItemRequestSchema } from '../_shared/validation-schemas.ts'
+import { corsHeaders } from '../_shared/cors.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
 
 type PayItemStatus = 'draft' | 'pending' | 'approved' | 'paid'
 
@@ -116,59 +113,41 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Authorization header required' 
+        JSON.stringify({
+          success: false,
+          message: 'Authorization header required'
         } as PayItemResponse),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
     // Extract the JWT token
     const token = authHeader.replace('Bearer ', '')
-    
+
     // Verify the token and get user info
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
-    
+
     if (authError || !user) {
       console.error('Authentication failed:', authError)
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Invalid authentication token' 
+        JSON.stringify({
+          success: false,
+          message: 'Invalid authentication token'
         } as PayItemResponse),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
-    // Check user permissions (finance, admin, or super_admin can manage pay items)
-    const { data: userRole, error: roleError } = await supabaseAdmin
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single()
-
-    if (roleError || !userRole) {
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Failed to verify user permissions' 
-        } as PayItemResponse),
-        { 
-          status: 403, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
-
-    const role = userRole.role
-    const canManagePayItems = ['finance', 'admin', 'super_admin'].includes(role)
+    // Check user permissions (OBAC system)
+    const rbacPermissions = user.app_metadata?.rbac_permissions || []
+    const isPlatformAdmin = user.app_metadata?.is_platform_admin || false
+    const canManagePayItems = isPlatformAdmin || rbacPermissions.includes('payroll.prepare')
 
     // Extract IP and user agent for audit logging
     const ipAddress = extractIpAddress(req)
@@ -187,14 +166,14 @@ serve(async (req) => {
       })
 
       return new Response(
-        JSON.stringify({ 
-          success: false, 
+        JSON.stringify({
+          success: false,
           message: 'Insufficient permissions. Finance, Admin, or Super Admin role required.',
           code: 'PERMISSION_DENIED'
         } as PayItemResponse),
-        { 
-          status: 403, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
@@ -217,14 +196,14 @@ serve(async (req) => {
         })
 
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             message: validationError instanceof Error ? validationError.message : 'Invalid request data',
             code: 'VALIDATION_ERROR'
           } as PayItemResponse),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
@@ -248,14 +227,14 @@ serve(async (req) => {
         })
 
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             message: 'Pay run not found',
             code: 'NOT_FOUND'
           } as PayItemResponse),
-          { 
-            status: 404, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
@@ -272,14 +251,14 @@ serve(async (req) => {
         })
 
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             message: 'Cannot add pay items to processed pay runs',
             code: 'PROCESSED_PAYRUN_PROTECTION'
           } as PayItemResponse),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
@@ -311,13 +290,13 @@ serve(async (req) => {
 
       if (error) {
         console.error('Error creating pay item:', error)
-        
+
         await logAuditEvent(supabaseAdmin, {
           user_id: user.id,
           action: 'payitem.create',
           resource: 'pay_items',
-          details: { 
-            pay_run_id: body.pay_run_id, 
+          details: {
+            pay_run_id: body.pay_run_id,
             employee_id: body.employee_id,
             error: error.message,
             error_code: error.code
@@ -329,26 +308,26 @@ serve(async (req) => {
 
         if (error.code === '23505') {
           return new Response(
-            JSON.stringify({ 
-              success: false, 
+            JSON.stringify({
+              success: false,
               message: 'A pay item for this employee already exists in this pay run',
               code: 'DUPLICATE_PAY_ITEM'
             } as PayItemResponse),
-            { 
-              status: 400, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             }
           )
         }
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             message: 'Failed to create pay item: ' + error.message,
             code: 'CREATE_ERROR'
           } as PayItemResponse),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
@@ -366,7 +345,7 @@ serve(async (req) => {
         user_id: user.id,
         action: 'payitem.create',
         resource: 'pay_items',
-        details: { 
+        details: {
           pay_item_id: payItem.id,
           pay_run_id: body.pay_run_id,
           employee_id: body.employee_id,
@@ -381,14 +360,14 @@ serve(async (req) => {
       console.log(`Pay item created: ${payItem.id} by ${user.email}`)
 
       return new Response(
-        JSON.stringify({ 
-          success: true, 
+        JSON.stringify({
+          success: true,
           message: 'Pay item created successfully',
           pay_item: payItem
         } as PayItemResponse),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
@@ -411,14 +390,14 @@ serve(async (req) => {
         })
 
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             message: validationError instanceof Error ? validationError.message : 'Invalid request data',
             code: 'VALIDATION_ERROR'
           } as PayItemResponse),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
@@ -442,14 +421,14 @@ serve(async (req) => {
         })
 
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             message: 'Pay item not found',
             code: 'NOT_FOUND'
           } as PayItemResponse),
-          { 
-            status: 404, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
@@ -467,14 +446,14 @@ serve(async (req) => {
         })
 
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             message: 'Cannot update pay items in processed pay runs',
             code: 'PROCESSED_PAYRUN_PROTECTION'
           } as PayItemResponse),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
@@ -497,7 +476,7 @@ serve(async (req) => {
       const grossPay = updateData.gross_pay !== undefined ? updateData.gross_pay : existing.gross_pay
       const taxDeduction = updateData.tax_deduction !== undefined ? updateData.tax_deduction : existing.tax_deduction
       const benefitDeductions = updateData.benefit_deductions !== undefined ? updateData.benefit_deductions : existing.benefit_deductions
-      
+
       updateData.total_deductions = taxDeduction + benefitDeductions
       updateData.net_pay = grossPay - updateData.total_deductions
 
@@ -510,7 +489,7 @@ serve(async (req) => {
 
       if (updateError) {
         console.error('Error updating pay item:', updateError)
-        
+
         await logAuditEvent(supabaseAdmin, {
           user_id: user.id,
           action: 'payitem.update',
@@ -522,14 +501,14 @@ serve(async (req) => {
         })
 
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             message: 'Failed to update pay item: ' + updateError.message,
             code: 'UPDATE_ERROR'
           } as PayItemResponse),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
@@ -547,7 +526,7 @@ serve(async (req) => {
         user_id: user.id,
         action: 'payitem.update',
         resource: 'pay_items',
-        details: { 
+        details: {
           pay_item_id: body.id,
           pay_run_id: existing.pay_run_id,
           employee_id: existing.employee_id,
@@ -561,14 +540,14 @@ serve(async (req) => {
       console.log(`Pay item updated: ${body.id} by ${user.email}`)
 
       return new Response(
-        JSON.stringify({ 
-          success: true, 
+        JSON.stringify({
+          success: true,
           message: 'Pay item updated successfully',
           pay_item: updatedPayItem
         } as PayItemResponse),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
@@ -591,14 +570,14 @@ serve(async (req) => {
         })
 
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             message: validationError instanceof Error ? validationError.message : 'Invalid request data',
             code: 'VALIDATION_ERROR'
           } as PayItemResponse),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
@@ -622,14 +601,14 @@ serve(async (req) => {
         })
 
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             message: 'Pay item not found',
             code: 'NOT_FOUND'
           } as PayItemResponse),
-          { 
-            status: 404, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
@@ -647,14 +626,14 @@ serve(async (req) => {
         })
 
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             message: 'Cannot delete pay items from processed pay runs',
             code: 'PROCESSED_PAYRUN_PROTECTION'
           } as PayItemResponse),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
@@ -668,7 +647,7 @@ serve(async (req) => {
 
       if (deleteError) {
         console.error('Error deleting pay item:', deleteError)
-        
+
         await logAuditEvent(supabaseAdmin, {
           user_id: user.id,
           action: 'payitem.delete',
@@ -680,14 +659,14 @@ serve(async (req) => {
         })
 
         return new Response(
-          JSON.stringify({ 
-            success: false, 
+          JSON.stringify({
+            success: false,
             message: 'Failed to delete pay item: ' + deleteError.message,
             code: 'DELETE_ERROR'
           } as PayItemResponse),
-          { 
-            status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
@@ -714,38 +693,38 @@ serve(async (req) => {
       console.log(`Pay item deleted: ${body.id} by ${user.email}`)
 
       return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'Pay item deleted successfully' 
+        JSON.stringify({
+          success: true,
+          message: 'Pay item deleted successfully'
         } as PayItemResponse),
-        { 
-          status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        message: 'Method not allowed' 
+      JSON.stringify({
+        success: false,
+        message: 'Method not allowed'
       } as PayItemResponse),
-      { 
-        status: 405, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 405,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
 
   } catch (error) {
     console.error('Unexpected error in manage-payitems function:', error)
-    
+
     // Try to log the error (but don't fail if logging fails)
     try {
       const ipAddress = extractIpAddress(req)
       const userAgent = extractUserAgent(req)
       const authHeader = req.headers.get('Authorization')
       const token = authHeader?.replace('Bearer ', '')
-      
+
       if (token) {
         const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
         if (serviceRoleKey) {
@@ -759,7 +738,7 @@ serve(async (req) => {
               }
             }
           )
-          
+
           const { data: { user } } = await supabaseAdmin.auth.getUser(token)
           if (user) {
             await logAuditEvent(supabaseAdmin, {
@@ -777,16 +756,16 @@ serve(async (req) => {
     } catch (logError) {
       console.error('Failed to log error:', logError)
     }
-    
+
     return new Response(
-      JSON.stringify({ 
-        success: false, 
+      JSON.stringify({
+        success: false,
         message: 'Internal server error: ' + (error instanceof Error ? error.message : 'Unknown error'),
         code: 'INTERNAL_ERROR'
       } as PayItemResponse),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
   }

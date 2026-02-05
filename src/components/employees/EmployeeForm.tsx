@@ -19,7 +19,7 @@ import { PayGroup } from "@/lib/types/paygroups";
 import { CompaniesService, Company } from "@/lib/services/companies.service";
 import { CompanyUnitsService, CompanyUnit } from '@/lib/services/company-units.service';
 import { EmployeeCategoriesService, EmployeeCategory } from '@/lib/services/employee-categories.service';
-import { DepartmentsService, Department } from '@/lib/services/departments.service';
+import { SubDepartmentsService, SubDepartment } from '@/lib/services/sub-departments.service';
 import { BanksService, Bank } from "@/lib/services/banks.service";
 import { useOrg } from "@/lib/tenant/OrgContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -60,10 +60,10 @@ export type EmployeeFormValues = {
   bank_branch?: string | null;
   account_number?: string | null;
   account_type?: string | null;
-  department?: string | null;
+  sub_department?: string | null;
   company_id?: string | null;
   company_unit_id?: string | null;
-  department_id?: string | null;
+  sub_department_id?: string | null;
   date_joined?: string | null;
   employee_number?: string | null;
   employee_prefix?: string | null;
@@ -100,18 +100,33 @@ const employeeFormSchema = z.object({
   bank_branch: z.string().optional().nullable(),
   account_number: z.string().optional().nullable(),
   account_type: z.string().optional().nullable(),
-  department: z.string().optional().nullable(),
+  sub_department: z.string().optional().nullable(),
   company_id: z.string().optional().nullable(),
   company_unit_id: z.string().optional().nullable(),
-  department_id: z.string().optional().nullable(),
+  sub_department_id: z.string().optional().nullable(),
   date_joined: z.string().optional().nullable(),
   employee_number: z.string().optional().nullable(),
   employee_prefix: z.string().optional().nullable(),
   reporting_manager_id: z.string().optional().or(z.literal("")).or(z.null()),
-  category: z.enum(["head_office", "projects"]).optional().or(z.literal("")),
-  employee_type: z.string().optional().or(z.literal("")),
+  category: z.enum(["head_office", "projects"], { required_error: "Category is required" }),
+  employee_type: z.string({ required_error: "Employee Type is required" }).min(1, "Employee Type is required"),
   pay_frequency: z.enum(["daily", "bi_weekly", "monthly"]).optional().or(z.literal("")),
   project_id: z.string().optional().or(z.literal("")),
+}).superRefine((data, ctx) => {
+  if (data.employee_type === "manpower" && !data.pay_frequency) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Pay Frequency is required for Manpower",
+      path: ["pay_frequency"],
+    });
+  }
+  if (data.category === "projects" && !data.project_id) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Project is required for Projects category",
+      path: ["project_id"],
+    });
+  }
 });
 
 export type EmployeeFormProps = {
@@ -184,10 +199,10 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
       bank_branch: "",
       account_number: "",
       account_type: "",
-      department: "",
+      sub_department: "",
       company_id: "",
       company_unit_id: "",
-      department_id: "",
+      sub_department_id: "",
       date_joined: "",
       employee_number: "",
       employee_prefix: "",
@@ -209,8 +224,14 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
   const watchCountry = form.watch("country");
   const watchCompanyId = form.watch("company_id");
   const watchCompanyUnitId = form.watch("company_unit_id");
-  const watchDepartmentId = form.watch("department_id");
+  const watchSubDepartmentId = form.watch("sub_department_id");
   const watchEmployeePrefix = form.watch("employee_prefix");
+  const watchGender = form.watch("gender");
+  const watchMaritalStatus = form.watch("marital_status");
+  const watchEmploymentStatus = form.watch("employment_status");
+  const watchBankName = form.watch("bank_name");
+  const watchAccountType = form.watch("account_type");
+  const watchReportingManagerId = form.watch("reporting_manager_id");
 
   const watchDateJoined = form.watch("date_joined");
   const watchPayRate = form.watch("pay_rate");
@@ -220,13 +241,13 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
   const [activeCompanyShortCode, setActiveCompanyShortCode] = useState<string>("");
   const [companyUnits, setCompanyUnits] = useState<CompanyUnit[]>([]);
   const [categories, setCategories] = useState<EmployeeCategory[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
+  const [subDepartments, setSubDepartments] = useState<SubDepartment[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
   const [allowedPayTypes, setAllowedPayTypes] = useState<string[]>(["hourly", "salary", "piece_rate", "daily_rate"]);
   const [payGroups, setPayGroups] = useState<PayGroupOption[]>([]);
   const [reportingManagers, setReportingManagers] = useState<Array<{ value: string; label: string }>>([]);
-  const [addingDept, setAddingDept] = useState(false);
-  const [newDeptName, setNewDeptName] = useState("");
+  const [addingSubDept, setAddingSubDept] = useState(false);
+  const [newSubDeptName, setNewSubDeptName] = useState("");
 
   // Enforce Category Defaulting & Locking based on Permissions (Create Mode)
   useEffect(() => {
@@ -351,27 +372,27 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
         setCompanyUnits([]);
         // Clear dependent fields
         form.setValue("company_unit_id", "");
-        form.setValue("department_id", "");
+        form.setValue("sub_department_id", "");
       }
     };
     void load();
   }, [watchCompanyId, watchCategory, categories]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load departments when company unit changes
+  // Load sub-departments when company unit changes
   useEffect(() => {
     const load = async () => {
       if (watchCompanyUnitId) {
         try {
-          const list = await DepartmentsService.getDepartmentsByCompanyUnit(watchCompanyUnitId);
-          setDepartments(list);
+          const list = await SubDepartmentsService.getSubDepartmentsByCompanyUnit(watchCompanyUnitId);
+          setSubDepartments(list);
         } catch (error) {
-          console.error('Error loading departments:', error);
-          setDepartments([]);
+          console.error('Error loading sub-departments:', error);
+          setSubDepartments([]);
         }
       } else {
-        setDepartments([]);
+        setSubDepartments([]);
         // Clear dependent field
-        form.setValue("department_id", "");
+        form.setValue("sub_department_id", "");
       }
     };
     void load();
@@ -677,7 +698,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="gender">Gender</Label>
-                  <Select value={String(form.getValues("gender") || "")} onValueChange={(value) => form.setValue("gender", value)}>
+                  <Select value={String(watchGender || "")} onValueChange={(value) => form.setValue("gender", value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select gender" />
                     </SelectTrigger>
@@ -720,7 +741,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                 <div className="space-y-2">
                   <Label htmlFor="marital_status">Marital Status</Label>
                   <Select
-                    value={String(form.getValues("marital_status") || "")}
+                    value={String(watchMaritalStatus || "")}
                     onValueChange={(value) => form.setValue("marital_status", value as any)}
                   >
                     <SelectTrigger>
@@ -760,7 +781,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                 <Label htmlFor="company_unit">Company Unit</Label>
                 <SearchableSelect
                   options={companyUnits.map((cu) => ({ value: cu.id, label: cu.name }))}
-                  value={String(form.getValues("company_unit_id") || "")}
+                  value={String(watchCompanyUnitId || "")}
                   onValueChange={(value) => form.setValue("company_unit_id", value)}
                   placeholder={companyUnits.length ? "Select company unit..." : "No company units available"}
                   searchPlaceholder="Search company units..."
@@ -782,7 +803,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                     form.setValue("pay_frequency", "");
                     form.setValue("project_id", "");
                   }}
-                  value={form.getValues("category") || ""}
+                  value={watchCategory || ""}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
@@ -798,7 +819,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
               </div>
               <div className="space-y-2">
                 <Label htmlFor="employment_status">Employment Status</Label>
-                <Select value={String(form.getValues("employment_status") || "")} onValueChange={(value) => form.setValue("employment_status", value as any)}>
+                <Select value={String(watchEmploymentStatus || "")} onValueChange={(value) => form.setValue("employment_status", value as any)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
@@ -820,7 +841,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                 <div className="space-y-2">
                   <Label htmlFor="employee_type">Employee Type *</Label>
                   <Select
-                    value={String(form.getValues("employee_type") || "")}
+                    value={String(watchEmployeeType || "")}
                     onValueChange={(value: HeadOfficeSubType | ProjectsSubType) => {
                       form.setValue("employee_type", value || "");
                       if (value !== "manpower") {
@@ -898,42 +919,42 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
               </div>
             </div>
 
-            {/* Row 4: Department (with Quick Add), Reporting Manager */}
+            {/* Row 4: Sub-Department (with Quick Add), Reporting Manager */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div className="space-y-2">
-                <Label htmlFor="department">Department</Label>
+                <Label htmlFor="sub_department">Sub-Department</Label>
                 <SearchableSelect
                   options={[
-                    ...departments.map((d) => ({ value: d.id, label: d.name })),
+                    ...subDepartments.map((d) => ({ value: d.id, label: d.name })),
                     { value: "__add__", label: "Add new…" },
                   ]}
-                  value={String(form.getValues("department_id") || "")}
+                  value={String(watchSubDepartmentId || "")}
                   onValueChange={async (value) => {
                     if (value === "__add__") {
-                      setAddingDept(true);
+                      setAddingSubDept(true);
                       return;
                     }
-                    form.setValue("department_id", value);
+                    form.setValue("sub_department_id", value);
                   }}
-                  placeholder={departments.length ? "Select department..." : "No departments available"}
-                  searchPlaceholder="Search departments..."
-                  emptyMessage="No departments found"
+                  placeholder={subDepartments.length ? "Select sub-department..." : "No sub-departments available"}
+                  searchPlaceholder="Search sub-departments..."
+                  emptyMessage="No sub-departments found"
                   disabled={!watchCompanyUnitId}
                 />
-                {addingDept && (
+                {addingSubDept && (
                   <div className="flex gap-2 mt-2">
-                    <Input value={newDeptName} onChange={(e) => setNewDeptName(e.target.value)} placeholder="New department name" />
+                    <Input value={newSubDeptName} onChange={(e) => setNewSubDeptName(e.target.value)} placeholder="New sub-department name" />
                     <Button
                       size="sm"
                       onClick={async () => {
-                        if (!watchCompanyUnitId || !newDeptName.trim()) return;
+                        if (!watchCompanyUnitId || !newSubDeptName.trim()) return;
                         try {
-                          const created = await DepartmentsService.createDepartment({ name: newDeptName.trim(), company_unit_id: watchCompanyUnitId });
-                          const list = await DepartmentsService.getDepartmentsByCompanyUnit(watchCompanyUnitId);
-                          setDepartments(list);
-                          form.setValue("department_id", created.id, { shouldDirty: true });
-                          setNewDeptName("");
-                          setAddingDept(false);
+                          const created = await SubDepartmentsService.createSubDepartment({ name: newSubDeptName.trim(), company_unit_id: watchCompanyUnitId });
+                          const list = await SubDepartmentsService.getSubDepartmentsByCompanyUnit(watchCompanyUnitId);
+                          setSubDepartments(list);
+                          form.setValue("sub_department_id", created.id, { shouldDirty: true });
+                          setNewSubDeptName("");
+                          setAddingSubDept(false);
                         } catch {
                           // ignore
                         }
@@ -941,7 +962,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                     >
                       Add
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => { setAddingDept(false); setNewDeptName(""); }}>
+                    <Button variant="ghost" size="sm" onClick={() => { setAddingSubDept(false); setNewSubDeptName(""); }}>
                       Cancel
                     </Button>
                   </div>
@@ -951,7 +972,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                 <Label htmlFor="reporting_manager_id">Reporting Manager</Label>
                 <SearchableSelect
                   options={reportingManagers}
-                  value={String(form.getValues("reporting_manager_id") || "")}
+                  value={String(watchReportingManagerId || "")}
                   onValueChange={(value) => form.setValue("reporting_manager_id", value)}
                   placeholder={reportingManagers.length ? "Select reporting manager..." : "No employees found"}
                   searchPlaceholder="Search employees..."
@@ -1070,7 +1091,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                 <Label htmlFor="bank_name">Bank Name</Label>
                 <SearchableSelect
                   options={banks.map((b) => ({ value: b.name, label: b.name }))}
-                  value={String(form.getValues("bank_name") || "")}
+                  value={String(watchBankName || "")}
                   onValueChange={(value) => form.setValue("bank_name", value)}
                   placeholder={banks.length ? "Select bank..." : watchCountry ? "No banks available" : "Select country first"}
                   searchPlaceholder="Search banks..."
@@ -1091,7 +1112,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
               <div className="space-y-2">
                 <Label htmlFor="account_type">Account Type</Label>
                 <Select
-                  value={String(form.getValues("account_type") || "")}
+                  value={String(watchAccountType || "")}
                   onValueChange={(value) => form.setValue("account_type", value)}
                 >
                   <SelectTrigger>

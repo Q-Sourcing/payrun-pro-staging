@@ -3,7 +3,7 @@ export interface PayslipData {
     code: string;
     name: string;
     jobTitle: string;
-    department: string;
+    subDepartment: string;
     hireDate: string;
     nssfNo: string;
     tin: string;

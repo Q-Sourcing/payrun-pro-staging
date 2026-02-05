@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 
-export type PayRunType = 'local' | 'expatriate' | 'piece_rate' | 'intern';
+export type PayRunType = 'regular' | 'expatriate' | 'piece_rate' | 'intern';
 
 export interface PayRunItemBase {
   id: string;
@@ -94,7 +94,7 @@ export class PayRunTypeService {
    */
   private static getTableName(payRunType: PayRunType): string {
     const tableMap = {
-      local: 'local_pay_run_items',
+      regular: 'local_pay_run_items',
       expatriate: 'expatriate_pay_run_items',
       piece_rate: 'local_pay_run_items', // Piece rate uses local table since they're local employees
       intern: 'intern_pay_run_items'
@@ -106,13 +106,13 @@ export class PayRunTypeService {
    * Get pay run items for a specific pay run and type
    */
   static async getPayRunItems<T extends PayRunItem>(
-    payRunId: string, 
+    payRunId: string,
     payRunType: PayRunType
   ): Promise<T[]> {
     const tableName = this.getTableName(payRunType);
-    
-    const { data, error } = await supabase
-      .from(tableName)
+
+    const { data, error } = await (supabase as any)
+      .from(tableName as any)
       .select(`
         *,
         employees (
@@ -128,7 +128,7 @@ export class PayRunTypeService {
       .order('created_at', { ascending: true });
 
     if (error) throw error;
-    return data || [];
+    return (data as any) || [];
   }
 
   /**
@@ -139,15 +139,15 @@ export class PayRunTypeService {
     itemData: Omit<T, 'id' | 'created_at' | 'updated_at'>
   ): Promise<T> {
     const tableName = this.getTableName(payRunType);
-    
-    const { data, error } = await supabase
-      .from(tableName)
+
+    const { data, error } = await (supabase as any)
+      .from(tableName as any)
       .insert([itemData])
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as any;
   }
 
   /**
@@ -159,16 +159,16 @@ export class PayRunTypeService {
     updates: Partial<Omit<T, 'id' | 'pay_run_id' | 'employee_id' | 'created_at' | 'updated_at'>>
   ): Promise<T> {
     const tableName = this.getTableName(payRunType);
-    
-    const { data, error } = await supabase
-      .from(tableName)
+
+    const { data, error } = await (supabase as any)
+      .from(tableName as any)
       .update(updates)
       .eq('id', itemId)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as any;
   }
 
   /**
@@ -179,9 +179,9 @@ export class PayRunTypeService {
     itemId: string
   ): Promise<void> {
     const tableName = this.getTableName(payRunType);
-    
-    const { error } = await supabase
-      .from(tableName)
+
+    const { error } = await (supabase as any)
+      .from(tableName as any)
       .delete()
       .eq('id', itemId);
 
@@ -196,9 +196,9 @@ export class PayRunTypeService {
     payRunType: PayRunType
   ): Promise<(T & { employee: any })[]> {
     const tableName = this.getTableName(payRunType);
-    
-    const { data, error } = await supabase
-      .from(tableName)
+
+    const { data, error } = await (supabase as any)
+      .from(tableName as any)
       .select(`
         *,
         employees!inner (
@@ -218,7 +218,7 @@ export class PayRunTypeService {
       .order('created_at', { ascending: true });
 
     if (error) throw error;
-    return data || [];
+    return (data as any) || [];
   }
 
   /**
@@ -235,21 +235,21 @@ export class PayRunTypeService {
     statusCounts: Record<string, number>;
   }> {
     const tableName = this.getTableName(payRunType);
-    
-    const { data, error } = await supabase
-      .from(tableName)
+
+    const { data, error } = await (supabase as any)
+      .from(tableName as any)
       .select('gross_pay, net_pay, total_deductions, status')
       .eq('pay_run_id', payRunId);
 
     if (error) throw error;
 
-    const items = data || [];
+    const items = (data as any) || [];
     const totalItems = items.length;
-    const totalGrossPay = items.reduce((sum, item) => sum + (item.gross_pay || 0), 0);
-    const totalNetPay = items.reduce((sum, item) => sum + (item.net_pay || 0), 0);
-    const totalDeductions = items.reduce((sum, item) => sum + (item.total_deductions || 0), 0);
-    
-    const statusCounts = items.reduce((counts, item) => {
+    const totalGrossPay = items.reduce((sum: number, item: any) => sum + (item.gross_pay || 0), 0);
+    const totalNetPay = items.reduce((sum: number, item: any) => sum + (item.net_pay || 0), 0);
+    const totalDeductions = items.reduce((sum: number, item: any) => sum + (item.total_deductions || 0), 0);
+
+    const statusCounts = items.reduce((counts: any, item: any) => {
       const status = item.status || 'unknown';
       counts[status] = (counts[status] || 0) + 1;
       return counts;
@@ -278,8 +278,8 @@ export class PayRunTypeService {
     const results: T[] = [];
 
     for (const { id, updates: itemUpdates } of updates) {
-      const { data, error } = await supabase
-        .from(tableName)
+      const { data, error } = await (supabase as any)
+        .from(tableName as any)
         .update(itemUpdates)
         .eq('id', id)
         .select()
@@ -290,7 +290,7 @@ export class PayRunTypeService {
         continue;
       }
 
-      results.push(data);
+      results.push(data as any);
     }
 
     return results;
@@ -301,12 +301,12 @@ export class PayRunTypeService {
    */
   static async getActivePayRunTypes(payRunId: string): Promise<PayRunType[]> {
     const types: PayRunType[] = [];
-    
-    for (const payRunType of ['local', 'expatriate', 'piece_rate', 'intern'] as PayRunType[]) {
+
+    for (const payRunType of ['regular', 'expatriate', 'piece_rate', 'intern'] as PayRunType[]) {
       const tableName = this.getTableName(payRunType);
-      
-      const { data, error } = await supabase
-        .from(tableName)
+
+      const { data, error } = await (supabase as any)
+        .from(tableName as any)
         .select('id')
         .eq('pay_run_id', payRunId)
         .limit(1);

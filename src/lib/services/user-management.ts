@@ -7,7 +7,7 @@ export interface CreateUserRequest {
   email: string;
   role: UserRole;
   organizationId?: string;
-  departmentId?: string;
+  subDepartmentId?: string;
   managerId?: string;
   permissions?: Permission[];
   sendInvitation?: boolean;
@@ -20,7 +20,7 @@ export interface UpdateUserRequest {
   email?: string;
   role?: UserRole;
   organizationId?: string;
-  departmentId?: string;
+  subDepartmentId?: string;
   managerId?: string;
   permissions?: Permission[];
   isActive?: boolean;

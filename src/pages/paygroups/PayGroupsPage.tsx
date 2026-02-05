@@ -9,10 +9,10 @@ import { Plus, Search, Filter, Users, Globe2, Briefcase, GraduationCap, Grid3X3,
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PayGroupsService } from '@/lib/services/paygroups.service';
-import { 
-  PayGroup, 
-  PayGroupSummary, 
-  PayGroupType, 
+import {
+  PayGroup,
+  PayGroupSummary,
+  PayGroupType,
   PAYGROUP_TYPES,
   getCurrencySymbol,
   formatCurrency,
@@ -26,6 +26,9 @@ import { PayGroupsListView } from '@/components/paygroups/PayGroupsListView';
 import { CreatePayGroupModal } from '@/components/paygroups/CreatePayGroupModal';
 import { AssignEmployeeModal } from '@/components/paygroups/AssignEmployeeModal';
 import { cn } from '@/lib/utils';
+import { HeadOfficePayGroupDialog } from '@/components/paygroups/HeadOfficePayGroupDialog';
+import { CloneHeadOfficePayGroupDialog } from '@/components/paygroups/CloneHeadOfficePayGroupDialog';
+import { ViewAssignedEmployeesDialog } from '@/components/paygroups/ViewAssignedEmployeesDialog';
 
 export const PayGroupsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -42,7 +45,12 @@ export const PayGroupsPage: React.FC = () => {
     const saved = localStorage.getItem('paygroups-view-mode');
     return (saved as 'cards' | 'list') || 'cards';
   });
-  
+
+  // Head Office Dialog States
+  const [showHODialog, setShowHODialog] = useState(false);
+  const [showCloneDialog, setShowCloneDialog] = useState(false);
+  const [selectedGroupForCloning, setSelectedGroupForCloning] = useState<PayGroup | undefined>(undefined);
+
   // Hierarchical expansion state
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
     head_office: true,
@@ -52,7 +60,11 @@ export const PayGroupsPage: React.FC = () => {
     'projects.manpower': true,
     'projects.ippms': true
   });
-  
+
+  // View Employees Modal States
+  const [showViewEmployeesModal, setShowViewEmployeesModal] = useState(false);
+  const [selectedGroupForViewing, setSelectedGroupForViewing] = useState<PayGroup | undefined>(undefined);
+
   const { toast } = useToast();
 
   // Load pay groups and summary
@@ -63,8 +75,13 @@ export const PayGroupsPage: React.FC = () => {
         PayGroupsService.getPayGroups(),
         PayGroupsService.getPayGroupSummary()
       ]);
-      
-      setPayGroups(groupsData);
+
+      // Deduplicate by ID to prevent duplicate key warnings
+      const uniqueGroups = Array.from(
+        new Map(groupsData.map(g => [g.id, g])).values()
+      );
+
+      setPayGroups(uniqueGroups);
       setSummary(summaryData);
     } catch (error) {
       console.error('Error loading pay groups:', error);
@@ -100,7 +117,7 @@ export const PayGroupsPage: React.FC = () => {
   // Filter pay groups based on search
   const filteredPayGroups = payGroups.filter(group => {
     const matchesSearch = group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         group.country.toLowerCase().includes(searchQuery.toLowerCase());
+      group.country.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSearch;
   });
 
@@ -108,26 +125,26 @@ export const PayGroupsPage: React.FC = () => {
   const groupedPayGroups = filteredPayGroups.reduce((acc, group) => {
     const category = group.category || 'head_office';
     const employeeType = group.employee_type || 'regular';
-    
+
     if (!acc[category]) {
-      acc[category] = {};
+      acc[category] = {} as any;
     }
-    
+
     if (category === 'projects' && employeeType === 'manpower') {
       const freq = group.pay_frequency || 'monthly';
       if (!acc[category][employeeType]) {
         acc[category][employeeType] = { daily: [], bi_weekly: [], monthly: [] };
       }
-      acc[category][employeeType][freq as ManpowerFrequency].push(group);
+      (acc[category][employeeType] as any)[freq].push(group);
     } else {
       if (!acc[category][employeeType]) {
         acc[category][employeeType] = [];
       }
-      acc[category][employeeType].push(group);
+      (acc[category][employeeType] as any[]).push(group);
     }
-    
+
     return acc;
-  }, {} as Record<PayGroupCategory, Record<string, PayGroup[] | { daily: PayGroup[]; bi_weekly: PayGroup[]; monthly: PayGroup[] }>>);
+  }, {} as Record<string, Record<string, any>>);
 
   const toggleCategory = (category: PayGroupCategory) => {
     setExpandedCategories(prev => ({ ...prev, [category]: !prev[category] }));
@@ -158,6 +175,17 @@ export const PayGroupsPage: React.FC = () => {
   const handleOpenAssignModal = (group: PayGroup) => {
     setSelectedGroupForAssignment(group);
     setShowAssignModal(true);
+  };
+
+  const handleOpenViewModal = (group: PayGroup) => {
+    setSelectedGroupForViewing(group);
+    setShowViewEmployeesModal(true);
+  };
+
+  // Handle opening clone modal
+  const handleOpenCloneModal = (group: PayGroup) => {
+    setSelectedGroupForCloning(group);
+    setShowCloneDialog(true);
   };
 
   // Handle assign employee success
@@ -210,19 +238,26 @@ export const PayGroupsPage: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button 
+          <Button
+            onClick={() => setShowHODialog(true)}
+            className="bg-indigo-600 hover:bg-indigo-700"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Head Office Group
+          </Button>
+          <Button
             onClick={() => handleOpenCreateModal()}
             className="bg-blue-600 hover:bg-blue-700"
           >
             <Plus className="h-4 w-4 mr-2" />
-            Create Pay Group
+            New Project Group
           </Button>
         </div>
       </div>
 
       {/* Summary Cards */}
       {summary && (
-        <motion.div 
+        <motion.div
           className="grid grid-cols-1 md:grid-cols-4 gap-4"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -339,9 +374,9 @@ export const PayGroupsPage: React.FC = () => {
                 {getCategoryIcon('head_office')}
                 <CardTitle>Head Office</CardTitle>
                 <Badge variant="secondary">
-                  {(groupedPayGroups.head_office?.regular?.length || 0) +
-                   (Array.isArray(groupedPayGroups.head_office?.expatriate) ? groupedPayGroups.head_office.expatriate.length : 0) +
-                   (Array.isArray(groupedPayGroups.head_office?.interns) ? groupedPayGroups.head_office.interns.length : 0)} groups
+                  {((groupedPayGroups.head_office as any)?.regular?.length || 0) +
+                    ((groupedPayGroups.head_office as any)?.expatriate?.length || 0) +
+                    ((groupedPayGroups.head_office as any)?.interns?.length || 0)} groups
                 </Badge>
               </div>
             </button>
@@ -350,7 +385,7 @@ export const PayGroupsPage: React.FC = () => {
             {expandedCategories.head_office && (
               <CardContent className="space-y-4">
                 {/* Regular */}
-                {Array.isArray(groupedPayGroups.head_office?.regular) && groupedPayGroups.head_office.regular.length > 0 && (
+                {(groupedPayGroups.head_office as any)?.regular?.length > 0 && (
                   <div className="ml-6 space-y-3">
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4 text-blue-500" />
@@ -359,10 +394,10 @@ export const PayGroupsPage: React.FC = () => {
                     </div>
                     {viewMode === 'cards' ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ml-6">
-                        {groupedPayGroups.head_office.regular.map((group) => (
-                          <PayGroupCard 
+                        {(groupedPayGroups.head_office as any).regular.map((group: any) => (
+                          <PayGroupCard
                             key={group.id}
-                            group={group} 
+                            group={group}
                             onUpdate={loadPayGroups}
                             onAssignEmployee={handleOpenAssignModal}
                           />
@@ -370,16 +405,17 @@ export const PayGroupsPage: React.FC = () => {
                       </div>
                     ) : (
                       <PayGroupsListView
-                        payGroups={groupedPayGroups.head_office.regular}
+                        payGroups={(groupedPayGroups.head_office as any).regular}
                         onUpdate={loadPayGroups}
                         onAssignEmployee={handleOpenAssignModal}
+                        onViewEmployees={handleOpenViewModal}
                       />
                     )}
                   </div>
                 )}
 
                 {/* Expatriate */}
-                {Array.isArray(groupedPayGroups.head_office?.expatriate) && groupedPayGroups.head_office.expatriate.length > 0 && (
+                {(groupedPayGroups.head_office as any)?.expatriate?.length > 0 && (
                   <div className="ml-6 space-y-3">
                     <div className="flex items-center gap-2">
                       <Globe2 className="h-4 w-4 text-emerald-500" />
@@ -388,10 +424,10 @@ export const PayGroupsPage: React.FC = () => {
                     </div>
                     {viewMode === 'cards' ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ml-6">
-                        {groupedPayGroups.head_office.expatriate.map((group) => (
-                          <PayGroupCard 
+                        {(groupedPayGroups.head_office as any).expatriate.map((group: any) => (
+                          <PayGroupCard
                             key={group.id}
-                            group={group} 
+                            group={group}
                             onUpdate={loadPayGroups}
                             onAssignEmployee={handleOpenAssignModal}
                           />
@@ -399,16 +435,17 @@ export const PayGroupsPage: React.FC = () => {
                       </div>
                     ) : (
                       <PayGroupsListView
-                        payGroups={groupedPayGroups.head_office.expatriate}
+                        payGroups={(groupedPayGroups.head_office as any).expatriate}
                         onUpdate={loadPayGroups}
                         onAssignEmployee={handleOpenAssignModal}
+                        onViewEmployees={handleOpenViewModal}
                       />
                     )}
                   </div>
                 )}
 
                 {/* Interns */}
-                {Array.isArray(groupedPayGroups.head_office?.interns) && groupedPayGroups.head_office.interns.length > 0 && (
+                {(groupedPayGroups.head_office as any)?.interns?.length > 0 && (
                   <div className="ml-6 space-y-3">
                     <div className="flex items-center gap-2">
                       <GraduationCap className="h-4 w-4 text-purple-500" />
@@ -417,10 +454,10 @@ export const PayGroupsPage: React.FC = () => {
                     </div>
                     {viewMode === 'cards' ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ml-6">
-                        {groupedPayGroups.head_office.interns.map((group) => (
-                          <PayGroupCard 
+                        {(groupedPayGroups.head_office as any).interns.map((group: any) => (
+                          <PayGroupCard
                             key={group.id}
-                            group={group} 
+                            group={group}
                             onUpdate={loadPayGroups}
                             onAssignEmployee={handleOpenAssignModal}
                           />
@@ -428,9 +465,10 @@ export const PayGroupsPage: React.FC = () => {
                       </div>
                     ) : (
                       <PayGroupsListView
-                        payGroups={groupedPayGroups.head_office.interns}
+                        payGroups={(groupedPayGroups.head_office as any).interns}
                         onUpdate={loadPayGroups}
                         onAssignEmployee={handleOpenAssignModal}
+                        onViewEmployees={handleOpenViewModal}
                       />
                     )}
                   </div>
@@ -456,11 +494,11 @@ export const PayGroupsPage: React.FC = () => {
                 {getCategoryIcon('projects')}
                 <CardTitle>Projects</CardTitle>
                 <Badge variant="secondary">
-                  {(groupedPayGroups.projects?.manpower && typeof groupedPayGroups.projects.manpower === 'object' 
-                    ? (groupedPayGroups.projects.manpower.daily.length + groupedPayGroups.projects.manpower.bi_weekly.length + groupedPayGroups.projects.manpower.monthly.length)
+                  {((groupedPayGroups.projects as any)?.manpower
+                    ? ((groupedPayGroups.projects as any).manpower.daily.length + (groupedPayGroups.projects as any).manpower.bi_weekly.length + (groupedPayGroups.projects as any).manpower.monthly.length)
                     : 0) +
-                   (Array.isArray(groupedPayGroups.projects?.ippms) ? groupedPayGroups.projects.ippms.length : 0) +
-                   (Array.isArray(groupedPayGroups.projects?.expatriate) ? groupedPayGroups.projects.expatriate.length : 0)} groups
+                    ((groupedPayGroups.projects as any)?.ippms?.length || 0) +
+                    ((groupedPayGroups.projects as any)?.expatriate?.length || 0)} groups
                 </Badge>
               </div>
             </button>
@@ -469,7 +507,7 @@ export const PayGroupsPage: React.FC = () => {
             {expandedCategories.projects && (
               <CardContent className="space-y-4">
                 {/* Manpower */}
-                {groupedPayGroups.projects?.manpower && typeof groupedPayGroups.projects.manpower === 'object' && (
+                {(groupedPayGroups.projects as any)?.manpower && (
                   <div className="ml-6 space-y-3">
                     <button
                       onClick={() => toggleEmployeeType('projects.manpower')}
@@ -483,29 +521,29 @@ export const PayGroupsPage: React.FC = () => {
                       <Briefcase className="h-4 w-4 text-orange-500" />
                       <h4 className="font-semibold">Manpower</h4>
                       <Badge variant="outline">
-                        {groupedPayGroups.projects.manpower.daily.length + 
-                         groupedPayGroups.projects.manpower.bi_weekly.length + 
-                         groupedPayGroups.projects.manpower.monthly.length}
+                        {(groupedPayGroups.projects as any).manpower.daily.length +
+                          (groupedPayGroups.projects as any).manpower.bi_weekly.length +
+                          (groupedPayGroups.projects as any).manpower.monthly.length}
                       </Badge>
                     </button>
                     <AnimatePresence>
                       {expandedSubTypes['projects.manpower'] && (
                         <div className="ml-6 space-y-4">
                           {/* Daily */}
-                          {groupedPayGroups.projects.manpower.daily.length > 0 && (
+                          {(groupedPayGroups.projects as any).manpower.daily.length > 0 && (
                             <div className="space-y-2">
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-medium">Daily</span>
                                 <Badge variant="outline" className="text-xs">
-                                  {groupedPayGroups.projects.manpower.daily.length}
+                                  {(groupedPayGroups.projects as any).manpower.daily.length}
                                 </Badge>
                               </div>
                               {viewMode === 'cards' ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ml-4">
-                                  {groupedPayGroups.projects.manpower.daily.map((group) => (
-                                    <PayGroupCard 
+                                  {(groupedPayGroups.projects as any).manpower.daily.map((group: any) => (
+                                    <PayGroupCard
                                       key={group.id}
-                                      group={group} 
+                                      group={group}
                                       onUpdate={loadPayGroups}
                                       onAssignEmployee={handleOpenAssignModal}
                                     />
@@ -513,29 +551,30 @@ export const PayGroupsPage: React.FC = () => {
                                 </div>
                               ) : (
                                 <PayGroupsListView
-                                  payGroups={groupedPayGroups.projects.manpower.daily}
+                                  payGroups={(groupedPayGroups.projects as any).manpower.daily}
                                   onUpdate={loadPayGroups}
                                   onAssignEmployee={handleOpenAssignModal}
+                                  onViewEmployees={handleOpenViewModal}
                                 />
                               )}
                             </div>
                           )}
 
                           {/* Bi-weekly */}
-                          {groupedPayGroups.projects.manpower.bi_weekly.length > 0 && (
+                          {(groupedPayGroups.projects as any).manpower.bi_weekly.length > 0 && (
                             <div className="space-y-2">
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-medium">Bi-weekly</span>
                                 <Badge variant="outline" className="text-xs">
-                                  {groupedPayGroups.projects.manpower.bi_weekly.length}
+                                  {(groupedPayGroups.projects as any).manpower.bi_weekly.length}
                                 </Badge>
                               </div>
                               {viewMode === 'cards' ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ml-4">
-                                  {groupedPayGroups.projects.manpower.bi_weekly.map((group) => (
-                                    <PayGroupCard 
+                                  {(groupedPayGroups.projects as any).manpower.bi_weekly.map((group: any) => (
+                                    <PayGroupCard
                                       key={group.id}
-                                      group={group} 
+                                      group={group}
                                       onUpdate={loadPayGroups}
                                       onAssignEmployee={handleOpenAssignModal}
                                     />
@@ -543,29 +582,30 @@ export const PayGroupsPage: React.FC = () => {
                                 </div>
                               ) : (
                                 <PayGroupsListView
-                                  payGroups={groupedPayGroups.projects.manpower.bi_weekly}
+                                  payGroups={(groupedPayGroups.projects as any).manpower.bi_weekly}
                                   onUpdate={loadPayGroups}
                                   onAssignEmployee={handleOpenAssignModal}
+                                  onViewEmployees={handleOpenViewModal}
                                 />
                               )}
                             </div>
                           )}
 
                           {/* Monthly */}
-                          {groupedPayGroups.projects.manpower.monthly.length > 0 && (
+                          {(groupedPayGroups.projects as any).manpower.monthly.length > 0 && (
                             <div className="space-y-2">
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-medium">Monthly</span>
                                 <Badge variant="outline" className="text-xs">
-                                  {groupedPayGroups.projects.manpower.monthly.length}
+                                  {(groupedPayGroups.projects as any).manpower.monthly.length}
                                 </Badge>
                               </div>
                               {viewMode === 'cards' ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ml-4">
-                                  {groupedPayGroups.projects.manpower.monthly.map((group) => (
-                                    <PayGroupCard 
+                                  {(groupedPayGroups.projects as any).manpower.monthly.map((group: any) => (
+                                    <PayGroupCard
                                       key={group.id}
-                                      group={group} 
+                                      group={group}
                                       onUpdate={loadPayGroups}
                                       onAssignEmployee={handleOpenAssignModal}
                                     />
@@ -573,9 +613,10 @@ export const PayGroupsPage: React.FC = () => {
                                 </div>
                               ) : (
                                 <PayGroupsListView
-                                  payGroups={groupedPayGroups.projects.manpower.monthly}
+                                  payGroups={(groupedPayGroups.projects as any).manpower.monthly}
                                   onUpdate={loadPayGroups}
                                   onAssignEmployee={handleOpenAssignModal}
+                                  onViewEmployees={handleOpenViewModal}
                                 />
                               )}
                             </div>
@@ -587,7 +628,7 @@ export const PayGroupsPage: React.FC = () => {
                 )}
 
                 {/* IPPMS */}
-                {Array.isArray(groupedPayGroups.projects?.ippms) && groupedPayGroups.projects.ippms.length > 0 && (
+                {(groupedPayGroups.projects as any)?.ippms?.length > 0 && (
                   <div className="ml-6 space-y-3">
                     <button
                       onClick={() => toggleEmployeeType('projects.ippms')}
@@ -600,7 +641,7 @@ export const PayGroupsPage: React.FC = () => {
                       )}
                       <Briefcase className="h-4 w-4 text-green-500" />
                       <h4 className="font-semibold">IPPMS</h4>
-                      <Badge variant="outline">{groupedPayGroups.projects.ippms.length}</Badge>
+                      <Badge variant="outline">{(groupedPayGroups.projects as any).ippms.length}</Badge>
                     </button>
                     <AnimatePresence>
                       {expandedSubTypes['projects.ippms'] && (
@@ -610,10 +651,10 @@ export const PayGroupsPage: React.FC = () => {
                           </div>
                           {viewMode === 'cards' ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ml-4">
-                              {groupedPayGroups.projects.ippms.map((group) => (
-                                <PayGroupCard 
+                              {(groupedPayGroups.projects as any).ippms.map((group: any) => (
+                                <PayGroupCard
                                   key={group.id}
-                                  group={group} 
+                                  group={group}
                                   onUpdate={loadPayGroups}
                                   onAssignEmployee={handleOpenAssignModal}
                                 />
@@ -621,9 +662,10 @@ export const PayGroupsPage: React.FC = () => {
                             </div>
                           ) : (
                             <PayGroupsListView
-                              payGroups={groupedPayGroups.projects.ippms}
+                              payGroups={(groupedPayGroups.projects as any).ippms}
                               onUpdate={loadPayGroups}
                               onAssignEmployee={handleOpenAssignModal}
+                              onViewEmployees={handleOpenViewModal}
                             />
                           )}
                         </div>
@@ -633,19 +675,19 @@ export const PayGroupsPage: React.FC = () => {
                 )}
 
                 {/* Projects Expatriate */}
-                {Array.isArray(groupedPayGroups.projects?.expatriate) && groupedPayGroups.projects.expatriate.length > 0 && (
+                {(groupedPayGroups.projects as any)?.expatriate?.length > 0 && (
                   <div className="ml-6 space-y-3">
                     <div className="flex items-center gap-2">
                       <Globe2 className="h-4 w-4 text-emerald-500" />
                       <h4 className="font-semibold">Expatriate</h4>
-                      <Badge variant="outline">{groupedPayGroups.projects.expatriate.length}</Badge>
+                      <Badge variant="outline">{(groupedPayGroups.projects as any).expatriate.length}</Badge>
                     </div>
                     {viewMode === 'cards' ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ml-6">
-                        {groupedPayGroups.projects.expatriate.map((group) => (
-                          <PayGroupCard 
+                        {(groupedPayGroups.projects as any).expatriate.map((group: any) => (
+                          <PayGroupCard
                             key={group.id}
-                            group={group} 
+                            group={group}
                             onUpdate={loadPayGroups}
                             onAssignEmployee={handleOpenAssignModal}
                           />
@@ -653,9 +695,10 @@ export const PayGroupsPage: React.FC = () => {
                       </div>
                     ) : (
                       <PayGroupsListView
-                        payGroups={groupedPayGroups.projects.expatriate}
+                        payGroups={(groupedPayGroups.projects as any).expatriate}
                         onUpdate={loadPayGroups}
                         onAssignEmployee={handleOpenAssignModal}
+                        onViewEmployees={handleOpenViewModal}
                       />
                     )}
                   </div>
@@ -667,7 +710,7 @@ export const PayGroupsPage: React.FC = () => {
 
         {/* Empty State */}
         {filteredPayGroups.length === 0 && (
-          <motion.div 
+          <motion.div
             className="text-center py-12"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -677,7 +720,7 @@ export const PayGroupsPage: React.FC = () => {
             <p className="text-muted-foreground mb-4">
               Try adjusting your search criteria or create a new pay group.
             </p>
-            <Button 
+            <Button
               onClick={() => handleOpenCreateModal()}
               variant="outline"
             >
@@ -703,6 +746,33 @@ export const PayGroupsPage: React.FC = () => {
         onSuccess={handleAssignSuccess}
         presetGroup={selectedGroupForAssignment}
       />
+
+      {/* View Assigned Employees Dialog */}
+      {selectedGroupForViewing && (
+        <ViewAssignedEmployeesDialog
+          open={showViewEmployeesModal}
+          onOpenChange={setShowViewEmployeesModal}
+          payGroup={selectedGroupForViewing}
+          onUpdate={loadPayGroups}
+        />
+      )}
+
+      {/* Head Office Unified Dialog */}
+      <HeadOfficePayGroupDialog
+        open={showHODialog}
+        onOpenChange={setShowHODialog}
+        onSuccess={loadPayGroups}
+      />
+
+      {/* Clone Head Office Dialog */}
+      {selectedGroupForCloning && (
+        <CloneHeadOfficePayGroupDialog
+          open={showCloneDialog}
+          onOpenChange={setShowCloneDialog}
+          sourceGroup={selectedGroupForCloning as any}
+          onSuccess={loadPayGroups}
+        />
+      )}
     </div>
   );
 };

@@ -16,6 +16,7 @@ import {
     Info,
     ShieldCheck
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmployeeCategoriesTab } from './EmployeeCategoriesTab';
 import { CompanyUnitsTab } from './CompanyUnitsTab';
 
@@ -59,103 +60,101 @@ export const OrganizationSetupModal: React.FC<OrganizationSetupModalProps> = ({ 
     ];
 
     return (
-        <div className="fixed inset-0 z-50 flex flex-col bg-background animate-in fade-in duration-200">
-            {/* Top Header */}
-            <div className="bg-[#1e293b] text-white h-16 flex items-center px-4 justify-between">
-                <div className="flex items-center space-x-4">
-                    <Button variant="ghost" size="sm" onClick={onClose} className="text-white hover:bg-slate-700">
-                        <ArrowLeft className="h-5 w-5" />
-                    </Button>
-                    <div className="flex items-center space-x-2 text-sm font-medium">
-                        <span className="opacity-70">Manage Accounts</span>
-                        <span className="opacity-70">/</span>
-                        <span className="opacity-70">Users</span>
-                        <span className="opacity-70">/</span>
-                        <span className="font-semibold border-b-2 border-primary-500 pb-1">Organization Setup</span>
+        <div className="fixed inset-0 z-50 flex flex-col bg-white animate-in fade-in duration-200 overflow-y-auto">
+            <div className="flex-1 p-12">
+                <div className="max-w-7xl mx-auto">
+                    {/* Breadcrumbs (Secondary) */}
+                    <div className="mb-6 flex items-center gap-2 text-sm text-slate-500 whitespace-nowrap overflow-x-auto pb-2 sm:pb-0">
+                        <button
+                            onClick={onClose}
+                            className="flex items-center gap-1 hover:text-slate-900 transition-colors"
+                        >
+                            <ArrowLeft className="h-4 w-4" />
+                            Back to Settings
+                        </button>
+                        <span className="opacity-40">/</span>
+                        <span>Organization Settings</span>
+                        <span className="opacity-40">/</span>
+                        <span className="text-slate-900 font-bold">Setup</span>
                     </div>
-                </div>
-                <div className="flex items-center space-x-4">
-                    <Button size="icon" variant="ghost" className="text-white">
-                        <Plus className="h-5 w-5" />
-                    </Button>
-                    <div className="w-8 h-8 rounded-full bg-slate-500 overflow-hidden border border-slate-600">
-                        <img src="https://ui-avatars.com/api/?name=User&background=64748b&color=fff" alt="User" />
-                    </div>
-                </div>
-            </div>
 
-            <div className="flex flex-1 overflow-hidden">
-                {/* Sidebar */}
-                <div className="w-64 border-r bg-slate-50 overflow-y-auto">
-                    <nav className="p-4 space-y-1">
-                        {navItems.map(item => (
-                            <div key={item.id}>
-                                {item.isGroup ? (
-                                    <div className="space-y-1">
-                                        <button
-                                            onClick={() => toggleGroup(item.id)}
-                                            className="w-full flex items-center justify-between py-2 px-3 text-sm font-medium text-slate-600 hover:bg-slate-200 rounded-md transition-colors"
-                                        >
-                                            <div className="flex items-center">
-                                                <item.icon className="h-4 w-4 mr-3" />
-                                                {item.label}
-                                            </div>
-                                            {expandedGroups.includes(item.id) ? (
-                                                <ChevronDown className="h-4 w-4" />
-                                            ) : (
-                                                <ChevronRight className="h-4 w-4" />
-                                            )}
-                                        </button>
-                                        {expandedGroups.includes(item.id) && item.children && (
-                                            <div className="ml-4 space-y-1 mt-1 border-l pl-3">
-                                                {item.children.map(child => (
-                                                    <button
-                                                        key={child.id}
-                                                        onClick={() => setActiveTab(child.id)}
-                                                        className={`w-full text-left py-2 px-3 text-sm font-medium rounded-md transition-colors ${activeTab === child.id
-                                                                ? 'bg-primary/10 text-primary font-semibold'
-                                                                : 'text-slate-500 hover:bg-slate-200'
-                                                            }`}
-                                                    >
-                                                        {child.label}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
+                    <div className="mb-8">
+                        <div className="flex items-center gap-3 mb-2">
+                            <Building2 className="h-8 w-8 text-[#0d9488]" />
+                            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Organization Setup</h1>
+                        </div>
+                        <p className="text-slate-500 text-lg max-w-3xl">
+                            Configure your organization structure, units, and employee categories for precise payroll management.
+                        </p>
+                    </div>
+
+                    {/* Tabs Interface */}
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+                        <div className="bg-[#f1f5f9] p-1.5 rounded-xl inline-flex w-full sm:w-auto">
+                            <TabsList className="bg-transparent h-auto p-0 gap-1 flex-wrap sm:flex-nowrap justify-start">
+                                <TabsTrigger
+                                    value="company_units"
+                                    className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm py-2.5 px-5 rounded-lg flex items-center gap-2 transition-all"
+                                >
+                                    <Layers className="h-4 w-4" />
+                                    Company Units
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="categories"
+                                    className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm py-2.5 px-5 rounded-lg flex items-center gap-2 transition-all"
+                                >
+                                    <Users className="h-4 w-4" />
+                                    Employee Categories
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="locations"
+                                    className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm py-2.5 px-5 rounded-lg flex items-center gap-2 transition-all"
+                                >
+                                    <MapPin className="h-4 w-4" />
+                                    Locations
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="departments"
+                                    className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm py-2.5 px-5 rounded-lg flex items-center gap-2 transition-all"
+                                >
+                                    <Briefcase className="h-4 w-4" />
+                                    Departments
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="designations"
+                                    className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm py-2.5 px-5 rounded-lg flex items-center gap-2 transition-all"
+                                >
+                                    <Users className="h-4 w-4" />
+                                    Designations
+                                </TabsTrigger>
+                            </TabsList>
+                        </div>
+
+                        {/* Tab Content */}
+                        <div className="mt-8">
+                            <TabsContent value="categories" className="mt-0 focus-visible:outline-none">
+                                <EmployeeCategoriesTab />
+                            </TabsContent>
+
+                            <TabsContent value="company_units" className="mt-0 focus-visible:outline-none">
+                                <CompanyUnitsTab />
+                            </TabsContent>
+
+                            {/* Coming Soon Fallback for other tabs */}
+                            {['locations', 'departments', 'designations', 'details', 'policy'].includes(activeTab) && (
+                                <TabsContent value={activeTab} className="mt-0">
+                                    <div className="flex flex-col items-center justify-center p-16 bg-white rounded-xl shadow-sm border-2 border-dashed">
+                                        <SettingsIcon className="h-12 w-12 text-slate-300 mb-4 animate-spin-slow" />
+                                        <h3 className="text-xl font-bold text-slate-900 mb-2">Coming Soon</h3>
+                                        <p className="text-slate-500 text-center max-w-sm">
+                                            The <span className="font-semibold text-slate-700 capitalize">{activeTab.replace('_', ' ')}</span> module is currently under development to improve your organization management experience.
+                                        </p>
                                     </div>
-                                ) : (
-                                    <button
-                                        onClick={() => setActiveTab(item.id)}
-                                        className={`w-full flex items-center py-2 px-3 text-sm font-medium rounded-md transition-colors ${activeTab === item.id
-                                                ? 'bg-primary/10 text-primary font-semibold'
-                                                : 'text-slate-600 hover:bg-slate-200'
-                                            }`}
-                                    >
-                                        <item.icon className="h-4 w-4 mr-3" />
-                                        {item.label}
-                                    </button>
-                                )}
-                            </div>
-                        ))}
-                    </nav>
+                                </TabsContent>
+                            )}
+                        </div>
+                    </Tabs>
                 </div>
-
-                {/* Content Area */}
-                <main className="flex-1 overflow-y-auto bg-slate-100 p-8">
-                    <div className="max-w-6xl mx-auto h-full flex flex-col">
-                        {activeTab === 'categories' && <EmployeeCategoriesTab />}
-                        {activeTab === 'company_units' && <CompanyUnitsTab />}
-                        {(activeTab !== 'categories' && activeTab !== 'company_units') && (
-                            <div className="flex flex-col items-center justify-center p-12 bg-white rounded-lg shadow-sm border h-full">
-                                <SettingsIcon className="h-12 w-12 text-slate-300 mb-4 animate-spin-slow" />
-                                <h3 className="text-lg font-medium text-slate-900 mb-1">Coming Soon</h3>
-                                <p className="text-slate-500 text-center max-w-sm">
-                                    The <span className="font-semibold text-slate-700">{activeTab.replace('_', ' ')}</span> module is currently under development to improve your organization management experience.
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                </main>
             </div>
         </div>
     );

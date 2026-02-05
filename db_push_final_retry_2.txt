@@ -1,0 +1,45 @@
+Initialising login role...
+Connecting to remote database...
+Do you want to push these migrations to the remote database?
+ • 20260104000000_rename_departments_to_sub_departments.sql
+ • 20260104203000_create_notification_templates.sql
+ • 20260105000000_enhance_rbac_grants.sql
+
+ [Y/n] Applying migration 20260104000000_rename_departments_to_sub_departments.sql...
+NOTICE (00000): policy "Enable read access for authenticated users" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Enable read access for authenticated users" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Enable read access for authenticated users" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Enable read access for authenticated users" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Enable read access for authenticated users" for relation "public.sub_departments" does not exist, skipping
+NOTICE (00000): policy "Enable insert access for authenticated users" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Enable insert access for authenticated users" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Enable insert access for authenticated users" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Enable insert access for authenticated users" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Enable insert access for authenticated users" for relation "public.sub_departments" does not exist, skipping
+NOTICE (00000): policy "Enable update access for authenticated users" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Enable update access for authenticated users" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Enable update access for authenticated users" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Enable update access for authenticated users" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Enable update access for authenticated users" for relation "public.sub_departments" does not exist, skipping
+NOTICE (00000): policy "Enable delete access for authenticated users" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Enable delete access for authenticated users" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Enable delete access for authenticated users" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Enable delete access for authenticated users" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Enable delete access for authenticated users" for relation "public.sub_departments" does not exist, skipping
+NOTICE (00000): policy "Sub-Department managers can view sub-department users" for relation "public.users" does not exist, skipping
+Applying migration 20260104203000_create_notification_templates.sql...
+NOTICE (00000): policy "Templates readable by Org Members" for relation "public.notification_templates" does not exist, skipping
+NOTICE (00000): policy "Templates readable by Org Members" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Templates readable by Org Members" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Templates readable by Org Members" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Templates readable by Org Members" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Templates managed by Org Admins" for relation "public.notification_templates" does not exist, skipping
+NOTICE (00000): policy "Templates managed by Org Admins" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Templates managed by Org Admins" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Templates managed by Org Admins" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Templates managed by Org Admins" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+Applying migration 20260105000000_enhance_rbac_grants.sql...
+NOTICE (00000): trigger "trg_audit_rbac_grants" for relation "public.rbac_grants" does not exist, skipping
+Finished supabase db push.
+A new version of Supabase CLI is available: v2.72.7 (currently installed v2.53.6)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

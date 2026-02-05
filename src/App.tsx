@@ -77,6 +77,8 @@ import Projects from "./pages/Projects";
 import ProjectDetailPage from "./components/projects/ProjectDetailPage";
 import CompanyPicker from "./components/auth/CompanyPicker";
 import Diagnostics from "./pages/Diagnostics";
+import PayrollAdvancedSettings from "./pages/PayrollAdvancedSettings";
+import MyApprovals from "./pages/MyApprovals";
 
 // Query client is now imported from optimized configuration
 
@@ -161,10 +163,12 @@ const App = () => {
                   {/* Explicit dashboard route */}
                   <Route path="dashboard" element={<Dashboard />} />
 
-                  {/* My Dashboard Routes */}
-                  <Route path="my/employees" element={<MyEmployees />} />
-                  <Route path="my/paygroups" element={<MyPayGroups />} />
-                  <Route path="my/payruns" element={<MyPayRuns />} />
+                  {/* Dashboard Sub-pages */}
+                  <Route path="/dashboard/employees" element={<MyEmployees />} />
+                  <Route path="/dashboard/paygroups" element={<MyPayGroups />} />
+                  <Route path="/dashboard/payruns" element={<MyPayRuns />} />
+
+                  <Route path="/my/approvals" element={<MyApprovals />} />
 
                   {/* Core Module Routes */}
                   <Route path="employees" element={<EmployeesTab />} />
@@ -210,6 +214,7 @@ const App = () => {
                   <Route path="payruns/local/trainee" element={<LocalPayrollTrainee />} />
                   <Route path="payruns/local/casual" element={<LocalPayrollCasual />} />
                   <Route path="diagnostics" element={<Diagnostics />} />
+                  <Route path="settings/payroll/advanced" element={<PayrollAdvancedSettings />} />
                 </Route>
 
                 {/* Catch-all route */}

@@ -16,22 +16,22 @@ CREATE TABLE IF NOT EXISTS expatriate_pay_groups (
 ALTER TABLE expatriate_pay_groups ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies
-CREATE POLICY "Enable read access for all users" ON "public"."expatriate_pay_groups"
+DROP POLICY IF EXISTS "Enable read access for all users" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Enable read access for all users" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Enable read access for all users" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Enable read access for all users" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Enable read access for all users" ON "public"."expatriate_pay_groups"; CREATE POLICY "Enable read access for all users" ON "public"."expatriate_pay_groups"
 AS permissive FOR SELECT
 TO public
 USING (true);
 
-CREATE POLICY "Enable insert for authenticated users" ON "public"."expatriate_pay_groups"
+DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Enable insert for authenticated users" ON "public"."expatriate_pay_groups"; CREATE POLICY "Enable insert for authenticated users" ON "public"."expatriate_pay_groups"
 AS permissive FOR INSERT
 TO authenticated
 WITH CHECK (true);
 
-CREATE POLICY "Enable update for authenticated users" ON "public"."expatriate_pay_groups"
+DROP POLICY IF EXISTS "Enable update for authenticated users" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Enable update for authenticated users" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Enable update for authenticated users" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Enable update for authenticated users" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Enable update for authenticated users" ON "public"."expatriate_pay_groups"; CREATE POLICY "Enable update for authenticated users" ON "public"."expatriate_pay_groups"
 AS permissive FOR UPDATE
 TO authenticated
 USING (true);
 
-CREATE POLICY "Enable delete for authenticated users" ON "public"."expatriate_pay_groups"
+DROP POLICY IF EXISTS "Enable delete for authenticated users" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Enable delete for authenticated users" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Enable delete for authenticated users" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Enable delete for authenticated users" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Enable delete for authenticated users" ON "public"."expatriate_pay_groups"; CREATE POLICY "Enable delete for authenticated users" ON "public"."expatriate_pay_groups"
 AS permissive FOR DELETE
 TO authenticated
 USING (true);
@@ -64,22 +64,22 @@ CREATE TABLE IF NOT EXISTS expatriate_pay_run_items (
 ALTER TABLE expatriate_pay_run_items ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies for expatriate_pay_run_items
-CREATE POLICY "Enable read access for all users" ON "public"."expatriate_pay_run_items"
+DROP POLICY IF EXISTS "Enable read access for all users" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Enable read access for all users" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Enable read access for all users" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Enable read access for all users" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Enable read access for all users" ON "public"."expatriate_pay_run_items"; CREATE POLICY "Enable read access for all users" ON "public"."expatriate_pay_run_items"
 AS permissive FOR SELECT
 TO public
 USING (true);
 
-CREATE POLICY "Enable insert for authenticated users" ON "public"."expatriate_pay_run_items"
+DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Enable insert for authenticated users" ON "public"."expatriate_pay_run_items"; CREATE POLICY "Enable insert for authenticated users" ON "public"."expatriate_pay_run_items"
 AS permissive FOR INSERT
 TO authenticated
 WITH CHECK (true);
 
-CREATE POLICY "Enable update for authenticated users" ON "public"."expatriate_pay_run_items"
+DROP POLICY IF EXISTS "Enable update for authenticated users" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Enable update for authenticated users" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Enable update for authenticated users" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Enable update for authenticated users" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Enable update for authenticated users" ON "public"."expatriate_pay_run_items"; CREATE POLICY "Enable update for authenticated users" ON "public"."expatriate_pay_run_items"
 AS permissive FOR UPDATE
 TO authenticated
 USING (true);
 
-CREATE POLICY "Enable delete for authenticated users" ON "public"."expatriate_pay_run_items"
+DROP POLICY IF EXISTS "Enable delete for authenticated users" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Enable delete for authenticated users" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Enable delete for authenticated users" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Enable delete for authenticated users" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Enable delete for authenticated users" ON "public"."expatriate_pay_run_items"; CREATE POLICY "Enable delete for authenticated users" ON "public"."expatriate_pay_run_items"
 AS permissive FOR DELETE
 TO authenticated
 USING (true);

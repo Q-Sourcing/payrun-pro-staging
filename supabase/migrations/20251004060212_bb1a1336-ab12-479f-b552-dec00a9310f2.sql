@@ -33,7 +33,7 @@ CREATE TABLE public.expatriate_policies (
 ALTER TABLE public.expatriate_policies ENABLE ROW LEVEL SECURITY;
 
 -- Create policy for expatriate policies
-CREATE POLICY "Allow all access to expatriate policies" 
+DROP POLICY IF EXISTS "Allow all access to expatriate policies" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Allow all access to expatriate policies" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Allow all access to expatriate policies" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Allow all access to expatriate policies" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Allow all access to expatriate policies" 
 ON public.expatriate_policies 
 FOR ALL 
 USING (true) 

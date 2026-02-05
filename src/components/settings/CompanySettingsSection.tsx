@@ -13,7 +13,7 @@ import { useUserRole } from "@/hooks/use-user-role";
 import { Pencil, Settings as GearIcon } from "lucide-react";
 import { OrganizationSetupModal } from "../organization-setup/OrganizationSetupModal";
 
-export const CompanySettingsSection = () => {
+export const CompanySettingsSection = ({ onOpenAdvanced }: { onOpenAdvanced?: () => void }) => {
   const { toast } = useToast();
   const { organizationId, companyId } = useOrg();
   const { resolvedCompanyId } = useOrgNames();
@@ -163,7 +163,7 @@ export const CompanySettingsSection = () => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setShowOrgSetup(true)}
+            onClick={() => onOpenAdvanced?.()}
             title="Organization Setup"
             className="hover:bg-slate-100"
           >

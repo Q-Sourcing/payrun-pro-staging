@@ -19,11 +19,11 @@ CREATE INDEX IF NOT EXISTS idx_pay_calculation_audit_calculated_at ON pay_calcul
 ALTER TABLE public.pay_calculation_audit_log ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policy for authenticated users
-CREATE POLICY "Authenticated users can view audit logs" ON public.pay_calculation_audit_log 
+DROP POLICY IF EXISTS "Authenticated users can view audit logs" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Authenticated users can view audit logs" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Authenticated users can view audit logs" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Authenticated users can view audit logs" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Authenticated users can view audit logs" ON public.pay_calculation_audit_log; CREATE POLICY "Authenticated users can view audit logs" ON public.pay_calculation_audit_log 
 FOR SELECT TO authenticated USING (true);
 
 -- Create RLS policy for service role to insert audit logs
-CREATE POLICY "Service role can insert audit logs" ON public.pay_calculation_audit_log 
+DROP POLICY IF EXISTS "Service role can insert audit logs" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Service role can insert audit logs" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Service role can insert audit logs" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Service role can insert audit logs" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Service role can insert audit logs" ON public.pay_calculation_audit_log; CREATE POLICY "Service role can insert audit logs" ON public.pay_calculation_audit_log 
 FOR INSERT TO service_role WITH CHECK (true);
 
 -- Add comment

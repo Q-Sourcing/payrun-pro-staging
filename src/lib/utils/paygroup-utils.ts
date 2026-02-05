@@ -6,8 +6,8 @@
  * Maps pay group types to their corresponding employee types
  */
 export const PAYGROUP_TO_EMPLOYEE_TYPE_MAP: Record<string, string> = {
-  'regular': 'local',
-  'expatriate': 'expatriate', 
+  'regular': 'regular',
+  'expatriate': 'expatriate',
   'piece_rate': 'piece_rate',
   'intern': 'intern'
 };

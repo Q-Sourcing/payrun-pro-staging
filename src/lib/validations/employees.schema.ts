@@ -10,7 +10,7 @@ export const createEmployeeSchema = z.object({
   employee_type: z.string().min(1, 'Employee type is required'),
   employee_category: z.enum(['Intern', 'Trainee', 'Temporary', 'Permanent', 'On Contract', 'Casual']).optional(),
   employment_status: z.enum(['Active', 'Terminated', 'Deceased', 'Resigned', 'Probation', 'Notice Period']).optional(),
-  department: z.string().max(100, 'Department name is too long').optional(),
+  sub_department: z.string().max(100, 'Sub-Department name is too long').optional(),
   project: z.string().max(100, 'Project name is too long').optional(),
   country: z.string().min(2, 'Country is required').max(2, 'Country code must be 2 characters'),
   pay_type: z.enum(['hourly', 'salary', 'piece_rate', 'daily_rate']),
@@ -45,7 +45,7 @@ export const employeeQueryOptionsSchema = z.object({
   search: z.string().optional(),
   employee_type: z.string().optional(),
   include_pay_group: z.boolean().optional(),
-  department: z.string().optional(),
+  sub_department: z.string().optional(),
   employment_status: z.string().optional(),
 });
 

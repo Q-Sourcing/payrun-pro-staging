@@ -14,10 +14,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
-interface CreateDepartmentDialogProps {
+interface CreateSubDepartmentDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSuccess: (department: { id: string; name: string }) => void;
+    onSuccess: (subDepartment: { id: string; name: string }) => void;
     defaultCompanyUnitId?: string;
 }
 
@@ -26,7 +26,7 @@ interface CompanyUnit {
     name: string;
 }
 
-export const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({
+export const CreateSubDepartmentDialog: React.FC<CreateSubDepartmentDialogProps> = ({
     open,
     onOpenChange,
     onSuccess,
@@ -82,7 +82,7 @@ export const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({
 
         // Validation
         if (!formData.name.trim()) {
-            setErrors({ name: 'Department name is required' });
+            setErrors({ name: 'Sub-Department name is required' });
             return;
         }
         if (!formData.company_unit_id) {
@@ -92,8 +92,8 @@ export const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({
 
         setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('departments')
+            const { data, error } = await (supabase
+                .from('sub_departments' as any) as any)
                 .insert([{
                     name: formData.name.trim(),
                     company_unit_id: formData.company_unit_id,
@@ -105,7 +105,7 @@ export const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({
 
             toast({
                 title: 'Success',
-                description: 'Department created successfully',
+                description: 'Sub-Department created successfully',
             });
 
             onSuccess({ id: data.id, name: data.name });
@@ -114,10 +114,10 @@ export const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({
         } catch (error: any) {
             toast({
                 title: 'Error',
-                description: error.message || 'Failed to create department',
+                description: error.message || 'Failed to create sub-department',
                 variant: 'destructive',
             });
-            setErrors({ submit: error.message || 'Failed to create department' });
+            setErrors({ submit: error.message || 'Failed to create sub-department' });
         } finally {
             setLoading(false);
         }
@@ -133,16 +133,16 @@ export const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({
         <Dialog open={open} onOpenChange={handleClose}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Create New Department</DialogTitle>
+                    <DialogTitle>Create New Sub-Department</DialogTitle>
                     <DialogDescription>
-                        Add a new department to the selected company unit.
+                        Add a new sub-department to the selected company unit.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit}>
                     <div className="space-y-4 py-4">
                         {!defaultCompanyUnitId && (
                             <div className="space-y-2">
-                                <Label htmlFor="department-company-unit">
+                                <Label htmlFor="sub-department-company-unit">
                                     Company Unit <span className="text-red-500">*</span>
                                 </Label>
                                 <Select
@@ -166,14 +166,14 @@ export const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({
                         )}
 
                         <div className="space-y-2">
-                            <Label htmlFor="department-name">
-                                Department Name <span className="text-red-500">*</span>
+                            <Label htmlFor="sub-department-name">
+                                Sub-Department Name <span className="text-red-500">*</span>
                             </Label>
                             <Input
-                                id="department-name"
+                                id="sub-department-name"
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                placeholder="Enter department name"
+                                placeholder="Enter sub-department name"
                                 className={errors.name ? 'border-red-500' : ''}
                             />
                             {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
@@ -188,7 +188,7 @@ export const CreateDepartmentDialog: React.FC<CreateDepartmentDialogProps> = ({
                             Cancel
                         </Button>
                         <Button type="submit" disabled={loading}>
-                            {loading ? 'Creating...' : 'Create Department'}
+                            {loading ? 'Creating...' : 'Create Sub-Department'}
                         </Button>
                     </DialogFooter>
                 </form>

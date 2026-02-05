@@ -90,10 +90,10 @@ ALTER TABLE public.user_invitations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_management_actions ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for user_activities (commented out until users table exists)
--- CREATE POLICY "Users can view their own activities" ON public.user_activities
+-- DROP POLICY IF EXISTS "Users can view their own activities" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can view their own activities" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can view their own activities" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can view their own activities" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Users can view their own activities" ON public.user_activities; CREATE POLICY "Users can view their own activities" ON public.user_activities
 --     FOR SELECT USING (auth.uid() = user_id);
 
--- CREATE POLICY "Super admins can view all activities" ON public.user_activities
+-- DROP POLICY IF EXISTS "Super admins can view all activities" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Super admins can view all activities" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Super admins can view all activities" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Super admins can view all activities" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Super admins can view all activities" ON public.user_activities; CREATE POLICY "Super admins can view all activities" ON public.user_activities
 --     FOR ALL USING (
 --         EXISTS (
 --             SELECT 1 FROM public.users 
@@ -101,7 +101,7 @@ ALTER TABLE public.user_management_actions ENABLE ROW LEVEL SECURITY;
 --         )
 --     );
 
--- CREATE POLICY "Organization admins can view organization activities" ON public.user_activities
+-- DROP POLICY IF EXISTS "Organization admins can view organization activities" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Organization admins can view organization activities" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Organization admins can view organization activities" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Organization admins can view organization activities" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Organization admins can view organization activities" ON public.user_activities; CREATE POLICY "Organization admins can view organization activities" ON public.user_activities
 --     FOR SELECT USING (
 --         EXISTS (
 --             SELECT 1 FROM public.users u1, public.users u2
@@ -113,7 +113,7 @@ ALTER TABLE public.user_management_actions ENABLE ROW LEVEL SECURITY;
 --     );
 
 -- RLS Policies for user_invitations (commented out until users table exists)
--- CREATE POLICY "Super admins can manage all invitations" ON public.user_invitations
+-- DROP POLICY IF EXISTS "Super admins can manage all invitations" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Super admins can manage all invitations" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Super admins can manage all invitations" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Super admins can manage all invitations" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Super admins can manage all invitations" ON public.user_invitations; CREATE POLICY "Super admins can manage all invitations" ON public.user_invitations
 --     FOR ALL USING (
 --         EXISTS (
 --             SELECT 1 FROM public.users 
@@ -121,7 +121,7 @@ ALTER TABLE public.user_management_actions ENABLE ROW LEVEL SECURITY;
 --         )
 --     );
 
--- CREATE POLICY "Organization admins can manage organization invitations" ON public.user_invitations
+-- DROP POLICY IF EXISTS "Organization admins can manage organization invitations" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Organization admins can manage organization invitations" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Organization admins can manage organization invitations" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Organization admins can manage organization invitations" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Organization admins can manage organization invitations" ON public.user_invitations; CREATE POLICY "Organization admins can manage organization invitations" ON public.user_invitations
 --     FOR ALL USING (
 --         EXISTS (
 --             SELECT 1 FROM public.users 
@@ -135,7 +135,7 @@ ALTER TABLE public.user_management_actions ENABLE ROW LEVEL SECURITY;
 --     );
 
 -- RLS Policies for user_management_actions (commented out until users table exists)
--- CREATE POLICY "Super admins can view all management actions" ON public.user_management_actions
+-- DROP POLICY IF EXISTS "Super admins can view all management actions" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Super admins can view all management actions" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Super admins can view all management actions" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Super admins can view all management actions" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Super admins can view all management actions" ON public.user_management_actions; CREATE POLICY "Super admins can view all management actions" ON public.user_management_actions
 --     FOR ALL USING (
 --         EXISTS (
 --             SELECT 1 FROM public.users 
@@ -143,7 +143,7 @@ ALTER TABLE public.user_management_actions ENABLE ROW LEVEL SECURITY;
 --         )
 --     );
 
--- CREATE POLICY "Organization admins can view organization management actions" ON public.user_management_actions
+-- DROP POLICY IF EXISTS "Organization admins can view organization management actions" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Organization admins can view organization management actions" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Organization admins can view organization management actions" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Organization admins can view organization management actions" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Organization admins can view organization management actions" ON public.user_management_actions; CREATE POLICY "Organization admins can view organization management actions" ON public.user_management_actions
 --     FOR SELECT USING (
 --         EXISTS (
 --             SELECT 1 FROM public.users u1, public.users u2

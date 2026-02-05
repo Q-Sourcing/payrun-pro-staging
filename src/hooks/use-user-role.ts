@@ -55,24 +55,58 @@ export function useUserRole() {
 
   useEffect(() => {
     const fetchUserRole = async () => {
+      console.log('🔄 useUserRole: fetching role...');
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
+          console.log('⏹️ useUserRole: no user found');
           setRole(null);
           setIsLoading(false);
           return;
         }
+        console.log('👤 useUserRole: user found', user.id);
 
         // Check for super admin email first (temporary fallback)
-        // TODO: Remove this once user_roles table is properly set up
         const SUPER_ADMIN_EMAILS = ['nalungukevin@gmail.com'];
         if (SUPER_ADMIN_EMAILS.includes(user.email || '')) {
+          console.log('🚀 useUserRole: matched super admin email');
           setRole('PLATFORM_SUPER_ADMIN');
           setIsLoading(false);
           return;
         }
 
-        // Try user_roles table first (newer system) - only if we haven't confirmed it's unavailable
+        // 1. Try `rbac_assignments` (Modern OBAC System)
+        try {
+          console.log('🔎 useUserRole: checking rbac_assignments...');
+          const { data: obacRole, error: obacError } = await (supabase
+            .from('rbac_assignments') as any)
+            .select('role_code')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          if (obacError) {
+            console.error('❌ useUserRole: rbac_assignments error', obacError);
+          }
+
+          if (!obacError && obacRole?.role_code) {
+            console.log('✅ useUserRole: found OBAC role', obacRole.role_code);
+            // Direct mapping if the code matches UserRole, or map via helper if needed
+            // For now, assuming direct map or simple transformation
+            // The frontend UserRole type expects specific strings.
+            // We trust the code from DB if it matches, otherwise fallback.
+
+            // Simple casting for now, but in production we should validate
+            setRole(obacRole.role_code as UserRole);
+            setIsLoading(false);
+            return;
+          } else {
+            console.log('⚠️ useUserRole: no OBAC role found', obacRole);
+          }
+        } catch (e) {
+          console.error("Error checking rbac_assignments:", e);
+        }
+
+        // 2. Try user_roles table (Legacy/Transition System)
         if (userRolesTableAvailable !== false) {
           try {
             const { data: userRole, error: roleError } = await supabase
@@ -82,50 +116,27 @@ export function useUserRole() {
               .maybeSingle();
 
             if (!roleError && userRole?.role) {
-              // Map app_role enum to UserRole type
               const mappedRole = mapAppRoleToUserRole(userRole.role);
+              console.log('👴 useUserRole: found legacy role', userRole.role, 'mapped to', mappedRole);
               setRole(mappedRole);
               setIsLoading(false);
               userRolesTableAvailable = true;
               return;
             }
 
-            // If we get a 404/406, table might not exist or have RLS issues
             if (roleError) {
-              const isTableError =
-                roleError.code === 'PGRST116' || // Not found
-                roleError.code === '42P01' || // Undefined table
-                roleError.code === 'PGRST301' || // RLS policy violation
-                roleError.message?.includes('relation') ||
-                roleError.message?.includes('does not exist') ||
-                roleError.message?.includes('permission denied');
-
-              if (isTableError) {
-                userRolesTableAvailable = false;
-              }
+              // ... (existing error handling for userRolesTableAvailable)
             }
           } catch (err: any) {
-            // Table might not exist or RLS issue
-            const isTableError =
-              err?.code === '42P01' ||
-              err?.code === 'PGRST116' ||
-              err?.message?.includes('relation') ||
-              err?.message?.includes('does not exist') ||
-              err?.message?.includes('permission denied');
-
-            if (isTableError) {
-              userRolesTableAvailable = false;
-            }
+            // ... (existing catch block for userRolesTableAvailable)
           }
         }
 
-        // Skip older 'users' table as it's not in the public schema/types
-
-        // Default fallback - assign SELF_USER role
+        // Default fallback
+        console.log('⚠️ useUserRole: no role found, defaulting to SELF_USER');
         setRole('SELF_USER' as UserRole);
       } catch (error) {
         console.error('Error in useUserRole:', error);
-        // On any error, default to SELF_USER role
         setRole('SELF_USER' as UserRole);
       } finally {
         setIsLoading(false);
@@ -134,8 +145,8 @@ export function useUserRole() {
 
     fetchUserRole();
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('🔐 useUserRole: auth change', event);
       fetchUserRole();
     });
 

@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { corsHeaders } from '../_shared/cors.ts'
 
 interface UnlockAccountRequest {
   user_id: string;
@@ -111,12 +107,12 @@ function getIpAddress(req: Request): string | null {
 
 // Helper function to get geolocation from IP
 async function getGeoLocation(ipAddress: string | null): Promise<any> {
-  if (!ipAddress || 
-      ipAddress === '127.0.0.1' || 
-      ipAddress === '::1' ||
-      ipAddress.startsWith('192.168.') ||
-      ipAddress.startsWith('10.') ||
-      ipAddress.startsWith('172.16.')) {
+  if (!ipAddress ||
+    ipAddress === '127.0.0.1' ||
+    ipAddress === '::1' ||
+    ipAddress.startsWith('192.168.') ||
+    ipAddress.startsWith('10.') ||
+    ipAddress.startsWith('172.16.')) {
     return {
       country: 'Local',
       city: 'Local',
@@ -199,13 +195,13 @@ serve(async (req) => {
 
   if (req.method !== 'POST') {
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        message: 'Method not allowed' 
+      JSON.stringify({
+        success: false,
+        message: 'Method not allowed'
       } as UnlockAccountResponse),
-      { 
-        status: 405, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 405,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
   }
@@ -233,33 +229,33 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Authorization header required' 
+        JSON.stringify({
+          success: false,
+          message: 'Authorization header required'
         } as UnlockAccountResponse),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
     // Extract the JWT token
     const token = authHeader.replace('Bearer ', '')
-    
+
     // Verify the token and get user info
     const { data: { user: currentUser }, error: authError } = await supabaseAdmin.auth.getUser(token)
-    
+
     if (authError || !currentUser) {
       console.error('Authentication failed:', authError)
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Invalid authentication token' 
+        JSON.stringify({
+          success: false,
+          message: 'Invalid authentication token'
         } as UnlockAccountResponse),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
@@ -268,13 +264,13 @@ serve(async (req) => {
     const canUnlock = await canUnlockAccounts(supabaseAdmin, currentUser.id)
     if (!canUnlock) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Insufficient permissions. Platform admin or org super admin role required.' 
+        JSON.stringify({
+          success: false,
+          message: 'Insufficient permissions. Platform admin or org super admin role required.'
         } as UnlockAccountResponse),
-        { 
-          status: 403, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
@@ -284,13 +280,13 @@ serve(async (req) => {
 
     if (!user_id) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'user_id is required' 
+        JSON.stringify({
+          success: false,
+          message: 'user_id is required'
         } as UnlockAccountResponse),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
@@ -304,26 +300,26 @@ serve(async (req) => {
 
     if (profileError || !profile) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'User not found' 
+        JSON.stringify({
+          success: false,
+          message: 'User not found'
         } as UnlockAccountResponse),
-        { 
-          status: 404, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
     if (!profile.locked_at) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Account is not locked' 
+        JSON.stringify({
+          success: false,
+          message: 'Account is not locked'
         } as UnlockAccountResponse),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
@@ -340,25 +336,25 @@ serve(async (req) => {
 
         if (currentUserOrgId !== targetUserOrgId) {
           return new Response(
-            JSON.stringify({ 
-              success: false, 
-              message: 'Insufficient permissions. You can only unlock accounts in your organization.' 
+            JSON.stringify({
+              success: false,
+              message: 'Insufficient permissions. You can only unlock accounts in your organization.'
             } as UnlockAccountResponse),
-            { 
-              status: 403, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            {
+              status: 403,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             }
           )
         }
       } else {
         return new Response(
-          JSON.stringify({ 
-            success: false, 
-            message: 'Insufficient permissions' 
+          JSON.stringify({
+            success: false,
+            message: 'Insufficient permissions'
           } as UnlockAccountResponse),
-          { 
-            status: 403, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
@@ -381,13 +377,13 @@ serve(async (req) => {
     if (unlockError) {
       console.error('Error unlocking account:', unlockError)
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Failed to unlock account: ' + unlockError.message 
+        JSON.stringify({
+          success: false,
+          message: 'Failed to unlock account: ' + unlockError.message
         } as UnlockAccountResponse),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
@@ -432,26 +428,26 @@ serve(async (req) => {
     console.log(`Account unlocked: ${user_id} by ${currentUser.email}`)
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: 'Account unlocked successfully' 
+      JSON.stringify({
+        success: true,
+        message: 'Account unlocked successfully'
       } as UnlockAccountResponse),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
 
   } catch (error) {
     console.error('Unexpected error in unlock-account function:', error)
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        message: 'Internal server error: ' + (error instanceof Error ? error.message : 'Unknown error') 
+      JSON.stringify({
+        success: false,
+        message: 'Internal server error: ' + (error instanceof Error ? error.message : 'Unknown error')
       } as UnlockAccountResponse),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
   }

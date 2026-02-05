@@ -74,17 +74,19 @@ SELECT
     ELSE '❌ Performance indexes missing'
   END as indexes_check;
 
--- Check PayGroup ID format (sample)
+-- Check PayGroup ID format (sample from master)
 SELECT 
   CASE 
-    WHEN EXISTS (SELECT 1 FROM pay_groups WHERE paygroup_id LIKE '%-%-%') 
-    THEN '✅ PayGroup IDs have new format'
-    ELSE '❌ PayGroup IDs still in old format'
+    WHEN EXISTS (SELECT 1 FROM pay_group_master WHERE code LIKE '%-%-%') 
+    THEN '✅ PayGroup IDs have new format in master'
+    ELSE '❌ PayGroup IDs still in old format or master empty'
   END as paygroup_id_check;
 
--- Show sample of updated PayGroup IDs
-SELECT 'Sample PayGroup IDs:' as info;
-SELECT paygroup_id, name FROM pay_groups WHERE paygroup_id LIKE '%-%-%' LIMIT 5;
+
+-- Show sample of updated PayGroup IDs from master
+SELECT 'Sample PayGroup codes from master:' as info;
+SELECT code, name FROM pay_group_master WHERE code LIKE '%-%-%' LIMIT 5;
+
 
 -- Show sample of expatriate PayGroup IDs (if table exists)
 DO $$
@@ -96,5 +98,51 @@ END $$;
 
 SELECT paygroup_id, name FROM expatriate_pay_groups WHERE paygroup_id LIKE '%-%-%' LIMIT 3;
 
+-- Check if Flexible Payroll Approvals tables exist
+SELECT 
+  CASE 
+    WHEN EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'payroll_approval_configs') 
+    THEN '✅ payroll_approval_configs table exists'
+    ELSE '❌ payroll_approval_configs table missing'
+  END as approval_configs_check;
+
+SELECT 
+  CASE 
+    WHEN EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'payroll_approval_categories') 
+    THEN '✅ payroll_approval_categories table exists'
+    ELSE '❌ payroll_approval_categories table missing'
+  END as approval_categories_check;
+
+-- Check for missing columns in approval_workflows
+SELECT 
+  CASE 
+    WHEN EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'approval_workflows' AND column_name = 'applies_to_scopes') 
+    THEN '✅ applies_to_scopes column exists in approval_workflows'
+    ELSE '❌ applies_to_scopes column missing in approval_workflows'
+  END as applies_to_scopes_check;
+
+SELECT 
+  CASE 
+    WHEN EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'approval_workflows' AND column_name = 'version') 
+    THEN '✅ version column exists in approval_workflows'
+    ELSE '❌ version column missing in approval_workflows'
+  END as version_check;
+
+
+-- Check if per-type RPC is updated
+SELECT 
+  CASE 
+    WHEN EXISTS (
+      SELECT 1 FROM pg_proc p 
+      JOIN pg_namespace n ON p.pronamespace = n.oid 
+      WHERE n.nspname = 'public' 
+      AND p.proname = 'submit_payrun_for_approval'
+      AND pg_get_functiondef(p.oid) ILIKE '%payroll_approval_configs%'
+    ) 
+    THEN '✅ submit_payrun_for_approval updated for per-type logic'
+    ELSE '❌ submit_payrun_for_approval remains in legacy state'
+  END as rpc_check;
+
 -- Final verification summary
 SELECT '🎉 MIGRATION VERIFICATION COMPLETE' as status;
+

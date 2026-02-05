@@ -45,11 +45,11 @@ interface FilteredPayRunsPageProps {
 const getPayrollTypeFromEmployeeType = (employeeType?: string): string | undefined => {
   if (!employeeType) return undefined;
   const mapping: Record<string, string> = {
-    'regular': 'Local',
+    'regular': 'Regular',
     'expatriate': 'Expatriate',
-    'interns': 'Local',
-    // IPPMS is a piece_rate paygroup; treat as Local for pay run UI locking
-    'ippms': 'Local',
+    'interns': 'Interns',
+    'ippms': 'IPPMS',
+    'local': 'Regular',
   };
   return mapping[employeeType.toLowerCase()];
 };
@@ -80,8 +80,8 @@ const FilteredPayRunsPage: React.FC<FilteredPayRunsPageProps> = ({
   const fetchPayRuns = async () => {
     setLoading(true);
     try {
-      let query = supabase
-        .from("pay_runs")
+      let query = (supabase
+        .from("pay_runs" as any)
         .select(`
           *,
           pay_group_master:pay_group_master_id (
@@ -91,28 +91,34 @@ const FilteredPayRunsPage: React.FC<FilteredPayRunsPageProps> = ({
             code,
             type
           ),
-          pay_items (count)
-        `)
+          pay_items (count),
+          projects (name)
+        `) as any)
         .eq("category", category);
 
       if (employeeType) {
-        query = query.eq("employee_type", employeeType);
+        const typeStr = (employeeType as string).toLowerCase();
+        if (typeStr === 'regular' || typeStr === 'local') {
+          query = query.or('employee_type.eq.regular,employee_type.eq.local');
+        } else {
+          query = query.eq("employee_type", employeeType);
+        }
       }
 
       if (payFrequency) {
         query = query.eq("pay_frequency", payFrequency);
       }
 
-      const { data, error } = await query.order("pay_run_date", { ascending: false });
+      const { data, error } = await (query.order("pay_run_date", { ascending: false }) as any);
 
       if (error) throw error;
 
-      const payRunsWithCount = data?.map(run => ({
+      const payRunsWithCount = (data as any[])?.map(run => ({
         ...run,
-        pay_items_count: run.pay_items?.[0]?.count || 0
+        pay_items_count: (run.pay_items as any)?.[0]?.count || 0
       })) || [];
 
-      setPayRuns(payRunsWithCount);
+      setPayRuns(payRunsWithCount as any[]);
     } catch (err) {
       console.error("Error fetching pay runs:", err);
       toast({
@@ -193,6 +199,7 @@ const FilteredPayRunsPage: React.FC<FilteredPayRunsPageProps> = ({
                   <TableHead>Status</TableHead>
                   <TableHead>Gross Pay</TableHead>
                   <TableHead>Net Pay</TableHead>
+                  <TableHead>Employee Type</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -214,6 +221,11 @@ const FilteredPayRunsPage: React.FC<FilteredPayRunsPageProps> = ({
                     </TableCell>
                     <TableCell>
                       {run.pay_group_master?.currency || 'UGX'} {run.total_net_pay?.toLocaleString() || '0'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 font-normal">
+                        {run.employee_type === 'local' ? 'Regular' : (run.employee_type?.charAt(0).toUpperCase() + (run.employee_type?.slice(1) || ''))}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <Button
@@ -249,7 +261,8 @@ const FilteredPayRunsPage: React.FC<FilteredPayRunsPageProps> = ({
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         onSuccess={fetchPayRuns}
-        payrollType={payrollType}
+        onPayRunCreated={fetchPayRuns}
+        payrollType={payrollType || ""}
         defaultCategory={category}
         defaultEmployeeType={employeeType}
         defaultPayFrequency={payFrequency}
@@ -261,7 +274,12 @@ const FilteredPayRunsPage: React.FC<FilteredPayRunsPageProps> = ({
           open={showDetailsDialog}
           onOpenChange={setShowDetailsDialog}
           payRunId={selectedPayRun.id}
-          onUpdate={fetchPayRuns}
+          payRunDate={selectedPayRun.pay_run_date}
+          payPeriod={{
+            start: selectedPayRun.pay_period_start,
+            end: selectedPayRun.pay_period_end
+          }}
+          onPayRunUpdated={fetchPayRuns}
         />
       )}
     </div>

@@ -11,10 +11,10 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  Users, 
-  UserPlus, 
-  X, 
+import {
+  Users,
+  UserPlus,
+  X,
   Loader2,
   ArrowLeft,
   Trash2
@@ -46,7 +46,7 @@ interface AssignedEmployee {
     last_name: string;
     email: string;
     employee_type: string;
-    department?: string;
+    sub_department?: string;
   };
 }
 
@@ -70,15 +70,17 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
   const fetchAssignedEmployees = useCallback(async () => {
     setLoading(true);
     try {
-      // Query from paygroup_employees table directly with join to employees
+      const isHeadOffice = payGroup?.category === 'head_office';
+      const tableName = isHeadOffice ? 'head_office_pay_group_members' : 'paygroup_employees';
+
+      // Query from the appropriate table
       const { data, error } = await (supabase as any)
-        .from('paygroup_employees')
+        .from(tableName)
         .select(`
           id,
           employee_id,
-          pay_group_id,
-          assigned_at,
-          active,
+          ${isHeadOffice ? 'active,' : 'pay_group_id, assigned_at, active,'}
+          ${isHeadOffice ? '' : '' /* padding */}
           employees!inner (
             id,
             first_name,
@@ -86,32 +88,29 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
             last_name,
             email,
             employee_type,
-            department
+            sub_department
           )
         `)
         .eq('pay_group_id', payGroup.id)
-        .eq('active', true)
-        .order('assigned_at', { ascending: false });
+        .eq('active', true);
 
       if (error) {
         console.error('Supabase error:', error);
         throw error;
       }
-      
-      console.log('Fetched employees:', data);
-      
+
       // Transform the data to match the expected interface
       const transformedData = (data || []).map(item => {
         const employee = Array.isArray(item.employees) ? item.employees[0] : item.employees;
         return {
           id: item.id,
           employee_id: item.employee_id,
-          assigned_at: item.assigned_at,
+          assigned_at: (item as any).assigned_at || (item as any).added_at || new Date().toISOString(),
           active: item.active,
           employees: employee
         };
       });
-      
+
       setEmployees(transformedData);
     } catch (error: any) {
       console.error('Error fetching assigned employees:', error);
@@ -123,7 +122,7 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
     } finally {
       setLoading(false);
     }
-  }, [payGroup.id, toast]);
+  }, [payGroup.id, payGroup.category, toast]);
 
   // Load assigned employees on mount
   useEffect(() => {
@@ -160,10 +159,10 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
   const loadAvailableEmployees = async () => {
     try {
       const employeeType = getEmployeeTypeForPayGroup(payGroup.type);
-      
+
       let query = supabase
         .from('employees')
-        .select('id, first_name, middle_name, last_name, email, department, employee_type')
+        .select('id, first_name, middle_name, last_name, email, sub_department, employee_type')
         .order('first_name');
 
       if (employeeType) {
@@ -284,7 +283,7 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
           employee_id: selectedEmployee,
           pay_group_id: payGroup.id
         });
-        
+
         // Catch any DB constraint error (in case of race conditions)
         if (result?.error?.includes('unique_employee_in_paygroup') || result?.error?.includes('duplicate')) {
           const employeeName = availableEmployees.find(emp => emp.id === selectedEmployee);
@@ -322,13 +321,16 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
   const handleRemove = async (employeeId: string) => {
     const confirmDelete = window.confirm('Remove this employee from the pay group?');
     if (!confirmDelete) return;
-    
+
     setRemoving(employeeId);
     try {
+      const isHeadOffice = payGroup?.category === 'head_office';
+      const tableName = isHeadOffice ? 'head_office_pay_group_members' : 'paygroup_employees';
+
       // Soft delete by setting active to false
       const { error } = await (supabase as any)
-        .from('paygroup_employees')
-        .update({ 
+        .from(tableName)
+        .update({
           active: false,
           removed_at: new Date().toISOString()
         })
@@ -375,7 +377,7 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
   const getEmployeeTypeColor = (type: string) => {
     switch (type) {
       case 'expatriate': return 'bg-blue-100 text-blue-800';
-      case 'local': return 'bg-green-100 text-green-800';
+      case 'regular': return 'bg-green-100 text-green-800';
       case 'piece_rate': return 'bg-amber-100 text-amber-800';
       case 'intern': return 'bg-purple-100 text-purple-800';
       default: return 'bg-gray-100 text-gray-800';
@@ -418,7 +420,7 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
             )}
           </div>
           <DialogDescription>
-            {showAssign 
+            {showAssign
               ? 'Select an employee to assign to this pay group'
               : `Manage employees assigned to this ${payGroup?.type} pay group`
             }
@@ -478,8 +480,8 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
                             <h4 className="font-medium text-gray-900">
                               {getFullName(record.employees)}
                             </h4>
-                            <Badge 
-                              variant="secondary" 
+                            <Badge
+                              variant="secondary"
                               className={getEmployeeTypeColor(record.employees.employee_type)}
                             >
                               {record.employees.employee_type}
@@ -487,13 +489,13 @@ export const ViewAssignedEmployeesDialog: React.FC<ViewAssignedEmployeesDialogPr
                           </div>
                           <div className="text-sm text-muted-foreground space-y-1">
                             <p>{record.employees.email}</p>
-                            {record.employees.department && (
-                              <p>Department: {record.employees.department}</p>
+                            {record.employees.sub_department && (
+                              <p>Sub-Department: {record.employees.sub_department}</p>
                             )}
                             <p>Assigned: {new Date(record.assigned_at).toLocaleDateString()}</p>
                           </div>
                         </div>
-                        
+
                         <Button
                           variant="ghost"
                           size="sm"

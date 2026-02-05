@@ -444,19 +444,57 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
 
     setLoading(true);
     try {
-      const payGroup = await PayGroupsService.createPayGroup(formData, organizationId || undefined);
-      // Assign selected employees if any
-      if (payGroup?.id && selectedEmployeeIds.length > 0 && projectAndPayTypeSelected) {
-        await EmployeePayGroupsService.assignEmployeesToPayGroup({
-          organizationId: organizationId || undefined,
-          payGroupId: payGroup.id,
-          employeeIds: selectedEmployeeIds,
+      let payGroup: any;
+
+      // Route to appropriate service based on category
+      if (formData.category === 'head_office') {
+        // Use HeadOfficePayGroupsService for head office paygroups
+        const { HeadOfficePayGroupsService } = await import('@/lib/services/headOfficePayGroups.service');
+
+        // Map employee_type to HeadOfficePayGroupRefType
+        const typeMap: Record<string, 'regular' | 'intern' | 'expatriate'> = {
+          'regular': 'regular',
+          'interns': 'intern',
+          'expatriate': 'expatriate'
+        };
+        const headOfficeType = typeMap[formData.employee_type as string] || 'regular';
+
+        // Create via HeadOfficePayGroupsService
+        payGroup = await HeadOfficePayGroupsService.createPayGroup(headOfficeType, {
+          name: formData.name,
+          pay_frequency: formData.pay_frequency as any,
+          country: formData.country,
+          currency: formData.currency,
+          default_tax_percentage: formData.default_tax_percentage,
+          notes: formData.notes,
+          organization_id: organizationId,
+          status: 'active'
         });
-        // Invalidate caches that may reference employees/pay groups
-        queryClient.invalidateQueries({ queryKey: ['employees'] });
-        queryClient.invalidateQueries({ queryKey: ['project-employees', selectedProjectId] });
-        queryClient.invalidateQueries({ queryKey: ['project-paygroups', selectedProjectId] });
+
+        // Assign employees if selected
+        if (payGroup?.id && selectedEmployeeIds.length > 0) {
+          await HeadOfficePayGroupsService.addMembers(payGroup.id, headOfficeType, selectedEmployeeIds);
+        }
+      } else {
+        // Use PayGroupsService for project-based paygroups
+        payGroup = await PayGroupsService.createPayGroup(formData, organizationId || undefined);
+
+        // Assign selected employees if any
+        if (payGroup?.id && selectedEmployeeIds.length > 0 && projectAndPayTypeSelected) {
+          await EmployeePayGroupsService.assignEmployeesToPayGroup({
+            organizationId: organizationId || undefined,
+            payGroupId: payGroup.id,
+            employeeIds: selectedEmployeeIds,
+          });
+        }
       }
+
+      // Invalidate caches that may reference employees/pay groups
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['project-employees', selectedProjectId] });
+      queryClient.invalidateQueries({ queryKey: ['project-paygroups', selectedProjectId] });
+      queryClient.invalidateQueries({ queryKey: ['paygroups'] });
+
       onSuccess();
     } catch (error) {
       console.error('Error creating pay group:', error);
@@ -801,7 +839,7 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="weekly">Weekly</SelectItem>
-                                <SelectItem value="bi-weekly">Bi-weekly</SelectItem>
+                                <SelectItem value="bi_weekly">Bi-weekly</SelectItem>
                                 <SelectItem value="monthly">Monthly</SelectItem>
                                 <SelectItem value="quarterly">Quarterly</SelectItem>
                               </SelectContent>
@@ -1017,7 +1055,7 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="weekly">Weekly</SelectItem>
-                                <SelectItem value="bi-weekly">Bi-weekly</SelectItem>
+                                <SelectItem value="bi_weekly">Bi-weekly</SelectItem>
                                 <SelectItem value="monthly">Monthly</SelectItem>
                               </SelectContent>
                             </Select>,

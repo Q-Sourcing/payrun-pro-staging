@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS public.platform_admins (
 ALTER TABLE public.platform_admins ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Platform admins readable by platform admins" ON public.platform_admins;
-CREATE POLICY "Platform admins readable by platform admins" 
+DROP POLICY IF EXISTS "Platform admins readable by platform admins" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Platform admins readable by platform admins" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Platform admins readable by platform admins" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Platform admins readable by platform admins" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Platform admins readable by platform admins" 
 ON public.platform_admins FOR SELECT TO authenticated 
 USING (
     auth_user_id = auth.uid() OR 
@@ -120,7 +120,7 @@ END $$;
 -- Organizations
 DROP POLICY IF EXISTS "org_select_policy" ON public.organizations;
 DROP POLICY IF EXISTS "org_select_same_org_or_super_admin" ON public.organizations;
-CREATE POLICY "org_select_policy" ON public.organizations 
+DROP POLICY IF EXISTS "org_select_policy" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "org_select_policy" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "org_select_policy" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "org_select_policy" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "org_select_policy" ON public.organizations; CREATE POLICY "org_select_policy" ON public.organizations 
 FOR SELECT TO authenticated 
 USING (
     public.is_platform_admin() OR 
@@ -130,7 +130,7 @@ USING (
 -- Activity Logs (Multi-tenant check)
 DROP POLICY IF EXISTS "activity_logs_select_policy" ON public.activity_logs;
 DROP POLICY IF EXISTS "activity_logs_select_same_org_or_super_admin" ON public.activity_logs;
-CREATE POLICY "activity_logs_select_policy" ON public.activity_logs 
+DROP POLICY IF EXISTS "activity_logs_select_policy" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "activity_logs_select_policy" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "activity_logs_select_policy" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "activity_logs_select_policy" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "activity_logs_select_policy" ON public.activity_logs; CREATE POLICY "activity_logs_select_policy" ON public.activity_logs 
 FOR SELECT TO authenticated 
 USING (
     public.is_platform_admin() OR 
@@ -145,7 +145,7 @@ BEGIN
         DROP POLICY IF EXISTS "Org super admins can view org auth events" ON public.auth_events;
         DROP POLICY IF EXISTS "Users can view own auth events" ON public.auth_events;
 
-        CREATE POLICY "auth_events_select_policy" ON public.auth_events 
+        DROP POLICY IF EXISTS "auth_events_select_policy" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "auth_events_select_policy" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "auth_events_select_policy" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "auth_events_select_policy" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "auth_events_select_policy" ON public.auth_events; CREATE POLICY "auth_events_select_policy" ON public.auth_events 
         FOR SELECT TO authenticated 
         USING (
             public.is_platform_admin() OR 
@@ -163,7 +163,7 @@ END $$;
 -- User Profiles
 DROP POLICY IF EXISTS "user_profiles_select_policy" ON public.user_profiles;
 DROP POLICY IF EXISTS "user_profiles_select_own_or_super_admin" ON public.user_profiles;
-CREATE POLICY "user_profiles_select_policy" ON public.user_profiles
+DROP POLICY IF EXISTS "user_profiles_select_policy" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "user_profiles_select_policy" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "user_profiles_select_policy" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "user_profiles_select_policy" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "user_profiles_select_policy" ON public.user_profiles; CREATE POLICY "user_profiles_select_policy" ON public.user_profiles
 FOR SELECT TO authenticated
 USING (
     public.is_platform_admin() OR 
@@ -176,7 +176,7 @@ DO $$
 BEGIN
     IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'user_invites') THEN
         DROP POLICY IF EXISTS "Users can view invites addressed to them" ON public.user_invites;
-        CREATE POLICY "user_invites_self_select_policy" ON public.user_invites
+        DROP POLICY IF EXISTS "user_invites_self_select_policy" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "user_invites_self_select_policy" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "user_invites_self_select_policy" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "user_invites_self_select_policy" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "user_invites_self_select_policy" ON public.user_invites; CREATE POLICY "user_invites_self_select_policy" ON public.user_invites
         FOR SELECT TO authenticated
         USING (
             email = auth.jwt()->>'email' OR

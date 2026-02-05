@@ -111,7 +111,7 @@ export const DataManagementSection = () => {
       <CardContent className="space-y-6">
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-muted-foreground">AUTO-BACKUP</h3>
-          
+
           <div className="space-y-2">
             <Label>Frequency</Label>
             <Select value={backupFrequency} onValueChange={setBackupFrequency}>
@@ -148,7 +148,7 @@ export const DataManagementSection = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="cloud">Cloud Storage</SelectItem>
-                <SelectItem value="local">Local</SelectItem>
+                <SelectItem value="regular">Regular</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -156,7 +156,7 @@ export const DataManagementSection = () => {
 
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-muted-foreground">DATA EXPORT</h3>
-          
+
           <div className="space-y-2">
             <Label>Default Format</Label>
             <Select value={exportFormat} onValueChange={setExportFormat}>
@@ -202,7 +202,7 @@ export const DataManagementSection = () => {
 
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-muted-foreground">DATA CLEANUP</h3>
-          
+
           <div className="space-y-2">
             <Label>Auto-archive Old Pay Runs</Label>
             <RadioGroup value={autoArchive} onValueChange={setAutoArchive}>

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const Dashboard = () => {
   const { organizationId } = useOrg();
-  const [stats, setStats] = useState<{ companies: number; employees: number; groups: number; payroll: number }>({companies:0, employees:0, groups:0, payroll:0});
+  const [stats, setStats] = useState<{ companies: number; employees: number; groups: number; payroll: number }>({ companies: 0, employees: 0, groups: 0, payroll: 0 });
   const [payRuns, setPayRuns] = useState<any[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +38,7 @@ const Dashboard = () => {
         <MetricCard label="Total Companies" value={stats.companies} loading={loading} />
         <MetricCard label="Employees" value={stats.employees} loading={loading} />
         <MetricCard label="Active Pay Groups" value={stats.groups} loading={loading} />
-        <MetricCard label="Payroll This Month" value={stats.payroll?.toLocaleString('en-US', {style:'currency',currency:'USD'})} loading={loading} />
+        <MetricCard label="Payroll This Month" value={stats.payroll?.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} loading={loading} />
       </div>
       {/* Recent Pay Runs */}
       <div className="mb-10">
@@ -61,12 +61,12 @@ const Dashboard = () => {
               <tbody>
                 {payRuns.map(pr => (
                   <tr key={pr.id} className="border-b last:border-none">
-                    <td>{pr.pay_period_start?.slice(0,10)} - {pr.pay_period_end?.slice(0,10)}</td>
+                    <td>{pr.period_start?.slice(0, 10)} - {pr.period_end?.slice(0, 10)}</td>
                     <td>{pr.pay_group?.name}</td>
                     <td>{pr.total_employees || '-'}</td>
-                    <td>{pr.total_gross?.toLocaleString('en-US', {style:'currency',currency:'USD'})}</td>
-                    <td>{pr.total_net?.toLocaleString('en-US', {style:'currency',currency:'USD'})}</td>
-                    <td>{pr.payroll_status}</td>
+                    <td>{pr.total_gross_pay?.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</td>
+                    <td>{pr.total_net_pay?.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</td>
+                    <td>{pr.status}</td>
                   </tr>
                 ))}
                 {!loading && payRuns.length === 0 && (
@@ -89,7 +89,7 @@ const Dashboard = () => {
               <CardContent className="flex-1 space-y-1">
                 <div>Company Units: <span className="font-semibold">{c.company_units?.length || 0}</span></div>
                 <div>Employees: <span className="font-semibold">{Array.isArray(c.employee_count) ? c.employee_count.length : 0}</span></div>
-                <div>Total Payroll: <span className="font-semibold">{Array.isArray(c.payroll)&&c.payroll.length>0 ? c.payroll.map(p=>p.total_gross).reduce((a,n)=>a+n,0).toLocaleString('en-US', {style:'currency',currency:'USD'}) : '$0'}</span></div>
+                <div>Total Payroll: <span className="font-semibold">{Array.isArray(c.payroll) && c.payroll.length > 0 ? c.payroll.map(p => p.total_gross).reduce((a, n) => a + n, 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '$0'}</span></div>
               </CardContent>
             </Card>
           ))}

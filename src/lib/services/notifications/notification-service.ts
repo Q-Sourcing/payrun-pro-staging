@@ -33,7 +33,6 @@ export interface EmailNotification {
  * Handles email and in-app notifications
  */
 export class NotificationService {
-  private static readonly RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || '';
   private static readonly FROM_EMAIL = 'Q-Payroll Security <security@payrunpro.com>';
 
   /**
@@ -47,7 +46,7 @@ export class NotificationService {
         // Client-side: delegate to Edge Function
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const { data: { session } } = await supabase.auth.getSession();
-        
+
         if (!session?.access_token) {
           console.error('No session token for email sending');
           return false;
@@ -65,8 +64,12 @@ export class NotificationService {
         return response.ok;
       }
 
-      // Server-side (Edge Function)
-      if (!this.RESEND_API_KEY) {
+      // Server-side (Edge Function) logic
+      // We safely access Deno here because we already returned if window exists
+      const deno = (globalThis as any).Deno;
+      const resendKey = deno?.env?.get('RESEND_API_KEY');
+
+      if (!resendKey) {
         console.error('RESEND_API_KEY not configured');
         return false;
       }
@@ -74,7 +77,7 @@ export class NotificationService {
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.RESEND_API_KEY}`,
+          'Authorization': `Bearer ${resendKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({

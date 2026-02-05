@@ -44,14 +44,25 @@ export const RecalculateTaxesDialog = ({ open, onOpenChange, employeeCount, payR
     }
 
     setRecalculating(true);
-    
+
     try {
+      // Fetch pay run category to determine if it's head office
+      const { data: payRun, error: payRunErr } = await (supabase
+        .from("pay_runs" as any)
+        .select("category")
+        .eq("id", payRunId)
+        .single() as any);
+
+      if (payRunErr) throw payRunErr;
+      const isHO = payRun?.category === 'head_office';
+
       // Fetch current pay items
-      const { data: payItems, error: fetchError } = await supabase
-        .from("pay_items")
+      const { data: payItems, error: fetchError } = await (supabase
+        .from("pay_items" as any)
         .select(`
           *,
           employees (
+            id,
             first_name,
             middle_name,
             last_name,
@@ -62,7 +73,7 @@ export const RecalculateTaxesDialog = ({ open, onOpenChange, employeeCount, payR
             employee_type
           )
         `)
-        .eq("pay_run_id", payRunId);
+        .eq("pay_run_id", payRunId) as any);
 
       if (fetchError) throw fetchError;
 
@@ -74,6 +85,12 @@ export const RecalculateTaxesDialog = ({ open, onOpenChange, employeeCount, payR
       const updatedPayItems = await Promise.all(
         payItems.map(async (item) => {
           try {
+            // Fetch custom deductions for this pay item
+            const { data: customDeductions } = await (supabase
+              .from("pay_item_custom_deductions" as any)
+              .select("*")
+              .eq("pay_item_id", item.id) as any);
+
             const input: CalculationInput = {
               employee_id: item.employee_id,
               pay_run_id: payRunId,
@@ -81,14 +98,19 @@ export const RecalculateTaxesDialog = ({ open, onOpenChange, employeeCount, payR
               pay_type: item.employees.pay_type,
               employee_type: item.employees.employee_type,
               country: item.employees.country,
+              is_head_office: isHO,
               hours_worked: item.hours_worked,
               pieces_completed: item.pieces_completed,
-              custom_deductions: [], // We'll fetch these separately if needed
+              custom_deductions: (customDeductions || []).map((d: any) => ({
+                name: d.name,
+                amount: d.amount,
+                type: d.type
+              })),
               benefit_deductions: item.benefit_deductions || 0
             };
 
             const result = await PayrollCalculationService.calculatePayroll(input);
-            
+
             return {
               id: item.id,
               gross_pay: result.gross_pay,
@@ -113,18 +135,18 @@ export const RecalculateTaxesDialog = ({ open, onOpenChange, employeeCount, payR
       );
 
       // Update pay items in database
-      const updatePromises = updatedPayItems.map(item => 
-        supabase
-          .from("pay_items")
-          .update({
-            gross_pay: item.gross_pay,
-            tax_deduction: item.tax_deduction,
-            total_deductions: item.total_deductions,
-            net_pay: item.net_pay,
-            employer_contributions: item.employer_contributions,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", item.id)
+      const updatePromises = updatedPayItems.map(item =>
+      (supabase
+        .from("pay_items" as any)
+        .update({
+          gross_pay: item.gross_pay,
+          tax_deduction: item.tax_deduction,
+          total_deductions: item.total_deductions,
+          net_pay: item.net_pay,
+          employer_contributions: item.employer_contributions,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", item.id) as any)
       );
 
       await Promise.all(updatePromises);
@@ -134,21 +156,21 @@ export const RecalculateTaxesDialog = ({ open, onOpenChange, employeeCount, payR
       const totalDeductions = updatedPayItems.reduce((sum, item) => sum + item.total_deductions, 0);
       const totalNet = updatedPayItems.reduce((sum, item) => sum + item.net_pay, 0);
 
-      await supabase
-        .from("pay_runs")
+      await (supabase
+        .from("pay_runs" as any)
         .update({
           total_gross_pay: totalGross,
           total_deductions: totalDeductions,
           total_net_pay: totalNet,
           updated_at: new Date().toISOString()
         })
-        .eq("id", payRunId);
+        .eq("id", payRunId) as any);
 
       toast({
         title: "Taxes Recalculated",
         description: `Successfully recalculated taxes for ${updatedPayItems.length} employees`,
       });
-      
+
       onRecalculate();
       onOpenChange(false);
     } catch (error) {

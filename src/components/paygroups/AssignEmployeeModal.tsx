@@ -29,6 +29,8 @@ import { useToast } from '@/hooks/use-toast';
 import { PayGroup } from '@/lib/types/paygroups';
 import { supabase } from '@/integrations/supabase/client';
 import { getEmployeeTypeForPayGroup } from '@/lib/utils/paygroup-utils';
+import { HeadOfficePayGroupsService } from '@/lib/services/headOfficePayGroups.service';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface AssignEmployeeModalProps {
   open: boolean;
@@ -43,7 +45,7 @@ interface Employee {
   middle_name?: string;
   last_name: string;
   email: string;
-  department?: string;
+  sub_department?: string;
   employee_type?: string;
   currentPayGroup?: {
     id: string;
@@ -60,7 +62,7 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
 }) => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
-  const [selectedEmployee, setSelectedEmployee] = useState<string>('');
+  const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
   const [selectedGroup, setSelectedGroup] = useState<string>(presetGroup?.id || '');
   const [notes, setNotes] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -81,7 +83,7 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
       const filtered = employees.filter(emp =>
         `${emp.first_name} ${emp.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
         emp.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.department?.toLowerCase().includes(searchQuery.toLowerCase())
+        emp.sub_department?.toLowerCase().includes(searchQuery.toLowerCase())
       );
       setFilteredEmployees(filtered);
     } else {
@@ -93,9 +95,9 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
     setLoading(true);
     try {
       // Filter employees by category/sub_type to match the pay group
-      let query = supabase
+      let query = (supabase as any)
         .from('employees')
-        .select('id, first_name, middle_name, last_name, email, department, category, employee_type, pay_frequency')
+        .select('id, first_name, middle_name, last_name, email, sub_department, category, employee_type, pay_frequency')
         .order('first_name');
 
       // Filter by category and employee_type if preset group has them
@@ -120,7 +122,7 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
         }
       }
 
-      const { data, error } = await query;
+      const { data, error } = await (query as any);
 
       if (error) throw error;
 
@@ -169,10 +171,10 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
   };
 
   const handleAssign = async () => {
-    if (!selectedEmployee) {
+    if (selectedEmployees.size === 0) {
       toast({
         title: 'Validation Error',
-        description: 'Please select an employee to assign',
+        description: 'Please select at least one employee to assign',
         variant: 'destructive',
       });
       return;
@@ -192,26 +194,27 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
     setAssigning(true);
     try {
       // Step 1: Check for active duplicates before insert using the view
-      const { data: existing, error: checkError } = await (supabase as any)
-        .from('paygroup_employees_view')
-        .select('employee_id, pay_group_id, active')
-        .eq('employee_id', selectedEmployee)
-        .eq('pay_group_id', targetGroupId)
-        .eq('active', true)
-        .maybeSingle();
+      // Only verify if assigning a single employee for now to avoid complexity in UI feedback for bulk
+      let existing: any = null;
+      if (selectedEmployees.size === 1) {
+        const singleEmpId = Array.from(selectedEmployees)[0];
+        const { data: checkData, error: checkError } = await (supabase as any)
+          .from('paygroup_employees_view')
+          .select('employee_id, pay_group_id, active')
+          .eq('employee_id', singleEmpId)
+          .eq('pay_group_id', targetGroupId)
+          .eq('active', true)
+          .maybeSingle();
 
-      if (checkError) {
-        console.error('Error checking existing assignment:', checkError);
-        toast({
-          title: 'Error',
-          description: 'Unable to verify existing assignment',
-          variant: 'destructive',
-        });
-        return;
+        if (checkError) {
+          console.error('Error checking existing assignment:', checkError);
+        }
+        existing = checkData;
       }
 
       if (existing) {
-        const employeeName = employees.find(emp => emp.id === selectedEmployee)?.first_name || 'Employee';
+        const singleEmpId = Array.from(selectedEmployees)[0];
+        const employeeName = employees.find(emp => emp.id === singleEmpId)?.first_name || 'Employee';
         toast({
           title: 'Already Assigned',
           description: `${employeeName} is already assigned to this pay group`,
@@ -220,55 +223,88 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
         return;
       }
 
-      // Step 2: Proceed with assignment
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/assign-employee-to-paygroup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-        },
-        body: JSON.stringify({
-          employee_id: selectedEmployee,
-          pay_group_id: targetGroupId,
-          notes: notes || undefined
-        })
-      });
+      // If it's a Head Office pay group, use the new bulk service
+      if (presetGroup?.category === 'head_office') {
+        // Derive the correct HeadOfficePayGroupRefType from employee_type
+        // This handles legacy 'local' and normalizes 'interns' to 'intern'
+        let payGroupType: 'regular' | 'intern' | 'expatriate';
+        if (presetGroup.employee_type === 'regular' || presetGroup.employee_type === 'local') {
+          payGroupType = 'regular';
+        } else if (presetGroup.employee_type === 'interns') {
+          payGroupType = 'intern';
+        } else if (presetGroup.employee_type === 'expatriate') {
+          payGroupType = 'expatriate';
+        } else {
+          throw new Error(`Unsupported employee type for Head Office: ${presetGroup.employee_type}`);
+        }
 
-      const result = await response.json();
+        await HeadOfficePayGroupsService.addMembers(
+          targetGroupId,
+          payGroupType, // Use derived type instead of presetGroup.type
+          Array.from(selectedEmployees)
+        );
 
-      if (!response.ok) {
-        console.error('Assignment failed:', {
-          status: response.status,
-          statusText: response.statusText,
-          result: result,
-          employee_id: selectedEmployee,
-          pay_group_id: targetGroupId
+        toast({
+          title: 'Success',
+          description: `${selectedEmployees.size} employees assigned successfully`,
         });
 
-        // Catch any DB constraint error (in case of race conditions)
-        if (result?.error?.includes('unique_employee_in_paygroup') || result?.error?.includes('duplicate')) {
-          const employeeName = employees.find(emp => emp.id === selectedEmployee)?.first_name || 'Employee';
-          toast({
-            title: 'Already Assigned',
-            description: `${employeeName} is already assigned to this pay group`,
-            variant: 'destructive',
-          });
-          return;
-        }
-        throw new Error(result?.error || 'Assignment failed');
+        onSuccess();
+        onOpenChange(false);
+        setSelectedEmployees(new Set());
+        setSelectedGroup(presetGroup?.id || '');
+        setNotes('');
+        setSearchQuery('');
+        return;
       }
 
-      const employeeName = employees.find(emp => emp.id === selectedEmployee)?.first_name || 'Employee';
+      // Step 2: Proceed with assignment
+      // Step 2: Proceed with singular assignment (Legacy / Projects) - Iterate for bulk support
+      // Note: Ideally the edge function should also support bulk, but for now we loop client-side or use the first one if legacy only supports one.
+      // To support bulk in legacy without backend changes, we'll loop.
+      const employeeIds = Array.from(selectedEmployees);
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const empId of employeeIds) {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/assign-employee-to-paygroup`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+          },
+          body: JSON.stringify({
+            employee_id: empId,
+            pay_group_id: targetGroupId,
+            notes: notes || undefined
+          })
+        });
+
+        if (response.ok) {
+          successCount++;
+        } else {
+          failCount++;
+          console.error(`Failed to assign ${empId}`);
+        }
+      }
+
+      if (failCount > 0 && successCount === 0) {
+        throw new Error(`${failCount} assignments failed.`);
+      }
+
+      // Result handling is done via counts now
+
+
       toast({
-        title: 'Success',
-        description: `${employeeName} assigned to pay group successfully`,
+        title: successCount === employeeIds.length ? 'Success' : 'Partial Success',
+        description: `${successCount} employees assigned successfully.${failCount > 0 ? ` ${failCount} failed.` : ''}`,
       });
 
       onSuccess();
       onOpenChange(false);
 
       // Reset form
-      setSelectedEmployee('');
+      setSelectedEmployees(new Set());
       setSelectedGroup(presetGroup?.id || '');
       setNotes('');
       setSearchQuery('');
@@ -346,19 +382,39 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
             </div>
           )}
 
-          {/* Employee Search */}
-          <div className="space-y-2">
-            <Label htmlFor="search">Search Employees</Label>
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="search"
-                placeholder="Search by name, email, or department..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+          {/* Employee Search & Actions */}
+          <div className="flex items-end gap-2">
+            <div className="space-y-2 flex-1">
+              <Label htmlFor="search">Search Employees</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="search"
+                  placeholder="Search by name, email, or department..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                const allIds = filteredEmployees.map(e => e.id);
+                const newSet = new Set(selectedEmployees);
+                allIds.forEach(id => newSet.add(id));
+                setSelectedEmployees(newSet);
+              }}
+            >
+              Select All
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setSelectedEmployees(new Set())}
+              disabled={selectedEmployees.size === 0}
+            >
+              Clear
+            </Button>
           </div>
 
           {/* Employee Selection */}
@@ -388,44 +444,58 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
                   </div>
                 ) : (
                   <div className="space-y-1 p-2">
-                    {filteredEmployees.map((employee) => (
-                      <motion.div
-                        key={employee.id}
-                        className={`p-3 rounded-md cursor-pointer transition-colors ${selectedEmployee === employee.id
+                    {filteredEmployees.map((employee) => {
+                      const isSelected = selectedEmployees.has(employee.id);
+                      return (
+                        <motion.div
+                          key={employee.id}
+                          className={`p-3 rounded-md cursor-pointer transition-colors ${isSelected
                             ? 'bg-blue-50 border border-blue-200'
                             : 'hover:bg-gray-50'
-                          }`}
-                        onClick={() => setSelectedEmployee(employee.id)}
-                        whileHover={{ scale: 1.01 }}
-                        transition={{ duration: 0.1 }}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium">
-                              {employee.first_name} {employee.last_name}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {employee.email}
-                            </div>
-                            {employee.department && (
-                              <div className="text-xs text-muted-foreground">
-                                {employee.department}
+                            }`}
+                          onClick={() => {
+                            const newSet = new Set(selectedEmployees);
+                            if (newSet.has(employee.id)) {
+                              newSet.delete(employee.id);
+                            } else {
+                              newSet.add(employee.id);
+                            }
+                            setSelectedEmployees(newSet);
+                          }}
+                          whileHover={{ scale: 1.01 }}
+                          transition={{ duration: 0.1 }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Checkbox checked={isSelected} />
+                            <div className="flex-1 flex items-center justify-between">
+                              <div>
+                                <div className="font-medium">
+                                  {employee.first_name} {employee.last_name}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {employee.email}
+                                </div>
+                                {employee.sub_department && (
+                                  <div className="text-xs text-muted-foreground">
+                                    {employee.sub_department}
+                                  </div>
+                                )}
+                                {employee.currentPayGroup && (
+                                  <div className="text-xs text-orange-600 font-medium mt-1">
+                                    Currently in: {employee.currentPayGroup.name} ({employee.currentPayGroup.type})
+                                  </div>
+                                )}
                               </div>
-                            )}
-                            {employee.currentPayGroup && (
-                              <div className="text-xs text-orange-600 font-medium mt-1">
-                                Currently in: {employee.currentPayGroup.name} ({employee.currentPayGroup.type})
-                              </div>
-                            )}
+                              {employee.employee_type && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {employee.employee_type}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
-                          {employee.employee_type && (
-                            <Badge variant="secondary" className="text-xs">
-                              {employee.employee_type}
-                            </Badge>
-                          )}
-                        </div>
-                      </motion.div>
-                    ))}
+                        </motion.div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -455,7 +525,7 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
           </Button>
           <Button
             onClick={handleAssign}
-            disabled={!selectedEmployee || (!presetGroup && !selectedGroup) || assigning}
+            disabled={selectedEmployees.size === 0 || (!presetGroup && !selectedGroup) || assigning}
           >
             {assigning ? (
               <>
@@ -465,7 +535,7 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
             ) : (
               <>
                 <UserPlus className="h-4 w-4 mr-2" />
-                Assign Employee
+                Assign {selectedEmployees.size > 0 ? `${selectedEmployees.size} Employees` : 'Employee'}
               </>
             )}
           </Button>

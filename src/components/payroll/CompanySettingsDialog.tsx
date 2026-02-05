@@ -47,7 +47,7 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
   const [defaultPrefix, setDefaultPrefix] = useState("EMP");
   const [sequenceDigits, setSequenceDigits] = useState(3);
   const [nextSequence, setNextSequence] = useState(1);
-  const [useDeptPrefix, setUseDeptPrefix] = useState(false);
+  const [useSubDeptPrefix, setUseSubDeptPrefix] = useState(false);
   const [includeCountryCode, setIncludeCountryCode] = useState(false);
   const [useEmploymentType, setUseEmploymentType] = useState(false);
 
@@ -78,21 +78,22 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
       if (error && error.code !== "PGRST116") throw error;
 
       if (data) {
-        setCompanyName(data.company_name || "Q-Payroll Solutions");
-        setAddress(data.address || "");
-        setPhone(data.phone || "");
-        setEmail(data.email || "");
-        setWebsite(data.website || "");
-        setTaxId(data.tax_id || "");
-        setLogoUrl(data.logo_url || "");
-        setPrimaryColor(data.primary_color || "#117288");
-        setSecondaryColor(data.secondary_color || "#faa71c");
-        setAccentColor(data.accent_color || "#faa71c");
-        setIncludeLogo(data.include_logo ?? true);
-        setShowCompanyDetails(data.show_company_details ?? true);
-        setAddConfidentialityFooter(data.add_confidentiality_footer ?? true);
-        setIncludeGeneratedDate(data.include_generated_date ?? true);
-        setShowPageNumbers(data.show_page_numbers ?? true);
+        const d = data as any;
+        setCompanyName(d.company_name || "Q-Payroll Solutions");
+        setAddress(d.address || "");
+        setPhone(d.phone || "");
+        setEmail(d.email || "");
+        setWebsite(d.website || "");
+        setTaxId(d.tax_id || "");
+        setLogoUrl(d.logo_url || "");
+        setPrimaryColor(d.primary_color || "#117288");
+        setSecondaryColor(d.secondary_color || "#faa71c");
+        setAccentColor(d.accent_color || "#faa71c");
+        setIncludeLogo(d.include_logo ?? true);
+        setShowCompanyDetails(d.show_company_details ?? true);
+        setAddConfidentialityFooter(d.add_confidentiality_footer ?? true);
+        setIncludeGeneratedDate(d.include_generated_date ?? true);
+        setShowPageNumbers(d.show_page_numbers ?? true);
       }
       setEditingName(false);
     } catch (error) {
@@ -102,20 +103,21 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
 
   const fetchNumbering = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("employee_number_settings")
-        .select("number_format, default_prefix, sequence_digits, next_sequence, use_department_prefix, include_country_code, use_employment_type")
+        .select("number_format, default_prefix, sequence_digits, next_sequence, use_sub_department_prefix, include_country_code, use_employment_type")
         .limit(1)
         .single();
       if (error && error.code !== "PGRST116") throw error;
       if (data) {
-        setNumberFormat(data.number_format || "PREFIX-SEQUENCE");
-        setDefaultPrefix(data.default_prefix || "EMP");
-        setSequenceDigits(data.sequence_digits || 3);
-        setNextSequence(data.next_sequence || 1);
-        setUseDeptPrefix(!!data.use_department_prefix);
-        setIncludeCountryCode(!!data.include_country_code);
-        setUseEmploymentType(!!data.use_employment_type);
+        const d = data as any;
+        setNumberFormat(d.number_format || "PREFIX-SEQUENCE");
+        setDefaultPrefix(d.default_prefix || "EMP");
+        setSequenceDigits(d.sequence_digits || 3);
+        setNextSequence(d.next_sequence || 1);
+        setUseSubDeptPrefix(!!d.use_sub_department_prefix);
+        setIncludeCountryCode(!!d.include_country_code);
+        setUseEmploymentType(!!d.use_employment_type);
       }
     } catch (err) {
       console.error("Error fetching numbering settings:", err);
@@ -198,7 +200,7 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
       }
 
       // Upsert numbering settings singleton
-      const { data: existingNumbering } = await supabase
+      const { data: existingNumbering } = await (supabase as any)
         .from("employee_number_settings")
         .select("id")
         .limit(1)
@@ -208,18 +210,18 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
         default_prefix: defaultPrefix,
         sequence_digits: sequenceDigits,
         next_sequence: nextSequence,
-        use_department_prefix: useDeptPrefix,
+        use_sub_department_prefix: useSubDeptPrefix,
         include_country_code: includeCountryCode,
         use_employment_type: useEmploymentType,
       };
       if (existingNumbering) {
-        const { error: nErr } = await supabase
+        const { error: nErr } = await (supabase as any)
           .from("employee_number_settings")
           .update(numberingData)
           .eq("id", existingNumbering.id);
         if (nErr) throw nErr;
       } else {
-        const { error: nErr } = await supabase
+        const { error: nErr } = await (supabase as any)
           .from("employee_number_settings")
           .insert([numberingData]);
         if (nErr) throw nErr;
@@ -281,7 +283,7 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
     setDefaultPrefix("EMP");
     setSequenceDigits(3);
     setNextSequence(1);
-    setUseDeptPrefix(false);
+    setUseSubDeptPrefix(false);
     setIncludeCountryCode(false);
     setUseEmploymentType(false);
   };
@@ -312,7 +314,7 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
                   <SelectContent>
                     <SelectItem value="PREFIX-SEQUENCE">PREFIX-SEQUENCE (EMP-001)</SelectItem>
                     <SelectItem value="SEQUENCE">SEQUENCE ONLY (001)</SelectItem>
-                    <SelectItem value="DEPARTMENT-PREFIX">DEPARTMENT-PREFIX (ENG-001)</SelectItem>
+                    <SelectItem value="DEPARTMENT-PREFIX">SUB-DEPARTMENT-PREFIX (ENG-001)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -339,8 +341,8 @@ export const CompanySettingsDialog = ({ open, onOpenChange }: CompanySettingsDia
               </div>
               <div className="col-span-2 grid grid-cols-2 gap-4">
                 <div className="flex items-center space-x-2">
-                  <Checkbox id="deptPrefix" checked={useDeptPrefix} onCheckedChange={(c) => setUseDeptPrefix(!!c)} />
-                  <Label htmlFor="deptPrefix" className="font-normal">Use department as prefix</Label>
+                  <Checkbox id="subDeptPrefix" checked={useSubDeptPrefix} onCheckedChange={(c) => setUseSubDeptPrefix(!!c)} />
+                  <Label htmlFor="subDeptPrefix" className="font-normal">Use sub-department as prefix</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox id="countryCode" checked={includeCountryCode} onCheckedChange={(c) => setIncludeCountryCode(!!c)} />

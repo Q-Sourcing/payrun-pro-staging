@@ -27,28 +27,28 @@ ALTER TABLE public.payslip_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payslip_generations ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies for payslip_templates
-CREATE POLICY "Users can view their own payslip templates" 
+DROP POLICY IF EXISTS "Users can view their own payslip templates" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can view their own payslip templates" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can view their own payslip templates" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can view their own payslip templates" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Users can view their own payslip templates" 
 ON public.payslip_templates FOR SELECT 
 TO authenticated 
 USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert their own payslip templates" 
+DROP POLICY IF EXISTS "Users can insert their own payslip templates" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can insert their own payslip templates" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can insert their own payslip templates" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can insert their own payslip templates" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Users can insert their own payslip templates" 
 ON public.payslip_templates FOR INSERT 
 TO authenticated 
 WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can update their own payslip templates" 
+DROP POLICY IF EXISTS "Users can update their own payslip templates" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can update their own payslip templates" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can update their own payslip templates" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can update their own payslip templates" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Users can update their own payslip templates" 
 ON public.payslip_templates FOR UPDATE 
 TO authenticated 
 USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can delete their own payslip templates" 
+DROP POLICY IF EXISTS "Users can delete their own payslip templates" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can delete their own payslip templates" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can delete their own payslip templates" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can delete their own payslip templates" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Users can delete their own payslip templates" 
 ON public.payslip_templates FOR DELETE 
 TO authenticated 
 USING (auth.uid() = user_id);
 
 -- Create RLS policies for payslip_generations
-CREATE POLICY "Users can view payslip generations for their templates" 
+DROP POLICY IF EXISTS "Users can view payslip generations for their templates" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can view payslip generations for their templates" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can view payslip generations for their templates" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can view payslip generations for their templates" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Users can view payslip generations for their templates" 
 ON public.payslip_generations FOR SELECT 
 TO authenticated 
 USING (
@@ -58,7 +58,7 @@ USING (
     )
 );
 
-CREATE POLICY "Users can insert payslip generations" 
+DROP POLICY IF EXISTS "Users can insert payslip generations" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can insert payslip generations" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can insert payslip generations" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can insert payslip generations" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Users can insert payslip generations" 
 ON public.payslip_generations FOR INSERT 
 TO authenticated 
 WITH CHECK (true);

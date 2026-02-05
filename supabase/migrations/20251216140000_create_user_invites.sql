@@ -16,19 +16,19 @@ CREATE TABLE IF NOT EXISTS public.user_invites (
 ALTER TABLE public.user_invites ENABLE ROW LEVEL SECURITY;
 
 -- Policies
-CREATE POLICY "Admins can view all invites"
+DROP POLICY IF EXISTS "Admins can view all invites" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Admins can view all invites" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Admins can view all invites" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Admins can view all invites" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Admins can view all invites"
     ON public.user_invites
     FOR SELECT
     TO authenticated
     USING (true); -- Simplified for now, refine later
 
-CREATE POLICY "Admins can insert invites"
+DROP POLICY IF EXISTS "Admins can insert invites" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Admins can insert invites" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Admins can insert invites" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Admins can insert invites" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Admins can insert invites"
     ON public.user_invites
     FOR INSERT
     TO authenticated
     WITH CHECK (true);
 
-CREATE POLICY "Admins can delete invites"
+DROP POLICY IF EXISTS "Admins can delete invites" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Admins can delete invites" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Admins can delete invites" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Admins can delete invites" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Admins can delete invites"
     ON public.user_invites
     FOR DELETE
     TO authenticated

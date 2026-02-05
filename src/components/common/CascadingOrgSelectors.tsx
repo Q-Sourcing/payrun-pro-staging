@@ -6,7 +6,7 @@ import { Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 import { CreateCompanyUnitDialog } from '@/components/company-units/CreateCompanyUnitDialog';
-import { CreateDepartmentDialog } from '@/components/departments/CreateDepartmentDialog';
+import { CreateSubDepartmentDialog } from '@/components/departments/CreateSubDepartmentDialog';
 import { CompanyUnitsService } from '@/lib/services/company-units.service';
 import { EmployeeCategoriesService } from '@/lib/services/employee-categories.service';
 import { SearchableSelect } from '@/components/ui/searchable-select';
@@ -18,7 +18,7 @@ export interface CascadingSelectorValue {
   companyId?: string;
   categoryId?: string;
   companyUnitId?: string;
-  departmentId?: string;
+  subDepartmentId?: string;
   employeeTypeId?: string;
   payGroupId?: string;
 }
@@ -43,7 +43,7 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
   const [companies, setCompanies] = useState<Array<{ id: string; name: string; country_id: string }>>([]);
   const [categories, setCategories] = useState<Array<{ id: string; name: string; key: string }>>([]);
   const [companyUnits, setCompanyUnits] = useState<Array<{ id: string; name: string; company_id: string }>>([]);
-  const [departments, setDepartments] = useState<Array<{ id: string; name: string; company_unit_id: string }>>([]);
+  const [subDepartments, setSubDepartments] = useState<Array<{ id: string; name: string; company_unit_id: string }>>([]);
   const [employeeTypes, setEmployeeTypes] = useState<Array<{ id: string; name: string }>>([]);
   const [payGroups, setPayGroups] = useState<Array<{ id: string; name: string }>>([]);
   const { organizationId } = useOrg();
@@ -51,7 +51,7 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
   // Loading
   const [loading, setLoading] = useState<{ [k: string]: boolean }>({});
   const [showCreateCompanyUnit, setShowCreateCompanyUnit] = useState(false);
-  const [showCreateDepartment, setShowCreateDepartment] = useState(false);
+  const [showCreateSubDepartment, setShowCreateSubDepartment] = useState(false);
 
   // Load global countries & employee types once
   useEffect(() => {
@@ -330,40 +330,40 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
     return () => { cancelled = true };
   }, [value.companyId, value.categoryId, companies]);
 
-  // Load departments when companyUnitId changes
+  // Load sub-departments when companyUnitId changes
   useEffect(() => {
     let cancelled = false;
 
     if (!value.companyUnitId) {
-      setDepartments([]);
-      setLoading(l => ({ ...l, departments: false }));
+      setSubDepartments([]);
+      setLoading(l => ({ ...l, subDepartments: false }));
       return;
     }
 
-    setLoading(l => ({ ...l, departments: true }));
+    setLoading(l => ({ ...l, subDepartments: true }));
 
     (async () => {
       try {
-        const { data, error } = await supabase
-          .from('departments' as any)
+        const { data, error } = await (supabase
+          .from('sub_departments' as any) as any)
           .select('id, name, company_unit_id')
           .eq('company_unit_id', value.companyUnitId)
           .order('name');
 
         if (!cancelled) {
           if (error) {
-            console.error('Error loading departments:', error);
-            setDepartments([]);
+            console.error('Error loading sub-departments:', error);
+            setSubDepartments([]);
           } else {
-            setDepartments(data as any[] || []);
+            setSubDepartments(data as any[] || []);
           }
-          setLoading(l => ({ ...l, departments: false }));
+          setLoading(l => ({ ...l, subDepartments: false }));
         }
       } catch (err) {
         if (!cancelled) {
-          console.error('Exception loading departments:', err);
-          setDepartments([]);
-          setLoading(l => ({ ...l, departments: false }));
+          console.error('Exception loading sub-departments:', err);
+          setSubDepartments([]);
+          setLoading(l => ({ ...l, subDepartments: false }));
         }
       }
     })();
@@ -415,23 +415,23 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
 
   // State-resets: when upstream selector changes, reset downstreams
   useEffect(() => {
-    // If companyId is cleared, also clear companyUnitId, departmentId, and payGroupId
-    if (!value.companyId && (value.companyUnitId || value.departmentId || value.payGroupId || value.categoryId)) {
-      onChange({ companyUnitId: undefined, departmentId: undefined, payGroupId: undefined, categoryId: undefined });
+    // If companyId is cleared, also clear companyUnitId, subDepartmentId, and payGroupId
+    if (!value.companyId && (value.companyUnitId || value.subDepartmentId || value.payGroupId || value.categoryId)) {
+      onChange({ companyUnitId: undefined, subDepartmentId: undefined, payGroupId: undefined, categoryId: undefined });
     }
     // If categoryId changes/cleared, clear companyUnitId?
     // If category changes, the available units change. So we probably should clear unit.
     // BUT we need to be careful not to loop. logic below handles clearing.
 
-    // If companyUnitId is cleared, also clear departmentId and payGroupId
-    if (!value.companyUnitId && (value.departmentId || value.payGroupId)) {
-      onChange({ departmentId: undefined, payGroupId: undefined });
+    // If companyUnitId is cleared, also clear subDepartmentId and payGroupId
+    if (!value.companyUnitId && (value.subDepartmentId || value.payGroupId)) {
+      onChange({ subDepartmentId: undefined, payGroupId: undefined });
     }
     // If employeeTypeId is cleared, reset payGroupId
     if (!value.employeeTypeId && value.payGroupId) {
       onChange({ payGroupId: undefined });
     }
-  }, [value.companyId, value.companyUnitId, value.departmentId, value.employeeTypeId]);
+  }, [value.companyId, value.companyUnitId, value.subDepartmentId, value.employeeTypeId]);
 
   // When category changes, clear company unit if it's no longer valid? 
   // For now let's just let the user re-select if they want.
@@ -457,6 +457,10 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
   // Required states
   const isRequired = (field: keyof CascadingSelectorValue) => requiredFields.includes(field);
   const isDisabled = (field: keyof CascadingSelectorValue) => disabledFields.includes(field);
+
+  // Department ID is now Sub-Department ID
+  const subDepartmentRequired = isRequired('subDepartmentId' as any);
+  const subDepartmentDisabled = isDisabled('subDepartmentId' as any);
 
   // Company is optional by default unless explicitly required
   const companyRequired = isRequired('companyId');
@@ -640,13 +644,13 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
       {mode === 'employee' && (
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="block text-sm font-medium">Department{isRequired('departmentId') && ' *'}</label>
+            <label className="block text-sm font-medium">Sub-Department{isRequired('subDepartmentId' as any) && ' *'}</label>
             {value.companyUnitId && (
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowCreateDepartment(true)}
+                onClick={() => setShowCreateSubDepartment(true)}
                 className="h-6 text-xs text-primary hover:text-primary-dark p-1"
               >
                 <Plus className="h-3 w-3 mr-1" />
@@ -655,32 +659,32 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
             )}
           </div>
           <SearchableSelect
-            options={departments.map(d => ({ value: d.id, label: d.name }))}
-            value={value.departmentId || ''}
-            onValueChange={(v) => onChange({ departmentId: v || undefined })}
+            options={subDepartments.map(d => ({ value: d.id, label: d.name }))}
+            value={value.subDepartmentId || ''}
+            onValueChange={(v) => onChange({ subDepartmentId: v || undefined })}
             placeholder={
-              loading.departments
-                ? 'Loading departments…'
+              loading.subDepartments
+                ? 'Loading sub-departments…'
                 : !value.companyUnitId
                   ? 'Select a company unit first'
-                  : departments.length === 0
-                    ? 'No departments found'
-                    : 'Select department'
+                  : subDepartments.length === 0
+                    ? 'No sub-departments found'
+                    : 'Select sub-department'
             }
-            searchPlaceholder="Search departments..."
+            searchPlaceholder="Search sub-departments..."
             emptyMessage={
               !value.companyUnitId
                 ? 'Select a company unit first'
-                : 'No departments found'
+                : 'No sub-departments found'
             }
-            disabled={isDisabled('departmentId') || loading.departments || !value.companyUnitId}
+            disabled={isDisabled('subDepartmentId' as any) || loading.subDepartments || !value.companyUnitId}
             allowCreate={!!value.companyUnitId}
-            onCreateNew={() => setShowCreateDepartment(true)}
+            onCreateNew={() => setShowCreateSubDepartment(true)}
             className="h-10"
           />
-          {value.companyUnitId && departments.length === 0 && !loading.departments && (
+          {value.companyUnitId && subDepartments.length === 0 && !loading.subDepartments && (
             <p className="mt-1 text-xs text-muted-foreground">
-              No departments found for this company unit. Click "Add" to create one.
+              No sub-departments found for this company unit. Click "Add" to create one.
             </p>
           )}
         </div>
@@ -733,20 +737,20 @@ export const CascadingOrgSelectors: React.FC<CascadingOrgSelectorsProps> = ({
         defaultCompanyId={value.companyId}
       />
 
-      {/* Create Department Dialog */}
-      <CreateDepartmentDialog
-        open={showCreateDepartment}
-        onOpenChange={setShowCreateDepartment}
-        onSuccess={(department) => {
-          onChange({ departmentId: department.id });
-          // Reload departments
+      {/* Create Sub-Department Dialog */}
+      <CreateSubDepartmentDialog
+        open={showCreateSubDepartment}
+        onOpenChange={setShowCreateSubDepartment}
+        onSuccess={(subDepartment) => {
+          onChange({ subDepartmentId: subDepartment.id });
+          // Reload sub-departments
           if (value.companyUnitId) {
-            supabase.from('departments' as any)
+            (supabase.from('sub_departments' as any) as any)
               .select('id, name, company_unit_id')
               .eq('company_unit_id', value.companyUnitId)
               .order('name')
               .then((r: any) => {
-                setDepartments(r.data || []);
+                setSubDepartments(r.data || []);
               });
           }
         }}

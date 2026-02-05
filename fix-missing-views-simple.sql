@@ -63,23 +63,25 @@ FROM public.employees;
 DROP VIEW IF EXISTS public.master_payrolls CASCADE;
 CREATE VIEW public.master_payrolls AS
 SELECT 
-  id,
-  COALESCE(organization_id, '00000000-0000-0000-0000-000000000001'::uuid) as organization_id,
-  pay_run_date,
-  pay_period_start,
-  pay_period_end,
-  pay_group_id,
-  status::text as payroll_status,
-  total_gross_pay as total_gross,
-  total_deductions,
-  total_net_pay as total_net,
-  approved_by,
-  approved_at,
-  created_by,
-  created_at,
-  updated_at,
-  (SELECT COUNT(DISTINCT employee_id) FROM public.pay_items WHERE pay_run_id = pay_runs.id) as total_employees
-FROM public.pay_runs;
+  pr.id,
+  COALESCE(pr.organization_id, '00000000-0000-0000-0000-000000000001'::uuid) as organization_id,
+  pr.pay_run_date,
+  pr.pay_period_start,
+  pr.pay_period_end,
+  pr.pay_group_id,
+  pgm.name as pay_group_name,
+  pr.status::text as payroll_status,
+  pr.total_gross_pay as total_gross,
+  pr.total_deductions,
+  pr.total_net_pay as total_net,
+  pr.approved_by,
+  pr.approved_at,
+  pr.created_by,
+  pr.created_at,
+  pr.updated_at,
+  (SELECT COUNT(DISTINCT employee_id) FROM public.pay_items WHERE pay_run_id = pr.id) as total_employees
+FROM public.pay_runs pr
+LEFT JOIN public.pay_group_master pgm ON pr.pay_group_master_id = pgm.id;
 
 -- Step 4: Create get_org_total_payroll function
 DROP FUNCTION IF EXISTS public.get_org_total_payroll(UUID);

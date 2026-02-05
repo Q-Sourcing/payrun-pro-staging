@@ -1,10 +1,7 @@
-import { serve } from "std/http/server.ts";
-import { createClient } from "@supabase/supabase-js";
-
-const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { corsHeaders } from '../_shared/cors.ts'
+    ;
 
 // Payload from Supabase Database Webhook
 interface WebhookPayload {
@@ -68,6 +65,23 @@ serve(async (req) => {
                 recipientUserId = record.created_by; // Notify creator
             } else {
                 return new Response(JSON.stringify({ skipped: true, reason: 'payrun_status_ignored' }), { status: 200, headers: corsHeaders });
+            }
+        }
+        else if (table === 'notifications') {
+            recipientUserId = record.user_id;
+
+            if (record.type === 'approval_request') {
+                eventKey = 'PAYRUN_SUBMITTED';
+                // Try to extract payrun_id from metadata if available, else generic
+                if (record.metadata?.payrun_id) {
+                    payrunId = record.metadata.payrun_id;
+                }
+            } else if (record.type === 'security_alert') {
+                eventKey = 'SECURITY_ALERT';
+            } else if (record.type === 'account_locked') {
+                eventKey = 'ACCOUNT_LOCKED';
+            } else {
+                return new Response(JSON.stringify({ skipped: true, reason: 'notification_type_ignored' }), { status: 200, headers: corsHeaders });
             }
         }
         else {

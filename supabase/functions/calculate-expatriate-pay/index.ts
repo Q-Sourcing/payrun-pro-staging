@@ -1,15 +1,11 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { corsHeaders } from '../_shared/cors.ts';
 
 // Environment variables
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const supabase = createClient(supabaseUrl, supabaseKey);
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -29,7 +25,7 @@ serve(async (req) => {
     if (!currency || currency === undefined || currency === null) missingFields.push('currency');
     if (exchange_rate_to_local === undefined || exchange_rate_to_local === null) missingFields.push('exchange_rate_to_local');
     if (!tax_country || tax_country === undefined || tax_country === null) missingFields.push('tax_country');
-    
+
     // Allow allowances to be 0, but ensure it's a number
     if (allowances === undefined || allowances === null) {
       // Allowances can default to 0 if not provided
@@ -37,7 +33,7 @@ serve(async (req) => {
 
     if (missingFields.length > 0) {
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: 'Missing required fields',
           missing_fields: missingFields,
           received_data: { employee_id, daily_rate, days_worked, allowances, currency, exchange_rate_to_local, tax_country }
@@ -54,10 +50,10 @@ serve(async (req) => {
 
     // Calculate net pay in foreign currency
     const gross_foreign = (dailyRate * daysWorked) + totalAllowances;
-    
+
     // Convert to local currency
     const gross_local = gross_foreign * exchangeRate;
-    
+
     // For now, we'll use a simple calculation for net pay
     // In a real system, you'd have proper tax calculations
     const tax_rate = 0.20; // 20% tax rate as example
@@ -90,9 +86,9 @@ serve(async (req) => {
 
   } catch (err) {
     console.error("💥 Unexpected server error:", err);
-    return new Response(JSON.stringify({ error: "Internal server error" }), { 
-      status: 500, 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 });

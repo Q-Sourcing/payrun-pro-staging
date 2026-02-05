@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS public.company_settings (
 ALTER TABLE public.company_settings ENABLE ROW LEVEL SECURITY;
 
 -- Create policy for company settings
-CREATE POLICY "Allow all access to company settings"
+DROP POLICY IF EXISTS "Allow all access to company settings" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Allow all access to company settings" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Allow all access to company settings" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Allow all access to company settings" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Allow all access to company settings"
 ON public.company_settings
 FOR ALL
 USING (true)

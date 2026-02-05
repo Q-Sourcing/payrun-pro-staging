@@ -49,7 +49,7 @@ export const COUNTRY_DEDUCTIONS: CountryDeductions = {
         percentage: 5,
         mandatory: true,
         employeeContribution: 5,
-        description: "NSSF Employee - 5% (cap at 1,200,000 UGX pensionable)"
+        description: "NSSF Employee - 5% (Total gross)"
       },
       {
         name: "NSSF Employer",
@@ -57,7 +57,7 @@ export const COUNTRY_DEDUCTIONS: CountryDeductions = {
         percentage: 10,
         mandatory: true,
         employerContribution: 10,
-        description: "NSSF Employer - 10% (cap at 1,200,000 UGX pensionable)"
+        description: "NSSF Employer - 10% (Total gross)"
       },
       {
         name: "LST",
@@ -246,13 +246,13 @@ export const COUNTRY_DEDUCTIONS: CountryDeductions = {
 // Helper functions for tax calculations
 export const calculateProgressiveTax = (grossPay: number, brackets: TaxBracket[], countryCode?: string): number => {
   let totalTax = 0;
-  
+
   for (const bracket of brackets) {
     const min = bracket.min;
     const max = bracket.max || Infinity;
-    
+
     if (grossPay <= min) break;
-    
+
     const taxableAmount = Math.min(grossPay, max) - min;
     if (taxableAmount > 0) {
       if (bracket.rate < 1) {
@@ -264,12 +264,12 @@ export const calculateProgressiveTax = (grossPay: number, brackets: TaxBracket[]
       }
     }
   }
-  
+
   // Apply personal relief for Kenya PAYE
   if (countryCode === 'KE' && totalTax > 0) {
     totalTax = Math.max(0, totalTax - 2400);
   }
-  
+
   return totalTax;
 };
 
@@ -279,10 +279,7 @@ export const calculateDeduction = (grossPay: number, rule: DeductionRule, countr
       return rule.amount || 0;
     case 'percentage':
       // Apply NSSF cap for Uganda (employee portion)
-      if (countryCode === 'UG' && (rule.name === 'NSSF' || rule.name === 'NSSF Employee')) {
-        const cappedAmount = Math.min(grossPay, 1200000);
-        return cappedAmount * ((rule.percentage || 0) / 100);
-      }
+      // In Uganda, standard NSSF is 5%/10% of total gross (statutory no cap unless voluntary)
       return grossPay * ((rule.percentage || 0) / 100);
     case 'progressive':
       // Pass country code for Kenya PAYE personal relief
@@ -302,9 +299,9 @@ export const getCountryDeductions = (countryNameOrCode: string): DeductionRule[]
     "Rwanda": "RW",
     "South Sudan": "SS"
   };
-  
+
   // Try to get the code from the map, otherwise use the input as-is
   const countryCode = countryCodeMap[countryNameOrCode] || countryNameOrCode;
-  
+
   return COUNTRY_DEDUCTIONS[countryCode]?.deductions || [];
 };

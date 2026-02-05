@@ -10,7 +10,8 @@ import {
   UserPlus,
   Edit,
   Trash2,
-  Package
+  Package,
+  Eye
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { PayGroup, PayGroupType } from '@/lib/types/paygroups';
@@ -20,6 +21,7 @@ interface PayGroupsListViewProps {
   payGroups: PayGroup[];
   onUpdate: () => void;
   onAssignEmployee?: (group: PayGroup) => void;
+  onViewEmployees?: (group: PayGroup) => void;
   onEdit?: (group: PayGroup) => void;
   onDelete?: (group: PayGroup) => void;
 }
@@ -28,6 +30,7 @@ export const PayGroupsListView: React.FC<PayGroupsListViewProps> = ({
   payGroups,
   onUpdate,
   onAssignEmployee,
+  onViewEmployees,
   onEdit,
   onDelete,
 }) => {
@@ -165,6 +168,17 @@ export const PayGroupsListView: React.FC<PayGroupsListViewProps> = ({
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex items-center justify-end gap-2">
+                    {onViewEmployees && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onViewEmployees(group)}
+                        className="h-8 w-8 p-0"
+                        title="View Employees"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    )}
                     {onAssignEmployee && (
                       <Button
                         size="sm"

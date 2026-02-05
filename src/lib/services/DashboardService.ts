@@ -27,27 +27,27 @@ export async function getDashboardStats(orgId: string) {
   try {
     const { data, error } = await supabase.rpc('get_org_total_payroll', { org_id: orgId });
     if (!error && typeof data === 'number') payroll = data;
-  } catch {}
+  } catch { }
   if (!payroll) {
     const now = new Date()
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-    const monthEnd = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString()
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString()
     // Try org-scoped legacy pay_runs first
     let legacy = await supabase
       .from('pay_runs')
-      .select('total_gross')
-      .gte('pay_period_end', monthStart)
-      .lte('pay_period_end', monthEnd)
+      .select('total_gross_pay')
+      .gte('period_end', monthStart)
+      .lte('period_end', monthEnd)
       .eq('organization_id', orgId)
     if (legacy.error) {
       legacy = await supabase
         .from('pay_runs')
-        .select('total_gross')
-        .gte('pay_period_end', monthStart)
-        .lte('pay_period_end', monthEnd)
+        .select('total_gross_pay')
+        .gte('period_end', monthStart)
+        .lte('period_end', monthEnd)
     }
     if (!legacy.error && Array.isArray(legacy.data)) {
-      payroll = legacy.data.reduce((a:any, r:any) => a + (Number(r.total_gross)||0), 0)
+      payroll = legacy.data.reduce((a: any, r: any) => a + (Number(r.total_gross_pay) || 0), 0)
     }
   }
 
@@ -55,38 +55,24 @@ export async function getDashboardStats(orgId: string) {
 }
 
 export async function getRecentPayRuns(orgId: string, limit = 5) {
-  // Try unified table with org filter
-  let unified = await supabase
-    .from('master_payrolls')
-    .select('id, pay_period_start, pay_period_end, total_gross, total_net, payroll_status, pay_group:pay_groups(name), total_employees')
-    .eq('organization_id', orgId)
-    .order('pay_period_end', { ascending: false })
-    .limit(limit);
-  if (unified.error) {
-    // Retry unified without org filter
-    unified = await supabase
-      .from('master_payrolls')
-      .select('id, pay_period_start, pay_period_end, total_gross, total_net, payroll_status, pay_group:pay_groups(name), total_employees')
-      .order('pay_period_end', { ascending: false })
-      .limit(limit);
-  }
-  if (!unified.error && unified.data?.length) return unified
-
-  // Fallback to legacy pay_runs
-  let legacy = await supabase
+  // Query pay_runs with correct column names
+  let result = await supabase
     .from('pay_runs')
-    .select('id, pay_period_start, pay_period_end, total_gross, total_net, payroll_status, pay_group:pay_groups(name)')
+    .select('id, period_start, period_end, total_gross_pay, total_net_pay, status, pay_group:pay_groups(name)')
     .eq('organization_id', orgId)
-    .order('pay_period_end', { ascending: false })
+    .order('period_end', { ascending: false })
     .limit(limit)
-  if (legacy.error) {
-    legacy = await supabase
+
+  if (result.error) {
+    // Retry without org filter if needed
+    result = await supabase
       .from('pay_runs')
-      .select('id, pay_period_start, pay_period_end, total_gross, total_net, payroll_status, pay_group:pay_groups(name)')
-      .order('pay_period_end', { ascending: false })
+      .select('id, period_start, period_end, total_gross_pay, total_net_pay, status, pay_group:pay_groups(name)')
+      .order('period_end', { ascending: false })
       .limit(limit)
   }
-  return legacy
+
+  return result
 }
 
 export async function getCompaniesSummary(orgId: string) {
@@ -98,7 +84,7 @@ export async function getCompaniesSummary(orgId: string) {
       name,
       company_units:company_units(id),
       employee_count:employees(id),
-      payroll:pay_runs(total_gross)
+      payroll:pay_runs(total_gross_pay)
     `)
     .eq('organization_id', orgId)
   if (res.error) {
@@ -109,7 +95,7 @@ export async function getCompaniesSummary(orgId: string) {
         name,
         company_units:company_units(id),
         employee_count:employees(id),
-        payroll:pay_runs(total_gross)
+        payroll:pay_runs(total_gross_pay)
       `)
   }
   return res

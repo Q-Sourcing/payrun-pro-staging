@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { corsHeaders } from '../_shared/cors.ts'
 
 interface GetAuthEventsRequest {
   org_id?: string;
@@ -88,13 +84,13 @@ serve(async (req) => {
 
   if (req.method !== 'POST' && req.method !== 'GET') {
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        message: 'Method not allowed' 
+      JSON.stringify({
+        success: false,
+        message: 'Method not allowed'
       } as GetAuthEventsResponse),
-      { 
-        status: 405, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 405,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
   }
@@ -122,33 +118,33 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Authorization header required' 
+        JSON.stringify({
+          success: false,
+          message: 'Authorization header required'
         } as GetAuthEventsResponse),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
     // Extract the JWT token
     const token = authHeader.replace('Bearer ', '')
-    
+
     // Verify the token and get user info
     const { data: { user: currentUser }, error: authError } = await supabaseAdmin.auth.getUser(token)
-    
+
     if (authError || !currentUser) {
       console.error('Authentication failed:', authError)
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Invalid authentication token' 
+        JSON.stringify({
+          success: false,
+          message: 'Invalid authentication token'
         } as GetAuthEventsResponse),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
@@ -159,20 +155,20 @@ serve(async (req) => {
 
     if (!isPlatform && !isOrgSuper) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Insufficient permissions. Platform admin or org super admin role required.' 
+        JSON.stringify({
+          success: false,
+          message: 'Insufficient permissions. Platform admin or org super admin role required.'
         } as GetAuthEventsResponse),
-        { 
-          status: 403, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
     // Parse query parameters or request body
     let queryParams: GetAuthEventsRequest = {}
-    
+
     if (req.method === 'GET') {
       const url = new URL(req.url)
       queryParams = {
@@ -211,16 +207,16 @@ serve(async (req) => {
       } else {
         // User has no org - can't view any events
         return new Response(
-          JSON.stringify({ 
-            success: true, 
-            data: [], 
-            total: 0, 
-            page, 
-            limit 
+          JSON.stringify({
+            success: true,
+            data: [],
+            total: 0,
+            page,
+            limit
           } as GetAuthEventsResponse),
-          { 
-            status: 200, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
       }
@@ -270,41 +266,41 @@ serve(async (req) => {
     if (error) {
       console.error('Error fetching auth events:', error)
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Failed to fetch auth events: ' + error.message 
+        JSON.stringify({
+          success: false,
+          message: 'Failed to fetch auth events: ' + error.message
         } as GetAuthEventsResponse),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        data: data || [], 
-        total: count || 0, 
-        page, 
-        limit: safeLimit 
+      JSON.stringify({
+        success: true,
+        data: data || [],
+        total: count || 0,
+        page,
+        limit: safeLimit
       } as GetAuthEventsResponse),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
 
   } catch (error) {
     console.error('Unexpected error in get-auth-events function:', error)
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        message: 'Internal server error: ' + (error instanceof Error ? error.message : 'Unknown error') 
+      JSON.stringify({
+        success: false,
+        message: 'Internal server error: ' + (error instanceof Error ? error.message : 'Unknown error')
       } as GetAuthEventsResponse),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
   }

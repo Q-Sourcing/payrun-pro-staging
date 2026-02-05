@@ -39,6 +39,7 @@ interface Employee {
   employee_type_name?: string; // resolved from employee_types
   pay_groups?: { name: string };
   created_at?: string; // Date added timestamp
+  sub_department?: string | null;
 }
 
 const EmployeesTab = () => {
@@ -110,14 +111,14 @@ const EmployeesTab = () => {
   const fetchEmployees = async () => {
     try {
       // Load company/org context (best-effort)
-      const { data: cs } = await supabase
+      const { data: cs } = await (supabase as any)
         .from('company_settings')
         .select('company_name')
         .maybeSingle();
       setCompanyName(cs?.company_name || null);
 
       // Fetch all employees
-      const { data: employeesData, error } = await supabase
+      const { data: employeesData, error } = await (supabase as any)
         .from("employees")
         .select("*")
         .order("first_name");
@@ -135,15 +136,15 @@ const EmployeesTab = () => {
       // Load employee types for FK resolution
       let typeMap = new Map<string, string>();
       if (typeIds.length > 0) {
-        const { data: types } = await supabase
+        const { data: types } = await (supabase as any)
           .from('employee_types')
           .select('id, name')
           .in('id', typeIds);
-        typeMap = new Map((types || []).map(t => [t.id, t.name]));
+        typeMap = new Map(((types as any[]) || []).map(t => [t.id, t.name]));
       }
 
       // Simple fetch of employees with their assigned pay groups
-      const { data: employeesWithGroups, error: groupsError } = await supabase
+      const { data: employeesWithGroups, error: groupsError } = await (supabase as any)
         .from("employees")
         .select("id, pay_group_id")
         .in('id', employeeIds)
@@ -209,7 +210,7 @@ const EmployeesTab = () => {
       employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (employee.employee_number || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (employee.phone || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ((employee as any).department || "").toLowerCase().includes(searchTerm.toLowerCase())
+      ((employee as any).sub_department || "").toLowerCase().includes(searchTerm.toLowerCase())
     );
     const matchesStatus = statusFilter === "all" || employee.status === statusFilter;
     const matchesPayType = payTypeFilter === "all" || employee.pay_type === payTypeFilter;
@@ -288,9 +289,9 @@ const EmployeesTab = () => {
     try {
       setLoading(true);
       // Get all employees without employee numbers
-      const { data: employeesWithoutNumbers, error: fetchError } = await supabase
+      const { data: employeesWithoutNumbers, error: fetchError } = await (supabase as any)
         .from("employees")
-        .select("id, department, country, employee_type, pay_group_id")
+        .select("id, sub_department, country, employee_type, pay_group_id")
         .is("employee_number", null);
 
       if (fetchError) throw fetchError;
@@ -298,7 +299,7 @@ const EmployeesTab = () => {
       if (employeesWithoutNumbers && employeesWithoutNumbers.length > 0) {
         // Generate employee numbers for each employee
         for (const employee of employeesWithoutNumbers) {
-          const { error: updateError } = await supabase
+          const { error: updateError } = await (supabase as any)
             .from("employees")
             .update({
               employee_number: `EMP-${String(employee.id).slice(-6).toUpperCase()}`
@@ -655,8 +656,8 @@ const EmployeesTab = () => {
                     <Badge
                       variant={employee.status === "active" ? "default" : "secondary"}
                       className={`font-medium px-3 py-1 ${employee.status === "active"
-                          ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800"
-                          : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700"
+                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800"
+                        : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700"
                         }`}
                     >
                       {employee.status}

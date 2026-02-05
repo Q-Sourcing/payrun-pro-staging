@@ -1,0 +1,16 @@
+[
+  {
+    "cmd": "ALL",
+    "qual": "(check_is_super_admin(auth.uid()) OR check_is_org_super_admin(auth.uid()))",
+    "tablename": "approval_workflows",
+    "policyname": "Workflows Managed by Super Admins",
+    "with_check": null
+  },
+  {
+    "cmd": "SELECT",
+    "qual": "(org_id IN ( SELECT users.organization_id\n   FROM users\n  WHERE (users.id = auth.uid())))",
+    "tablename": "approval_workflows",
+    "policyname": "Workflows Readable by Org Members",
+    "with_check": null
+  }
+]

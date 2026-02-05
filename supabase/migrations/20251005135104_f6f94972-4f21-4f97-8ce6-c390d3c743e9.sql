@@ -23,7 +23,7 @@ ALTER TABLE public.employee_number_settings ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow all access to employee_number_settings" ON public.employee_number_settings;
 
 -- RLS Policies for employee_number_settings
-CREATE POLICY "Allow all access to employee_number_settings"
+DROP POLICY IF EXISTS "Allow all access to employee_number_settings" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Allow all access to employee_number_settings" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Allow all access to employee_number_settings" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Allow all access to employee_number_settings" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Allow all access to employee_number_settings"
   ON public.employee_number_settings FOR ALL
   USING (true)
   WITH CHECK (true);

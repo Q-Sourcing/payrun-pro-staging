@@ -23,6 +23,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { UserPlus, Eye, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ProjectsService } from "@/lib/services/projects.service";
+import { useQuery } from "@tanstack/react-query";
 
 interface PayRun {
   id: string;
@@ -41,6 +51,13 @@ interface PayRun {
     type: string;
   };
   pay_items_count?: number;
+  category?: string;
+  employee_type?: string;
+  pay_frequency?: string;
+  project_id?: string;
+  projects?: {
+    name: string;
+  };
 }
 
 const PayRunsTab = () => {
@@ -57,72 +74,100 @@ const PayRunsTab = () => {
   const { canExportBankSchedule } = useBankSchedulePermissions();
 
   const fetchPayRuns = async () => {
+    setLoading(true);
     try {
-      // Check if we're on the expatriate page
-      const isExpatriatePage = window.location.pathname.includes('/expatriate');
+      // Add retry logic for network failures
+      let attempts = 0;
+      const maxAttempts = 3;
+      let lastError;
 
-      let data, error;
+      while (attempts < maxAttempts) {
+        try {
+          // Check if we're on the expatriate page
+          const isExpatriatePage = window.location.pathname.includes('/expatriate');
 
-      if (isExpatriatePage) {
-        // For expatriate page, fetch pay runs with expatriate pay groups
-        const result = await supabase
-          .from("pay_runs")
-          .select(`
-            *,
-            pay_group_master:pay_group_master_id (
-              name,
-              country,
-              currency,
-              code,
-              type
-            ),
-            pay_items (count)
-          `)
-          .eq("payroll_type", "expatriate")
-          .order("pay_run_date", { ascending: false });
+          let data, error;
 
-        data = result.data;
-        error = result.error;
-      } else {
-        // Regular query for all pay runs using pay_group_master
-        const result = await supabase
-          .from("pay_runs")
-          .select(`
-            *,
-            pay_group_master:pay_group_master_id (
-              name,
-              country,
-              currency,
-              code,
-              type
-            ),
-            pay_items (count)
-          `)
-          .order("pay_run_date", { ascending: false });
+          if (isExpatriatePage) {
+            // For expatriate page, fetch pay runs with expatriate pay groups
+            const result = await (supabase
+              .from("pay_runs" as any)
+              .select(`
+                *,
+                pay_group_master:pay_group_master_id (
+                  name,
+                  country,
+                  currency,
+                  code,
+                  type
+                ),
+                pay_items (count)
+              `)
+              .eq("payroll_type", "expatriate")
+              .order("pay_run_date", { ascending: false }) as any);
 
-        data = result.data;
-        error = result.error;
+            data = result.data;
+            error = result.error;
+          } else {
+            // Regular query for all pay runs using pay_group_master
+            const result = await (supabase
+              .from("pay_runs" as any)
+              .select(`
+                *,
+                pay_group_master:pay_group_master_id (
+                  name,
+                  country,
+                  currency,
+                  code,
+                  type
+                ),
+                pay_items (count),
+                projects (name)
+              `)
+              .order("pay_run_date", { ascending: false }) as any);
+
+            data = result.data;
+            error = result.error;
+          }
+
+          if (error) throw error;
+
+          const payRunsWithCount = data?.map(run => ({
+            ...run,
+            pay_items_count: run.pay_items?.[0]?.count || 0
+          })) || [];
+
+          setPayRuns(payRunsWithCount);
+          return; // Success, exit retry loop
+        } catch (err: any) {
+          lastError = err;
+          attempts++;
+
+          // Only retry on network errors (Failed to fetch or network changed)
+          const isNetworkError = err.message?.includes("Failed to fetch") || err.name === "TypeError" || err.message?.includes("network");
+          if (isNetworkError && attempts < maxAttempts) {
+            console.warn(`🔄 Retrying fetchPayRuns (attempt ${attempts + 1}/${maxAttempts})...`);
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempts)); // Backoff
+            continue;
+          }
+          throw err;
+        }
       }
-
-      if (error) throw error;
-
-      const payRunsWithCount = data?.map(run => ({
-        ...run,
-        pay_items_count: run.pay_items?.[0]?.count || 0
-      })) || [];
-
-      setPayRuns(payRunsWithCount);
-    } catch (err) {
+      throw lastError;
+    } catch (err: any) {
       error("Error fetching pay runs:", err);
       toast({
-        title: "Error",
-        description: "Failed to fetch pay runs",
+        title: "Connection Issue",
+        description: err.message?.includes("Failed to fetch") || err.name === "TypeError"
+          ? "Network error. Please check your connection."
+          : "Failed to fetch pay runs",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     fetchPayRuns();
@@ -147,9 +192,23 @@ const PayRunsTab = () => {
     switch (status) {
       case "pending_approval":
         return "Pending Approval";
+      case "processed":
+        return "Processed";
       default:
         return status.charAt(0).toUpperCase() + status.slice(1);
     }
+  };
+
+  const getCategoryLabel = (category?: string) => {
+    if (category === 'head_office') return 'Head Office';
+    if (category === 'projects') return 'Projects';
+    return 'Other';
+  };
+
+  const getTypeLabel = (type?: string) => {
+    if (!type) return 'Regular';
+    if (type === 'regular' || type === 'local') return 'Regular';
+    return type.charAt(0).toUpperCase() + type.slice(1);
   };
 
   const formatCurrency = (amount: number, payRun?: PayRun) => {
@@ -183,10 +242,10 @@ const PayRunsTab = () => {
 
       while (attempts < maxAttempts) {
         try {
-          const { error } = await supabase
-            .from("pay_runs")
+          const { error } = await (supabase
+            .from("pay_runs" as any)
             .delete()
-            .eq("id", payRunToDelete);
+            .eq("id", payRunToDelete) as any);
 
           if (error) throw error;
 
@@ -213,11 +272,11 @@ const PayRunsTab = () => {
       }
 
       throw lastError;
-    } catch (error: any) {
-      error("Error deleting pay run:", error);
+    } catch (err: any) {
+      error("Error deleting pay run:", err);
       toast({
         title: "Error",
-        description: error.message?.includes("Failed to fetch")
+        description: err.message?.includes("Failed to fetch")
           ? "Network error. Please check your connection and try again."
           : "Failed to delete pay run",
         variant: "destructive",
@@ -331,142 +390,220 @@ const PayRunsTab = () => {
         </Card>
       </div>
 
-      {/* Pay Run History Table */}
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <h3 className="card-title">Pay Run History</h3>
-            <p className="text-sm text-muted-foreground">
-              Track and manage your payroll processing history
-            </p>
+      <div className="space-y-4">
+        <div className="flex flex-col gap-1">
+          <h3 className="text-xl font-semibold text-foreground">Pay Run History</h3>
+          <p className="text-sm text-muted-foreground">
+            Track and manage your payroll processing history across different categories.
+          </p>
+        </div>
+
+        {payRuns.length === 0 ? (
+          <div className="text-center py-16 bg-card border rounded-lg">
+            <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+              <Calendar className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-medium">No pay runs found</h3>
+            <p className="text-muted-foreground mb-6">Create your first pay run to get started.</p>
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Your First Pay Run
+            </Button>
           </div>
-        </div>
-        <div className="overflow-x-auto">
-          {payRuns.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-6">
-                <Calendar className="h-12 w-12 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">No pay runs found</h3>
-              <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-                Get started by creating your first pay run to process employee payments.
-              </p>
-              <Button
-                onClick={() => setShowCreateDialog(true)}
-                className="h-11 px-6 bg-primary hover:bg-primary/90 text-primary-foreground"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Create Your First Pay Run
-              </Button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-muted/50">
-                  <TableRow className="border-b-2 border-border">
-                    <TableHead className="h-12 px-6 font-semibold text-foreground">Pay Run Date</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-foreground">Pay Group</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-foreground">Pay Period</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-foreground">Employees</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-foreground">Gross Pay</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-foreground">Net Pay</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-foreground">Status</TableHead>
-                    <TableHead className="h-12 px-6 font-semibold text-foreground">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payRuns.map((payRun, index) => (
-                    <TableRow
-                      key={payRun.id}
-                      className={`border-b border-border hover:bg-muted/50 transition-colors ${index % 2 === 0 ? 'bg-background' : 'bg-muted/20'
-                        }`}
-                    >
-                      <TableCell className="px-6 py-4">
-                        <div className="font-medium text-foreground">
-                          {formatDate(payRun.pay_run_date)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-6 py-4">
-                        <div className="space-y-1">
-                          <div className="font-medium text-foreground">{payRun.pay_group_master.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {payRun.pay_group_master.country}
-                            {payRun.pay_group_master.code && ` (${payRun.pay_group_master.code})`}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-6 py-4">
-                        <div className="text-sm text-muted-foreground">
-                          {formatDate(payRun.pay_period_start)} - {formatDate(payRun.pay_period_end)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-6 py-4">
-                        <Badge variant="secondary" className="font-medium bg-muted text-muted-foreground border border-border">
-                          {payRun.pay_items_count} employees
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-6 py-4">
-                        <div className="font-medium text-foreground">
-                          {formatCurrency(payRun.total_gross_pay, payRun)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-6 py-4">
-                        <div className="font-semibold text-foreground">
-                          {formatCurrency(payRun.total_net_pay, payRun)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-6 py-4">
-                        <Badge className={`${getStatusColor(payRun.status)} font-medium px-3 py-1`}>
-                          {formatStatus(payRun.status)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 px-3 text-xs font-medium border-border text-foreground hover:bg-muted"
-                            onClick={() => {
-                              setSelectedPayRun(payRun);
-                              setShowDetailsDialog(true);
-                            }}
-                          >
-                            View Details
-                          </Button>
-                          {(payRun.status === 'approved' || payRun.status === 'processed') && canExportBankSchedule && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 px-3 text-xs font-medium border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900/30"
-                              onClick={() => {
-                                setSelectedPayRun(payRun);
-                                setShowBankScheduleDialog(true);
-                              }}
-                            >
-                              <FileSpreadsheet className="h-3 w-3 mr-1" />
-                              Bank Schedule
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
-                            onClick={() => {
-                              setPayRunToDelete(payRun.id);
-                              setShowDeleteDialog(true);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </div>
+        ) : (
+          <Accordion type="multiple" defaultValue={['head_office', 'projects']} className="space-y-4">
+            {/* Head Office Section */}
+            <AccordionItem value="head_office" className="border rounded-lg bg-card overflow-hidden">
+              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-md">
+                    <Calendar className="h-5 w-5 text-indigo-600" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-semibold text-base">Head Office Payrolls</div>
+                    <div className="text-xs text-muted-foreground">
+                      {payRuns.filter(r => r.category === 'head_office').length} runs recorded
+                    </div>
+                  </div>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="pt-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-muted/30">
+                      <TableRow>
+                        <TableHead className="px-6 py-3 font-semibold">Date</TableHead>
+                        <TableHead className="px-6 py-3 font-semibold">Pay Group / Type</TableHead>
+                        <TableHead className="px-6 py-3 font-semibold">Period</TableHead>
+                        <TableHead className="px-6 py-3 font-semibold">Employees</TableHead>
+                        <TableHead className="px-6 py-3 font-semibold">Net Pay</TableHead>
+                        <TableHead className="px-6 py-3 font-semibold">Status</TableHead>
+                        <TableHead className="px-6 py-3 font-semibold text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {payRuns.filter(r => r.category === 'head_office').map((run) => (
+                        <TableRow key={run.id} className="hover:bg-muted/50">
+                          <TableCell className="px-6 py-4 font-medium">{formatDate(run.pay_run_date)}</TableCell>
+                          <TableCell className="px-6 py-4">
+                            <div className="space-y-1">
+                              <div className="font-medium">{run.pay_group_master?.name}</div>
+                              <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 font-normal">
+                                {getTypeLabel(run.employee_type)}
+                              </Badge>
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-6 py-4 text-xs text-muted-foreground whitespace-nowrap">
+                            {formatDate(run.pay_period_start)} - {formatDate(run.pay_period_end)}
+                          </TableCell>
+                          <TableCell className="px-6 py-4">
+                            <Badge variant="secondary" className="font-normal text-xs">
+                              {run.pay_items_count}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="px-6 py-4 font-semibold">{formatCurrency(run.total_net_pay, run)}</TableCell>
+                          <TableCell className="px-6 py-4">
+                            <Badge className={`${getStatusColor(run.status)} text-[10px] px-2 py-0.5`}>
+                              {formatStatus(run.status)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => {
+                                  setSelectedPayRun(run);
+                                  setShowDetailsDialog(true);
+                                }}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
+                                onClick={() => {
+                                  setPayRunToDelete(run.id);
+                                  setShowDeleteDialog(true);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {payRuns.filter(r => r.category === 'head_office').length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center py-8 text-muted-foreground italic">
+                            No head office pay runs recorded yet.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* Projects Section */}
+            <AccordionItem value="projects" className="border rounded-lg bg-card overflow-hidden">
+              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-md">
+                    <FileSpreadsheet className="h-5 w-5 text-emerald-600" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-semibold text-base">Project Payrolls</div>
+                    <div className="text-xs text-muted-foreground">
+                      {payRuns.filter(r => r.category === 'projects' || (!r.category && r.project_id)).length} runs recorded
+                    </div>
+                  </div>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="pt-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-muted/30">
+                      <TableRow>
+                        <TableHead className="px-6 py-3 font-semibold">Date</TableHead>
+                        <TableHead className="px-6 py-3 font-semibold">Project / Pay Group</TableHead>
+                        <TableHead className="px-6 py-3 font-semibold">Type</TableHead>
+                        <TableHead className="px-6 py-3 font-semibold">Period</TableHead>
+                        <TableHead className="px-6 py-3 font-semibold">Net Pay</TableHead>
+                        <TableHead className="px-6 py-3 font-semibold">Status</TableHead>
+                        <TableHead className="px-6 py-3 font-semibold text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {payRuns.filter(r => r.category === 'projects' || (!r.category && r.project_id)).map((run) => (
+                        <TableRow key={run.id} className="hover:bg-muted/50">
+                          <TableCell className="px-6 py-4 font-medium whitespace-nowrap">{formatDate(run.pay_run_date)}</TableCell>
+                          <TableCell className="px-6 py-4">
+                            <div className="space-y-1">
+                              <div className="font-medium">{run.projects?.name || 'Unlinked Project'}</div>
+                              <div className="text-xs text-muted-foreground">{run.pay_group_master?.name}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-6 py-4">
+                            <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 font-normal">
+                              {getTypeLabel(run.employee_type)}
+                              {run.pay_frequency && ` (${run.pay_frequency})`}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="px-6 py-4 text-xs text-muted-foreground whitespace-nowrap">
+                            {formatDate(run.pay_period_start)} - {formatDate(run.pay_period_end)}
+                          </TableCell>
+                          <TableCell className="px-6 py-4 font-semibold">{formatCurrency(run.total_net_pay, run)}</TableCell>
+                          <TableCell className="px-6 py-4">
+                            <Badge className={`${getStatusColor(run.status)} text-[10px] px-2 py-0.5`}>
+                              {formatStatus(run.status)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => {
+                                  setSelectedPayRun(run);
+                                  setShowDetailsDialog(true);
+                                }}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
+                                onClick={() => {
+                                  setPayRunToDelete(run.id);
+                                  setShowDeleteDialog(true);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {payRuns.filter(r => r.category === 'projects' || (!r.category && r.project_id)).length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center py-8 text-muted-foreground italic">
+                            No project pay runs recorded yet.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        )}
       </div>
 
       <CreatePayRunDialog

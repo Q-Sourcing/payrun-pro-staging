@@ -22,38 +22,61 @@ export class PayGroupsService {
   static async getPayGroups(): Promise<PayGroup[]> {
     try {
       // Fetch regular pay groups
-      const { data: regularGroups, error: regularError } = await supabase
-        .from('pay_groups')
+      const { data: regularGroups, error: regularError } = await (supabase
+        .from('pay_groups' as any)
         .select(`
           *,
           employees(count)
-        `)
+        `) as any)
         .order('created_at', { ascending: false });
 
       if (regularError) throw regularError;
 
       // Fetch expatriate pay groups
-      const { data: expatriateGroups, error: expatriateError } = await supabase
-        .from('expatriate_pay_groups')
+      const { data: expatriateGroups, error: expatriateError } = await (supabase
+        .from('expatriate_pay_groups' as any)
         .select(`
           *,
           expatriate_pay_run_items(count)
-        `)
+        `) as any)
         .order('created_at', { ascending: false });
 
       if (expatriateError) throw expatriateError;
 
-      // Transform and combine the results
+      // Fetch new Head Office pay groups
+      const [
+        { data: hoRegular },
+        { data: hoInterns },
+        { data: hoExpatriates },
+        { data: hoMembers, error: hoMembersError }
+      ] = await Promise.all([
+        supabase.from('head_office_pay_groups_regular' as any).select('*').eq('status', 'active') as any,
+        supabase.from('head_office_pay_groups_interns' as any).select('*').eq('status', 'active') as any,
+        supabase.from('head_office_pay_groups_expatriates' as any).select('*').eq('status', 'active') as any,
+        supabase.from('head_office_pay_group_members' as any).select('pay_group_id').eq('active', true) as any
+      ]);
+
+      // Create a map of pay_group_id to member count for Head Office
+      const hoCountMap = new Map<string, number>();
+      if (!hoMembersError && hoMembers) {
+        hoMembers.forEach((member: any) => {
+          const count = hoCountMap.get(member.pay_group_id) || 0;
+          hoCountMap.set(member.pay_group_id, count + 1);
+        });
+      }
+
+      // Map regular groups
       const regularPayGroups: RegularPayGroup[] = (regularGroups || []).map(group => ({
         id: group.id,
         paygroup_id: `REGP-${group.country.substring(0, 1)}${group.id.substring(0, 3)}`,
         name: group.name,
         type: 'regular' as const,
         category: group.category,
-        employee_type: group.employee_type,
+        // Map legacy 'local' to 'regular' for consistency
+        employee_type: group.employee_type === 'local' ? 'regular' : group.employee_type,
         pay_frequency: group.pay_frequency,
         country: group.country,
-        currency: 'UGX', // Default for regular groups
+        currency: 'UGX',
         status: 'active' as const,
         employee_count: group.employees?.[0]?.count || 0,
         created_at: group.created_at,
@@ -63,13 +86,14 @@ export class PayGroupsService {
         tax_country: group.tax_country || group.country
       }));
 
+      // Map expatriate groups
       const expatriatePayGroups: ExpatriatePayGroup[] = (expatriateGroups || []).map(group => ({
         id: group.id,
         paygroup_id: `EXPG-${group.country.substring(0, 1)}${group.id.substring(0, 3)}`,
         name: group.name,
         type: 'expatriate' as const,
-        category: group.category, // Will be set from pay_group_master or default
-        employee_type: group.employee_type, // Will be set from pay_group_master or default
+        category: group.category,
+        employee_type: group.employee_type,
         country: group.country,
         currency: group.currency,
         status: 'active' as const,
@@ -82,7 +106,75 @@ export class PayGroupsService {
         tax_country: group.tax_country
       }));
 
-      return [...regularPayGroups, ...expatriatePayGroups];
+      // Map Head Office regular
+      const hoRegularGroups: PayGroup[] = (hoRegular || []).map(group => ({
+        id: group.id,
+        paygroup_id: `HORG-${group.id.substring(0, 4)}`,
+        name: group.name,
+        type: 'regular' as const,
+        category: 'head_office' as const,
+        employee_type: 'regular' as const,
+        pay_frequency: group.pay_frequency,
+        country: 'UG',
+        currency: 'UGX',
+        status: 'active' as const,
+        employee_count: hoCountMap.get(group.id) || 0,
+        created_at: group.created_at,
+        updated_at: group.updated_at,
+        notes: group.notes,
+        default_tax_percentage: 0, // HO doesn't use this currently
+        tax_country: 'UG'
+      } as any));
+
+      // Map Head Office interns
+      const hoInternGroups: PayGroup[] = (hoInterns || []).map(group => ({
+        id: group.id,
+        paygroup_id: `HOIN-${group.id.substring(0, 4)}`,
+        name: group.name,
+        type: 'intern' as const,
+        category: 'head_office' as const,
+        employee_type: 'interns' as const,
+        pay_frequency: group.pay_frequency,
+        country: 'UG',
+        currency: 'UGX',
+        status: 'active' as const,
+        employee_count: hoCountMap.get(group.id) || 0,
+        created_at: group.created_at,
+        updated_at: group.updated_at,
+        notes: group.notes,
+        internship_duration: 0,
+        stipend_amount: 0,
+        tax_country: 'UG'
+      } as any));
+
+      // Map Head Office expatriates
+      const hoExpatGroups: PayGroup[] = (hoExpatriates || []).map(group => ({
+        id: group.id,
+        paygroup_id: `HOEX-${group.id.substring(0, 4)}`,
+        name: group.name,
+        type: 'expatriate' as const,
+        category: 'head_office' as const,
+        employee_type: 'expatriate' as const,
+        pay_frequency: group.pay_frequency,
+        country: 'UG',
+        currency: group.currency || 'USD',
+        status: 'active' as const,
+        employee_count: hoCountMap.get(group.id) || 0,
+        created_at: group.created_at,
+        updated_at: group.updated_at,
+        notes: group.notes,
+        exchange_rate_to_local: group.exchange_rate_to_local,
+        default_daily_rate: group.default_daily_rate || 0,
+        tax_country: group.tax_country || 'UG'
+      } as any));
+
+      return [
+        ...regularPayGroups,
+        ...expatriatePayGroups,
+        ...hoRegularGroups,
+        ...hoInternGroups,
+        ...hoExpatGroups
+      ];
     } catch (error) {
       console.error('Error fetching pay groups:', error);
       throw new Error(`Failed to fetch pay groups: ${error.message}`);
@@ -95,7 +187,7 @@ export class PayGroupsService {
   static async getPayGroupsByProject(projectId: string, organizationId?: string): Promise<PayGroup[]> {
     try {
       let query = supabase
-        .from('pay_groups')
+        .from('pay_groups' as any)
         .select('*')
         .eq('category', 'projects')
         .eq('project_id', projectId)
@@ -103,7 +195,7 @@ export class PayGroupsService {
       if (organizationId) {
         query = (query as any).eq('organization_id', organizationId);
       }
-      const { data, error } = await query;
+      const { data, error } = await (query as any);
       if (error) throw error;
       return (data || []).map(group => ({
         id: group.id,
@@ -196,7 +288,7 @@ export class PayGroupsService {
     try {
       // Query pay_groups table for project-based pay groups
       let query = supabase
-        .from('pay_groups')
+        .from('pay_groups' as any)
         .select('*')
         .eq('category', 'projects');
 
@@ -223,7 +315,7 @@ export class PayGroupsService {
         query = query.eq('project_id', projectId);
       }
 
-      const { data, error } = await query.order('name');
+      const { data, error } = await (query as any).order('name');
 
       if (error) {
         console.error('Error fetching filtered pay groups:', error);
@@ -277,7 +369,7 @@ export class PayGroupsService {
     try {
       // Build query for project-based pay groups
       let query = supabase
-        .from('pay_groups')
+        .from('pay_groups' as any)
         .select('*')
         .eq('category', 'projects')
         .eq('project_id', projectId)
@@ -301,7 +393,7 @@ export class PayGroupsService {
       // Order by creation date (newest first)
       query = query.order('created_at', { ascending: false });
 
-      const { data, error } = await query;
+      const { data, error } = await (query as any);
 
       if (error) {
         console.error('Error fetching project pay groups:', error);
@@ -309,7 +401,7 @@ export class PayGroupsService {
       }
 
       // Transform to PayGroup format
-      const payGroups: PayGroup[] = (data || []).map(group => ({
+      const payGroups: PayGroup[] = ((data as any) || []).map((group: any) => ({
         id: group.id,
         paygroup_id: `PROJ-${group.project_id?.substring(0, 4)}-${group.id.substring(0, 4)}`,
         name: group.name,
@@ -384,15 +476,17 @@ export class PayGroupsService {
 
       if (formData.type === 'regular') {
         const { data, error } = await supabase
-          .from('pay_groups')
+          .from('pay_groups' as any)
           .insert([{
             name: formData.name,
             country: formData.country,
             category: formData.category || 'head_office',
             employee_type: formData.employee_type || 'regular',
-            pay_frequency: formData.pay_frequency,
+            // Pay frequency is restricted to Manpower by DB constraint ck_pay_frequency, so Regular must be null
+            pay_frequency: null,
             default_tax_percentage: formData.default_tax_percentage,
             description: formData.notes,
+            tax_country: formData.tax_country || formData.country,
             organization_id: orgId || null,
             // Project-aware fields for project-based regular groups
             project_id: formData.category === 'projects' ? (formData as any).project_id || null : null,
@@ -401,7 +495,7 @@ export class PayGroupsService {
                 ? (formData.employee_type as any)
                 : null)
               : null
-          }])
+          }] as any)
           .select()
           .single();
 
@@ -410,22 +504,41 @@ export class PayGroupsService {
           throw new Error(this.getValidationErrorMessage(error));
         }
 
+        // Add to pay_group_master for unified lookup
+        if ((data as any)?.id) {
+          await supabase
+            .from('pay_group_master' as any)
+            .upsert({
+              type: 'regular',
+              source_table: 'pay_groups',
+              source_id: (data as any).id,
+              code: null,
+              name: (data as any).name,
+              country: (data as any).country,
+              currency: 'UGX',
+              active: true,
+              category: (data as any).category,
+              pay_frequency: (data as any).pay_frequency || null,
+              organization_id: (data as any).organization_id
+            } as any, { onConflict: 'type,source_table,source_id' } as any);
+        }
+
         return {
-          id: data.id,
+          id: (data as any).id,
           paygroup_id,
-          name: data.name,
+          name: (data as any).name,
           type: 'regular',
-          category: data.category,
-          employee_type: data.employee_type,
-          pay_frequency: data.pay_frequency,
-          country: data.country,
+          category: (data as any).category,
+          employee_type: (data as any).employee_type,
+          pay_frequency: (data as any).pay_frequency,
+          country: (data as any).country,
           currency: 'UGX',
           status: 'active',
           employee_count: 0,
-          created_at: data.created_at,
-          updated_at: data.updated_at,
-          notes: data.description,
-          default_tax_percentage: data.default_tax_percentage
+          created_at: (data as any).created_at,
+          updated_at: (data as any).updated_at,
+          notes: (data as any).description,
+          default_tax_percentage: (data as any).default_tax_percentage
         } as RegularPayGroup;
       }
 
@@ -435,7 +548,7 @@ export class PayGroupsService {
         const employeeType = formData.employee_type || 'expatriate';
 
         const { data, error } = await supabase
-          .from('expatriate_pay_groups')
+          .from('expatriate_pay_groups' as any)
           .insert([{
             paygroup_id,
             name: formData.name,
@@ -445,7 +558,7 @@ export class PayGroupsService {
             tax_country: formData.tax_country,
             notes: formData.notes,
             organization_id: orgId || null
-          }])
+          }] as any)
           .select()
           .single();
 
@@ -454,34 +567,41 @@ export class PayGroupsService {
           throw new Error(this.getValidationErrorMessage(error));
         }
 
-        // Update pay_group_master with category/employee_type if it exists
-        if (data.id) {
+        // Ensure pay_group_master reflects expatriate metadata
+        if (data && (data as any).id) {
           await supabase
-            .from('pay_group_master')
-            .update({
+            .from('pay_group_master' as any)
+            .upsert({
+              type: 'expatriate',
+              source_table: 'expatriate_pay_groups',
+              source_id: (data as any).id,
+              code: (data as any).paygroup_id,
+              name: (data as any).name,
+              country: (data as any).country,
+              currency: (data as any).currency,
+              active: true,
               category,
-              employee_type: employeeType
-            })
-            .eq('source_table', 'expatriate_pay_groups')
-            .eq('source_id', data.id);
+              employee_type: employeeType,
+              organization_id: (data as any).organization_id
+            } as any, { onConflict: 'type,source_table,source_id' } as any);
         }
 
         return {
-          id: data.id,
-          paygroup_id: data.paygroup_id,
-          name: data.name,
+          id: (data as any).id,
+          paygroup_id: (data as any).paygroup_id,
+          name: (data as any).name,
           type: 'expatriate',
           category,
           employee_type: employeeType,
-          country: data.country,
-          currency: data.currency,
+          country: (data as any).country,
+          currency: (data as any).currency,
           status: 'active',
           employee_count: 0,
-          created_at: data.created_at,
-          updated_at: data.updated_at,
-          notes: data.notes,
-          exchange_rate_to_local: data.exchange_rate_to_local,
-          tax_country: data.tax_country
+          created_at: (data as any).created_at,
+          updated_at: (data as any).updated_at,
+          notes: (data as any).notes,
+          exchange_rate_to_local: (data as any).exchange_rate_to_local,
+          tax_country: (data as any).tax_country
         } as ExpatriatePayGroup;
       }
 
@@ -491,7 +611,7 @@ export class PayGroupsService {
         const employeeType = formData.employee_type || 'ippms';
 
         const { data, error } = await supabase
-          .from('pay_groups')
+          .from('pay_groups' as any)
           .insert([{
             name: formData.name,
             country: formData.country,
@@ -511,7 +631,7 @@ export class PayGroupsService {
             // Project-aware fields
             project_id: (formData as any).project_id || null,
             project_type: 'ippms'
-          }])
+          }] as any)
           .select()
           .single();
 
@@ -521,43 +641,44 @@ export class PayGroupsService {
         }
 
         // Ensure pay_group_master reflects IPPMS metadata including pay_type
-        if (data?.id) {
+        if ((data as any)?.id) {
           await supabase
-            .from('pay_group_master')
+            .from('pay_group_master' as any)
             .upsert({
               type: 'regular', // keep master type compatible; filtering uses employee_type/pay_type
               source_table: 'pay_groups',
-              source_id: data.id,
+              source_id: (data as any).id,
               code: null,
-              name: data.name,
-              country: data.country,
+              name: (data as any).name,
+              country: (data as any).country,
               currency: formData.currency || 'UGX',
               active: true,
               category,
               employee_type: employeeType,
               pay_frequency: formData.pay_frequency || null,
-              pay_type: formData.pay_type || 'piece_rate'
-            }, { onConflict: 'type,source_table,source_id' } as any);
+              pay_type: formData.pay_type || 'piece_rate',
+              organization_id: (data as any).organization_id
+            } as any, { onConflict: 'type,source_table,source_id' } as any);
         }
 
         return {
-          id: data.id,
+          id: (data as any).id,
           paygroup_id,
-          name: data.name,
+          name: (data as any).name,
           type: 'piece_rate',
-          category: data.category,
-          employee_type: data.employee_type,
+          category: (data as any).category,
+          employee_type: (data as any).employee_type,
           pay_type: (data as any).pay_type || formData.pay_type || 'piece_rate',
-          pay_frequency: data.pay_frequency,
-          country: data.country,
+          pay_frequency: (data as any).pay_frequency,
+          country: (data as any).country,
           currency: formData.currency || 'UGX',
           status: 'active',
           employee_count: 0,
-          created_at: data.created_at,
-          updated_at: data.updated_at,
-          notes: data.description,
-          default_tax_percentage: data.default_tax_percentage,
-          tax_country: data.tax_country,
+          created_at: (data as any).created_at,
+          updated_at: (data as any).updated_at,
+          notes: (data as any).description,
+          default_tax_percentage: (data as any).default_tax_percentage,
+          tax_country: (data as any).tax_country,
           piece_type: (data as any).piece_type || formData.piece_type,
           default_piece_rate: (data as any).default_piece_rate || formData.default_piece_rate || 0,
           minimum_pieces: (data as any).minimum_pieces || formData.minimum_pieces,
@@ -565,8 +686,67 @@ export class PayGroupsService {
         } as PieceRatePayGroup;
       }
 
-      // For future pay group types (intern)
-      throw new Error(`Pay group type '${formData.type}' is not yet implemented`);
+      if (formData.type === 'intern') {
+        const category = formData.category || 'head_office';
+        const employeeType = formData.employee_type || 'interns';
+
+        const { data, error } = await supabase
+          .from('pay_groups' as any)
+          .insert([{
+            name: formData.name,
+            country: formData.country,
+            category: category,
+            employee_type: employeeType,
+            pay_frequency: null,
+            default_tax_percentage: 0,
+            description: formData.notes,
+            tax_country: formData.tax_country || formData.country,
+            organization_id: orgId || null
+          }] as any)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Supabase error:', error);
+          throw new Error(this.getValidationErrorMessage(error));
+        }
+
+        // Add to pay_group_master
+        if ((data as any)?.id) {
+          await supabase
+            .from('pay_group_master' as any)
+            .upsert({
+              type: 'intern',
+              source_table: 'pay_groups',
+              source_id: (data as any).id,
+              code: null,
+              name: (data as any).name,
+              country: (data as any).country,
+              currency: 'UGX',
+              active: true,
+              category,
+              employee_type: employeeType,
+              organization_id: (data as any).organization_id
+            } as any, { onConflict: 'type,source_table,source_id' } as any);
+        }
+
+        return {
+          id: (data as any).id,
+          paygroup_id,
+          name: (data as any).name,
+          type: 'intern',
+          category,
+          employee_type: employeeType,
+          country: (data as any).country,
+          currency: 'UGX',
+          status: 'active',
+          employee_count: 0,
+          created_at: (data as any).created_at,
+          updated_at: (data as any).updated_at,
+          notes: (data as any).description,
+          default_tax_percentage: 0
+        } as any;
+      }
     } catch (error) {
       console.error('Error creating pay group:', error);
       if (error.message.includes('Failed to create')) {
@@ -583,7 +763,7 @@ export class PayGroupsService {
     try {
       if (type === 'regular') {
         const { data, error } = await supabase
-          .from('pay_groups')
+          .from('pay_groups' as any)
           .update({
             name: formData.name,
             country: formData.country,
@@ -592,7 +772,7 @@ export class PayGroupsService {
             pay_frequency: formData.pay_frequency,
             default_tax_percentage: formData.default_tax_percentage,
             description: formData.notes
-          })
+          } as any)
           .eq('id', id)
           .select()
           .single();
@@ -603,21 +783,21 @@ export class PayGroupsService {
         }
 
         return {
-          id: data.id,
-          paygroup_id: `REGP-${data.country.substring(0, 1)}${data.id.substring(0, 3)}`,
-          name: data.name,
+          id: (data as any).id,
+          paygroup_id: `REGP-${(data as any).country.substring(0, 1)}${(data as any).id.substring(0, 3)}`,
+          name: (data as any).name,
           type: 'regular',
-          category: data.category,
-          employee_type: data.employee_type,
-          pay_frequency: data.pay_frequency,
-          country: data.country,
+          category: (data as any).category,
+          employee_type: (data as any).employee_type,
+          pay_frequency: (data as any).pay_frequency,
+          country: (data as any).country,
           currency: 'UGX',
           status: 'active',
           employee_count: 0, // Would need to fetch separately
-          created_at: data.created_at,
-          updated_at: data.updated_at,
-          notes: data.description,
-          default_tax_percentage: data.default_tax_percentage
+          created_at: (data as any).created_at,
+          updated_at: (data as any).updated_at,
+          notes: (data as any).description,
+          default_tax_percentage: (data as any).default_tax_percentage
         } as RegularPayGroup;
       }
 
@@ -626,7 +806,7 @@ export class PayGroupsService {
         const employeeType = formData.employee_type;
 
         const { data, error } = await supabase
-          .from('expatriate_pay_groups')
+          .from('expatriate_pay_groups' as any)
           .update({
             name: formData.name,
             country: formData.country,
@@ -635,7 +815,7 @@ export class PayGroupsService {
             default_daily_rate: formData.default_daily_rate,
             tax_country: formData.tax_country,
             notes: formData.notes
-          })
+          } as any)
           .eq('id', id)
           .select()
           .single();
@@ -648,32 +828,32 @@ export class PayGroupsService {
         // Update pay_group_master with category/employee_type if provided
         if (category && employeeType) {
           await supabase
-            .from('pay_group_master')
+            .from('pay_group_master' as any)
             .update({
               category,
               employee_type: employeeType
-            })
+            } as any)
             .eq('source_table', 'expatriate_pay_groups')
             .eq('source_id', id);
         }
 
         return {
-          id: data.id,
-          paygroup_id: `EXPG-${data.country.substring(0, 1)}${data.id.substring(0, 3)}`,
-          name: data.name,
+          id: (data as any).id,
+          paygroup_id: `EXPG-${(data as any).country.substring(0, 1)}${(data as any).id.substring(0, 3)}`,
+          name: (data as any).name,
           type: 'expatriate',
           category: category || 'head_office',
           employee_type: employeeType || 'expatriate',
-          country: data.country,
-          currency: data.currency,
+          country: (data as any).country,
+          currency: (data as any).currency,
           status: 'active',
           employee_count: 0, // Would need to fetch separately
-          created_at: data.created_at,
-          updated_at: data.updated_at,
-          notes: data.notes,
-          exchange_rate_to_local: data.exchange_rate_to_local,
-          default_daily_rate: data.default_daily_rate,
-          tax_country: data.tax_country
+          created_at: (data as any).created_at,
+          updated_at: (data as any).updated_at,
+          notes: (data as any).notes,
+          exchange_rate_to_local: (data as any).exchange_rate_to_local,
+          default_daily_rate: (data as any).default_daily_rate,
+          tax_country: (data as any).tax_country
         } as ExpatriatePayGroup;
       }
 
@@ -706,7 +886,7 @@ export class PayGroupsService {
       }
 
       const { error } = await supabase
-        .from(tableName)
+        .from(tableName as any)
         .delete()
         .eq('id', id);
 
@@ -792,9 +972,12 @@ export class PayGroupsService {
 
     // Type-specific validations
     if (formData.type === 'regular') {
+      // Pay frequency check removed as DB constraint only allows it for Manpower
+      /*
       if (!formData.pay_frequency) {
         errors.push('Pay frequency is required for regular pay groups');
       }
+      */
 
       if (formData.default_tax_percentage === undefined || formData.default_tax_percentage < 0 || formData.default_tax_percentage > 100) {
         errors.push('Tax percentage must be between 0 and 100');

@@ -141,7 +141,7 @@ export class PayslipPDFExport {
     y += 5;
     doc.text(`Job Title: ${data.employee.jobTitle}`, leftCol, y);
     y += 5;
-    doc.text(`Department: ${data.employee.department}`, leftCol, y);
+    doc.text(`Sub-Department: ${data.employee.sub_department}`, leftCol, y);
     y += 5;
 
     // Right column
@@ -168,7 +168,7 @@ export class PayslipPDFExport {
     // Table header
     doc.setFillColor(248, 250, 252); // Background color
     doc.rect(margins.left, y - 3, doc.internal.pageSize.getWidth() - margins.left - margins.right, 8, 'F');
-    
+
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 23, 42); // Text color
@@ -204,7 +204,7 @@ export class PayslipPDFExport {
     // Table header
     doc.setFillColor(248, 250, 252); // Background color
     doc.rect(margins.left, y - 3, doc.internal.pageSize.getWidth() - margins.left - margins.right, 8, 'F');
-    
+
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 23, 42); // Text color
@@ -298,7 +298,7 @@ export class PayslipPDFExport {
     doc.setFont('helvetica', 'normal');
     doc.text(`Gross Pay: ${this.formatCurrency(data.totals.gross)}`, margins.left + 5, y);
     doc.text(`Total Deductions: ${this.formatCurrency(data.totals.deductions)}`, margins.left + 5, y + 5);
-    
+
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(16, 185, 129); // Accent color
     doc.text(`Net Pay: ${this.formatCurrency(data.totals.net)}`, margins.left + 5, y + 10);
@@ -328,9 +328,9 @@ export class PayslipPDFExport {
     doc.setFontSize(48);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(200, 200, 200); // Light gray
-    doc.text(watermarkText, centerX, centerY, { 
+    doc.text(watermarkText, centerX, centerY, {
       align: 'center',
-      angle: -45 
+      angle: -45
     });
   }
 
@@ -375,7 +375,7 @@ export class PayslipPDFExport {
       if (i > 0) {
         doc.addPage();
       }
-      
+
       const payslipDoc = await this.generatePDF(payslipsData[i], config, exportSettings);
       // Copy content from payslipDoc to main doc
       // This is a simplified approach - in practice, you'd need to copy the content properly

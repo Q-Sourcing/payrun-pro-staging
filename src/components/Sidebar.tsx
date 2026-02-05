@@ -1,7 +1,7 @@
 import {
   Users, FolderKanban, DollarSign, Globe, Briefcase, Clock3,
   GraduationCap, UserSquare, Timer, FileText, Settings, ChevronRight, BarChart3,
-  Building2, FolderTree, Calendar, Package
+  Building2, FolderTree, Calendar, Package, CheckSquare
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -150,14 +150,33 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
 
   return (
     <div className="flex flex-col text-sm pb-10 pl-4 pr-2">
-      {/* MY SECTIONS (Self-Service - Always Visible or base on user existence) */}
+      {/* ========================================
+          MY DASHBOARD SECTION - UNIVERSAL
+          ========================================
+          These navigation items are available to ALL authenticated users.
+          This is self-service data scoped to the current user.
+          
+          Access Pattern: User authentication only (no role/permission checks)
+          Data Security: RLS policies scope data to current user's context
+          ======================================== */}
       <SectionHeader title="My Dashboard" />
       <NavItem to="/dashboard" icon={<BarChart3 size={16} />} label="Overview" />
       <NavItem to="/my/employees" icon={<Users size={16} />} label="My Employees" />
       <NavItem to="/my/paygroups" icon={<FolderKanban size={16} />} label="My Pay Groups" />
       <NavItem to="/my/payruns" icon={<DollarSign size={16} />} label="My Pay Runs" />
+      <NavItem to="/my/approvals" icon={<CheckSquare size={16} />} label="My Approvals" />
 
-      {/* EMPLOYEES */}
+      {/* ========================================
+          PERMISSION-BASED SECTIONS
+          ========================================
+          Following sections are conditionally rendered based on user permissions.
+          Each section checks specific permissions via RBACService.
+          
+          Pattern: permissions.canViewXXX from RBACService.hasPermission()
+          Data Security: RLS policies + permission checks provide defense in depth
+          ======================================== */}
+
+      {/* EMPLOYEES - Requires 'people.view' permission */}
       {permissions.canViewEmployees && (
         <>
           <SectionHeader title="Employees" />

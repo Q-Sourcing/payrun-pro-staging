@@ -27,8 +27,8 @@ interface Employee {
   employee_type: string;
   employee_type_id?: string | null;
   category?: string | null;
-  department?: string | null;
-  department_id?: string | null;
+  sub_department?: string | null;
+  sub_department_id?: string | null;
   company_id?: string | null;
   company_unit_id?: string | null;
   date_joined?: string | null;
@@ -65,10 +65,10 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
     pay_group_id: employee.pay_group_id || "",
     status: (employee.status as any) || "active",
     employee_type: (employee.employee_type as any) || "",
-    department: employee.department || "",
+    sub_department: employee.sub_department || "",
     company_id: (employee as any).company_id || "",
     company_unit_id: (employee as any).company_unit_id || "",
-    department_id: employee.department_id || "",
+    sub_department_id: employee.sub_department_id || "",
     date_joined: (employee as any).date_joined || "",
     employee_number: (employee as any).employee_number || "",
     category: (employee.category as any) || "",
@@ -97,15 +97,15 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
         currency: values.currency,
         pay_group_id: values.pay_group_id || null,
         status: values.status || "active",
-        employee_type: values.employee_type || null,
-        department: values.department || null,
+        sub_department: values.sub_department || null,
         company_id: values.company_id || null,
         company_unit_id: values.company_unit_id || null,
-        department_id: values.department_id || null,
+        sub_department_id: values.sub_department_id || null,
         date_joined: values.date_joined || null,
-        category: values.category || null,
+        category: values.category || undefined,
         pay_frequency: values.pay_frequency || null,
         project_id: values.category === "projects" ? (values.project_id || null) : null,
+        employee_type: values.employee_type || undefined,
       })
       .eq("id", employee.id);
 

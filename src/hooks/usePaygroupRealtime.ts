@@ -17,6 +17,7 @@ interface UsePaygroupRealtimeOptions {
   onAnyChange?: (payload: PaygroupRealtimePayload) => void;
   refetch?: () => void;
   enabled?: boolean;
+  tableName?: 'paygroup_employees' | 'head_office_pay_group_members';
 }
 
 /**
@@ -32,7 +33,8 @@ export function usePaygroupRealtime(options: UsePaygroupRealtimeOptions = {}) {
     onEmployeeUpdated,
     onAnyChange,
     refetch,
-    enabled = true
+    enabled = true,
+    tableName = 'paygroup_employees'
   } = options;
 
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -40,7 +42,7 @@ export function usePaygroupRealtime(options: UsePaygroupRealtimeOptions = {}) {
 
   const handleRealtimeChange = useCallback((payload: any) => {
     console.log('🔄 PayGroup Realtime Change:', payload);
-    
+
     const realtimePayload: PaygroupRealtimePayload = {
       operation: payload.eventType,
       employee_id: payload.new?.employee_id || payload.old?.employee_id,
@@ -83,7 +85,7 @@ export function usePaygroupRealtime(options: UsePaygroupRealtimeOptions = {}) {
         {
           event: '*',
           schema: 'public',
-          table: 'paygroup_employees'
+          table: tableName
         },
         handleRealtimeChange
       )
@@ -159,7 +161,8 @@ export function usePaygroupRealtimeForGroup(
     onEmployeeUpdated,
     onAnyChange,
     refetch,
-    enabled = true
+    enabled = true,
+    tableName = 'paygroup_employees'
   } = options;
 
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -173,7 +176,7 @@ export function usePaygroupRealtimeForGroup(
     }
 
     console.log(`🔄 PayGroup ${payGroupId} Realtime Change:`, payload);
-    
+
     const realtimePayload: PaygroupRealtimePayload = {
       operation: payload.eventType,
       employee_id: payload.new?.employee_id || payload.old?.employee_id,
@@ -216,7 +219,7 @@ export function usePaygroupRealtimeForGroup(
         {
           event: '*',
           schema: 'public',
-          table: 'paygroup_employees',
+          table: tableName,
           filter: `pay_group_id=eq.${payGroupId}`
         },
         handleRealtimeChange

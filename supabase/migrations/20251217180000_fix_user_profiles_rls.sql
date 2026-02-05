@@ -9,7 +9,7 @@ ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Org Admins can view profiles in their organization" ON public.user_profiles;
 
-CREATE POLICY "Org Admins can view profiles in their organization"
+DROP POLICY IF EXISTS "Org Admins can view profiles in their organization" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Org Admins can view profiles in their organization" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Org Admins can view profiles in their organization" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Org Admins can view profiles in their organization" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Org Admins can view profiles in their organization"
 ON public.user_profiles
 FOR SELECT
 TO authenticated

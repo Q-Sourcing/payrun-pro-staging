@@ -4,7 +4,7 @@ ALTER TABLE public.user_invites ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Admins can update invites (revoke)" ON public.user_invites;
 
-CREATE POLICY "Admins and Inviter can update invites (revoke)"
+DROP POLICY IF EXISTS "Admins and Inviter can update invites (revoke)" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Admins and Inviter can update invites (revoke)" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Admins and Inviter can update invites (revoke)" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Admins and Inviter can update invites (revoke)" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Admins and Inviter can update invites (revoke)"
 ON public.user_invites
 FOR UPDATE
 TO authenticated

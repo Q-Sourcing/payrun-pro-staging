@@ -9,6 +9,10 @@ export type ProjectsSubType = 'manpower' | 'ippms' | 'expatriate';
 export type ManpowerFrequency = 'daily' | 'bi_weekly' | 'monthly';
 export type IppmsType = 'piece_rate';
 
+// Head Office Specific Enums
+export type HeadOfficePayGroupRefType = 'regular' | 'intern' | 'expatriate';
+export type HeadOfficeStatus = 'draft' | 'active' | 'locked';
+
 export interface PayGroupTypeDefinition {
   id: PayGroupType;
   name: string;
@@ -95,6 +99,59 @@ export interface InternPayGroup extends BasePayGroup {
 }
 
 export type PayGroup = RegularPayGroup | ExpatriatePayGroup | PieceRatePayGroup | InternPayGroup;
+
+// Head Office Domain Interfaces
+export interface HeadOfficePayGroupBase {
+  id: string;
+  organization_id: string;
+  company_id: string;
+  category: 'head_office';
+  name: string;
+  pay_frequency: string;
+  period_start: string;
+  period_end: string;
+  status: HeadOfficeStatus;
+  source_pay_group_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type HeadOfficePayGroup = HeadOfficePayGroupBase;
+
+export interface HeadOfficeRegularPayGroup extends HeadOfficePayGroupBase {
+  employee_type: 'regular';
+}
+
+export interface HeadOfficeInternPayGroup extends HeadOfficePayGroupBase {
+  employee_type: 'intern';
+}
+
+export interface HeadOfficeExpatriatePayGroup extends HeadOfficePayGroupBase {
+  employee_type: 'expatriate';
+  currency: string;
+  exchange_rate_to_local: number;
+  tax_country: string;
+}
+
+export interface HeadOfficePayGroupMember {
+  id: string;
+  pay_group_type: HeadOfficePayGroupRefType;
+  pay_group_id: string;
+  employee_id: string;
+  active: boolean;
+  added_at: string;
+  removed_at?: string;
+  added_by?: string;
+}
+
+export interface HeadOfficePayGroupCompanyUnit {
+  id: string;
+  pay_group_type: HeadOfficePayGroupRefType;
+  pay_group_id: string;
+  company_unit_id: string;
+  active: boolean;
+  created_at: string;
+}
 
 export interface PayGroupFormData {
   name: string;

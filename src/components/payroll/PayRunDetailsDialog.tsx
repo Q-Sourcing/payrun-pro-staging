@@ -174,7 +174,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
   const { role, isSuperAdmin } = useUserRole();
   const [activeTab, setActiveTab] = useState("pay-details");
   const [approvalAction, setApprovalAction] = useState<{
-    type: 'approve' | 'reject' | 'delegate',
+    type: 'approve' | 'reject' | 'delegate' | 'submit',
     isOpen: boolean,
     title: string,
     description: string,
@@ -188,22 +188,11 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
   const handleTimelineRefresh = () => setRefreshTimeline(prev => prev + 1);
 
-  const handleSubmitForApproval = async () => {
-    if (!confirm("Are you sure you want to submit this payrun for approval? It will be locked for editing.")) return;
-    try {
-      if (!payRunId) return;
-      await PayrunsService.submitForApproval(payRunId);
-      toast({ title: "Submitted", description: "Payrun submitted for approval." });
-      handleTimelineRefresh();
-      onPayRunUpdated?.();
-      // Optionally switch tab
-      setActiveTab("approvals");
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message || "Failed to submit", variant: "destructive" });
-    }
+  const handleSubmitForApproval = () => {
+    initApprovalAction('submit');
   };
 
-  const initApprovalAction = (type: 'approve' | 'reject' | 'delegate') => {
+  const initApprovalAction = (type: 'approve' | 'reject' | 'delegate' | 'submit') => {
     if (type === 'approve') {
       setApprovalAction({
         type, isOpen: true, title: "Approve Payrun", description: "Are you sure you want to approve this step?", requireComment: false, actionLabel: "Approve", variant: "default"
@@ -211,6 +200,10 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     } else if (type === 'reject') {
       setApprovalAction({
         type, isOpen: true, title: "Reject Payrun", description: "Please provide a reason for rejection.", requireComment: true, actionLabel: "Reject", variant: "destructive"
+      });
+    } else if (type === 'submit') {
+      setApprovalAction({
+        type, isOpen: true, title: "Submit Payrun", description: "Are you sure you want to submit this payrun for approval? It will be locked for editing.", requireComment: false, actionLabel: "Submit", variant: "default"
       });
     }
     // Delegate handled separately or via generic
@@ -226,6 +219,12 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         if (!comment) return;
         await PayrunsService.rejectStep(payRunId, comment);
         toast({ title: "Rejected", description: "Step rejected." });
+      } else if (approvalAction.type === 'submit') {
+        await PayrunsService.submitForApproval(payRunId);
+        toast({ title: "Submitted", description: "Payrun submitted for approval." });
+        await loadData(); // Refresh Pay Run Status
+        onPayRunUpdated?.();
+        setActiveTab("approvals");
       }
       handleTimelineRefresh();
       onPayRunUpdated?.(); // Refresh main payrun data
@@ -250,19 +249,18 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
   };
 
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadData = async () => {
+    if (!payRunId) return;
 
-    const loadPayItems = async () => {
-      if (!payRunId) return;
-
-      setLoading(true);
-      try {
-        // Fetch pay run details
-        const { data: payRunData, error: payRunError } = await supabase
-          .from("pay_runs")
-          .select(`
+    setLoading(true);
+    try {
+      // Fetch pay run details
+      const { data: payRunData, error: payRunError } = await (supabase as any)
+        .from("pay_runs")
+        .select(`
           id,
+          status,
+          approval_status,
           payroll_type,
           category,
           employee_type,
@@ -281,186 +279,163 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
             source_table
           )
         `)
-          .eq("id", payRunId)
+        .eq("id", payRunId)
+        .single();
+
+      if (payRunError) throw payRunError;
+
+      setPayRunData(payRunData);
+
+      // Check if this is an expatriate pay run
+      const isExpat = payRunData?.payroll_type === 'expatriate' ||
+        payRunData?.pay_group_master?.type === 'expatriate';
+
+      setIsExpatriatePayRun(isExpat);
+
+      // If expatriate, fetch the expatriate pay group details
+      if (isExpat && payRunData?.pay_group_master?.source_id) {
+        const { data: expatGroup, error: expatError } = await (supabase as any)
+          .from('expatriate_pay_groups')
+          .select('*')
+          .eq('id', payRunData.pay_group_master.source_id)
           .single();
 
-        if (payRunError) throw payRunError;
-        if (!isMounted) return;
-
-        setPayRunData(payRunData);
-
-        // Check if this is an expatriate pay run
-        const isExpat = payRunData?.payroll_type === 'expatriate' ||
-          payRunData?.pay_group_master?.type === 'expatriate';
-
-        setIsExpatriatePayRun(isExpat);
-
-        // If expatriate, fetch the expatriate pay group details
-        if (isExpat && payRunData?.pay_group_master?.source_id) {
-          const { data: expatGroup, error: expatError } = await supabase
-            .from('expatriate_pay_groups')
-            .select('*')
-            .eq('id', payRunData.pay_group_master.source_id)
-            .single();
-
-          if (!expatError && expatGroup) {
-            setExpatriatePayGroup(expatGroup);
-            // fetch assigned employees by pay group membership (not by type)
-            try {
-              const assigned = await ExpatriatePayrollService.getEmployeesForPayGroup(payRunData.pay_group_master.source_id);
-              setAssignedExpatEmployees(assigned || []);
-            } catch (e) {
-              console.error('Failed to load assigned expat employees:', e);
-              setAssignedExpatEmployees([]);
-            }
-          }
-        } else {
-          setExpatriatePayGroup(null);
-          setAssignedExpatEmployees([]);
-        }
-
-        // Set pay group country and currency
-        const country = payRunData?.pay_group_master?.country || "Uganda";
-        setPayGroupCountry(country);
-        setPayGroupCurrency(payRunData?.pay_group_master?.currency || getCurrencyCodeFromCountry(country));
-
-        // Fetch pay items
-        const { data, error } = await supabase
-          .from("pay_items")
-          .select(`
-            *,
-            employees (
-              first_name,
-              middle_name,
-              last_name,
-              email,
-              pay_type,
-              pay_rate,
-              country,
-              employee_type
-            )
-          `)
-          .eq("pay_run_id", payRunId)
-          .order("employees(first_name)");
-
-        if (error) throw error;
-        if (!isMounted) return;
-
-        // For expatriate pay runs, if no pay items exist, create them using dual-source employee fetch
-        if (isExpat && (!data || data.length === 0) && payRunData?.pay_group_master?.source_id) {
-          console.log("🔄 No pay items found for expatriate pay run, creating from dual-source employee fetch...");
-
+        if (!expatError && expatGroup) {
+          setExpatriatePayGroup(expatGroup);
+          // fetch assigned employees by pay group membership (not by type)
           try {
-            // Use the dual-source approach to get employees
-            const employees = await ExpatriatePayrollService.getEmployeesForPayGroup(payRunData.pay_group_master.source_id);
-            console.log(`📋 Found ${employees.length} employees for expatriate pay group`);
-
-            if (employees.length > 0) {
-              // Create initial pay items for each employee
-              const payItemsToCreate = employees.map(emp => ({
-                pay_run_id: payRunId,
-                employee_id: emp.id,
-                gross_pay: 0,
-                tax_deduction: 0,
-                benefit_deductions: 0,
-                total_deductions: 0,
-                net_pay: 0,
-                hours_worked: null,
-                pieces_completed: null,
-                status: 'draft',
-                employer_contributions: 0
-              }));
-
-              const { data: createdItems, error: createError } = await supabase
-                .from("pay_items")
-                .insert(payItemsToCreate)
-                .select(`
-                  *,
-                  employees (
-                    first_name,
-                    middle_name,
-                    last_name,
-                    email,
-                    pay_type,
-                    pay_rate,
-                    country,
-                    employee_type
-                  )
-                `);
-
-              if (createError) {
-                console.error("Error creating pay items:", createError);
-                throw createError;
-              }
-
-              console.log(`✅ Created ${createdItems?.length || 0} pay items for expatriate employees`);
-
-              // Use the newly created items
-              const payItemsWithDeductions = await Promise.all(
-                (createdItems || []).map(async (item) => {
-                  const { data: customDeductions } = await supabase
-                    .from("pay_item_custom_deductions")
-                    .select("*")
-                    .eq("pay_item_id", item.id);
-
-                  return {
-                    ...item,
-                    customDeductions: customDeductions || [],
-                  };
-                })
-              );
-
-              if (!isMounted) return;
-              setPayItems(payItemsWithDeductions);
-              return;
-            }
-          } catch (createError) {
-            console.error("Error creating pay items for expatriate employees:", createError);
-            // Fall through to show empty state
+            const assigned = await ExpatriatePayrollService.getEmployeesForPayGroup(payRunData.pay_group_master.source_id);
+            setAssignedExpatEmployees(assigned || []);
+          } catch (e) {
+            console.error('Failed to load assigned expat employees:', e);
+            setAssignedExpatEmployees([]);
           }
         }
+      } else {
+        setExpatriatePayGroup(null);
+        setAssignedExpatEmployees([]);
+      }
 
-        // Fetch custom deductions for each pay item
-        const payItemsWithDeductions = await Promise.all(
-          (data || []).map(async (item) => {
-            const { data: customDeductions } = await supabase
-              .from("pay_item_custom_deductions")
-              .select("*")
-              .eq("pay_item_id", item.id);
+      // Set pay group country and currency
+      const country = payRunData?.pay_group_master?.country || "Uganda";
+      setPayGroupCountry(country);
+      setPayGroupCurrency(payRunData?.pay_group_master?.currency || getCurrencyCodeFromCountry(country));
 
-            return {
-              ...item,
-              customDeductions: customDeductions || [],
-            };
-          })
-        );
+      // Fetch pay items
+      const { data, error } = await (supabase as any)
+        .from("pay_items")
+        .select(`
+          *,
+          employees (
+            first_name,
+            middle_name,
+            last_name,
+            email,
+            pay_type,
+            pay_rate,
+            country,
+            employee_type
+          )
+        `)
+        .eq("pay_run_id", payRunId)
+        .order("employees(first_name)");
 
-        if (!isMounted) return;
-        setPayItems(payItemsWithDeductions);
-      } catch (err) {
-        error("Error fetching pay items:", err);
-        if (!isMounted) return;
+      if (error) throw error;
 
-        toast({
-          title: "Error",
-          description: "Failed to fetch pay run details",
-          variant: "destructive",
-        });
-      } finally {
-        if (isMounted) {
-          setLoading(false);
+      // For expatriate pay runs, if no pay items exist, create them using dual-source employee fetch
+      if (isExpat && (!data || data.length === 0) && payRunData?.pay_group_master?.source_id) {
+        console.log("🔄 No pay items found for expatriate pay run, creating from dual-source employee fetch...");
+
+        try {
+          const employees = await ExpatriatePayrollService.getEmployeesForPayGroup(payRunData.pay_group_master.source_id);
+          if (employees.length > 0) {
+            const payItemsToCreate = employees.map(emp => ({
+              pay_run_id: payRunId,
+              employee_id: emp.id,
+              gross_pay: 0,
+              tax_deduction: 0,
+              benefit_deductions: 0,
+              total_deductions: 0,
+              net_pay: 0,
+              hours_worked: null,
+              pieces_completed: null,
+              status: 'draft',
+              employer_contributions: 0
+            }));
+
+            const { data: createdItems, error: createError } = await (supabase as any)
+              .from("pay_items")
+              .insert(payItemsToCreate as any)
+              .select(`
+                *,
+                employees (
+                  first_name,
+                  middle_name,
+                  last_name,
+                  email,
+                  pay_type,
+                  pay_rate,
+                  country,
+                  employee_type
+                )
+              `);
+
+            if (createError) throw createError;
+
+            const payItemsWithDeductions = await Promise.all(
+              (createdItems || []).map(async (item) => {
+                const { data: customDeductions } = await (supabase as any)
+                  .from("pay_item_custom_deductions")
+                  .select("*")
+                  .eq("pay_item_id", (item as any).id);
+
+                return {
+                  ...item,
+                  customDeductions: customDeductions || [],
+                };
+              })
+            );
+            setPayItems(payItemsWithDeductions);
+            return;
+          }
+        } catch (createError) {
+          console.error("Error creating pay items for expatriate employees:", createError);
         }
       }
-    };
 
-    if (open && payRunId) {
-      loadPayItems();
+      // Fetch custom deductions for each pay item
+      const payItemsWithDeductions = await Promise.all(
+        (data || []).map(async (item) => {
+          const { data: customDeductions } = await (supabase as any)
+            .from("pay_item_custom_deductions")
+            .select("*")
+            .eq("pay_item_id", item.id);
+
+          return {
+            ...item,
+            customDeductions: customDeductions || [],
+          };
+        })
+      );
+
+      setPayItems(payItemsWithDeductions);
+    } catch (err) {
+      error("Error fetching pay items:", err);
+      toast({
+        title: "Error",
+        description: "Failed to fetch pay run details",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
+  };
 
-    return () => {
-      isMounted = false;
-    };
-  }, [open, payRunId, toast]);
+  useEffect(() => {
+    if (open && payRunId) {
+      loadData();
+    }
+  }, [open, payRunId]);
 
   const fetchPayItems = async () => {
     if (!payRunId) return;
@@ -468,7 +443,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     setLoading(true);
     try {
       // Fetch pay group country
-      const { data: payRunData, error: payRunError } = await supabase
+      const { data: payRunData, error: payRunError } = await (supabase as any)
         .from("pay_runs")
         .select("pay_group_master:pay_group_master_id(country)")
         .eq("id", payRunId)
@@ -480,7 +455,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       setPayGroupCurrency(getCurrencyCodeFromCountry(country));
 
       // Fetch pay items
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("pay_items")
         .select(`
           *,
@@ -503,7 +478,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       // Fetch custom deductions for each pay item
       const payItemsWithDeductions = await Promise.all(
         (data || []).map(async (item) => {
-          const { data: customDeductions } = await supabase
+          const { data: customDeductions } = await (supabase as any)
             .from("pay_item_custom_deductions")
             .select("*")
             .eq("pay_item_id", item.id);
@@ -569,7 +544,12 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         pay_type: payTypeOverride,
         employee_type: item.employees.employee_type,
         country: item.employees.country,
-        custom_deductions: item.customDeductions || [],
+        is_head_office: payRunData?.category === 'head_office',
+        custom_deductions: (item.customDeductions || []).map((d: any) => ({
+          name: d.name,
+          amount: d.amount,
+          type: d.type
+        })),
         benefit_deductions: edits.benefit_deductions ?? item.benefit_deductions ?? 0
       };
 
@@ -624,14 +604,33 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     const standardDeductions: { [key: string]: number } = {};
 
     if (isExpatriate) {
-      // For expatriates, apply simplified flat tax (default 15%)
-      // This should ideally fetch from expatriate_policies table
-      const flatTaxRate = 0.15; // Default 15%
-      calculatedTaxDeduction = grossPay * flatTaxRate;
-      standardDeductions['Flat Tax (15%)'] = calculatedTaxDeduction;
+      // For expatriates, allow for progressive tax if no flat percentage is provided in input/meta
+      // For Head Office staff (usually residents in Uganda), standard progressive tax applies.
+      // For others, use a more robust default (30%).
+      const isHO = item.employees.country === 'Uganda' || item.employees.country === 'UG';
 
-      // Expatriates are typically exempt from social security
-      employerContributions = 0;
+      if (isHO) {
+        const deductionRules = getCountryDeductions(item.employees.country);
+        deductionRules.forEach(rule => {
+          if (rule.mandatory) {
+            const amount = calculateDeduction(grossPay, rule, item.employees.country);
+            if (rule.name === 'NSSF Employer') {
+              employerContributions += grossPay * ((rule.percentage || 0) / 100);
+            } else {
+              standardDeductions[rule.name] = amount;
+              calculatedTaxDeduction += amount;
+              if (rule.employerContribution) {
+                employerContributions += grossPay * ((rule.employerContribution || 0) / 100);
+              }
+            }
+          }
+        });
+      } else {
+        const flatTaxRate = 0.30;
+        calculatedTaxDeduction = grossPay * flatTaxRate;
+        standardDeductions['PAYE (Expat 30%)'] = calculatedTaxDeduction;
+        employerContributions = 0;
+      }
     } else {
       // For local employees, apply standard country-specific deductions
       const deductionRules = getCountryDeductions(item.employees.country);
@@ -641,12 +640,12 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
           const amount = calculateDeduction(grossPay, rule, item.employees.country);
           // Exclude NSSF Employer from employee deductions; track as employer contribution only
           if (rule.name === 'NSSF Employer') {
-            const employerAmount = Math.min(grossPay, 1200000) * ((rule.percentage || 0) / 100);
-            employerContributions += employerAmount;
+            // Updated to use rule percentage directly without arbitrary cap
+            employerContributions += grossPay * ((rule.percentage || 0) / 100);
           } else {
             standardDeductions[rule.name] = amount;
             calculatedTaxDeduction += amount;
-            // If rule has an employer portion (rare), add to employerContributions without affecting deductions
+            // If rule has an employer portion, add to employerContributions
             if (rule.employerContribution) {
               employerContributions += grossPay * ((rule.employerContribution || 0) / 100);
             }
@@ -668,18 +667,6 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     const benefitDeductions = edits.benefit_deductions ?? item.benefit_deductions ?? 0;
     const totalDeductions = calculatedTaxDeduction + benefitDeductions + customDeductionsTotal;
     const netPay = grossPay + customAllowancesTotal - totalDeductions;
-
-    // Fallback NSSF Employer calculation for Uganda if not calculated above
-    if (employerContributions === 0 && (item.employees.country === 'Uganda' || item.employees.country === 'UG') && item.employees.employee_type === 'local') {
-      employerContributions = Math.min(grossPay, 1200000) * 0.10; // 10% of gross pay, capped at 1.2M
-    }
-
-    // Force NSSF Employer calculation for all local employees
-    if (item.employees.employee_type === 'local') {
-      // For Uganda: NSSF Employer is 10% of gross pay, NO CAP
-      employerContributions = grossPay * 0.10;
-      console.log(`NSSF Employer calculation for ${item.employees.first_name}: grossPay=${grossPay}, employerContributions=${employerContributions}`);
-    }
 
     // Return in the same format as CalculationResult
     const result = {
@@ -800,9 +787,9 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     }
 
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("pay_items")
-        .update({ status: newStatus })
+        .update({ status: newStatus } as any)
         .in("id", Array.from(selectedItems));
 
       if (error) throw error;
@@ -853,16 +840,16 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     try {
       // If pay_rate was edited, sync it to the employee record (pay_items has no pay_rate column)
       if (typeof (edits as any).pay_rate === 'number') {
-        await supabase
+        await (supabase as any)
           .from("employees")
           .update({
             pay_rate: (edits as any).pay_rate,
             pay_type: item.employees.pay_type,
-          })
+          } as any)
           .eq("id", item.employee_id);
       }
 
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("pay_items")
         .update({
           hours_worked: edits.hours_worked ?? item.hours_worked,
@@ -872,7 +859,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
           gross_pay: grossPay,
           total_deductions: totalDeductions,
           net_pay: netPay,
-        })
+        } as any)
         .eq("id", item.id);
 
       if (error) throw error;
@@ -905,7 +892,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
   const updatePayRunTotals = async () => {
     if (!payRunId) return;
 
-    const { data: allPayItems } = await supabase
+    const { data: allPayItems } = await (supabase as any)
       .from("pay_items")
       .select("gross_pay, total_deductions, net_pay")
       .eq("pay_run_id", payRunId);
@@ -920,13 +907,13 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         { gross: 0, deductions: 0, net: 0 }
       );
 
-      await supabase
+      await (supabase as any)
         .from("pay_runs")
         .update({
           total_gross_pay: totals.gross,
           total_deductions: totals.deductions,
           total_net_pay: totals.net,
-        })
+        } as any)
         .eq("id", payRunId);
     }
   };
@@ -943,14 +930,14 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     }
 
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("pay_item_custom_deductions")
         .insert({
           pay_item_id: payItemId,
           name: deduction.name,
           amount: parseFloat(deduction.amount),
           type: deduction.type || 'deduction',
-        });
+        } as any);
 
       if (error) throw error;
 
@@ -979,9 +966,9 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
   const handleStatusChange = async (itemId: string, newStatus: 'draft' | 'pending' | 'approved' | 'paid') => {
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("pay_items")
-        .update({ status: newStatus })
+        .update({ status: newStatus } as any)
         .eq("id", itemId);
 
       if (error) throw error;
@@ -1044,7 +1031,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
   const handleDeleteCustomDeduction = async (deductionId: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("pay_item_custom_deductions")
         .delete()
         .eq("id", deductionId);
@@ -1080,12 +1067,12 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         const finalAmount = isPercentage ? (currentCalc.grossPay * amount / 100) : amount;
 
         // Insert the custom item
-        await supabase.from("pay_item_custom_deductions").insert({
+        await (supabase as any).from("pay_item_custom_deductions").insert({
           pay_item_id: itemId,
           name: description,
           amount: finalAmount,
           type: addToGross ? 'benefit' : 'allowance'
-        });
+        } as any);
 
         // If adding to gross, recalculate and update the pay item
         if (addToGross) {
@@ -1095,17 +1082,17 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
             ? newGrossPay * 0.15
             : deductionRules
               .filter(rule => rule.mandatory)
-              .reduce((total, rule) => total + calculateDeduction(newGrossPay, rule), 0);
+              .reduce((total, rule) => total + calculateDeduction(newGrossPay, rule, item.employees.country), 0);
 
           const newTotalDeductions = newTaxDeduction + item.benefit_deductions + currentCalc.customDeductionsTotal;
           const newNetPay = newGrossPay + currentCalc.customAllowancesTotal - newTotalDeductions;
 
-          await supabase.from("pay_items").update({
+          await (supabase as any).from("pay_items").update({
             gross_pay: newGrossPay,
             tax_deduction: newTaxDeduction,
             total_deductions: newTotalDeductions,
             net_pay: newNetPay
-          }).eq("id", itemId);
+          } as any).eq("id", itemId);
         }
       }
 
@@ -1468,13 +1455,13 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                               try {
                                 if (!payRunId) return;
                                 // Remove all LST custom deductions for items in this pay run only
-                                const { data: items } = await supabase
+                                const { data: items } = await (supabase as any)
                                   .from("pay_items")
                                   .select("id")
                                   .eq("pay_run_id", payRunId);
                                 const ids = (items || []).map(i => i.id);
                                 if (ids.length > 0) {
-                                  await supabase
+                                  await (supabase as any)
                                     .from("pay_item_custom_deductions")
                                     .delete()
                                     .in("pay_item_id", ids)
@@ -1919,7 +1906,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                                   ⚠ Applying expatriate policies - flat tax rate and modified benefits
                                                 </p>
                                               )}
-                                              {item.employees.employee_type === 'local' && (
+                                              {item.employees.employee_type === 'regular' && (
                                                 <p className="text-xs text-muted-foreground mt-1">
                                                   Applying standard {item.employees.country} tax brackets and deductions
                                                 </p>

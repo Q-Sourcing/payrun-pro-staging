@@ -26,7 +26,7 @@ ALTER TABLE public.user_invites ENABLE ROW LEVEL SECURITY;
 -- Allow platform admins to view all invites (or strict RLS if needed)
 -- For now, let's allow authenticated users to view invites they sent OR invites for their email.
 
-CREATE POLICY "Admins can view all invites"
+DROP POLICY IF EXISTS "Admins can view all invites" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Admins can view all invites" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Admins can view all invites" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Admins can view all invites" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Admins can view all invites"
     ON public.user_invites
     FOR SELECT
     TO authenticated
@@ -37,13 +37,13 @@ CREATE POLICY "Admins can view all invites"
         )
     );
 
-CREATE POLICY "Users can view invites sent by themselves"
+DROP POLICY IF EXISTS "Users can view invites sent by themselves" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can view invites sent by themselves" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can view invites sent by themselves" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can view invites sent by themselves" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Users can view invites sent by themselves"
     ON public.user_invites
     FOR SELECT
     TO authenticated
     USING (inviter_id = auth.uid());
 
-CREATE POLICY "Users can view invites addressed to them"
+DROP POLICY IF EXISTS "Users can view invites addressed to them" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can view invites addressed to them" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can view invites addressed to them" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can view invites addressed to them" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Users can view invites addressed to them"
     ON public.user_invites
     FOR SELECT
     TO authenticated
@@ -55,7 +55,7 @@ CREATE POLICY "Users can view invites addressed to them"
 -- But wait, Platform Admins might need to Revoke directly from UI if we don't build an API for it?
 -- Better to use functions. But for now, let's allow Platform Admins to update 'status' to 'revoked'.
 
-CREATE POLICY "Admins can update invites (revoke)"
+DROP POLICY IF EXISTS "Admins can update invites (revoke)" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Admins can update invites (revoke)" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Admins can update invites (revoke)" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Admins can update invites (revoke)" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Admins can update invites (revoke)"
     ON public.user_invites
     FOR UPDATE
     TO authenticated

@@ -40,7 +40,7 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
   const [generating, setGenerating] = useState(false);
   const [emailProgress, setEmailProgress] = useState(0);
   const [companySettings, setCompanySettings] = useState<any>(null);
-  
+
   // New payslip design system states
   const [selectedTemplate, setSelectedTemplate] = useState("corporate");
   const [useNewDesignSystem, setUseNewDesignSystem] = useState(true);
@@ -61,7 +61,7 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
       watermark: ''
     }
   });
-  
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -80,10 +80,10 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
 
   const fetchCompanySettings = async () => {
     try {
-      const { data } = await supabase
-        .from("company_settings")
+      const { data } = await (supabase
+        .from("company_settings" as any)
         .select("*")
-        .single();
+        .single() as any);
       if (data) setCompanySettings(data);
     } catch (error) {
       console.log("No company settings found");
@@ -93,7 +93,7 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
   const handleGenerate = async () => {
     setGenerating(true);
     setEmailProgress(0);
-    
+
     try {
       if (useNewDesignSystem && templateConfig) {
         try {
@@ -110,16 +110,16 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
       } else {
         await generatePayslipsWithLegacySystem();
       }
-      
-      const actualCount = selectedEmployeeIds && selectedEmployeeIds.length > 0 
-        ? selectedEmployeeIds.length 
+
+      const actualCount = selectedEmployeeIds && selectedEmployeeIds.length > 0
+        ? selectedEmployeeIds.length
         : employeeCount;
-      
+
       toast({
         title: "Payslips Generated",
         description: `Successfully generated ${actualCount} payslips`,
       });
-      
+
       onOpenChange(false);
     } catch (error) {
       console.error("Error generating payslips:", error);
@@ -141,27 +141,27 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
       console.log('PayRun ID:', payRunId);
       console.log('Template:', selectedTemplate);
       console.log('Template Config:', templateConfig);
-      
+
       // Detect if this is an expatriate pay run
       let isExpatriatePayRun = false;
       try {
-        const { data: payRunData } = await supabase
-          .from('pay_runs')
+        const { data: payRunData } = await (supabase
+          .from('pay_runs' as any)
           .select('payroll_type, pay_group_master:pay_group_master_id(type)')
           .eq('id', payRunId)
-          .single();
-        
-        isExpatriatePayRun = payRunData?.payroll_type === 'expatriate' || 
-                            (payRunData?.pay_group_master as any)?.type === 'expatriate';
-        
+          .single() as any);
+
+        isExpatriatePayRun = payRunData?.payroll_type === 'expatriate' ||
+          (payRunData?.pay_group_master as any)?.type === 'expatriate';
+
         // Also check if there are any expatriate pay run items
         if (!isExpatriatePayRun) {
-          const { data: expatItems } = await supabase
-            .from('expatriate_pay_run_items')
+          const { data: expatItems } = await (supabase
+            .from('expatriate_pay_run_items' as any)
             .select('id')
             .eq('pay_run_id', payRunId)
-            .limit(1);
-          
+            .limit(1) as any);
+
           if (expatItems && expatItems.length > 0) {
             isExpatriatePayRun = true;
           }
@@ -169,12 +169,12 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
       } catch (error) {
         console.warn('Could not determine pay run type, defaulting to regular:', error);
       }
-      
+
       let payslipsData: PayslipData[];
-      
+
       try {
         console.log('🔍 Generating payslips for pay run:', payRunId, 'isExpatriate:', isExpatriatePayRun);
-        
+
         // Use appropriate method based on pay run type
         if (isExpatriatePayRun) {
           payslipsData = await PayslipGenerator.generateAllExpatriatePayslipsData(payRunId);
@@ -183,7 +183,7 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
           payslipsData = await PayslipGenerator.generateAllPayslipsData(payRunId);
           console.log('✅ Generated payslips data from database:', payslipsData.length, 'payslips for pay run', payRunId);
         }
-        
+
         // Validate that payslips were generated
         if (!payslipsData || payslipsData.length === 0) {
           throw new Error(`No payslips could be generated for pay run ${payRunId}`);
@@ -193,19 +193,19 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
         if (selectedEmployeeIds && selectedEmployeeIds.length > 0) {
           console.log('🔍 Filtering payslips for selected employees:', selectedEmployeeIds);
           const originalCount = payslipsData.length;
-          
+
           // Create a set of employee codes from selected IDs (first 8 chars uppercase)
           const selectedEmployeeCodes = new Set(
             selectedEmployeeIds.map(id => id.substring(0, 8).toUpperCase())
           );
-          
+
           payslipsData = payslipsData.filter(p => {
             // Match by employee code (derived from first 8 chars of employee ID)
             const employeeCode = p.employee?.code;
             return employeeCode && selectedEmployeeCodes.has(employeeCode);
           });
           console.log(`✅ Filtered from ${originalCount} to ${payslipsData.length} payslips`);
-          
+
           if (payslipsData.length === 0) {
             throw new Error('No payslips found for the selected employees');
           }
@@ -215,7 +215,7 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
         // Don't silently fall back to sample data - throw the error instead
         throw new Error(`Failed to generate payslips for pay run ${payRunId}: ${dbError instanceof Error ? dbError.message : String(dbError)}`);
       }
-      
+
       if (formatType === "individual") {
         await generateIndividualPDFsNew(payslipsData);
       } else if (formatType === "combined") {
@@ -242,8 +242,8 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
   };
 
   const generatePayslipsWithLegacySystem = async () => {
-    const { data: payRunData, error: payRunError } = await supabase
-      .from("pay_runs")
+    const { data: payRunData, error: payRunError } = await (supabase
+      .from("pay_runs" as any)
       .select(`
         *,
         pay_group_master:pay_group_master_id(name, country),
@@ -256,22 +256,22 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
             email,
             pay_type,
             pay_rate,
-            department,
+            sub_department,
             project
           )
         )
       `)
       .eq("id", payRunId)
-      .single();
+      .single() as any);
 
     if (payRunError) throw payRunError;
 
     // Fetch custom deductions for detailed breakdown
     const payItemIds = payRunData.pay_items.map((item: any) => item.id);
-    const { data: customDeductions } = await supabase
-      .from("pay_item_custom_deductions")
+    const { data: customDeductions } = await (supabase
+      .from("pay_item_custom_deductions" as any)
       .select("*")
-      .in("pay_item_id", payItemIds);
+      .in("pay_item_id", payItemIds) as any);
 
     // Attach custom deductions to pay items
     payRunData.pay_items = payRunData.pay_items.map((item: any) => ({
@@ -338,7 +338,7 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
     doc.setFontSize(14);
     doc.text(fullName, 20, y);
     y += 7;
-    
+
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     if (project) {
@@ -347,7 +347,7 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
     }
     doc.text(`Email: ${item.employees.email || 'N/A'}`, 20, y);
     y += 5;
-    doc.text(`Department: ${item.employees.department || 'N/A'}  •  Pay Type: ${item.employees.pay_type}`, 20, y);
+    doc.text(`Sub-Department: ${item.employees.sub_department || 'N/A'}  •  Pay Type: ${item.employees.pay_type}`, 20, y);
     y += 8;
 
     doc.text(`Pay Run Date: ${payDate}`, 20, y);
@@ -364,11 +364,11 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
       // Add detailed deduction breakdown
       const taxDeduction = Number(item.tax_deduction || 0);
       const benefitDeductions = Number(item.benefit_deductions || 0);
-      
+
       if (taxDeduction > 0) {
         tableData.push(['PAYE Tax', `${currency} ${taxDeduction.toLocaleString()}`]);
       }
-      
+
       // Add custom deductions individually
       if (item.custom_deductions && item.custom_deductions.length > 0) {
         item.custom_deductions.forEach((deduction: any) => {
@@ -391,20 +391,20 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
       body: tableData,
       theme: 'grid',
       styles: { fontSize: 9 },
-      headStyles: { 
-        fillColor: companySettings?.primary_color ? 
-          hexToRgb(companySettings.primary_color) : 
-          [51, 102, 204] 
+      headStyles: {
+        fillColor: companySettings?.primary_color ?
+          hexToRgb(companySettings.primary_color) :
+          [51, 102, 204]
       },
     });
 
     const nextY = (doc as any).lastAutoTable.finalY + 10;
-    
+
     // Add confidentiality footer
     if (companySettings?.add_confidentiality_footer !== false) {
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(8);
-      const footerText = project ? 
+      const footerText = project ?
         `This payslip is confidential and intended for the ${project} project recipient only.` :
         'This payslip is confidential and intended for the recipient only.';
       doc.text(footerText, 105, nextY, { align: 'center' });
@@ -454,7 +454,7 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
   const sendPayslipEmails = async (payRun: any, currency: string) => {
     const logoDataUrl = await fetchLogoDataUrl();
     const payPeriod = `${format(new Date(payRun.pay_period_start), 'MMM dd, yyyy')} - ${format(new Date(payRun.pay_period_end), 'MMM dd, yyyy')}`;
-    
+
     const employees = payRun.pay_items.map((item: any) => ({
       email: item.employees.email,
       name: [item.employees.first_name, item.employees.middle_name, item.employees.last_name].filter(Boolean).join(' '),
@@ -512,7 +512,7 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
             <h2>${fullName}</h2>
             ${project ? `<p><strong>Project:</strong> ${project}</p>` : ''}
             <p><strong>Email:</strong> ${item.employees.email || 'N/A'}</p>
-            <p><strong>Department:</strong> ${item.employees.department || 'N/A'} • <strong>Pay Type:</strong> ${item.employees.pay_type}</p>
+            <p><strong>Sub-Department:</strong> ${item.employees.sub_department || 'N/A'} • <strong>Pay Type:</strong> ${item.employees.pay_type}</p>
             <p><strong>Pay Run Date:</strong> ${payDate}</p>
             <p><strong>Pay Period:</strong> ${period}</p>
           </div>
@@ -536,7 +536,7 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
     });
 
     htmlContent += '</body></html>';
-    
+
     printWindow.document.write(htmlContent);
     printWindow.document.close();
     printWindow.onload = () => {
@@ -560,7 +560,7 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
             templateConfig!,
             exportSettings
           );
-          
+
           const employeeCode = payslipData.employee.code;
           const filename = `${employeeCode}_payslip_${payPeriod}.pdf`;
           zip.file(filename, doc.output('blob'));
@@ -592,13 +592,13 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
 
     for (let i = 0; i < payslipsData.length; i++) {
       if (i > 0) doc.addPage();
-      
+
       const payslipDoc = await PayslipPDFExport.generatePDF(
         payslipsData[i],
         templateConfig!,
         exportSettings
       );
-      
+
       // Copy content from payslipDoc to main doc
       // This is a simplified approach - in practice, you'd need to copy the content properly
     }
@@ -648,18 +648,18 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
           <!-- Payslip content would be rendered here using the new template system -->
           <h1>PAYSLIP - ${payslipData.employee.name}</h1>
           <p>Employee Code: ${payslipData.employee.code}</p>
-          <p>Department: ${payslipData.employee.department}</p>
+          <p>Sub-Department: ${payslipData.employee.subDepartment}</p>
           <p>Net Pay: ${new Intl.NumberFormat('en-UG', {
-            style: 'currency',
-            currency: 'UGX',
-            minimumFractionDigits: 0
-          }).format(payslipData.totals.net)}</p>
+        style: 'currency',
+        currency: 'UGX',
+        minimumFractionDigits: 0
+      }).format(payslipData.totals.net)}</p>
         </div>
       `;
     });
 
     htmlContent += '</body></html>';
-    
+
     printWindow.document.write(htmlContent);
     printWindow.document.close();
     printWindow.onload = () => {
@@ -690,7 +690,7 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
       doc.setFontSize(10);
       doc.text(`Email: ${item.employees.email || 'N/A'}`, 20, y);
       y += 5;
-      doc.text(`Department: ${item.employees.department || 'N/A'}  •  Pay Type: ${item.employees.pay_type}`, 20, y);
+      doc.text(`Sub-Department: ${item.employees.sub_department || 'N/A'}  •  Pay Type: ${item.employees.pay_type}`, 20, y);
       y += 8;
 
       doc.text(`Pay Run Date: ${payDate}`, 20, y);
@@ -957,7 +957,7 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
               <div className="flex justify-between text-sm">
                 <span>Employees:</span>
                 <span className="font-semibold">
-                  {selectedEmployeeIds && selectedEmployeeIds.length > 0 
+                  {selectedEmployeeIds && selectedEmployeeIds.length > 0
                     ? `${selectedEmployeeIds.length} employee${selectedEmployeeIds.length === 1 ? '' : 's'} selected`
                     : `All ${employeeCount} employees selected`}
                 </span>

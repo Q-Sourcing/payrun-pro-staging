@@ -1,0 +1,16 @@
+open supabase/.temp/profile: no such file or directory
+Loading project ref from file: supabase/.temp/project-ref
+Using connection pooler: postgresql://postgres.sbphmrjoappwlervnbtm@aws-1-us-east-2.pooler.supabase.com:5432/postgres
+Initialising login role...
+Using access token for profile: supabase
+failed to connect as temp role: failed to connect to `host=aws-1-us-east-2.pooler.supabase.com user=cli_login_postgres.sbphmrjoappwlervnbtm database=postgres`: server error (FATAL: Circuit breaker open: Too many authentication errors (SQLSTATE XX000))
+Retry (1/8): failed to connect as temp role: failed to connect to `host=aws-1-us-east-2.pooler.supabase.com user=cli_login_postgres.sbphmrjoappwlervnbtm database=postgres`: server error (FATAL: Circuit breaker open: Too many authentication errors (SQLSTATE XX000))
+Retry (2/8): failed to connect as temp role: failed to connect to `host=aws-1-us-east-2.pooler.supabase.com user=cli_login_postgres.sbphmrjoappwlervnbtm database=postgres`: server error (FATAL: Circuit breaker open: Too many authentication errors (SQLSTATE XX000))
+Retry (3/8): failed to connect as temp role: failed to connect to `host=aws-1-us-east-2.pooler.supabase.com user=cli_login_postgres.sbphmrjoappwlervnbtm database=postgres`: server error (FATAL: Circuit breaker open: Too many authentication errors (SQLSTATE XX000))
+Retry (4/8): failed to connect as temp role: failed to connect to `host=aws-1-us-east-2.pooler.supabase.com user=cli_login_postgres.sbphmrjoappwlervnbtm database=postgres`: server error (FATAL: Circuit breaker open: Too many authentication errors (SQLSTATE XX000))
+Retry (5/8): failed to connect as temp role: failed to connect to `host=aws-1-us-east-2.pooler.supabase.com user=cli_login_postgres.sbphmrjoappwlervnbtm database=postgres`: server error (FATAL: Circuit breaker open: Too many authentication errors (SQLSTATE XX000))
+Retry (6/8): failed to connect as temp role: failed to connect to `host=aws-1-us-east-2.pooler.supabase.com user=cli_login_postgres.sbphmrjoappwlervnbtm database=postgres`: server error (FATAL: Circuit breaker open: Too many authentication errors (SQLSTATE XX000))
+Retry (7/8): failed to connect as temp role: failed to connect to `host=aws-1-us-east-2.pooler.supabase.com user=cli_login_postgres.sbphmrjoappwlervnbtm database=postgres`: server error (FATAL: Circuit breaker open: Too many authentication errors (SQLSTATE XX000))
+Retry (8/8): failed to connect as temp role: failed to connect to `host=aws-1-us-east-2.pooler.supabase.com user=cli_login_postgres.sbphmrjoappwlervnbtm database=postgres`: server error (FATAL: Circuit breaker open: Too many authentication errors (SQLSTATE XX000))
+Forgot your password? Reset it from the Dashboard: https://supabase.com/dashboard/project/sbphmrjoappwlervnbtm/settings/database
+Enter your database password: 

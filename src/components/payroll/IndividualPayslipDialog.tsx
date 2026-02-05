@@ -37,7 +37,7 @@ interface Employee {
   id: string;
   name: string;
   email: string;
-  department: string;
+  sub_department: string;
   gross_pay: number;
   net_pay: number;
 }
@@ -101,7 +101,7 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
 
       if (isExpatriatePayRun) {
         // Fetch employees from expatriate pay run items
-        const { data: expatItems, error: expatError } = await supabase
+        const { data: expatItems, error: expatError } = await (supabase as any)
           .from('expatriate_pay_run_items')
           .select(`
             *,
@@ -111,7 +111,7 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
               middle_name,
               last_name,
               email,
-              department
+              sub_department
             )
           `)
           .eq('pay_run_id', payRunId);
@@ -126,13 +126,13 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
             item.employees.last_name
           ].filter(Boolean).join(' '),
           email: item.employees.email,
-          department: item.employees.department,
+          sub_department: item.employees.sub_department,
           gross_pay: Number(item.gross_foreign || 0),
           net_pay: Number(item.net_foreign || 0)
         }));
       } else {
         // Fetch employees from regular pay items
-        const { data: payRunData, error } = await supabase
+        const { data: payRunData, error } = await (supabase as any)
           .from('pay_runs')
           .select(`
             pay_items(
@@ -143,7 +143,7 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
                 middle_name,
                 last_name,
                 email,
-                department
+                sub_department
               )
             )
           `)
@@ -160,7 +160,7 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
             item.employees.last_name
           ].filter(Boolean).join(' '),
           email: item.employees.email,
-          department: item.employees.department,
+          sub_department: item.employees.sub_department,
           gross_pay: Number(item.gross_pay || 0),
           net_pay: Number(item.net_pay || 0)
         }));
@@ -193,7 +193,7 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
 
   const checkPayRunType = async () => {
     try {
-      const { data: payRunData } = await supabase
+      const { data: payRunData } = await (supabase as any)
         .from('pay_runs')
         .select('payroll_type, pay_group_master:pay_group_master_id(type)')
         .eq('id', payRunId)
@@ -204,7 +204,7 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
 
       // Also check if there are any expatriate pay run items
       if (!isExpat) {
-        const { data: expatItems } = await supabase
+        const { data: expatItems } = await (supabase as any)
           .from('expatriate_pay_run_items')
           .select('id')
           .eq('pay_run_id', payRunId)
@@ -322,7 +322,7 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
                       <Label className="text-sm font-medium">Employee Details</Label>
                       <p className="text-sm text-muted-foreground">{selectedEmployeeData.name}</p>
                       <p className="text-sm text-muted-foreground">{selectedEmployeeData.email}</p>
-                      <p className="text-sm text-muted-foreground">{selectedEmployeeData.department}</p>
+                      <p className="text-sm text-muted-foreground">{selectedEmployeeData.sub_department}</p>
                     </div>
                     <div>
                       <Label className="text-sm font-medium">Pay Information</Label>
@@ -448,7 +448,7 @@ export const IndividualPayslipDialog: React.FC<IndividualPayslipDialogProps> = (
                     <div>
                       <Label className="font-medium">Employee</Label>
                       <p>{payslipData.employee.name}</p>
-                      <p className="text-muted-foreground">{payslipData.employee.department}</p>
+                      <p className="text-muted-foreground">{payslipData.employee.subDepartment}</p>
                     </div>
                     <div>
                       <Label className="font-medium">Pay Period</Label>

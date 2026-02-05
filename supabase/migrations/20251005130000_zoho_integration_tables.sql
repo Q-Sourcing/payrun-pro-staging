@@ -164,29 +164,29 @@ ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;
 
 -- Create policies for admin access (adjust based on your auth setup)
-CREATE POLICY "Admin access to integration data" ON public.integration_tokens
+DROP POLICY IF EXISTS "Admin access to integration data" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Admin access to integration data" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Admin access to integration data" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Admin access to integration data" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Admin access to integration data" ON public.integration_tokens; CREATE POLICY "Admin access to integration data" ON public.integration_tokens
     FOR ALL USING (true); -- Adjust this based on your authentication system
 
-CREATE POLICY "Admin access to sync configurations" ON public.sync_configurations
+DROP POLICY IF EXISTS "Admin access to sync configurations" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Admin access to sync configurations" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Admin access to sync configurations" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Admin access to sync configurations" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Admin access to sync configurations" ON public.sync_configurations; CREATE POLICY "Admin access to sync configurations" ON public.sync_configurations
     FOR ALL USING (true);
 
-CREATE POLICY "Admin access to sync logs" ON public.sync_logs
+DROP POLICY IF EXISTS "Admin access to sync logs" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Admin access to sync logs" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Admin access to sync logs" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Admin access to sync logs" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Admin access to sync logs" ON public.sync_logs; CREATE POLICY "Admin access to sync logs" ON public.sync_logs
     FOR ALL USING (true);
 
-CREATE POLICY "Admin access to integration health" ON public.integration_health
+DROP POLICY IF EXISTS "Admin access to integration health" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Admin access to integration health" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Admin access to integration health" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Admin access to integration health" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Admin access to integration health" ON public.integration_health; CREATE POLICY "Admin access to integration health" ON public.integration_health
     FOR ALL USING (true);
 
-CREATE POLICY "Admin access to alert rules" ON public.alert_rules
+DROP POLICY IF EXISTS "Admin access to alert rules" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Admin access to alert rules" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Admin access to alert rules" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Admin access to alert rules" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Admin access to alert rules" ON public.alert_rules; CREATE POLICY "Admin access to alert rules" ON public.alert_rules
     FOR ALL USING (true);
 
-CREATE POLICY "Admin access to notification channels" ON public.notification_channels
+DROP POLICY IF EXISTS "Admin access to notification channels" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Admin access to notification channels" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Admin access to notification channels" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Admin access to notification channels" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Admin access to notification channels" ON public.notification_channels; CREATE POLICY "Admin access to notification channels" ON public.notification_channels
     FOR ALL USING (true);
 
-CREATE POLICY "Admin access to alert logs" ON public.alert_logs
+DROP POLICY IF EXISTS "Admin access to alert logs" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Admin access to alert logs" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Admin access to alert logs" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Admin access to alert logs" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Admin access to alert logs" ON public.alert_logs; CREATE POLICY "Admin access to alert logs" ON public.alert_logs
     FOR ALL USING (true);
 
-CREATE POLICY "Admin access to audit logs" ON public.audit_logs
+DROP POLICY IF EXISTS "Admin access to audit logs" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Admin access to audit logs" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Admin access to audit logs" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Admin access to audit logs" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Admin access to audit logs" ON public.audit_logs; CREATE POLICY "Admin access to audit logs" ON public.audit_logs
     FOR ALL USING (true);
 
-CREATE POLICY "Admin access to attendance records" ON public.attendance_records
+DROP POLICY IF EXISTS "Admin access to attendance records" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Admin access to attendance records" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Admin access to attendance records" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Admin access to attendance records" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Admin access to attendance records" ON public.attendance_records; CREATE POLICY "Admin access to attendance records" ON public.attendance_records
     FOR ALL USING (true);

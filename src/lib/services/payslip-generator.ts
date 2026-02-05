@@ -8,7 +8,7 @@ export class PayslipGenerator {
    * Generate payslip data from pay run and employee information
    */
   static async generatePayslipData(
-    payRunId: string, 
+    payRunId: string,
     employeeId: string
   ): Promise<PayslipData> {
     try {
@@ -32,7 +32,7 @@ export class PayslipGenerator {
               phone,
               pay_type,
               pay_rate,
-              department,
+              sub_department,
               project,
               bank_name,
               account_number,
@@ -93,7 +93,7 @@ export class PayslipGenerator {
 
       // Build deductions array
       const deductions = [];
-      
+
       // Add tax deductions
       if (Number(payItem.tax_deduction || 0) > 0) {
         deductions.push({
@@ -143,7 +143,7 @@ export class PayslipGenerator {
             payItem.employees?.last_name
           ].filter(Boolean).join(' ') || 'Employee Name',
           jobTitle: payItem.employees?.project || 'Employee',
-          department: payItem.employees?.department || 'General',
+          subDepartment: payItem.employees?.sub_department || 'General',
           hireDate: '2024-01-01', // Default hire date
           nssfNo: payItem.employees?.nssf_number || 'N/A',
           tin: payItem.employees?.tin || 'N/A',
@@ -219,7 +219,7 @@ export class PayslipGenerator {
               phone,
               pay_type,
               pay_rate,
-              department,
+              sub_department,
               project
             )
           )
@@ -266,7 +266,7 @@ export class PayslipGenerator {
   static async generateAllExpatriatePayslipsData(payRunId: string): Promise<PayslipData[]> {
     try {
       console.log('🔍 Generating all expatriate payslips for pay run:', payRunId);
-      
+
       // Fetch all expatriate pay run items for this pay run
       const { data: payRunItems, error: itemsError } = await supabase
         .from('expatriate_pay_run_items')
@@ -330,7 +330,7 @@ export class PayslipGenerator {
         code: "14918",
         name: "Nalungu Kevin Colin",
         jobTitle: "IT Officer",
-        department: "QSSU Group",
+        subDepartment: "QSSU Group",
         hireDate: "2024-01-01",
         nssfNo: "1998150200707",
         tin: "1033125087",
@@ -377,12 +377,12 @@ export class PayslipGenerator {
    * Generate expatriate payslip data from expatriate pay run and employee information
    */
   static async generateExpatriatePayslipData(
-    payRunId: string, 
+    payRunId: string,
     employeeId: string
   ): Promise<PayslipData> {
     try {
       console.log('🔍 Generating expatriate payslip:', { payRunId, employeeId });
-      
+
       // Fetch expatriate pay run item with employee and pay group info
       const { data: payRunItem, error: itemError } = await supabase
         .from('expatriate_pay_run_items')
@@ -395,7 +395,7 @@ export class PayslipGenerator {
             last_name,
             email,
             phone,
-            department,
+            sub_department,
             project,
             bank_name,
             account_number,
@@ -556,8 +556,8 @@ export class PayslipGenerator {
         employee: {
           code: employee.id.substring(0, 8).toUpperCase(),
           name: `${employee.first_name} ${employee.middle_name ? employee.middle_name + ' ' : ''}${employee.last_name}`,
-          jobTitle: employee.department || 'Expatriate Employee',
-          department: employee.department || 'International',
+          jobTitle: employee.sub_department || 'Expatriate Employee',
+          subDepartment: employee.sub_department || 'International',
           hireDate: format(new Date(), 'yyyy-MM-dd'), // Default to current date
           nssfNo: employee.nssf_number || 'N/A',
           tin: employee.tin || 'N/A',

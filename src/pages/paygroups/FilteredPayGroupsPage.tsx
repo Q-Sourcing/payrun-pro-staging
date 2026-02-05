@@ -12,9 +12,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, UserPlus } from 'lucide-react';
+import { Plus, Search, UserPlus, Eye } from 'lucide-react';
 import { CreatePayGroupModal } from '@/components/paygroups/CreatePayGroupModal';
 import { AssignEmployeeModal } from '@/components/paygroups/AssignEmployeeModal';
+import { ViewAssignedEmployeesDialog } from '@/components/paygroups/ViewAssignedEmployeesDialog';
 import { useToast } from '@/hooks/use-toast';
 import { PaginatedTable, ColumnDef } from '@/components/common/PaginatedTable';
 import { PaginationControls } from '@/components/common/PaginationControls';
@@ -57,7 +58,9 @@ const FilteredPayGroupsPage: React.FC<FilteredPayGroupsPageProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showViewEmployeesModal, setShowViewEmployeesModal] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<PayGroup | undefined>();
+  const [selectedGroupForViewing, setSelectedGroupForViewing] = useState<PayGroup | undefined>();
   const [ippmsPayType, setIppmsPayType] = useState<'piece_rate' | 'daily_rate'>('piece_rate');
   const { toast } = useToast();
 
@@ -108,8 +111,8 @@ const FilteredPayGroupsPage: React.FC<FilteredPayGroupsPageProps> = ({
 
     try {
       // Build base query
-      let query = supabase
-        .from('pay_groups')
+      let query = (supabase as any)
+        .from('pay_groups' as any)
         .select('*', { count: 'exact' })
         .eq('category', category);
 
@@ -152,7 +155,35 @@ const FilteredPayGroupsPage: React.FC<FilteredPayGroupsPageProps> = ({
 
       if (fetchError) throw fetchError;
 
-      setPayGroups(data || []);
+      const groupData = (data as any) || [];
+      const groupIds = groupData.map((g: any) => g.id);
+
+      if (groupIds.length > 0) {
+        const membershipTable = category === 'head_office'
+          ? 'head_office_pay_group_members'
+          : 'paygroup_employees';
+
+        const { data: members, error: membersError } = await (supabase as any)
+          .from(membershipTable)
+          .select('pay_group_id')
+          .in('pay_group_id', groupIds);
+
+        if (!membersError && members) {
+          const countMap: Record<string, number> = {};
+          members.forEach((m: any) => {
+            countMap[m.pay_group_id] = (countMap[m.pay_group_id] || 0) + 1;
+          });
+
+          setPayGroups(groupData.map((g: any) => ({
+            ...g,
+            employee_count: countMap[g.id] || 0
+          })));
+        } else {
+          setPayGroups(groupData.map((g: any) => ({ ...g, employee_count: 0 })));
+        }
+      } else {
+        setPayGroups([]);
+      }
     } catch (err) {
       console.error('Error loading pay groups:', err);
       setError('Failed to load pay groups. Please try again.');
@@ -213,7 +244,7 @@ const FilteredPayGroupsPage: React.FC<FilteredPayGroupsPageProps> = ({
       header: 'Type',
       accessor: (row) => (
         <Badge className={getTypeColor(row.type)}>
-          {row.type}
+          {row.type === 'regular' || (row.type as any) === 'local' ? 'Regular' : row.type.charAt(0).toUpperCase() + row.type.slice(1)}
         </Badge>
       ),
     },
@@ -227,12 +258,14 @@ const FilteredPayGroupsPage: React.FC<FilteredPayGroupsPageProps> = ({
     },
     {
       header: 'Employees',
-      accessor: (row) => (
-        <div className="flex items-center gap-1">
-          <UserPlus className="h-4 w-4 text-muted-foreground" />
-          <span>{row.employee_count || 0}</span>
-        </div>
-      ),
+      accessor: (row) => {
+        return (
+          <div className="flex items-center gap-1">
+            <UserPlus className="h-4 w-4 text-muted-foreground" />
+            <span>{row.employee_count || 0}</span>
+          </div>
+        );
+      },
     },
     {
       header: 'Status',
@@ -245,7 +278,19 @@ const FilteredPayGroupsPage: React.FC<FilteredPayGroupsPageProps> = ({
     {
       header: 'Actions',
       accessor: (row) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setSelectedGroupForViewing(row);
+              setShowViewEmployeesModal(true);
+            }}
+            className="h-8 w-8 p-0"
+            title="View Employees"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
           <Button
             size="sm"
             variant="outline"
@@ -253,6 +298,7 @@ const FilteredPayGroupsPage: React.FC<FilteredPayGroupsPageProps> = ({
               setSelectedGroup(row);
               setShowAssignModal(true);
             }}
+            className="h-8 px-3"
           >
             <UserPlus className="h-3 w-3 mr-1" />
             Assign
@@ -431,6 +477,16 @@ const FilteredPayGroupsPage: React.FC<FilteredPayGroupsPageProps> = ({
         onSuccess={handleAssignSuccess}
         presetGroup={selectedGroup}
       />
+
+      {/* View Assigned Employees Dialog */}
+      {selectedGroupForViewing && (
+        <ViewAssignedEmployeesDialog
+          open={showViewEmployeesModal}
+          onOpenChange={setShowViewEmployeesModal}
+          payGroup={selectedGroupForViewing}
+          onUpdate={loadPayGroups}
+        />
+      )}
     </div>
   );
 };

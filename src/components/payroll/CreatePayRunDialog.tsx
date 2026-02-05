@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { PayRunsService } from "@/lib/data/payruns.service";
 import { PayrollCalculationService, CalculationInput } from "@/lib/types/payroll-calculations";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -101,38 +102,42 @@ const CreatePayRunDialog = ({
 
   const handleSuccess = onSuccess || onPayRunCreated;
 
-  // Determine if this is a project-based payrun (has category='projects')
-  const isProjectBased = defaultCategory === 'projects';
+  // Determine if this is a project-based payrun
+  const isProjectBased = formData.category === 'projects' || defaultCategory === 'projects';
 
   // Fetch projects filtered by employee type (for project-based payruns only)
   const { data: projects = [] } = useQuery({
-    queryKey: ['projects', defaultEmployeeType, organizationId],
+    queryKey: ['projects', defaultEmployeeType || formData.employee_type, organizationId],
     queryFn: async () => {
-      if (!defaultEmployeeType || !isProjectBased) return [];
+      const activeEmployeeType = defaultEmployeeType || formData.employee_type;
+      if (!activeEmployeeType || !isProjectBased) return [];
       const employeeTypeMap: Record<string, 'manpower' | 'ippms' | 'expatriate'> = {
         'manpower': 'manpower',
         'ippms': 'ippms',
         'expatriate': 'expatriate'
       };
-      const projectType = employeeTypeMap[defaultEmployeeType.toLowerCase()];
+      const projectType = employeeTypeMap[activeEmployeeType.toLowerCase()];
       if (!projectType) return [];
       return ProjectsService.getProjectsByType(projectType, organizationId || '');
     },
-    enabled: isProjectBased && !!defaultEmployeeType
+    enabled: isProjectBased && !!(defaultEmployeeType || formData.employee_type)
   });
 
   // Fetch pay groups filtered by selected project (for project-based payruns)
   const { data: projectPayGroups = [], refetch: refetchPayGroups } = useQuery({
-    queryKey: ['project-paygroups', formData.project_id, defaultEmployeeType, ippmsPayType, defaultPayFrequency, organizationId],
+    queryKey: ['project-paygroups', formData.project_id, defaultEmployeeType || formData.employee_type, ippmsPayType, defaultPayFrequency || formData.pay_frequency, organizationId],
     queryFn: async () => {
-      if (!formData.project_id || !defaultEmployeeType) return [];
+      const activeEmployeeType = defaultEmployeeType || formData.employee_type;
+      const activePayFrequency = defaultPayFrequency || formData.pay_frequency;
+
+      if (!formData.project_id || !activeEmployeeType) return [];
 
       const employeeTypeMap: Record<string, 'manpower' | 'ippms' | 'expatriate'> = {
         'manpower': 'manpower',
         'ippms': 'ippms',
         'expatriate': 'expatriate'
       };
-      const employeeType = employeeTypeMap[defaultEmployeeType.toLowerCase()];
+      const employeeType = employeeTypeMap[activeEmployeeType.toLowerCase()];
       if (!employeeType) return [];
 
       return PayGroupsService.getProjectPayGroups({
@@ -140,11 +145,12 @@ const CreatePayRunDialog = ({
         projectId: formData.project_id,
         employeeType,
         payType: employeeType === 'ippms' ? ippmsPayType : undefined,
-        payFrequency: employeeType === 'manpower' ? defaultPayFrequency : undefined
+        payFrequency: employeeType === 'manpower' ? activePayFrequency : undefined
       });
     },
-    enabled: isProjectBased && !!formData.project_id && !!defaultEmployeeType
+    enabled: isProjectBased && !!formData.project_id && !!(defaultEmployeeType || formData.employee_type)
   });
+
 
   // Clear pay group selection when project changes
   useEffect(() => {
@@ -158,8 +164,9 @@ const CreatePayRunDialog = ({
 
   useEffect(() => {
     if (open) {
-      // Only fetch pay groups for non-project-based payruns
-      if (!isProjectBased) {
+      // Only fetch pay groups for non-project-based payruns automatically
+      // or if category is already set
+      if (!isProjectBased && formData.category) {
         fetchPayGroups();
       }
       // Reset form with defaults
@@ -167,18 +174,18 @@ const CreatePayRunDialog = ({
         ...prev,
         payroll_type: payrollType || prev.payroll_type || "",
         project_id: "", // Reset project selection
-        category: defaultCategory || "",
-        employee_type: defaultEmployeeType || "",
-        pay_frequency: defaultPayFrequency || "",
-        default_pieces_completed: 0, // Reset to 0 when dialog opens
-        default_piece_rate: 0, // Reset to 0 when dialog opens
+        category: defaultCategory || prev.category || "",
+        employee_type: defaultEmployeeType || prev.employee_type || "",
+        pay_frequency: defaultPayFrequency || prev.pay_frequency || "",
+        default_pieces_completed: 0,
+        default_piece_rate: 0,
       }));
       // Reset IPPMS pay type
-      if ((defaultEmployeeType || "").toLowerCase() === "ippms") {
+      if ((defaultEmployeeType || formData.employee_type || "").toLowerCase() === "ippms") {
         setIppmsPayType(initialIppmsPayType || 'piece_rate');
       }
     }
-  }, [open, payrollType, defaultCategory, defaultEmployeeType, defaultPayFrequency, initialIppmsPayType, isProjectBased]);
+  }, [open, payrollType, defaultCategory, defaultEmployeeType, defaultPayFrequency, initialIppmsPayType, isProjectBased, formData.category, formData.employee_type]);
 
   const fetchPayGroups = async () => {
     try {
@@ -188,30 +195,37 @@ const CreatePayRunDialog = ({
       let data, error;
 
       // Always fetch from pay_group_master table for consistency
-      let query = supabase
-        .from("pay_group_master")
+      let query = (supabase
+        .from("pay_group_master" as any)
         .select("id, name, country, currency, code, type, source_table, source_id, category, employee_type, pay_frequency, pay_type")
         .eq("active", true)
-        .order("name", { ascending: true });
+        .order("name", { ascending: true }) as any);
 
       // Filter by category/employee_type/pay_frequency if provided
-      if (defaultCategory) {
-        query = query.eq("category", defaultCategory);
+      const filterCategory = defaultCategory || formData.category;
+      const filterEmployeeType = defaultEmployeeType || formData.employee_type;
+      const filterPayFrequency = defaultPayFrequency || formData.pay_frequency;
+
+      if (filterCategory) {
+        query = query.eq("category", filterCategory);
       }
 
-      if (defaultEmployeeType) {
-        query = (query as any).eq("employee_type", defaultEmployeeType);
+      if (filterEmployeeType) {
+        if (filterEmployeeType === 'regular') {
+          query = (query as any).in("employee_type", ["regular", "local"]);
+        } else {
+          query = (query as any).eq("employee_type", filterEmployeeType);
+        }
       }
 
-      if (defaultPayFrequency) {
-        query = query.eq("pay_frequency", defaultPayFrequency);
+      if (filterPayFrequency) {
+        query = query.eq("pay_frequency", filterPayFrequency);
       }
 
       // Filter by type if payrollType is provided (legacy support)
       if (payrollType) {
         const typeMapping = {
           "expatriate": "expatriate",
-          "local": "regular",
           "regular": "regular"
         };
         const masterType = typeMapping[payrollType.toLowerCase()] || payrollType.toLowerCase();
@@ -222,10 +236,12 @@ const CreatePayRunDialog = ({
         }
       }
 
-      // IPPMS: apply pay_type filter
-      if ((defaultEmployeeType || "").toLowerCase() === "ippms") {
+      // Filtering for special employees types
+      const activeEmployeeType = filterEmployeeType || "";
+      if (activeEmployeeType.toLowerCase() === "ippms") {
         query = (query as any).eq("pay_type", ippmsPayType);
       }
+
 
       const result = await query;
       data = result.data;
@@ -246,9 +262,14 @@ const CreatePayRunDialog = ({
       }
     } catch (err: any) {
       console.error("❌ Database connection failed:", err);
+      // Check if it's a network error
+      const isNetworkError = err.message?.includes("Failed to fetch") || err.name === "TypeError";
+
       toast({
-        title: "Error",
-        description: err.message || "Failed to fetch pay groups",
+        title: "Connection Issue",
+        description: isNetworkError
+          ? "Network error. Please check your internet connection."
+          : (err.message || "Failed to fetch pay groups"),
         variant: "destructive",
       });
       setPayGroups([]);
@@ -257,23 +278,13 @@ const CreatePayRunDialog = ({
     }
   };
 
+
   // Filter pay groups based on payroll type and employee category
   // For project-based payruns, use projectPayGroups from React Query
   // For non-project payruns, use the legacy filtering logic
   const filteredPayGroups = isProjectBased
     ? projectPayGroups
-    : (payrollType ? payGroups : payGroups.filter(group => {
-      // Use case-insensitive comparison for type matching
-      const groupType = (group.type || "").toLowerCase();
-      const selectedType = (formData.payroll_type || "").toLowerCase();
-
-      if (selectedType === "expatriate") {
-        return groupType === "expatriate";
-      } else if (selectedType === "local") {
-        return groupType === "local";
-      }
-      return true;
-    }));
+    : payGroups;
 
   console.log("📊 Fetched PayGroups:", payGroups);
   console.log("📊 Filtered PayGroups for", formData.payroll_type || payrollType, ":", filteredPayGroups);
@@ -322,367 +333,49 @@ const CreatePayRunDialog = ({
 
     setLoading(true);
     try {
-      console.log("🚀 Starting pay run creation with formData:", {
-        pay_group_id: formData.pay_group_id,
-        project_id: formData.project_id,
-        pay_run_date: formData.pay_run_date,
-        pay_period_start: formData.pay_period_start,
-        pay_period_end: formData.pay_period_end
+      console.log("🚀 Starting pay run creation with DIRECT FETCH for DEBUGGING:", formData);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const functionName = formData.category === 'head_office' ? 'manage-head-office-payruns' : 'manage-payruns';
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${functionName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          pay_run_date: formData.pay_run_date.toISOString().split('T')[0],
+          pay_period_start: formData.pay_period_start.toISOString().split('T')[0],
+          pay_period_end: formData.pay_period_end.toISOString().split('T')[0],
+          pay_group_id: formData.pay_group_id,
+          category: formData.category,
+          employee_type: formData.employee_type,
+          pay_frequency: formData.pay_frequency,
+          payroll_type: formData.payroll_type,
+          project_id: isProjectBased ? formData.project_id : undefined,
+          status: "draft"
+        }),
       });
 
-      // Test database connection first
-      const { error: testError } = await supabase
-        .from("pay_groups")
-        .select("id")
-        .limit(1);
+      const result = await response.json();
+      console.log('Result:', result);
 
-      if (testError) {
-        throw new Error(`Database connection failed: ${testError.message}`);
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Failed to create pay run');
       }
 
-      console.log("✅ Database connection successful");
 
-      console.log("✅ Database connection successful");
+      const payRun = result.pay_run;
 
-      // Get the selected pay group from master table
-      // For project-based payruns, look in projectPayGroups
-      const sourceGroups = isProjectBased ? projectPayGroups : payGroups;
-      const selectedPayGroup = sourceGroups.find(g => g.id === formData.pay_group_id);
-      console.log("🔍 Selected pay group from master:", selectedPayGroup);
-
-      if (!selectedPayGroup) {
-        throw new Error("Invalid pay group selected. Please try again.");
-      }
-
-      // Resolve the pay_group_master_id to use for assignments and pay run record
-      // - For non-project-based selections, the id is already the master id
-      // - For project-based selections (fetched from pay_groups), look up the master row by source_table/source_id
-      let payGroupMasterId: string = selectedPayGroup.id;
-      let masterMeta:
-        | { category?: string | null; employee_type?: string | null; pay_frequency?: string | null; pay_type?: string | null }
-        | null = null;
-      if (isProjectBased) {
-        const { data: masterRow, error: masterErr } = await supabase
-          .from('pay_group_master')
-          .select('id, category, employee_type, pay_frequency, pay_type')
-          .eq('source_table', 'pay_groups')
-          .eq('source_id', selectedPayGroup.id)
-          .single();
-        if (!masterErr && masterRow?.id) {
-          payGroupMasterId = masterRow.id;
-          masterMeta = {
-            category: (masterRow as any).category,
-            employee_type: (masterRow as any).employee_type,
-            pay_frequency: (masterRow as any).pay_frequency,
-            pay_type: (masterRow as any).pay_type,
-          };
-        } else {
-          console.warn('⚠️ pay_group_master row not found for project-based group; falling back to selected id');
-        }
-      }
-
-      // Get employees in this pay group using the source table and source_id
-      console.log("🔍 Fetching employees for pay group:", selectedPayGroup.name);
-      console.log("🔍 Source table:", (selectedPayGroup as any).source_table, "Source ID:", (selectedPayGroup as any).source_id);
-
-      // Get pay group's category, employee_type, and pay_frequency for filtering
-      // These come from pay_group_master table, so we need to access them via type assertion
-      const payGroupCategory = (masterMeta?.category ?? (selectedPayGroup as any).category) as string | undefined;
-      const payGroupEmployeeType = (masterMeta?.employee_type ?? (selectedPayGroup as any).employee_type) as string | undefined;
-      const payGroupPayFrequency = (masterMeta?.pay_frequency ?? (selectedPayGroup as any).pay_frequency) as string | undefined;
-
-      let employees, employeesError;
-
-      // Unified employee fetching: always fetch from paygroup_employees table
-      // This table links employees to pay_group_master_id and is the source of truth for assignments
-      const { data: paygroupEmployees, error: paygroupError } = await supabase
-        .from("paygroup_employees")
-        .select(`
-          employee_id,
-          employees (
-            id, pay_rate, pay_type, country, employee_type, status, pay_group_id, category, pay_frequency
-          )
-        `)
-        .eq("pay_group_master_id", payGroupMasterId)
-        .eq("active", true); // Only active assignments
-
-      if (paygroupError) {
-        employeesError = paygroupError;
-        employees = null;
-      } else {
-        // Map to employee objects and filter by status
-        employees = (paygroupEmployees?.map((pe: any) => pe.employees).filter(Boolean) || [])
-          .filter((emp: any) => emp.status === 'active');
-
-        // Apply additional filters based on pay group criteria
-        // This ensures data integrity even if assignment was loose
-        if (employees.length > 0) {
-          employees = employees.filter((emp: any) => {
-            const matchesCategory = !payGroupCategory || emp.category === payGroupCategory;
-            const matchesEmployeeType = !payGroupEmployeeType || emp.employee_type === payGroupEmployeeType;
-
-            // For manpower, also filter by pay_frequency
-            const matchesFrequency = !(payGroupEmployeeType === "manpower" && payGroupPayFrequency) ||
-              emp.pay_frequency === payGroupPayFrequency;
-
-            // For IPPMS, also filter by pay_type selection
-            const matchesPayType = !((defaultEmployeeType || "").toLowerCase() === "ippms" && ippmsPayType) ||
-              emp.pay_type === ippmsPayType;
-
-            return matchesCategory && matchesEmployeeType && matchesFrequency && matchesPayType;
-          });
-        }
-      }
-
-      // Fallback for legacy regular pay groups: if no employees found in paygroup_employees,
-      // check the employees table directly using source_id.
-      // This handles cases where data hasn't been migrated to paygroup_employees yet.
-      if ((!employees || employees.length === 0) && selectedPayGroup.type === 'regular') {
-        console.log("⚠️ No employees in paygroup_employees, checking legacy employees table...");
-        const { data: legacyEmployees, error: legacyError } = await supabase
-          .from("employees")
-          .select("id, pay_rate, pay_type, country, employee_type, status, pay_group_id, category, pay_frequency")
-          .eq("pay_group_id", selectedPayGroup.source_id)
-          .eq("status", "active");
-
-        if (!legacyError && legacyEmployees && legacyEmployees.length > 0) {
-          // Apply the same filters
-          employees = legacyEmployees.filter((emp: any) => {
-            const matchesCategory = !payGroupCategory || emp.category === payGroupCategory;
-            const matchesEmployeeType = !payGroupEmployeeType || emp.employee_type === payGroupEmployeeType;
-            return matchesCategory && matchesEmployeeType;
-          });
-          console.log("✅ Found", employees.length, "employees in legacy table");
-        }
-      }
-
-      console.log("📊 Employees found:", employees);
-      console.log("📊 Employee count:", employees?.length || 0);
-
-      if (employeesError) {
-        console.error("❌ Error fetching employees:", employeesError);
-        throw new Error(`Failed to fetch employees: ${employeesError.message}`);
-      }
-
-      if (!employees || employees.length === 0) {
-        console.warn("⚠️ No active employees found matching pay group criteria");
-        const criteria = [
-          payGroupCategory && `Category: ${payGroupCategory}`,
-          payGroupEmployeeType && `Employee Type: ${payGroupEmployeeType}`,
-          payGroupPayFrequency && `Pay Frequency: ${payGroupPayFrequency}`
-        ].filter(Boolean).join(", ");
-
-        toast({
-          title: "Warning",
-          description: `No active employees found matching this pay group criteria${criteria ? ` (${criteria})` : ""}. Please ensure employees are assigned with matching category, employee type, and pay frequency.`,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      console.log("✅ Found", employees.length, "employees for pay run");
-
-      console.log("📝 Creating pay run record with pay_group_master_id:", selectedPayGroup.id);
-
-      // Create pay run record using pay_group_master_id
-      // Map to valid DB payroll_type values to satisfy check constraint
-      const groupEmployeeType = ((selectedPayGroup as any).employee_type || "").toLowerCase();
-      const groupSourceTable = (selectedPayGroup.source_table || "").toLowerCase();
-      const isExpat = groupSourceTable === "expatriate_pay_groups" || (selectedPayGroup.type || "").toLowerCase() === "expatriate";
-      const isIppms = groupEmployeeType === "ippms";
-      const computedPayrollType: "regular" | "expatriate" | "piece_rate" =
-        isExpat ? "expatriate" : (isIppms ? "piece_rate" : "regular");
-
-      // Build base payload
-      const baseInsertPayload: any = {
-        pay_group_master_id: payGroupMasterId, // Use master table UUID (resolved for project-based)
-        payroll_type: computedPayrollType,
-        organization_id: organizationId || null,
-        // Persist categorization for filtering/reporting
-        category: (masterMeta?.category ?? (selectedPayGroup as any).category) || null,
-        employee_type: (masterMeta?.employee_type ?? (selectedPayGroup as any).employee_type) || null,
-        pay_frequency: (masterMeta?.pay_frequency ?? (selectedPayGroup as any).pay_frequency) || null,
-        pay_type: (defaultEmployeeType || "").toLowerCase() === "ippms" ? ippmsPayType : null,
-        pay_run_date: formData.pay_run_date.toISOString(),
-        pay_period_start: formData.pay_period_start.toISOString(),
-        pay_period_end: formData.pay_period_end.toISOString(),
-        status: "draft",
-      };
-
-      // Prefer inserting project_id when available (project-based flows)
-      const payloadWithProject = {
-        ...baseInsertPayload,
-        project_id: isProjectBased ? formData.project_id : null,
-      };
-
-      // Attempt insert with project_id first
-      let payRunData, payRunError;
-      try {
-        const res = await supabase
-          .from("pay_runs")
-          .insert(payloadWithProject)
-          .select()
-          .single();
-        payRunData = res.data;
-        payRunError = res.error;
-      } catch (e: any) {
-        payRunError = e;
-      }
-
-      // If schema doesn’t have project_id yet, retry without it and warn
-      if (payRunError && String(payRunError.message || '').includes("project_id") && String(payRunError.message || '').includes("schema cache")) {
-        console.warn("⚠️ pay_runs.project_id not available in schema cache; retrying insert without project_id");
-        toast({
-          title: "Warning",
-          description: "Database is missing pay_runs.project_id. Inserting without project link. Apply the migration to enable project_id.",
-          variant: "destructive",
-        });
-        const res2 = await supabase
-          .from("pay_runs")
-          .insert(baseInsertPayload)
-          .select()
-          .single();
-        payRunData = res2.data;
-        payRunError = res2.error;
-      }
-
-      if (payRunError) {
-        console.error("❌ Error creating pay run:", payRunError);
-        throw new Error(`Failed to create pay run: ${payRunError.message}`);
-      }
-
-      console.log("✅ Pay run created:", payRunData.id);
-
-      // Fetch pay group details to get tax_country
-      let payGroupTaxCountry = selectedPayGroup.country; // Default to pay group country
-
-      // Try to get tax_country from expatriate_pay_groups if available, otherwise use country
-      if (selectedPayGroup.type === 'expatriate') {
-        try {
-          const { data: expatPayGroupData, error: epgError } = await supabase
-            .from('expatriate_pay_groups')
-            .select('tax_country')
-            .eq('id', selectedPayGroup.source_id)
-            .single();
-
-          if (!epgError && expatPayGroupData?.tax_country) {
-            payGroupTaxCountry = expatPayGroupData.tax_country;
-          }
-        } catch (e) {
-          // If table doesn't exist or column doesn't exist, use country as fallback
-          console.log("tax_country not available, using country:", selectedPayGroup.country);
-        }
-      }
-      // For other types, use country as tax_country (tax_country column may not exist on pay_groups)
-
-      console.log("🌍 Using tax_country from pay group:", payGroupTaxCountry);
-
-      // Create pay items for each employee using server-side calculations
-      const payItems = await Promise.all(
-        employees.map(async (employee) => {
-          try {
-            // Use employee's pay rate if available, otherwise use default from form
-            const effectivePayRate = employee.pay_rate || formData.default_piece_rate || 0;
-
-            const input: CalculationInput = {
-              employee_id: employee.id,
-              pay_run_id: payRunData.id,
-              pay_rate: effectivePayRate,
-              pay_type: employee.pay_type,
-              employee_type: employee.employee_type,
-              country: payGroupTaxCountry, // Use pay group's tax_country instead of employee.country
-              hours_worked: employee.pay_type === 'hourly' ? 0 : undefined,
-              pieces_completed: employee.pay_type === 'piece_rate' ? (formData.default_pieces_completed || 0) : undefined,
-              custom_deductions: [],
-              benefit_deductions: 0
-            };
-
-            const result = await PayrollCalculationService.calculatePayroll(input);
-
-            const grossPay = Number(result.gross_pay ?? 0)
-            const taxDeduction = Number(result.paye_tax ?? 0)
-            const totalDeductions = Number(result.total_deductions ?? taxDeduction)
-            const netPay = Number(result.net_pay ?? (grossPay - totalDeductions))
-            // Calculate benefit deductions from breakdown
-            const benefitDeductions = (result.breakdown || [])
-              .filter((item: any) => item.type === 'deduction' && item.description.toLowerCase().includes('benefit'))
-              .reduce((sum: number, item: any) => sum + item.amount, 0);
-
-            return {
-              organization_id: organizationId || null,
-              pay_run_id: payRunData.id,
-              employee_id: employee.id,
-              gross_pay: grossPay,
-              tax_deduction: taxDeduction,
-              benefit_deductions: benefitDeductions,
-              total_deductions: totalDeductions,
-              net_pay: netPay,
-              employer_contributions: Number(result.employer_contributions ?? 0),
-              hours_worked: employee.pay_type === 'hourly' ? 0 : null,
-              pieces_completed: employee.pay_type === 'piece_rate' ? (formData.default_pieces_completed || 0) : null,
-            };
-          } catch (err) {
-            error(`Failed to calculate payroll for employee ${employee.id}:`, err);
-            // Fallback to simple calculation
-            const effectivePayRate = employee.pay_rate || formData.default_piece_rate || 0;
-            const grossPay = effectivePayRate || 0;
-            const taxDeduction = grossPay * 0.1; // Simple 10% tax for demo
-            const totalDeductions = taxDeduction;
-            const netPay = grossPay - totalDeductions;
-
-            return {
-              organization_id: organizationId || null,
-              pay_run_id: payRunData.id,
-              employee_id: employee.id,
-              gross_pay: grossPay,
-              tax_deduction: taxDeduction,
-              benefit_deductions: 0,
-              total_deductions: totalDeductions,
-              net_pay: netPay,
-              employer_contributions: 0,
-              hours_worked: employee.pay_type === 'hourly' ? 0 : null,
-              pieces_completed: employee.pay_type === 'piece_rate' ? (formData.default_pieces_completed || 0) : null,
-            };
-          }
-        })
-      );
-
-      const { error: payItemsError } = await supabase
-        .from("pay_items")
-        .insert(payItems);
-
-      if (payItemsError) {
-        throw new Error(`Failed to create pay items: ${payItemsError.message}`);
-      }
-
-      // Update pay run totals
-      const totals = payItems.reduce(
-        (acc, item) => ({
-          gross: acc.gross + item.gross_pay,
-          deductions: acc.deductions + item.total_deductions,
-          net: acc.net + item.net_pay,
-        }),
-        { gross: 0, deductions: 0, net: 0 }
-      );
-
-      const { error: updateError } = await supabase
-        .from("pay_runs")
-        .update({
-          total_gross_pay: totals.gross,
-          total_deductions: totals.deductions,
-          total_net_pay: totals.net,
-        })
-        .eq("id", payRunData.id);
-
-      if (updateError) {
-        throw new Error(`Failed to update pay run totals: ${updateError.message}`);
-      }
+      console.log("✅ Pay run created via Edge Function:", payRun.id);
 
       toast({
         title: "Success",
         description: "Pay run created successfully",
       });
 
+      // Reset form
       setFormData({
         payroll_type: payrollType || "",
         project_id: "",
@@ -696,6 +389,7 @@ const CreatePayRunDialog = ({
         default_pieces_completed: 0,
         default_piece_rate: 0,
       });
+
       if (typeof handleSuccess === 'function') {
         handleSuccess();
       }
@@ -704,9 +398,8 @@ const CreatePayRunDialog = ({
       console.error("Error creating pay run:", error);
       toast({
         title: "Error",
-        description: error.message || "Failed to create pay run. Please check your database connection.",
+        description: error.message || "Failed to create pay run.",
         variant: "destructive",
-        duration: 5000,
       });
     } finally {
       setLoading(false);
@@ -724,96 +417,147 @@ const CreatePayRunDialog = ({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 modern-dialog-content">
-          {/* Show Payroll Type dropdown only if not provided as prop AND not IPPMS */}
-          {!payrollType && (defaultEmployeeType || "").toLowerCase() !== "ippms" ? (
+          {/* Domain Selection */}
+          {!defaultCategory ? (
             <div className="space-y-2">
-              <Label htmlFor="payroll_type">Payroll Type *</Label>
+              <Label htmlFor="category">Payroll Domain *</Label>
               <Select
-                value={formData.payroll_type}
-                onValueChange={(value) => setFormData({
-                  ...formData,
-                  payroll_type: value,
-                  pay_group_id: "" // Reset pay group when type changes
-                })}
+                value={formData.category}
+                onValueChange={(value) => {
+                  const isExpat = value === 'expatriate'; // legacy? no, category is head_office/projects
+                  setFormData({
+                    ...formData,
+                    category: value,
+                    employee_type: "",
+                    project_id: "",
+                    pay_group_id: "",
+                    payroll_type: value === 'projects' ? 'regular' : formData.payroll_type
+                  });
+                }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select payroll type" />
+                  <SelectValue placeholder="Select Head Office or Projects" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Local">Local</SelectItem>
-                  <SelectItem value="Expatriate">Expatriate</SelectItem>
+                  <SelectItem value="head_office">Head Office</SelectItem>
+                  <SelectItem value="projects">Projects</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           ) : (
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-              <Label htmlFor="payroll_type">Payroll Type</Label>
-              <div className="text-sm text-gray-700 font-semibold mt-1">
-                {(defaultEmployeeType || "").toLowerCase() === "ippms" ? "IPPMS" : payrollType}
+            <div className="bg-muted/30 border border-border rounded-md p-3">
+              <Label className="text-muted-foreground text-xs uppercase tracking-wider">Payroll Domain</Label>
+              <div className="text-sm font-semibold mt-1">
+                {defaultCategory === 'head_office' ? 'Head Office' : 'Projects'}
               </div>
             </div>
           )}
 
-          {/* IPPMS Pay Type selection */}
-          {(defaultEmployeeType || "").toLowerCase() === "ippms" && (
+          {/* Employee Type Selection for Head Office */}
+          {formData.category === 'head_office' && !defaultEmployeeType && (
             <div className="space-y-2">
-              <Label htmlFor="ippms_pay_type">IPPMS Pay Type *</Label>
+              <Label htmlFor="employee_type">Employee Type *</Label>
+              <Select
+                value={formData.employee_type}
+                onValueChange={(value) => {
+                  const payroll_type = value === 'expatriate' ? 'expatriate' : (value === 'ippms' ? 'piece_rate' : 'regular');
+                  setFormData({
+                    ...formData,
+                    employee_type: value,
+                    pay_group_id: "",
+                    payroll_type: payroll_type
+                  });
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select employee type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="regular">Regular</SelectItem>
+                  <SelectItem value="expatriate">Expatriate</SelectItem>
+                  <SelectItem value="interns">Interns</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+
+          {/* Employee Type Selection for Projects (Manpower/IPPMS/Expatriate) */}
+          {formData.category === 'projects' && !defaultEmployeeType && (
+            <div className="space-y-2">
+              <Label htmlFor="employee_type">Project Payroll Type *</Label>
+              <Select
+                value={formData.employee_type}
+                onValueChange={(value) => {
+                  setFormData({
+                    ...formData,
+                    employee_type: value,
+                    project_id: "",
+                    pay_group_id: "",
+                    payroll_type: value === 'ippms' ? 'piece_rate' : (value === 'expatriate' ? 'expatriate' : 'regular')
+                  });
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manpower">Manpower</SelectItem>
+                  <SelectItem value="ippms">IPPMS</SelectItem>
+                  <SelectItem value="expatriate">Expatriate</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Project Selection for Projects Category */}
+          {formData.category === 'projects' && (
+            <div className="space-y-2">
+              <Label htmlFor="project_id">Select Project *</Label>
+              <Select
+                value={formData.project_id}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, project_id: value, pay_group_id: "" }))}
+                disabled={projects.length === 0 || !formData.employee_type}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={!formData.employee_type ? "Select type first" : (projects.length === 0 ? "No projects available" : "Select project")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map(project => (
+                    <SelectItem key={project.id} value={project.id}>
+                      <div className="flex flex-col">
+                        <span>{project.name}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {project.code} - {project.project_type}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* IPPMS specific: Selection of piece_rate/daily_rate */}
+          {formData.employee_type === 'ippms' && (
+            <div className="space-y-2">
+              <Label>IPPMS Rate Type *</Label>
               <Select
                 value={ippmsPayType}
                 onValueChange={(value) => {
-                  setIppmsPayType(value as 'piece_rate' | 'daily_rate');
+                  setIppmsPayType(value as any);
                   setFormData(prev => ({ ...prev, pay_group_id: "" }));
-                  // Refresh groups for new filter
                   fetchPayGroups();
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select IPPMS pay type" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="piece_rate">Piece Rate</SelectItem>
                   <SelectItem value="daily_rate">Daily Rate</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-          )}
-
-          {/* Project Selection (for project-based payruns only) */}
-          {isProjectBased && (
-            <div className="space-y-2">
-              <Label htmlFor="project_id">Project *</Label>
-              <Select
-                value={formData.project_id}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, project_id: value }))}
-                disabled={projects.length === 0}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={projects.length === 0 ? "No projects available" : "Select project"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.length === 0 ? (
-                    <SelectItem value="no-projects" disabled>
-                      No projects found
-                    </SelectItem>
-                  ) : (
-                    projects.map(project => (
-                      <SelectItem key={project.id} value={project.id}>
-                        <div className="flex flex-col">
-                          <span>{project.name}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {project.code} - {project.project_type}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-              {projects.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  No {defaultEmployeeType} projects available. Please create one first.
-                </p>
-              )}
             </div>
           )}
 

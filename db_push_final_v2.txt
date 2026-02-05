@@ -1,0 +1,66 @@
+Initialising login role...
+Connecting to remote database...
+Do you want to push these migrations to the remote database?
+ • 20251219001000_functional_security_audit.sql
+ • 20251224000000_add_head_office_pay_group_members_rls.sql
+ • 20251224010000_fix_ho_rls_and_joins.sql
+ • 20251224020000_hardened_ho_rls.sql
+ • 20251224030000_fix_pay_runs_fk.sql
+ • 20251224040000_repair_pay_group_master.sql
+ • 20251224050000_fix_approval_steps_fk.sql
+ • 20251224060000_fix_deletion_constraints.sql
+ • 20251224070000_fix_pay_run_status_enum.sql
+ • 20251224081000_migrate_local_to_regular.sql
+ • 20251224081100_repair_pay_group_master.sql
+ • 20251229120000_payroll_approval_enhancements.sql
+ • 20251229155200_flexible_payroll_approvals.sql
+ • 20251229170000_fix_rls_recursion.sql
+ • 20251229180000_unify_permission_checks.sql
+ • 20251229190000_fix_rbac_read_policy.sql
+ • 20251229200000_create_approval_configs.sql
+ • 20251229210000_add_rejected_status.sql
+ • 20251230090000_update_submit_payrun_rpc.sql
+ • 20260103130000_enable_notification_email_trigger.sql
+ • 20260103160000_wrap_email_trigger.sql
+ • 20260104000000_rename_departments_to_sub_departments.sql
+ • 20260104203000_create_notification_templates.sql
+ • 20260105000000_enhance_rbac_grants.sql
+
+ [Y/n] Applying migration 20251219001000_functional_security_audit.sql...
+Applying migration 20251224000000_add_head_office_pay_group_members_rls.sql...
+NOTICE (00000): policy "Users can view pay group members for their organization" for relation "head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Users can insert pay group members for their organization" for relation "head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Users can update pay group members for their organization" for relation "head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Users can delete pay group members for their organization" for relation "head_office_pay_group_members" does not exist, skipping
+Applying migration 20251224010000_fix_ho_rls_and_joins.sql...
+NOTICE (00000): policy "View HO Membership" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Manage HO Membership" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "View Regular HO Paygroups" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "Manage Regular HO Paygroups" for relation "public.head_office_pay_groups_regular" does not exist, skipping
+NOTICE (00000): policy "View Intern HO Paygroups" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "Manage Intern HO Paygroups" for relation "public.head_office_pay_groups_interns" does not exist, skipping
+NOTICE (00000): policy "View Expatriate HO Paygroups" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+NOTICE (00000): policy "Manage Expatriate HO Paygroups" for relation "public.head_office_pay_groups_expatriates" does not exist, skipping
+Applying migration 20251224020000_hardened_ho_rls.sql...
+NOTICE (00000): policy "Users can view pay group members for their organization" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Users can insert pay group members for their organization" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Users can update pay group members for their organization" for relation "public.head_office_pay_group_members" does not exist, skipping
+NOTICE (00000): policy "Users can delete pay group members for their organization" for relation "public.head_office_pay_group_members" does not exist, skipping
+ERROR: policy "ho_membership_select_policy" for table "head_office_pay_group_members" already exists (SQLSTATE 42710)
+At statement: 8                                                                                                      
+-- SELECT: Platform admins or users with people.view in the org                                                      
+CREATE POLICY "ho_membership_select_policy" ON public.head_office_pay_group_members                                  
+FOR SELECT TO authenticated                                                                                          
+USING (                                                                                                              
+  public.is_platform_admin() OR                                                                                      
+  EXISTS (                                                                                                           
+    SELECT 1 FROM public.employees e                                                                                 
+    WHERE e.id = head_office_pay_group_members.employee_id                                                           
+    AND e.organization_id = public.get_auth_org_id()                                                                 
+    AND (                                                                                                            
+      public.has_permission('people.view', 'ORGANIZATION', e.organization_id) OR                                     
+      public.has_permission('payroll.prepare', 'ORGANIZATION', e.organization_id)                                    
+    )                                                                                                                
+  )                                                                                                                  
+)                                                                                                                    
+Try rerunning the command with --debug to troubleshoot the error.

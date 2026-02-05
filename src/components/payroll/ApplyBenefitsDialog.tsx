@@ -28,7 +28,7 @@ interface ApplyBenefitsDialogProps {
 export const ApplyBenefitsDialog = ({ open, onOpenChange, employeeCount, currency, onApply }: ApplyBenefitsDialogProps) => {
   const [benefits, setBenefits] = useState<Benefit[]>([]);
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([]);
-  const [applicationScope, setApplicationScope] = useState<"all" | "department" | "individual" | "type">("all");
+  const [applicationScope, setApplicationScope] = useState<"all" | "sub_department" | "individual" | "type">("all");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -41,9 +41,9 @@ export const ApplyBenefitsDialog = ({ open, onOpenChange, employeeCount, currenc
   const fetchBenefits = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("benefits")
-        .select("*")
+      const { data, error } = await (supabase
+        .from("benefits" as any)
+        .select("*") as any)
         .order("name");
 
       if (error) throw error;
@@ -120,11 +120,10 @@ export const ApplyBenefitsDialog = ({ open, onOpenChange, employeeCount, currenc
                 {benefits.map((benefit) => (
                   <div
                     key={benefit.id}
-                    className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
-                      selectedBenefits.includes(benefit.id)
-                        ? "bg-primary/10 border-primary"
-                        : "hover:bg-muted"
-                    }`}
+                    className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${selectedBenefits.includes(benefit.id)
+                      ? "bg-primary/10 border-primary"
+                      : "hover:bg-muted"
+                      }`}
                     onClick={() => toggleBenefit(benefit.id)}
                   >
                     <div className="flex-1">
@@ -135,7 +134,7 @@ export const ApplyBenefitsDialog = ({ open, onOpenChange, employeeCount, currenc
                     </div>
                     <div className="text-right">
                       <div className="font-semibold">
-                        {benefit.cost_type === 'fixed' 
+                        {benefit.cost_type === 'fixed'
                           ? `${currency} ${benefit.cost.toLocaleString()}`
                           : `${benefit.cost}%`
                         }
@@ -160,9 +159,9 @@ export const ApplyBenefitsDialog = ({ open, onOpenChange, employeeCount, currenc
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="department" id="department" />
-                <Label htmlFor="department" className="font-normal">
-                  Selected Departments
+                <RadioGroupItem value="sub_department" id="sub_department" />
+                <Label htmlFor="sub_department" className="font-normal">
+                  Selected Sub-Departments
                 </Label>
               </div>
               <div className="flex items-center space-x-2">

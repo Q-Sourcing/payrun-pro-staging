@@ -10,6 +10,7 @@ export interface CalculationInput {
   pay_type?: string;
   employee_type?: string;
   country?: string;
+  is_head_office?: boolean;
   custom_deductions?: Array<{
     name: string;
     amount: number;
@@ -61,35 +62,35 @@ export class PayrollCalculationService {
   static async calculatePayroll(input: CalculationInput): Promise<CalculationResult> {
     try {
       const url = this.getFunctionUrl();
-      
+
       // Get the current session token with better error handling
       const supabaseClient = (await import('@/integrations/supabase/client')).supabase;
       const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
-      
+
       debug('Session check:', {
         hasSession: !!session,
         hasAccessToken: !!session?.access_token,
         userEmail: session?.user?.email,
         sessionError: sessionError?.message
       });
-      
+
       if (sessionError) {
         error('Session error:', sessionError);
         throw new Error('Authentication failed: Unable to get session');
       }
-      
+
       if (!session?.access_token) {
         error('No access token available - using fallback calculation');
         throw new Error('Authentication failed: No access token');
       }
-      
+
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session.access_token}`,
       };
-      
+
       debug('Calling Edge Function with authentication...');
-      
+
       const response = await fetch(url, {
         method: 'POST',
         headers,
@@ -99,19 +100,19 @@ export class PayrollCalculationService {
       if (!response.ok) {
         const errorText = await response.text();
         error(`Edge Function error (${response.status}):`, errorText);
-        
+
         let errorData: CalculationError;
         try {
           errorData = JSON.parse(errorText);
         } catch {
           errorData = { error: errorText };
         }
-        
+
         throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       const result: CalculationResponse = await response.json();
-      
+
       if (!result.success) {
         throw new Error('Calculation failed');
       }

@@ -2,14 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
-import { 
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -19,14 +19,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { 
-  Users, 
-  Globe2, 
-  Briefcase, 
-  GraduationCap, 
-  MoreVertical, 
-  Edit, 
-  Trash2, 
+import {
+  Users,
+  Globe2,
+  Briefcase,
+  GraduationCap,
+  MoreVertical,
+  Edit,
+  Trash2,
   Eye,
   Package,
   Calendar,
@@ -75,9 +75,11 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
   const fetchEmployeeCount = useCallback(async () => {
     setLoadingCount(true);
     try {
-      // Use the optimized view for better performance
+      const isHeadOffice = group?.category === 'head_office';
+      const tableName = isHeadOffice ? 'head_office_pay_group_members' : 'paygroup_employees';
+
       const { data, error } = await (supabase as any)
-        .from('paygroup_employees_view')
+        .from(tableName)
         .select('employee_id')
         .eq('pay_group_id', group.id)
         .eq('active', true);
@@ -90,7 +92,7 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
     } finally {
       setLoadingCount(false);
     }
-  }, [group.id]);
+  }, [group.id, group.category]);
 
   // Fetch employee count on mount
   useEffect(() => {
@@ -101,6 +103,7 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
 
   // Set up realtime updates for this pay group
   usePaygroupRealtimeForGroup(group.id, {
+    tableName: group?.category === 'head_office' ? 'head_office_pay_group_members' : 'paygroup_employees',
     refetch: fetchEmployeeCount,
     onEmployeeAdded: (payload) => {
       console.log(`✅ Employee added to ${group.name}:`, payload);
@@ -167,7 +170,7 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
   // Load expatriate pay group details
   const loadExpatriateDetails = async () => {
     if (group.type !== 'expatriate') return;
-    
+
     setLoadingDetails(true);
     try {
       const details = await ExpatriatePayrollService.getExpatriatePayGroup(group.id);
@@ -228,22 +231,21 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
                         animate={{ scale: 1, opacity: 1 }}
                         exit={{ scale: 0.8, opacity: 0 }}
                         transition={{ duration: 0.2 }}
-                        className={`inline-flex items-center justify-center text-xs font-semibold rounded-full px-2 py-0.5 ${
-                          loadingCount
-                            ? "bg-gray-100 text-gray-400"
-                            : "bg-green-100 text-green-700"
-                        }`}
+                        className={`inline-flex items-center justify-center text-xs font-semibold rounded-full px-2 py-0.5 ${loadingCount
+                          ? "bg-gray-100 text-gray-400"
+                          : "bg-green-100 text-green-700"
+                          }`}
                       >
                         {loadingCount ? "..." : employeeCount}
                       </motion.span>
                     </AnimatePresence>
                   </CardTitle>
                   <CardDescription className="text-xs text-gray-500 mt-1">
-                    {group.type} • {group.currency}
+                    {group.type === 'regular' || (group.type as any) === 'local' ? 'regular' : group.type} • {group.currency}
                   </CardDescription>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-1">
                 <Badge className={getStatusColor(group.status)}>
                   {group.status}
@@ -260,7 +262,7 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
                       Edit
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       onClick={() => setShowDeleteDialog(true)}
                       className="text-red-600"
                     >
@@ -280,14 +282,14 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
                 <span className="text-muted-foreground">Country</span>
                 <span className="font-medium">{group.country}</span>
               </div>
-              
+
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Frequency</span>
                 <span className="font-medium capitalize">
                   {(group as any).pay_frequency?.replace('-', ' ') || 'N/A'}
                 </span>
               </div>
-              
+
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Tax Rate</span>
                 <span className="font-medium">
@@ -321,7 +323,7 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
             {/* Footer */}
             <div className="text-xs text-gray-400 flex justify-between items-center">
               <span>{formatDate(group.created_at)}</span>
-              <span className="capitalize">{group.type} PayGroup</span>
+              <span className="capitalize">{group.type === 'regular' || (group.type as any) === 'local' ? 'regular' : group.type} PayGroup</span>
             </div>
           </CardContent>
         </Card>
@@ -336,7 +338,7 @@ export const PayGroupCard: React.FC<PayGroupCardProps> = ({ group, onUpdate, onA
               Are you sure you want to delete the pay group "{group.name}"? This action cannot be undone.
               {group.employee_count > 0 && (
                 <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-yellow-800">
-                  <strong>Warning:</strong> This pay group has {group.employee_count} employee(s). 
+                  <strong>Warning:</strong> This pay group has {group.employee_count} employee(s).
                   Deleting it may affect their payroll records.
                 </div>
               )}

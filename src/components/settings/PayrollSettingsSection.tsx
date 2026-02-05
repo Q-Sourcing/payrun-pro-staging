@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,10 +9,15 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ApprovalWorkflows } from "./PayrollSettings/ApprovalWorkflows";
+import { Settings as GearIcon } from "lucide-react";
+import { PayrollAdvancedSettingsModal } from "./PayrollSettings/PayrollAdvancedSettingsModal";
+import { PayrollNotificationTemplates } from "./PayrollSettings/PayrollNotificationTemplates";
 
-export const PayrollSettingsSection = () => {
+export const PayrollSettingsSection = ({ onOpenAdvanced }: { onOpenAdvanced?: () => void }) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
 
+  const [showAdvancedModal, setShowAdvancedModal] = useState(false);
   const [taxPercentage, setTaxPercentage] = useState("0");
   const [autoCalculateTax, setAutoCalculateTax] = useState("yes");
   const [taxRounding, setTaxRounding] = useState("nearest");
@@ -87,10 +93,23 @@ export const PayrollSettingsSection = () => {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Payroll Settings</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardTitle className="text-xl">Payroll Settings</CardTitle>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onOpenAdvanced?.()}
+          title="Advanced Payroll Settings"
+          className="hover:bg-slate-100"
+        >
+          <GearIcon className="h-5 w-5 text-slate-500" />
+        </Button>
       </CardHeader>
       <CardContent className="space-y-6">
+        <PayrollAdvancedSettingsModal
+          open={showAdvancedModal}
+          onClose={() => setShowAdvancedModal(false)}
+        />
 
 
         <div className="space-y-4">
@@ -181,6 +200,10 @@ export const PayrollSettingsSection = () => {
 
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-muted-foreground w-full border-b pb-2">APPROVAL WORKFLOWS</h3>
+          <div className="pt-6 border-t">
+            <h3 className="text-sm font-semibold text-muted-foreground mb-4">NOTIFICATIONS & TEMPLATES</h3>
+            <PayrollNotificationTemplates />
+          </div>
           <ApprovalWorkflows />
         </div>
 

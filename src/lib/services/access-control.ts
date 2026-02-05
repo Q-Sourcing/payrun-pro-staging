@@ -137,7 +137,7 @@ export class AccessControlService {
   /**
    * Map legacy data scopes to new OBAC concepts
    */
-  getDataScope(resource: string): 'all' | 'organization' | 'department' | 'own' | 'none' {
+  getDataScope(resource: string): 'all' | 'organization' | 'sub_department' | 'own' | 'none' {
     if (RBACService.isPlatformAdmin()) return 'all';
 
     const roles = RBACService.getCurrentUserRoles();
@@ -145,7 +145,7 @@ export class AccessControlService {
     const hasProjectAccess = roles.some(r => r.scope_type === 'PROJECT');
 
     if (hasOrgAccess) return 'organization';
-    if (hasProjectAccess) return 'department';
+    if (hasProjectAccess) return 'sub_department';
 
     return 'own';
   }

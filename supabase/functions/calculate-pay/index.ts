@@ -29,6 +29,7 @@ interface CalculationInput {
   pay_type?: 'hourly' | 'piece_rate' | 'salary';
   employee_type?: 'local' | 'expatriate';
   country?: string;
+  is_head_office?: boolean;
   custom_deductions?: Array<{
     name: string;
     amount: number;
@@ -77,7 +78,7 @@ const COUNTRY_DEDUCTIONS = {
         percentage: 5,
         mandatory: true,
         employeeContribution: 5,
-        description: "NSSF Employee - 5% (cap at 1,200,000 UGX pensionable)"
+        description: "NSSF Employee - 5% (Total gross)"
       },
       {
         name: "NSSF Employer",
@@ -85,7 +86,7 @@ const COUNTRY_DEDUCTIONS = {
         percentage: 10,
         mandatory: true,
         employerContribution: 10,
-        description: "NSSF Employer - 10% (cap at 1,200,000 UGX pensionable)"
+        description: "NSSF Employer - 10% (Total gross)"
       },
       {
         name: "LST",
@@ -274,13 +275,13 @@ const COUNTRY_DEDUCTIONS = {
 // Helper functions for tax calculations
 const calculateProgressiveTax = (grossPay: number, brackets: TaxBracket[], countryCode?: string): number => {
   let totalTax = 0;
-  
+
   for (const bracket of brackets) {
     const min = bracket.min;
     const max = bracket.max || Infinity;
-    
+
     if (grossPay <= min) break;
-    
+
     const taxableAmount = Math.min(grossPay, max) - min;
     if (taxableAmount > 0) {
       if (bracket.rate < 1) {
@@ -292,12 +293,12 @@ const calculateProgressiveTax = (grossPay: number, brackets: TaxBracket[], count
       }
     }
   }
-  
+
   // Apply personal relief for Kenya PAYE
   if (countryCode === 'KE' && totalTax > 0) {
     totalTax = Math.max(0, totalTax - 2400);
   }
-  
+
   return totalTax;
 };
 
@@ -306,11 +307,7 @@ const calculateDeduction = (grossPay: number, rule: DeductionRule, countryCode?:
     case 'fixed':
       return rule.amount || 0;
     case 'percentage':
-      // Apply NSSF cap for Uganda (employee portion)
-      if (countryCode === 'UG' && (rule.name === 'NSSF' || rule.name === 'NSSF Employee')) {
-        const cappedAmount = Math.min(grossPay, 1200000);
-        return cappedAmount * ((rule.percentage || 0) / 100);
-      }
+      // In Uganda, standard NSSF is 5%/10% of total gross (statutory no cap unless voluntary)
       return grossPay * ((rule.percentage || 0) / 100);
     case 'progressive':
       // Pass country code for Kenya PAYE personal relief
@@ -330,10 +327,10 @@ const getCountryDeductions = (countryNameOrCode: string): DeductionRule[] => {
     "Rwanda": "RW",
     "South Sudan": "SS"
   };
-  
+
   // Try to get the code from the map, otherwise use the input as-is
   const countryCode = countryCodeMap[countryNameOrCode] || countryNameOrCode;
-  
+
   return (COUNTRY_DEDUCTIONS as any)[countryCode]?.deductions || [];
 };
 
@@ -347,7 +344,8 @@ const calculatePay = (input: CalculationInput): CalculationResult => {
     employee_type = 'local',
     country = 'Uganda',
     custom_deductions = [],
-    benefit_deductions = 0
+    benefit_deductions = 0,
+    is_head_office = false
   } = input;
 
   // Calculate base gross pay
@@ -383,28 +381,48 @@ const calculatePay = (input: CalculationInput): CalculationResult => {
   }
 
   if (employee_type === 'expatriate') {
-    // For expatriates, apply simplified flat tax (default 15%)
-    const flatTaxRate = 0.15; // Default 15%
-    calculatedTaxDeduction = grossPay * flatTaxRate;
-    standardDeductions['Flat Tax (15%)'] = calculatedTaxDeduction;
-    breakdown.push({
-      description: 'Flat Tax (15%)',
-      amount: calculatedTaxDeduction,
-      type: 'deduction'
-    });
-    
-    // Expatriates are typically exempt from social security
-    employerContributions = 0;
+    // For expatriates, allow for progressive tax if it's Head Office staff (residents)
+    const isHeadOffice = is_head_office || country === 'Uganda'; // Fallback to country check if flag not set
+
+    if (isHeadOffice) {
+      const deductionRules = getCountryDeductions(country);
+      deductionRules.forEach(rule => {
+        if (rule.mandatory) {
+          const amount = calculateDeduction(grossPay, rule, country);
+          if (rule.name === 'NSSF Employer') {
+            employerContributions += grossPay * ((rule.percentage || 0) / 100);
+          } else {
+            standardDeductions[rule.name] = amount;
+            calculatedTaxDeduction += amount;
+            breakdown.push({ description: rule.name, amount, type: 'deduction' });
+            if (rule.employerContribution) {
+              employerContributions += grossPay * ((rule.employerContribution || 0) / 100);
+            }
+          }
+        }
+      });
+    } else {
+      const flatTaxRate = 0.30; // Standard expat non-resident rate is often 30% in UG
+      calculatedTaxDeduction = grossPay * flatTaxRate;
+      standardDeductions['PAYE (Expat 30%)'] = calculatedTaxDeduction;
+      breakdown.push({
+        description: 'PAYE (Expat 30%)',
+        amount: calculatedTaxDeduction,
+        type: 'deduction'
+      });
+      employerContributions = 0;
+    }
   } else {
     // For local employees, apply standard country-specific deductions
     const deductionRules = getCountryDeductions(country);
-    
+
     deductionRules.forEach(rule => {
       if (rule.mandatory) {
         const amount = calculateDeduction(grossPay, rule, country);
         // Exclude NSSF Employer from employee deductions; track as employer contribution only
         if (rule.name === 'NSSF Employer') {
-          employerContributions += Math.min(grossPay, 1200000) * ((rule.percentage || 0) / 100);
+          // Applying standard 10% employer contribution on total gross
+          employerContributions += grossPay * ((rule.percentage || 0) / 100);
         } else {
           standardDeductions[rule.name] = amount;
           calculatedTaxDeduction += amount;
@@ -462,10 +480,10 @@ const calculatePay = (input: CalculationInput): CalculationResult => {
   const totalDeductions = calculatedTaxDeduction + benefit_deductions + customDeductionsTotal;
   const netPay = grossPay + customAllowancesTotal - totalDeductions;
 
-  return { 
-    gross_pay: grossPay, 
-    paye_tax: standardDeductions['PAYE'] || 0, 
-    total_deductions: totalDeductions, 
+  return {
+    gross_pay: grossPay,
+    paye_tax: standardDeductions['PAYE'] || 0,
+    total_deductions: totalDeductions,
     net_pay: netPay,
     nssf_employee: standardDeductions['NSSF Employee'] || standardDeductions['NSSF'] || 0,
     nssf_employer: employerContributions,
@@ -475,12 +493,7 @@ const calculatePay = (input: CalculationInput): CalculationResult => {
   };
 };
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-serve(async (req) => {
+serve(async (req: any) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -498,11 +511,11 @@ serve(async (req) => {
 
     // Extract the token
     const token = authHeader.replace('Bearer ', '');
-    
+
     // Initialize Supabase client with service role key for server-side operations
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+    const supabaseUrl = (globalThis as any).Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = (globalThis as any).Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
@@ -589,9 +602,9 @@ serve(async (req) => {
     console.error('Error in calculate-pay function:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: 'Internal server error',
-        details: errorMessage 
+        details: errorMessage
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
