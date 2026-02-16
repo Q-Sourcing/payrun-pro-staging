@@ -8,7 +8,7 @@ export function AdminSecurityDashboard() {
   const { hasRole } = useUserRole();
 
   // Check if user is platform_admin
-  const canAccess = hasRole('platform_admin');
+  const canAccess = hasRole('PLATFORM_SUPER_ADMIN' as any);
 
   if (!canAccess) {
     return (

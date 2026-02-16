@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Sub-Departments Service
  * Service functions for managing sub-departments

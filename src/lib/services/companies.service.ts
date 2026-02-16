@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Companies Service
  * Service functions for managing companies

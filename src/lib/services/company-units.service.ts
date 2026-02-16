@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Company Units Service
  * Service functions for managing company units

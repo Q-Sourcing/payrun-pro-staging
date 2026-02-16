@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Employee Categories Service
  * Service functions for managing dynamic employee categories

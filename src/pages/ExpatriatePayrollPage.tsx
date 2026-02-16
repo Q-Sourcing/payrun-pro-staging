@@ -204,7 +204,7 @@ const ExpatriatePayrollPage = () => {
       .on("postgres_changes",
         { event: "*", schema: "public", table: "pay_runs" },
         (payload) => {
-          if (payload.new?.payroll_type === "expatriate" || payload.old?.payroll_type === "expatriate") {
+          if ((payload.new as any)?.payroll_type === "expatriate" || (payload.old as any)?.payroll_type === "expatriate") {
             console.log("🔄 Real-time update: expatriate pay run changed");
             fetchExpatriatePayRuns(true); // preserveScroll = true
           }

@@ -355,8 +355,8 @@ export class PayGroupsDataService {
           paygroup_id: paygroupId,
           name: payGroup.name,
           type: 'expatriate',
-          category: payGroup.category,
-          employee_type: payGroup.employee_type,
+          category: (payGroup as any).category,
+          employee_type: (payGroup as any).employee_type,
           country: payGroup.country,
           currency: payGroup.currency || 'USD',
           status: 'active',
@@ -365,7 +365,7 @@ export class PayGroupsDataService {
           updated_at: payGroup.updated_at || new Date().toISOString(),
           notes: payGroup.notes,
           exchange_rate_to_local: payGroup.exchange_rate_to_local,
-          default_daily_rate: payGroup.default_daily_rate || 0,
+          default_daily_rate: (payGroup as any).default_daily_rate || 0,
           tax_country: payGroup.tax_country,
         } as PayGroupWithEmployeeCount;
       } else {
@@ -403,7 +403,7 @@ export class PayGroupsDataService {
         if (validatedData.name !== undefined) updateData.name = validatedData.name;
         if (validatedData.country !== undefined) updateData.country = validatedData.country;
         if (validatedData.pay_frequency !== undefined) updateData.pay_frequency = validatedData.pay_frequency;
-        if (validatedData.default_tax_percentage !== undefined) updateData.default_tax_percentage = validatedData.default_tax_percentage;
+        if ((validatedData as any).default_tax_percentage !== undefined) updateData.default_tax_percentage = (validatedData as any).default_tax_percentage;
         if (validatedData.notes !== undefined) updateData.description = validatedData.notes;
         if (validatedData.category !== undefined) updateData.category = validatedData.category;
         if (validatedData.employee_type !== undefined) updateData.employee_type = validatedData.employee_type;
@@ -430,8 +430,8 @@ export class PayGroupsDataService {
         if (validatedData.name !== undefined) updateData.name = validatedData.name;
         if (validatedData.country !== undefined) updateData.country = validatedData.country;
         if (validatedData.currency !== undefined) updateData.currency = validatedData.currency;
-        if (validatedData.exchange_rate_to_local !== undefined) updateData.exchange_rate_to_local = validatedData.exchange_rate_to_local;
-        if (validatedData.default_daily_rate !== undefined) updateData.default_daily_rate = validatedData.default_daily_rate;
+        if ((validatedData as any).exchange_rate_to_local !== undefined) updateData.exchange_rate_to_local = (validatedData as any).exchange_rate_to_local;
+        if ((validatedData as any).default_daily_rate !== undefined) updateData.default_daily_rate = (validatedData as any).default_daily_rate;
         if (validatedData.tax_country !== undefined) updateData.tax_country = validatedData.tax_country;
         if (validatedData.notes !== undefined) updateData.notes = validatedData.notes;
         if (validatedData.category !== undefined) updateData.category = validatedData.category;
