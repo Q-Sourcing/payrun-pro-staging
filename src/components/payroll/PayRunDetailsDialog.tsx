@@ -2074,12 +2074,12 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
           <div className="p-4 border-t flex justify-between bg-white z-20">
             <div className="flex gap-2">
-              {(isSuperAdmin || role === 'organization_admin') && (
+              {(isSuperAdmin || role === 'ORG_ADMIN') && (
                 (payRunData?.approval_status === "draft" || payRunData?.approval_status === "rejected" || !payRunData?.approval_status) && (
                   <Button onClick={handleSubmitForApproval}>Submit for Approval</Button>
                 )
               )}
-              {(payRunData?.approval_status === "rejected" && (isSuperAdmin || role === 'organization_admin')) && (
+              {(payRunData?.approval_status === "rejected" && (isSuperAdmin || role === 'ORG_ADMIN')) && (
                 <Button variant="outline" onClick={handleReturnToDraft}>Return to Draft</Button>
               )}
 

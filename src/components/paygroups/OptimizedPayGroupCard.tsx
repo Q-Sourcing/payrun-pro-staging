@@ -46,7 +46,7 @@ export default function OptimizedPayGroupCard({
     switch (type) {
       case 'regular': return <Users className="h-4 w-4" />;
       case 'expatriate': return <MapPin className="h-4 w-4" />;
-      case 'piece_rate': return <Package className="h-4 w-4" />;
+      case 'piece_rate': return <DollarSign className="h-4 w-4" />;
       case 'intern': return <Calendar className="h-4 w-4" />;
       default: return <Users className="h-4 w-4" />;
     }

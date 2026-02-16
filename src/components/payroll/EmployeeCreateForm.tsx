@@ -20,6 +20,7 @@ export const EmployeeCreateForm = ({ onSuccess, onCancel }: EmployeeCreateFormPr
             const finalOrgId = organizationId || localStorage.getItem('active_organization_id') || '00000000-0000-0000-0000-000000000001';
             const { error } = await supabase.from("employees").insert([
                 {
+                    employee_number: values.employee_number || `EMP-${Date.now()}`,
                     first_name: values.first_name,
                     middle_name: values.middle_name || null,
                     last_name: values.last_name || null,

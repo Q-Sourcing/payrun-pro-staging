@@ -6,7 +6,20 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { workflowService, NotificationTemplate } from "@/lib/services/workflow.service";
+import { workflowService } from "@/lib/services/workflow.service";
+
+interface NotificationTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+  body_content: string;
+  event_type: string;
+  trigger_event: string;
+  is_active: boolean;
+  available_variables?: string[];
+  [key: string]: any;
+}
 import { Mail, Pencil, RefreshCw, ChevronRight, Info } from "lucide-react";
 import {
     Dialog,

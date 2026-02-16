@@ -339,7 +339,7 @@ export async function removeOrgUser(orgUserId: string) {
 export async function getOrgLicense(orgId: string): Promise<OrgLicense | null> {
   const { data, error } = await supabase.from("org_licenses").select("*").eq("org_id", orgId).maybeSingle();
   if (error) throw error;
-  return data ?? null;
+  return (data as any) ?? null;
 }
 
 export async function setLicenseAssignment(orgId: string, userId: string, active: boolean, seat_type: string = "default") {
@@ -355,7 +355,7 @@ export async function listAccessGrants(orgId: string): Promise<AccessGrant[]> {
     .select("*")
     .eq("org_id", orgId);
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []) as AccessGrant[];
 }
 
 export async function createAccessGrant(payload: {

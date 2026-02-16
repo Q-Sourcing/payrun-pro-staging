@@ -87,8 +87,7 @@ export function OverviewPage() {
           action,
           resource_type,
           user_id,
-          created_at,
-          user:user_id(user_profiles!inner(first_name, last_name))
+          created_at
         `)
         .order('created_at', { ascending: false })
         .limit(10)
@@ -110,7 +109,7 @@ export function OverviewPage() {
         recentActivity: activityData?.length || 0
       })
 
-      setRecentActivity(activityData || [])
+      setRecentActivity((activityData || []) as RecentActivity[])
       setImpersonationSessions(activeSessions.length)
 
     } catch (error) {

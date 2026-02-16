@@ -60,7 +60,7 @@ export function IppmsHolidayPanel({ projectId }: Props) {
           <Button
             size="sm"
             onClick={() => holidayMutation.mutate()}
-            disabled={!holidayDate || !name || holidayMutation.isLoading}
+            disabled={!holidayDate || !name || holidayMutation.isPending}
           >
             Apply Holiday
           </Button>

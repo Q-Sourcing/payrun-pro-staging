@@ -87,7 +87,7 @@ export function useCreateEmployee() {
         last_name: newEmployee.last_name,
         email: newEmployee.email,
         employee_type: newEmployee.employee_type,
-        department: newEmployee.department,
+        sub_department: (newEmployee as any).department || '',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };

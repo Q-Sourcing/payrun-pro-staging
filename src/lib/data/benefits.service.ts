@@ -1,5 +1,14 @@
 import { supabase } from '@/integrations/supabase/client';
-import { createBenefitSchema, updateBenefitSchema, type CreateBenefitInput, type UpdateBenefitInput, type BenefitsQueryOptions, type BenefitType, type CostType } from '@/lib/validations/benefits.schema';
+import { createBenefitSchema, updateBenefitSchema, type CreateBenefitInput, type UpdateBenefitInput, type BenefitType, type CostType } from '@/lib/validations/benefits.schema';
+
+export type BenefitsQueryOptions = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  benefit_type?: BenefitType;
+  cost_type?: CostType;
+  country?: string;
+};
 
 export interface Benefit {
   id: string;
@@ -71,7 +80,7 @@ export class BenefitsService {
       }
 
       return {
-        data: filteredData,
+        data: filteredData as Benefit[],
         total: count || 0,
         page,
         limit: safeLimit,
@@ -106,7 +115,7 @@ export class BenefitsService {
         throw error;
       }
 
-      return data;
+      return data as Benefit | null;
     } catch (error: any) {
       console.error('Error fetching benefit:', error);
       throw new Error(`Failed to fetch benefit: ${error?.message || 'Unknown error'}`);
@@ -137,7 +146,7 @@ export class BenefitsService {
 
       if (error) throw error;
 
-      return benefit;
+      return benefit as Benefit;
     } catch (error: any) {
       console.error('Error creating benefit:', error);
       if (error.issues) {
@@ -182,7 +191,7 @@ export class BenefitsService {
 
       if (error) throw error;
 
-      return benefit;
+      return benefit as Benefit;
     } catch (error: any) {
       console.error('Error updating benefit:', error);
       if (error.issues) {

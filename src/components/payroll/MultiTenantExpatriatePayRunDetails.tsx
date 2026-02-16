@@ -102,24 +102,27 @@ export const MultiTenantExpatriatePayRunDetails: React.FC<MultiTenantExpatriateP
 
   const initializePayRunItem = (employee: any): ExpatriatePayRunItem => {
     return {
+      id: crypto.randomUUID(),
       employee_id: employee.id,
+      pay_run_id: payRunId,
       master_payroll_id: payRunId,
-      base_rate: 0, // Will be set by user
+      daily_rate: 0,
       days_worked: 0,
-      hours_worked: 0,
+      base_rate: 0,
       allowances: 0,
       deductions: 0,
-      gross_local: 0,
+      allowances_foreign: 0,
+      net_foreign: 0,
       net_local: 0,
-      foreign_currency: payGroup.currency,
-      foreign_base_rate: 0,
-      foreign_allowances: 0,
-      foreign_gross: 0,
-      foreign_net: 0,
+      gross_local: 0,
+      currency: payGroup.currency,
       exchange_rate: exchangeRate,
-      tax_country: 'UG', // Default to Uganda
+      exchange_rate_to_local: exchangeRate,
+      tax_country: 'UG',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       employee
-    };
+    } as ExpatriatePayRunItem;
   };
 
   const calculateExpatriatePay = async (item: ExpatriatePayRunItem, edits: Partial<ExpatriatePayRunItem> = {}) => {

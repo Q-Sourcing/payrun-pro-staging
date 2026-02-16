@@ -109,7 +109,7 @@ export function TenantTemplateEditor() {
 
             const { error } = await supabase
                 .from('email_templates')
-                .upsert(payload, { onConflict: 'org_id,event_key' });
+                .upsert([payload] as any, { onConflict: 'org_id,event_key' });
 
             if (error) throw error;
 

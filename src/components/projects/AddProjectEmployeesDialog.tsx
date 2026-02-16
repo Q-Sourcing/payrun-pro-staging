@@ -134,7 +134,7 @@ export default function AddProjectEmployeesDialog({ project, open, onOpenChange,
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={onConfirm} disabled={assignMutation.isLoading}>
+            <Button onClick={onConfirm} disabled={assignMutation.isPending}>
               Assign Selected
             </Button>
           </div>

@@ -134,14 +134,15 @@ const AddPayGroupDialog = ({ open, onOpenChange, onPayGroupAdded }: AddPayGroupD
         {
           name: formData.name,
           country: formData.country,
-          type: isExpat ? "Expatriate" : formData.type,
-          // DB expects enum like daily_rate/biweekly/monthly
+          type: (isExpat ? "Expatriate" : formData.type) as any,
           pay_frequency: isExpat ? "daily_rate" : formData.pay_frequency,
           default_tax_percentage: taxPercentage,
           description: formData.description || null,
           category: formData.category || null,
           project_id: formData.category === "projects" ? formData.project_id || null : null,
-        },
+          organization_id: '00000000-0000-0000-0000-000000000001',
+          tax_country: formData.country || 'UG',
+        } as any,
       ]);
 
       if (error) throw error;

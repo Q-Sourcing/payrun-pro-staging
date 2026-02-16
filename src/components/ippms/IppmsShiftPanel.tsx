@@ -78,7 +78,7 @@ export function IppmsShiftPanel({ projectId }: Props) {
           <Button
             size="sm"
             onClick={() => assignMutation.mutate()}
-            disabled={!employeeId || !shiftId || !startDate || assignMutation.isLoading}
+            disabled={!employeeId || !shiftId || !startDate || assignMutation.isPending}
           >
             Assign Shift
           </Button>

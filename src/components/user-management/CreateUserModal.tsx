@@ -7,7 +7,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { createUser, CreateUserRequest } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
+
+interface CreateUserRequest {
+  email: string;
+  password: string;
+  first_name?: string;
+  last_name?: string;
+  full_name?: string;
+  role?: string;
+  organization_id?: string;
+  country?: string;
+  [key: string]: any;
+}
+
+const createUser = async (request: CreateUserRequest) => {
+  const { data, error } = await supabase.functions.invoke('create-user', {
+    body: request
+  });
+  if (error) throw error;
+  return data;
+};
 import { ALL_COUNTRIES } from "@/lib/constants/countries";
 import { log, error as logError } from "@/lib/logger";
 import { UserPlus, Loader2, AlertCircle } from "lucide-react";

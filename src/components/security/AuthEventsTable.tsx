@@ -47,7 +47,7 @@ export function AuthEventsTable({ orgId, showFilters = true }: AuthEventsTablePr
       setIsLoading(true);
       const result = await SecurityService.getAuthEvents({
         org_id: orgId,
-        event_type: eventTypeFilter && eventTypeFilter !== 'all' ? eventTypeFilter : undefined,
+        event_type: eventTypeFilter && eventTypeFilter !== 'all' ? eventTypeFilter as any : undefined,
         success: successFilter === 'all' ? undefined : successFilter === 'true' ? true : successFilter === 'false' ? false : undefined,
         ip_address: ipFilter || undefined,
         start_date: startDate || undefined,

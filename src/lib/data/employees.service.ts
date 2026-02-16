@@ -245,7 +245,7 @@ export class EmployeesService {
       .select('id, first_name, middle_name, last_name, email, employee_number, project_id, pay_type, employee_type, status, category')
       .eq('project_id', projectId)
       .eq('category', 'projects')
-      .eq('pay_type', payType)
+      .eq('pay_type', payType as any)
       .eq('status', 'active')) as any;
 
     if (employeeType) {
