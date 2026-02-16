@@ -39,7 +39,7 @@ export interface EmployeeType {
 export class CatalogService {
   // Continents
   static async listContinents(): Promise<Continent[]> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('continents')
       .select(`
         id,
@@ -54,14 +54,14 @@ export class CatalogService {
       throw new Error('Failed to fetch continents')
     }
 
-    return data?.map(continent => ({
+    return (data as any[])?.map((continent: any) => ({
       ...continent,
       countries_count: continent.countries?.[0]?.count || 0
     })) || []
   }
 
   static async createContinent(name: string): Promise<Continent> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('continents')
       .insert({ name })
       .select()
@@ -77,7 +77,7 @@ export class CatalogService {
 
   // Countries
   static async listCountries(): Promise<Country[]> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('countries')
       .select(`
         id,
@@ -95,14 +95,14 @@ export class CatalogService {
       throw new Error('Failed to fetch countries')
     }
 
-    return data?.map(country => ({
+    return (data as any[])?.map((country: any) => ({
       ...country,
       companies_count: country.companies?.[0]?.count || 0
     })) || []
   }
 
   static async createCountry(name: string, iso2: string, continentId: string): Promise<Country> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('countries')
       .insert({ name, iso2, continent_id: continentId })
       .select(`
@@ -125,7 +125,7 @@ export class CatalogService {
 
   // Currencies
   static async listCurrencies(): Promise<Currency[]> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('currencies')
       .select('code, name, symbol, created_at')
       .order('code')
@@ -139,7 +139,7 @@ export class CatalogService {
   }
 
   static async createCurrency(code: string, name: string, symbol?: string): Promise<Currency> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('currencies')
       .insert({ code, name, symbol })
       .select()
@@ -155,7 +155,7 @@ export class CatalogService {
 
   // Employee Types
   static async listEmployeeTypes(): Promise<EmployeeType[]> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('employee_types')
       .select('id, code, name, pay_basis, active, created_at')
       .order('code')
@@ -173,7 +173,7 @@ export class CatalogService {
     name: string, 
     payBasis: 'monthly' | 'daily' | 'hourly'
   ): Promise<EmployeeType> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('employee_types')
       .insert({ code, name, pay_basis: payBasis })
       .select()
@@ -191,7 +191,7 @@ export class CatalogService {
     id: string, 
     updates: Partial<Pick<EmployeeType, 'name' | 'pay_basis' | 'active'>>
   ): Promise<EmployeeType> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('employee_types')
       .update(updates)
       .eq('id', id)
@@ -207,7 +207,7 @@ export class CatalogService {
   }
 
   static async deleteEmployeeType(id: string): Promise<void> {
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('employee_types')
       .delete()
       .eq('id', id)

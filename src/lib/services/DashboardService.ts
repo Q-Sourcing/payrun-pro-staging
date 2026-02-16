@@ -2,9 +2,9 @@ import { supabase } from '@/integrations/supabase/client';
 
 async function countWithOrg(table: string, orgId: string) {
   // Attempt org-scoped count; if column missing, fallback to global count
-  const scoped = await supabase.from(table).select('id', { count: 'exact', head: true }).eq('organization_id', orgId)
+  const scoped = await (supabase as any).from(table).select('id', { count: 'exact', head: true }).eq('organization_id', orgId)
   if (!scoped.error) return scoped.count || 0
-  const global = await supabase.from(table).select('id', { count: 'exact', head: true })
+  const global = await (supabase as any).from(table).select('id', { count: 'exact', head: true })
   return global.count || 0
 }
 

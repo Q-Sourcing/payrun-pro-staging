@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { createUserSchema, updateUserSchema, type CreateUserInput, type UpdateUserInput } from '@/lib/validations/users.schema';
+import { createUserSchema, updateUserSchema, type CreateUserInput, type UpdateUserInput, type UsersQueryOptions } from '@/lib/validations/users.schema';
 export type { UsersQueryOptions } from '@/lib/validations/users.schema';
 import type { User, UserRole } from '@/lib/types/roles';
 
@@ -110,7 +110,7 @@ export class UsersService {
           email: profile.email,
           firstName: profile.first_name || '',
           lastName: profile.last_name || '',
-          role: userRolesMap[profile.id] || 'employee',
+          role: (userRolesMap[profile.id] || 'SELF_USER') as UserRole,
           isActive: isActive,
           status: orgStatus || 'active', // Add explicit status field if interface allows, otherwise rely on isActive logic
           createdAt: profile.created_at || new Date().toISOString(),
@@ -172,7 +172,7 @@ export class UsersService {
         email: profile.email,
         firstName: profile.first_name || '',
         lastName: profile.last_name || '',
-        role: (userRole?.role as UserRole) || 'employee',
+        role: (userRole?.role as UserRole) || 'SELF_USER' as UserRole,
         isActive: true,
         createdAt: profile.created_at || new Date().toISOString(),
         updatedAt: profile.updated_at || new Date().toISOString(),

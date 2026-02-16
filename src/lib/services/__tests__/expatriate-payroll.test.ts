@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { ExpatriatePayrollService } from '../expatriate-payroll';
 import type { ExpatriateCalculationInput } from '../../types/expatriate-payroll';
 

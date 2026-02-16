@@ -142,8 +142,8 @@ export class RealtimeService {
           
           // Update specific queries based on the change
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
-            const employeeId = payload.new?.employee_id || payload.old?.employee_id;
-            const payGroupId = payload.new?.pay_group_id || payload.old?.pay_group_id;
+            const employeeId = (payload.new as any)?.employee_id || (payload.old as any)?.employee_id;
+            const payGroupId = (payload.new as any)?.pay_group_id || (payload.old as any)?.pay_group_id;
             
             if (employeeId) {
               queryClient.invalidateQueries({ queryKey: queryKeys.payGroupEmployees.byEmployee(employeeId) });

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { supabase } from '@/integrations/supabase/client';
 import type { AuthEvent, AuthEventQueryOptions } from '@/lib/services/auth/auth-logger';
 

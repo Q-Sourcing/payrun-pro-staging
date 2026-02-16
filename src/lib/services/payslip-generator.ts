@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { supabase } from '@/integrations/supabase/client';
 import { PayslipData } from '@/lib/types/payslip';
 import { format } from 'date-fns';

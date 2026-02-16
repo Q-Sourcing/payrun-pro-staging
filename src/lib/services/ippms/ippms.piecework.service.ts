@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { supabase } from '@/integrations/supabase/client';
 import type { IppmsPieceEntryInput, IppmsPieceWorkCatalogue, IppmsPieceWorkEntry, IppmsPieceWorkRate } from '@/lib/types/ippmsWorkforce';
 

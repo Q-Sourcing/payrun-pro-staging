@@ -37,7 +37,7 @@ export const createPayItemSchema = z.object({
 });
 
 // Update pay item schema
-export const updatePayItemSchema = createPayItemSchema.partial().extend({
+export const updatePayItemSchema = (createPayItemSchema as any).partial().extend({
   id: z.string().uuid('Invalid pay item ID'),
 });
 

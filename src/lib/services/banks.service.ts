@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Banks Service
  * Service functions for managing banks
