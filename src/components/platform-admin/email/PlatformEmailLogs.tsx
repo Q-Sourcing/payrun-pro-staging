@@ -37,7 +37,7 @@ export function PlatformEmailLogs() {
                 .limit(50);
 
             if (error) throw error;
-            setLogs(data || []);
+            setLogs((data || []) as EmailLog[]);
         } catch (error) {
             console.error('Error loading logs:', error);
         } finally {

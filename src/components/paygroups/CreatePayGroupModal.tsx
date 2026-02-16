@@ -161,7 +161,7 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
             .eq('status', 'active')
             .order('name');
           if (error) throw error;
-          setProjects(data || []);
+          setProjects((data || []) as Project[]);
         } catch (err) {
           console.error('Error fetching projects:', err);
         }
@@ -463,13 +463,12 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
         payGroup = await HeadOfficePayGroupsService.createPayGroup(headOfficeType, {
           name: formData.name,
           pay_frequency: formData.pay_frequency as any,
-          country: formData.country,
           currency: formData.currency,
           default_tax_percentage: formData.default_tax_percentage,
           notes: formData.notes,
           organization_id: organizationId,
           status: 'active'
-        });
+        } as any);
 
         // Assign employees if selected
         if (payGroup?.id && selectedEmployeeIds.length > 0) {

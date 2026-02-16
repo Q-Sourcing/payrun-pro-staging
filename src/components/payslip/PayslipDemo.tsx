@@ -261,7 +261,7 @@ export const PayslipDemo: React.FC = () => {
               </div>
               <div className="flex justify-between">
                 <span>Department:</span>
-                <span className="font-medium">{sampleData.employee.department}</span>
+                <span className="font-medium">{sampleData.employee.subDepartment}</span>
               </div>
               <div className="flex justify-between">
                 <span>Gross Pay:</span>

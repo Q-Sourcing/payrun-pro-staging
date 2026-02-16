@@ -19,7 +19,7 @@ export const PayGroupsNavigation: React.FC<PayGroupsNavigationProps> = ({
     switch (type) {
       case 'regular': return <Users className="h-4 w-4" />;
       case 'expatriate': return <Globe2 className="h-4 w-4" />;
-      case 'contractor': return <Briefcase className="h-4 w-4" />;
+      case 'piece_rate': return <Briefcase className="h-4 w-4" />;
       case 'intern': return <GraduationCap className="h-4 w-4" />;
     }
   };

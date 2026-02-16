@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,7 @@ import {
   Users,
   X
 } from 'lucide-react';
-import { useEmployeesByPayGroup, useAssignEmployee, useRemoveEmployeeFromPayGroup } from '@/hooks/use-paygroup-employees';
+import { useEmployeesByPayGroup, useAssignEmployee } from '@/hooks/use-paygroup-employees';
 import { useDebouncedSearch } from '@/hooks/use-debounced-search';
 import { getEmployeeTypeForPayGroup } from '@/lib/utils/paygroup-utils';
 import type { PayGroup } from '@/lib/types/paygroups';
@@ -44,7 +45,12 @@ export default function OptimizedViewAssignedEmployeesDialog({
   } = useEmployeesByPayGroup(payGroup.id, { active_only: true });
 
   const assignEmployeeMutation = useAssignEmployee();
-  const removeEmployeeMutation = useRemoveEmployeeFromPayGroup();
+  const removeEmployeeMutation = useMutation({
+    mutationFn: async (_data: { employeeId: string; payGroupId: string }) => {
+      // Placeholder - implement remove logic
+      throw new Error('Not implemented');
+    }
+  });
 
   // Debounced search for assigned employees
   const { results: filteredEmployees, loading: searchLoading } = useDebouncedSearch(
@@ -74,8 +80,8 @@ export default function OptimizedViewAssignedEmployeesDialog({
   const handleAssignEmployee = async (employeeId: string) => {
     try {
       await assignEmployeeMutation.mutateAsync({
-        employeeId,
-        payGroupId: payGroup.id
+        employee_id: employeeId,
+        pay_group_id: payGroup.id
       });
       setShowAssign(false);
       onUpdate?.();

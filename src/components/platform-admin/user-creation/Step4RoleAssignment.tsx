@@ -16,6 +16,8 @@ interface OrgRole {
 }
 
 export function Step4RoleAssignment({ data, updateData }: StepProps) {
+    const [loading, setLoading] = useState(false);
+    const [rolesByOrg, setRolesByOrg] = useState<Record<string, OrgRole[]>>({});
     const [orgNames, setOrgNames] = useState<Record<string, string>>({});
 
     useEffect(() => {

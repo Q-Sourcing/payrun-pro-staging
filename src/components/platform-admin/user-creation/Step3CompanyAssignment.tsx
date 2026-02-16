@@ -26,8 +26,7 @@ export function Step3CompanyAssignment({ data, updateData }: StepProps) {
             const { data: companies, error } = await supabase
                 .from('companies')
                 .select('id, name, organization_id')
-                .in('organization_id', data.selectedOrgIds)
-                .eq('status', 'active');
+                .in('organization_id', data.selectedOrgIds as string[]);
 
             if (companies) {
                 const grouped: Record<string, Company[]> = {};

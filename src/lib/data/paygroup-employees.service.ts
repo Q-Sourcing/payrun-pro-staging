@@ -132,8 +132,8 @@ export class PayGroupEmployeesService {
       if (error) throw error;
 
       // Transform data to normalize pay group info
-      const transformedData: PayGroupEmployee[] = (data || []).map(record => {
-        const payGroup = record.pay_groups || record.expatriate_pay_groups;
+      const transformedData: PayGroupEmployee[] = (data || []).map((record: any) => {
+        const payGroup = record.pay_groups || record.expatriate_pay_groups || {};
         
         return {
           id: record.id,

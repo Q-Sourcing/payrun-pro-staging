@@ -1691,6 +1691,7 @@ const PayGroupDetailsDialog: React.FC<{
                 country: payGroup.country,
                 currency: payGroup.currency,
                 exchange_rate_to_local: payGroup.exchange_rate_to_local,
+                default_daily_rate: payGroup.default_daily_rate || 0,
                 tax_country: payGroup.tax_country,
                 notes: payGroup.notes || ''
           });

@@ -25,6 +25,7 @@ export const ExpatriatePayGroupsSection: React.FC = () => {
     country: '',
     currency: 'USD',
     exchange_rate_to_local: 0,
+    default_daily_rate: 0,
     tax_country: 'UG',
     notes: ''
   });
@@ -87,6 +88,7 @@ export const ExpatriatePayGroupsSection: React.FC = () => {
       country: payGroup.country,
       currency: payGroup.currency,
       exchange_rate_to_local: payGroup.exchange_rate_to_local,
+      default_daily_rate: payGroup.default_daily_rate || 0,
       tax_country: payGroup.tax_country,
       notes: payGroup.notes || ''
     });
@@ -116,6 +118,7 @@ export const ExpatriatePayGroupsSection: React.FC = () => {
       country: '',
       currency: 'USD',
       exchange_rate_to_local: 0,
+      default_daily_rate: 0,
       tax_country: 'UG',
       notes: ''
     });

@@ -1,13 +1,19 @@
+import React, { useState, useEffect } from 'react';
 import { EmailBlockEditor, EmailDesign } from '@/components/admin/email-editor/EmailBlockEditor';
-
-// ... (keep headers)
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Edit2 } from 'lucide-react';
 
 interface EmailTemplate {
     id: string;
     event_key: string;
     subject_template: string;
     body_html_template: string;
-    design: EmailDesign | null; // JSONB
+    design: EmailDesign | null;
     is_active: boolean;
     event: {
         description: string;
@@ -20,7 +26,9 @@ export function PlatformTemplateManager() {
     const [templates, setTemplates] = useState<EmailTemplate[]>([]);
     const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
 
-    // ... (loadTemplates logic remains mostly the same, ensuring design col is fetched)
+    useEffect(() => {
+        loadTemplates();
+    }, []);
 
     const loadTemplates = async () => {
         setLoading(true);
@@ -32,7 +40,7 @@ export function PlatformTemplateManager() {
                 .order('event_key');
 
             if (error) throw error;
-            setTemplates(data || []);
+            setTemplates((data || []) as any);
         } catch (error) {
             console.error(error);
             toast({ title: 'Error', variant: 'destructive', description: 'Failed to load templates' });
@@ -48,8 +56,8 @@ export function PlatformTemplateManager() {
                 .from('email_templates')
                 .update({
                     subject_template: design.subject,
-                    body_html_template: '<!-- Replaced by JSON design -->', // Legacy fallback or keep generated HTML if we implement server-side generation here too
-                    design: design,
+                    body_html_template: '<!-- Replaced by JSON design -->',
+                    design: design as any,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', editingTemplate.id);

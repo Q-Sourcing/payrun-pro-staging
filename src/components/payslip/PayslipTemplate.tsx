@@ -177,7 +177,7 @@ export const PayslipTemplate: React.FC<PayslipTemplateProps> = ({
               fontSize: config.styling.smallSize,
               fontFamily: config.styling.fontFamily,
               fontWeight: config.styling.fontWeight.medium
-            }}>{data.employee.department}</span>
+            }}>{data.employee.subDepartment}</span>
           </div>
         </div>
         

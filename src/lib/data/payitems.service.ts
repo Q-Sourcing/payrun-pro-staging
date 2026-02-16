@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
-import { createPayItemSchema, updatePayItemSchema, type CreatePayItemInput, type UpdatePayItemInput, type PayItemsQueryOptions, type PayItemStatus } from '@/lib/validations/payitems.schema';
+import { createPayItemSchema, updatePayItemSchema, type CreatePayItemInput, type UpdatePayItemInput, type PayItemStatus } from '@/lib/validations/payitems.schema';
+export type { PayItemsQueryOptions } from '@/lib/validations/payitems.schema';
 
 export interface PayItem {
   id: string;

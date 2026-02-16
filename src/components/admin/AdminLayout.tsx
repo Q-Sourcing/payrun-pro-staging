@@ -50,13 +50,16 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   useEffect(() => {
     // Check impersonation status
-    try {
-      const context = ImpersonationService.getImpersonationContext()
-      setImpersonationContext(context)
-    } catch (error) {
-      console.warn('Could not get impersonation context:', error)
-      setImpersonationContext({ isImpersonated: false })
+    const loadContext = async () => {
+      try {
+        const context = await ImpersonationService.getImpersonationContext()
+        setImpersonationContext(context)
+      } catch (error) {
+        console.warn('Could not get impersonation context:', error)
+        setImpersonationContext({ isImpersonated: false })
+      }
     }
+    loadContext()
   }, [])
 
   const handleEndImpersonation = async () => {

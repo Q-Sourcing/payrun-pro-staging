@@ -228,7 +228,7 @@ export const AssignEmployeeModal: React.FC<AssignEmployeeModalProps> = ({
         // Derive the correct HeadOfficePayGroupRefType from employee_type
         // This handles legacy 'local' and normalizes 'interns' to 'intern'
         let payGroupType: 'regular' | 'intern' | 'expatriate';
-        if (presetGroup.employee_type === 'regular' || presetGroup.employee_type === 'local') {
+        if (presetGroup.employee_type === 'regular' || (presetGroup.employee_type as string) === 'local') {
           payGroupType = 'regular';
         } else if (presetGroup.employee_type === 'interns') {
           payGroupType = 'intern';

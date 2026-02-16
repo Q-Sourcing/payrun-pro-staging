@@ -3,8 +3,26 @@ import type { PayGroup, PayGroupType } from '@/lib/types/paygroups';
 import { createPayGroupSchema, updatePayGroupSchema, type CreatePayGroupInput, type UpdatePayGroupInput } from '@/lib/validations/paygroups.schema';
 import { generatePayGroupId } from '@/lib/types/paygroups';
 
-export interface PayGroupWithEmployeeCount extends PayGroup {
+export interface PayGroupWithEmployeeCount {
+  id?: string;
+  paygroup_id?: string;
+  name: string;
+  type: PayGroupType | string;
+  category?: string;
+  employee_type?: string;
+  pay_frequency?: string;
+  country: string;
+  currency?: string;
+  status?: string;
   employee_count: number;
+  created_at?: string;
+  updated_at?: string;
+  notes?: string;
+  description?: string;
+  default_tax_percentage?: number;
+  exchange_rate_to_local?: number;
+  tax_country?: string;
+  [key: string]: any;
 }
 
 export interface PayGroupsQueryOptions {
@@ -174,33 +192,18 @@ export class PayGroupsDataService {
     try {
       const tableName = type === 'regular' ? 'pay_groups' : 'expatriate_pay_groups';
       
-      const { data, error } = await supabase
+      const { data: rawData, error } = await supabase
         .from(tableName)
-        .select(`
-          id,
-          name,
-          country,
-          currency,
-          created_at,
-          updated_at,
-          ${type === 'regular' ? `
-            pay_frequency,
-            default_tax_percentage,
-            description as notes
-          ` : `
-            exchange_rate_to_local,
-            default_daily_rate,
-            tax_country,
-            notes
-          `}
-        `)
+        .select('*')
         .eq('id', id)
         .single();
 
       if (error) {
-        if (error.code === 'PGRST116') return null; // Not found
+        if (error.code === 'PGRST116') return null;
         throw error;
       }
+
+      const data = rawData as any;
 
       // Get employee count separately for efficiency
       const { count } = await supabase

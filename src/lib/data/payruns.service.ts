@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
-import { createPayRunSchema, updatePayRunSchema, type CreatePayRunInput, type UpdatePayRunInput, type PayRunsQueryOptions, type PayRunStatus } from '@/lib/validations/payruns.schema';
+import { createPayRunSchema, updatePayRunSchema, type CreatePayRunInput, type UpdatePayRunInput, type PayRunStatus } from '@/lib/validations/payruns.schema';
+export type { PayRunsQueryOptions } from '@/lib/validations/payruns.schema';
 
 export interface PayRun {
   id: string;

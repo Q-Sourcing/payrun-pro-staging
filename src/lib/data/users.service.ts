@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
-import { createUserSchema, updateUserSchema, type CreateUserInput, type UpdateUserInput, type UsersQueryOptions } from '@/lib/validations/users.schema';
+import { createUserSchema, updateUserSchema, type CreateUserInput, type UpdateUserInput } from '@/lib/validations/users.schema';
+export type { UsersQueryOptions } from '@/lib/validations/users.schema';
 import type { User, UserRole } from '@/lib/types/roles';
 
 export interface UserWithRole extends User {

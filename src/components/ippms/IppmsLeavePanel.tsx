@@ -89,7 +89,7 @@ export function IppmsLeavePanel({ projectId }: Props) {
           <Button
             size="sm"
             onClick={() => applyMutation.mutate()}
-            disabled={!employeeId || !leaveTypeId || !startDate || !endDate || applyMutation.isLoading}
+            disabled={!employeeId || !leaveTypeId || !startDate || !endDate || applyMutation.isPending}
           >
             Apply Leave
           </Button>

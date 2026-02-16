@@ -75,7 +75,7 @@ export async function listGrants(orgId: string) {
         .eq("scope_id", orgId); // This might need refinement based on how scope_id is used for COMPANY/PROJECT
 
     if (error) throw error;
-    return data as Grant[];
+    return data as unknown as Grant[];
 }
 
 export async function createGrant(payload: Omit<Grant, 'id' | 'created_at' | 'created_by'>) {
@@ -107,7 +107,7 @@ export async function getEffectivePermissions(userId: string, orgId: string) {
     // This is a complex query that mirrors the has_permission logic but returns the list
     // For the UI, we might just query the auth metadata if it's for the current user,
     // or a custom RPC if we want it for any user.
-    const { data, error } = await supabase.rpc('get_user_effective_permissions', { p_user_id: userId, p_org_id: orgId });
+    const { data, error } = await supabase.rpc('get_user_effective_permissions' as any, { p_user_id: userId, p_org_id: orgId });
     if (error) throw error;
     return data;
 }

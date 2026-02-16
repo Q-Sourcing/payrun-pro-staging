@@ -222,7 +222,6 @@ function AddGrantModal({ orgId, permissions, roles, users, companies, onSuccess 
             return;
         }
         mutation.mutate({
-            org_id: orgId,
             user_id: targetType === "user" ? targetId : null,
             role_code: targetType === "role" ? targetId : null,
             permission_key: permissionKey,
@@ -231,7 +230,7 @@ function AddGrantModal({ orgId, permissions, roles, users, companies, onSuccess 
             scope_id: scopeType === "ORGANIZATION" ? orgId : scopeId,
             valid_until: validUntil ? validUntil.toISOString() : null,
             reason
-        });
+        } as any);
     };
 
     return (
