@@ -609,9 +609,9 @@ const EmployeesTab = () => {
                 )}
                 {visibleColumns.name !== false && (
                   <td className="px-4 py-2 text-sm">
-                    <div className="font-medium text-foreground">
+                    <Link to={`/employees/${employee.id}`} className="font-medium text-primary hover:underline">
                       {getFullName(employee)}
-                    </div>
+                    </Link>
                   </td>
                 )}
                 {visibleColumns.type !== false && (
