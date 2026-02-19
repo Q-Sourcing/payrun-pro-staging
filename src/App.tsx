@@ -83,24 +83,8 @@ import MyApprovals from "./pages/MyApprovals";
 // Query client is now imported from optimized configuration
 
 // Protected route wrapper
+// TODO: Re-enable auth after Phase 2 development
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useSupabaseAuth();
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
-          <p className="mt-4 text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
   return <>{children}</>;
 }
 
