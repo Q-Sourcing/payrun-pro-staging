@@ -73,6 +73,7 @@ import PlatformAdminDashboard from "./pages/PlatformAdminDashboard";
 import MainLayout from "./layouts/MainLayout";
 import { OrgProvider } from '@/lib/tenant/OrgContext';
 import Dashboard from "./pages/Dashboard";
+import EmployeeProfile from "./pages/EmployeeProfile";
 import Projects from "./pages/Projects";
 import ProjectDetailPage from "./components/projects/ProjectDetailPage";
 import CompanyPicker from "./components/auth/CompanyPicker";
@@ -156,6 +157,7 @@ const App = () => {
 
                   {/* Core Module Routes */}
                   <Route path="employees" element={<EmployeesTab />} />
+                  <Route path="employees/:employeeId" element={<EmployeeProfile />} />
                   <Route path="projects" element={<Projects />} />
                   <Route path="projects/:projectId" element={<ProjectDetailPage />} />
                   <Route path="paygroups" element={<PayGroupsTab />} />

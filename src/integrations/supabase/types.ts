@@ -795,6 +795,62 @@ export type Database = {
           },
         ]
       }
+      contract_templates: {
+        Row: {
+          body_html: string
+          country_code: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          employment_type: string | null
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string
+          placeholders: Json
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          body_html?: string
+          country_code?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          employment_type?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id: string
+          placeholders?: Json
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          body_html?: string
+          country_code?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          employment_type?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+          placeholders?: Json
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contractor_pay_run_items: {
         Row: {
           contract_rate: number
@@ -1181,6 +1237,108 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_contracts: {
+        Row: {
+          auto_renew: boolean
+          body_html: string | null
+          contract_number: string | null
+          created_at: string
+          created_by: string | null
+          employee_id: string
+          end_date: string | null
+          id: string
+          notes: string | null
+          organization_id: string
+          salary_snapshot: Json | null
+          signed_by_employee_at: string | null
+          signed_by_employer_at: string | null
+          signed_by_employer_name: string | null
+          start_date: string | null
+          status: string
+          template_id: string | null
+          terms_snapshot: Json | null
+          updated_at: string
+        }
+        Insert: {
+          auto_renew?: boolean
+          body_html?: string | null
+          contract_number?: string | null
+          created_at?: string
+          created_by?: string | null
+          employee_id: string
+          end_date?: string | null
+          id?: string
+          notes?: string | null
+          organization_id: string
+          salary_snapshot?: Json | null
+          signed_by_employee_at?: string | null
+          signed_by_employer_at?: string | null
+          signed_by_employer_name?: string | null
+          start_date?: string | null
+          status?: string
+          template_id?: string | null
+          terms_snapshot?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          auto_renew?: boolean
+          body_html?: string | null
+          contract_number?: string | null
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string
+          end_date?: string | null
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          salary_snapshot?: Json | null
+          signed_by_employee_at?: string | null
+          signed_by_employer_at?: string | null
+          signed_by_employer_name?: string | null
+          start_date?: string | null
+          status?: string
+          template_id?: string | null
+          terms_snapshot?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_contracts_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_contracts_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "employee_contracts_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_contracts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_contracts_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "contract_templates"
             referencedColumns: ["id"]
           },
         ]
