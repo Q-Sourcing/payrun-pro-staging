@@ -28,6 +28,9 @@ const AddProjectDialog = ({ open, onOpenChange, onProjectAdded }: AddProjectDial
         project_subtype: "" as "daily" | "bi_weekly" | "monthly" | "",
         supports_all_pay_types: false,
         allowed_pay_types: [] as string[],
+        client_name: "",
+        location: "",
+        contract_value: "",
     });
     const [loading, setLoading] = useState(false);
     const { toast } = useToast();
@@ -85,7 +88,10 @@ const AddProjectDialog = ({ open, onOpenChange, onProjectAdded }: AddProjectDial
                     project_subtype: formData.project_type === "manpower" ? formData.project_subtype || null : null,
                     supports_all_pay_types: formData.supports_all_pay_types,
                     allowed_pay_types: formData.supports_all_pay_types ? null : formData.allowed_pay_types,
-                },
+                    client_name: formData.client_name || null,
+                    location: formData.location || null,
+                    contract_value: formData.contract_value ? parseFloat(formData.contract_value) : null,
+                } as any,
             ]);
 
             if (error) throw error;
@@ -106,6 +112,9 @@ const AddProjectDialog = ({ open, onOpenChange, onProjectAdded }: AddProjectDial
                 project_subtype: "",
                 supports_all_pay_types: false,
                 allowed_pay_types: [],
+                client_name: "",
+                location: "",
+                contract_value: "",
             });
             onProjectAdded();
             onOpenChange(false);
@@ -132,7 +141,7 @@ const AddProjectDialog = ({ open, onOpenChange, onProjectAdded }: AddProjectDial
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px] modern-dialog">
+            <DialogContent className="sm:max-w-[600px] modern-dialog max-h-[90vh] overflow-y-auto">
                 <DialogHeader className="modern-dialog-header">
                     <DialogTitle className="modern-dialog-title">Create Project</DialogTitle>
                     <DialogDescription className="modern-dialog-description">
@@ -307,6 +316,40 @@ const AddProjectDialog = ({ open, onOpenChange, onProjectAdded }: AddProjectDial
                             rows={3}
                         />
                     </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="client_name">Client Name</Label>
+                        <Input
+                            id="client_name"
+                            value={formData.client_name}
+                            onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
+                            placeholder="e.g., Ministry of Works"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="location">Location</Label>
+                            <Input
+                                id="location"
+                                value={formData.location}
+                                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                placeholder="e.g., Kampala"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="contract_value">Contract Value</Label>
+                            <Input
+                                id="contract_value"
+                                type="number"
+                                value={formData.contract_value}
+                                onChange={(e) => setFormData({ ...formData, contract_value: e.target.value })}
+                                placeholder="e.g., 500000"
+                            />
+                        </div>
+                    </div>
+
+
 
                     <div className="flex gap-3 pt-4">
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1">

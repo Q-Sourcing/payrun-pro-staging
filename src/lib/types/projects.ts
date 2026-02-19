@@ -12,6 +12,20 @@ export interface Project {
     status: 'active' | 'inactive' | 'completed';
     start_date?: string | null;
     end_date?: string | null;
+    responsible_manager_id?: string | null;
+    client_name?: string | null;
+    location?: string | null;
+    contract_value?: number | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface ProjectOnboardingStep {
+    id: string;
+    project_id: string;
+    step_key: string;
+    completed: boolean;
+    completed_at: string | null;
     created_at: string;
     updated_at: string;
 }
