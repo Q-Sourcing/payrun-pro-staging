@@ -18,7 +18,12 @@ for (const envFile of envFiles) {
         if (key && valueParts.length > 0) {
           const value = valueParts.join('=').trim().replace(/^["']|["']$/g, '');
           envVars[key.trim()] = value;
-          console.log('  ', key.trim(), '=', value);
+          // Only show non-sensitive keys
+          if (key.trim().includes('URL') || key.trim().includes('ENV') || key.trim().includes('NODE_ENV') || key.trim().includes('PROJECT_ID')) {
+            console.log('  ', key.trim(), '=', value);
+          } else {
+            console.log('  ', key.trim(), '= [REDACTED]');
+          }
         }
       }
     }
@@ -26,11 +31,5 @@ for (const envFile of envFiles) {
 }
 
 console.log('\n=== Final Results ===');
-console.log('VITE_SUPABASE_URL:', envVars.VITE_SUPABASE_URL);
-console.log('NODE_ENV:', envVars.NODE_ENV);
-
-// Extract project ref
-if (envVars.VITE_SUPABASE_URL) {
-  const match = envVars.VITE_SUPABASE_URL.match(/https:\/\/([^.]+)\.supabase\.co/);
-  console.log('Project Ref:', match ? match[1] : 'not found');
-}
+console.log('VITE_SUPABASE_URL:', envVars.VITE_SUPABASE_URL || 'not set');
+console.log('NODE_ENV:', envVars.NODE_ENV || 'not set');

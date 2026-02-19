@@ -20,32 +20,24 @@ if ! supabase projects list &> /dev/null; then
     exit 1
 fi
 
-# Check if linked to project
-PROJECT_REF="sbphmrjoappwlervnbtm"
-echo "🔗 Checking project link..."
-if ! supabase status &> /dev/null; then
-    echo "📌 Linking to staging project..."
-    supabase link --project-ref $PROJECT_REF
-fi
-
 echo ""
 echo "📋 To set environment variables for secure-login Edge Function:"
 echo ""
 echo "Option 1: Via Supabase Dashboard (Recommended)"
-echo "   1. Go to: https://supabase.com/dashboard/project/$PROJECT_REF/functions/secure-login"
+echo "   1. Go to your project's Edge Functions settings"
 echo "   2. Click 'Settings' tab"
 echo "   3. Add these secrets:"
-echo "      - SUPABASE_URL=https://$PROJECT_REF.supabase.co"
+echo "      - SUPABASE_URL=<your-project-url>"
 echo "      - SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>"
 echo ""
 echo "   To get your service role key:"
-echo "   - Go to: https://supabase.com/dashboard/project/$PROJECT_REF/settings/api"
+echo "   - Go to your project Settings → API"
 echo "   - Copy the 'service_role' key (keep it secret!)"
 echo ""
 
 echo "Option 2: Via Supabase CLI"
 echo "   Run these commands:"
-echo "   supabase secrets set SUPABASE_URL=https://$PROJECT_REF.supabase.co"
+echo "   supabase secrets set SUPABASE_URL=<your-project-url>"
 echo "   supabase secrets set SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>"
 echo ""
 
@@ -54,4 +46,3 @@ echo "   supabase functions deploy secure-login"
 echo ""
 
 echo "✅ Setup instructions complete!"
-
