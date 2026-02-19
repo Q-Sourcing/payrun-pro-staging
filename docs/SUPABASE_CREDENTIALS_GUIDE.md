@@ -3,95 +3,53 @@
 ## Overview
 This guide will help you obtain the real Supabase API keys for both production and staging environments.
 
-## 🏭 Production Environment (Nalungu's Payroll)
+## 🔒 Security Best Practices
+
+### NEVER commit secrets to the repository
+- **Service role keys** must ONLY be stored in Supabase Edge Function secrets
+- **Database passwords** must ONLY be stored in secure password managers
+- **Anon/public keys** are safe to use in client-side code (they are publishable)
+
+### For Local Development
+- Use `.env.local` for local development overrides
+- Add `.env.local` to `.gitignore`
+- Only store publishable keys (anon key, project URL) in `.env`
+
+### For Production/Staging
+- Store service role keys in Supabase Edge Function secrets
+- Use environment variables in deployment platforms
+- Rotate keys regularly
+
+## 🏭 Getting API Keys
 
 ### Step 1: Access Supabase Dashboard
 1. Go to [https://supabase.com/dashboard](https://supabase.com/dashboard)
 2. Sign in with your account
-3. Find the project: **"Nalungu's Payroll"** (Project ID: `kctwfgbjmhnfqtxhagib`)
+3. Select your project
 
 ### Step 2: Get API Keys
 1. Click on **Settings** → **API**
 2. Copy the following values:
-   - **Project URL**: `https://kctwfgbjmhnfqtxhagib.supabase.co`
-   - **anon/public key**: (starts with `eyJ...`)
-   - **service_role key**: (starts with `eyJ...`)
+   - **Project URL**: Your project URL
+   - **anon/public key**: Safe for client-side use
+   - **service_role key**: Server-side ONLY - never expose in client code
 
-### Step 3: Update Production Environment
-Replace the values in `.env`:
+### Step 3: Configure Environment
+Add publishable keys to `.env`:
 ```bash
-VITE_SUPABASE_URL=https://kctwfgbjmhnfqtxhagib.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJ... (your real anon key)
-SUPABASE_SERVICE_ROLE_KEY=eyJ... (your real service role key)
-NODE_ENV=production
-NEXT_PUBLIC_ENV=production
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-## 🧪 Staging Environment (Payroll-Staging)
-
-### Step 1: Access Staging Project
-1. In Supabase Dashboard, find: **"Payroll-Staging"** (Project ID: `sbphmrjoappwlervnbtm`)
-
-### Step 2: Get Staging API Keys
-1. Click on **Settings** → **API**
-2. Copy the staging values:
-   - **Project URL**: `https://sbphmrjoappwlervnbtm.supabase.co`
-   - **anon/public key**: (starts with `eyJ...`)
-   - **service_role key**: (starts with `eyJ...`)
-
-### Step 3: Update Staging Environment
-Replace the values in `.env.staging`:
-```bash
-VITE_SUPABASE_URL=https://sbphmrjoappwlervnbtm.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJ... (your real staging anon key)
-SUPABASE_SERVICE_ROLE_KEY=eyJ... (your real staging service role key)
-NODE_ENV=staging
-NEXT_PUBLIC_ENV=staging
-```
-
-## 🔒 Security Best Practices
-
-### For Local Development
-- Never commit real API keys to Git
-- Use `.env.local` for local development
-- Add `.env.local` to `.gitignore`
-
-### For Production/Staging
-- Store keys in GitHub Secrets
-- Use environment variables in deployment
-- Rotate keys regularly
+Store service role key in Supabase secrets:
+- Go to Supabase Dashboard → Settings → Edge Functions
+- Add `SUPABASE_SERVICE_ROLE_KEY` as a secret
 
 ## 🧪 Testing Your Credentials
-
-### Quick Test Script
-Run this command to test your credentials:
-```bash
-# Test production
-cp .env.production .env
-node scripts/testSupabaseConnection.cjs
-
-# Test staging  
-cp .env.staging .env
-node scripts/testSupabaseConnection.cjs
-```
-
-### Expected Results
+Run the application and verify:
 - ✅ Connection successful
-- ✅ Query returns data
-- ✅ Environment badge shows correct environment
-
-## 🚨 Troubleshooting
-
-### Common Issues
-1. **Invalid API key**: Check if you copied the full key
-2. **Connection refused**: Verify the project URL
-3. **Permission denied**: Ensure RLS policies allow access
-
-### Verification Steps
-1. Check Supabase project is active
-2. Verify API keys are correct
-3. Test with simple query
-4. Check network connectivity
+- ✅ Authentication works
+- ✅ Data loads correctly
 
 ## 📞 Support
 If you need help:
