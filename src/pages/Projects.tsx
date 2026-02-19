@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import AddProjectDialog from "@/components/projects/AddProjectDialog";
-import { Plus, FolderKanban, Calendar, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { Plus, FolderKanban, Calendar, CheckCircle2, XCircle, Clock, MapPin, Building2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface Project {
@@ -18,6 +18,9 @@ interface Project {
     end_date: string | null;
     project_type: string | null;
     project_subtype: string | null;
+    client_name: string | null;
+    location: string | null;
+    contract_value: number | null;
     created_at: string;
 }
 
@@ -162,6 +165,18 @@ const Projects = () => {
                                             <span>
                                                 {formatDate(project.start_date)} - {formatDate(project.end_date)}
                                             </span>
+                                        </div>
+                                    )}
+                                    {project.client_name && (
+                                        <div className="flex items-center gap-2 text-muted-foreground">
+                                            <Building2 className="w-4 h-4" />
+                                            <span>{project.client_name}</span>
+                                        </div>
+                                    )}
+                                    {project.location && (
+                                        <div className="flex items-center gap-2 text-muted-foreground">
+                                            <MapPin className="w-4 h-4" />
+                                            <span>{project.location}</span>
                                         </div>
                                     )}
                                 </div>

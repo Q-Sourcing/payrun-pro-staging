@@ -4277,18 +4277,60 @@ export type Database = {
         }
         Relationships: []
       }
+      project_onboarding_steps: {
+        Row: {
+          completed: boolean
+          completed_at: string | null
+          created_at: string
+          id: string
+          project_id: string
+          step_key: string
+          updated_at: string
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          project_id: string
+          step_key: string
+          updated_at?: string
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          project_id?: string
+          step_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_onboarding_steps_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           allowed_pay_types: string[] | null
+          client_name: string | null
           code: string
+          contract_value: number | null
           created_at: string | null
           description: string | null
           end_date: string | null
           id: string
+          location: string | null
           name: string
           organization_id: string | null
           project_subtype: string | null
           project_type: string | null
+          responsible_manager_id: string | null
           start_date: string | null
           status: string | null
           supports_all_pay_types: boolean
@@ -4296,15 +4338,19 @@ export type Database = {
         }
         Insert: {
           allowed_pay_types?: string[] | null
+          client_name?: string | null
           code: string
+          contract_value?: number | null
           created_at?: string | null
           description?: string | null
           end_date?: string | null
           id?: string
+          location?: string | null
           name: string
           organization_id?: string | null
           project_subtype?: string | null
           project_type?: string | null
+          responsible_manager_id?: string | null
           start_date?: string | null
           status?: string | null
           supports_all_pay_types?: boolean
@@ -4312,15 +4358,19 @@ export type Database = {
         }
         Update: {
           allowed_pay_types?: string[] | null
+          client_name?: string | null
           code?: string
+          contract_value?: number | null
           created_at?: string | null
           description?: string | null
           end_date?: string | null
           id?: string
+          location?: string | null
           name?: string
           organization_id?: string | null
           project_subtype?: string | null
           project_type?: string | null
+          responsible_manager_id?: string | null
           start_date?: string | null
           status?: string | null
           supports_all_pay_types?: boolean
