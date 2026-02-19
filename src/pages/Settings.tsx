@@ -16,6 +16,7 @@ import { EmailSettingsSection } from "@/components/settings/EmailSettingsSection
 import { UserManagement } from "@/components/user-management/UserManagement";
 import { AdminAccessSection } from "@/components/settings/AdminAccessSection";
 import { SettingsSectionGuard } from "@/components/settings/SettingsSectionGuard";
+import { ContractTemplateManager } from "@/components/contracts/ContractTemplateManager";
 import { useUserRole } from "@/hooks/use-user-role";
 import { ROLE_DEFINITIONS } from "@/lib/types/roles";
 import {
@@ -30,7 +31,8 @@ import {
   Info,
   Settings as SettingsIcon,
   Mail,
-  FileText
+  FileText,
+  ScrollText
 } from "lucide-react";
 
 const Settings = () => {
@@ -59,6 +61,13 @@ const Settings = () => {
       icon: DollarSign,
       requiredRole: 'COMPANY_PAYROLL_ADMIN' as const,
       requiredPermission: 'process_payroll'
+    },
+    {
+      id: "contracts",
+      label: "Contract Templates",
+      icon: ScrollText,
+      requiredRole: 'ORG_ADMIN' as const,
+      requiredPermission: 'organization_configuration'
     },
     {
       id: "payslip-designer",
@@ -170,6 +179,12 @@ const Settings = () => {
         return (
           <SettingsSectionGuard requiredRole="ORG_HR_ADMIN" requiredPermission="view_organization_employees">
             <EmployeeSettingsSection />
+          </SettingsSectionGuard>
+        );
+      case "contracts":
+        return (
+          <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration">
+            <ContractTemplateManager />
           </SettingsSectionGuard>
         );
       case "payslip-designer":
