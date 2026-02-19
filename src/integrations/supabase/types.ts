@@ -5507,9 +5507,6 @@ export type Database = {
         Args: { new_approver_id: string; payrun_id_input: string }
         Returns: Json
       }
-      exec_raw_sql: { Args: { query: string }; Returns: Json }
-      exec_sql: { Args: { sql: string }; Returns: undefined }
-      exec_sql_query: { Args: { sql_query: string }; Returns: Json }
       generate_employee_number:
         | {
             Args: {
