@@ -83,11 +83,8 @@ import MyApprovals from "./pages/MyApprovals";
 
 // Query client is now imported from optimized configuration
 
-// Protected route wrapper
-// TODO: Re-enable auth after Phase 2 development
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
-}
+// Protected route wrapper - uses real auth check
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
 const App = () => {
   // Initialize realtime subscriptions when app starts
