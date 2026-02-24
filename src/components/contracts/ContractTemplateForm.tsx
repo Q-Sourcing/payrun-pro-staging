@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,18 +52,29 @@ interface ContractTemplateFormProps {
 }
 
 export function ContractTemplateForm({ open, onOpenChange, template, onSave }: ContractTemplateFormProps) {
-  const [name, setName] = useState(template?.name ?? "");
-  const [description, setDescription] = useState(template?.description ?? "");
-  const [countryCode, setCountryCode] = useState(template?.country_code ?? "");
-  const [employmentType, setEmploymentType] = useState(template?.employment_type ?? "");
-  const [bodyHtml, setBodyHtml] = useState(template?.body_html ?? "");
-  const [placeholders, setPlaceholders] = useState<Placeholder[]>(
-    (template?.placeholders as Placeholder[]) ?? []
-  );
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [countryCode, setCountryCode] = useState("");
+  const [employmentType, setEmploymentType] = useState("");
+  const [bodyHtml, setBodyHtml] = useState("");
+  const [placeholders, setPlaceholders] = useState<Placeholder[]>([]);
   const [saving, setSaving] = useState(false);
   const [newKey, setNewKey] = useState("");
   const [newLabel, setNewLabel] = useState("");
   const [newDefault, setNewDefault] = useState("");
+
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (open) {
+      setName(template?.name ?? "");
+      setDescription(template?.description ?? "");
+      setCountryCode(template?.country_code ?? "");
+      setEmploymentType(template?.employment_type ?? "");
+      setBodyHtml(template?.body_html ?? "");
+      setPlaceholders((template?.placeholders as Placeholder[]) ?? []);
+      setNewKey(""); setNewLabel(""); setNewDefault("");
+    }
+  }, [open, template]);
 
   const handleAddPlaceholder = () => {
     if (!newKey.trim()) return;

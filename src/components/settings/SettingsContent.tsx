@@ -28,6 +28,7 @@ import {
     Info,
     Mail,
     FileText,
+    ScrollText,
     Settings as SettingsIcon,
     Building2 as BuildingIcon
 } from "lucide-react";
@@ -37,6 +38,7 @@ import { CompanySettingsSection } from "./CompanySettingsSection";
 import PayrollAdvancedSettings from "@/pages/PayrollAdvancedSettings";
 import { OrganizationSetupModal } from "../organization-setup/OrganizationSetupModal";
 import { OrganizationSetupLayout } from "@/components/organization-setup/OrganizationSetupLayout";
+import { ContractTemplateManager } from "@/components/contracts/ContractTemplateManager";
 
 export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange?: (isAdvanced: boolean, mode: 'payroll' | 'org' | null) => void }) => {
     const [activeSection, setActiveSection] = useState("theme");
@@ -131,6 +133,13 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
             icon: SettingsIcon,
             requiredRole: 'PLATFORM_SUPER_ADMIN' as const,
             requiredPermission: 'system_configuration'
+        },
+        {
+            id: "contracts",
+            label: "Contract Templates",
+            icon: ScrollText,
+            requiredRole: 'ORG_ADMIN' as const,
+            requiredPermission: 'organization_configuration'
         },
         {
             id: "data",
@@ -258,6 +267,12 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
                 return (
                     <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration">
                         <EmailSettingsSection />
+                    </SettingsSectionGuard>
+                );
+            case "contracts":
+                return (
+                    <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration">
+                        <ContractTemplateManager />
                     </SettingsSectionGuard>
                 );
             default:
