@@ -1473,6 +1473,7 @@ export type Database = {
           category: string | null
           company_id: string | null
           company_unit_id: string | null
+          contract_type: string | null
           country: string
           created_at: string
           currency: string | null
@@ -1521,6 +1522,7 @@ export type Database = {
           category?: string | null
           company_id?: string | null
           company_unit_id?: string | null
+          contract_type?: string | null
           country: string
           created_at?: string
           currency?: string | null
@@ -1569,6 +1571,7 @@ export type Database = {
           category?: string | null
           company_id?: string | null
           company_unit_id?: string | null
+          contract_type?: string | null
           country?: string
           created_at?: string
           currency?: string | null
@@ -2656,6 +2659,66 @@ export type Database = {
             columns: ["pay_run_id"]
             isOneToOne: false
             referencedRelation: "pay_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      items_catalog: {
+        Row: {
+          category: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          organization_id: string
+          project_id: string | null
+          unit: string | null
+          unit_cost: number
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          organization_id: string
+          project_id?: string | null
+          unit?: string | null
+          unit_cost?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          organization_id?: string
+          project_id?: string | null
+          unit?: string | null
+          unit_cost?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "items_catalog_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "items_catalog_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -5417,6 +5480,354 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "pay_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      variable_item_logs: {
+        Row: {
+          catalog_item_id: string | null
+          created_at: string
+          cycle_id: string
+          employee_id: string
+          id: string
+          item_name: string
+          item_unit: string | null
+          quantity: number
+          remarks: string | null
+          total_cost: number | null
+          unit_cost: number
+          updated_at: string
+          work_date: string
+          work_log_id: string | null
+        }
+        Insert: {
+          catalog_item_id?: string | null
+          created_at?: string
+          cycle_id: string
+          employee_id: string
+          id?: string
+          item_name: string
+          item_unit?: string | null
+          quantity?: number
+          remarks?: string | null
+          total_cost?: number | null
+          unit_cost?: number
+          updated_at?: string
+          work_date: string
+          work_log_id?: string | null
+        }
+        Update: {
+          catalog_item_id?: string | null
+          created_at?: string
+          cycle_id?: string
+          employee_id?: string
+          id?: string
+          item_name?: string
+          item_unit?: string | null
+          quantity?: number
+          remarks?: string | null
+          total_cost?: number | null
+          unit_cost?: number
+          updated_at?: string
+          work_date?: string
+          work_log_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "variable_item_logs_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "items_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variable_item_logs_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "variable_pay_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variable_item_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variable_item_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "variable_item_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variable_item_logs_work_log_id_fkey"
+            columns: ["work_log_id"]
+            isOneToOne: false
+            referencedRelation: "variable_work_logs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      variable_pay_cycles: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          cycle_name: string
+          id: string
+          locked_at: string | null
+          locked_by: string | null
+          notes: string | null
+          organization_id: string
+          pay_group_id: string | null
+          period_end: string
+          period_start: string
+          project_id: string | null
+          status: string
+          total_allowances: number | null
+          total_daily_cost: number | null
+          total_net_pay: number | null
+          total_piece_cost: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          cycle_name: string
+          id?: string
+          locked_at?: string | null
+          locked_by?: string | null
+          notes?: string | null
+          organization_id: string
+          pay_group_id?: string | null
+          period_end: string
+          period_start: string
+          project_id?: string | null
+          status?: string
+          total_allowances?: number | null
+          total_daily_cost?: number | null
+          total_net_pay?: number | null
+          total_piece_cost?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          cycle_name?: string
+          id?: string
+          locked_at?: string | null
+          locked_by?: string | null
+          notes?: string | null
+          organization_id?: string
+          pay_group_id?: string | null
+          period_end?: string
+          period_start?: string
+          project_id?: string | null
+          status?: string
+          total_allowances?: number | null
+          total_daily_cost?: number | null
+          total_net_pay?: number | null
+          total_piece_cost?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "variable_pay_cycles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variable_pay_cycles_pay_group_id_fkey"
+            columns: ["pay_group_id"]
+            isOneToOne: false
+            referencedRelation: "pay_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variable_pay_cycles_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      variable_pay_summaries: {
+        Row: {
+          allowance_airtime: number | null
+          allowance_house: number | null
+          allowance_medical: number | null
+          allowance_seating: number | null
+          allowance_travel: number | null
+          created_at: string
+          cycle_id: string
+          days_present: number | null
+          employee_id: string
+          gross_pay: number | null
+          id: string
+          net_pay: number | null
+          nssf_employee: number | null
+          other_deductions: number | null
+          tax_deduction: number | null
+          total_daily_pay: number | null
+          total_piece_pay: number | null
+          updated_at: string
+          validation_errors: Json | null
+          work_log_validated: boolean | null
+        }
+        Insert: {
+          allowance_airtime?: number | null
+          allowance_house?: number | null
+          allowance_medical?: number | null
+          allowance_seating?: number | null
+          allowance_travel?: number | null
+          created_at?: string
+          cycle_id: string
+          days_present?: number | null
+          employee_id: string
+          gross_pay?: number | null
+          id?: string
+          net_pay?: number | null
+          nssf_employee?: number | null
+          other_deductions?: number | null
+          tax_deduction?: number | null
+          total_daily_pay?: number | null
+          total_piece_pay?: number | null
+          updated_at?: string
+          validation_errors?: Json | null
+          work_log_validated?: boolean | null
+        }
+        Update: {
+          allowance_airtime?: number | null
+          allowance_house?: number | null
+          allowance_medical?: number | null
+          allowance_seating?: number | null
+          allowance_travel?: number | null
+          created_at?: string
+          cycle_id?: string
+          days_present?: number | null
+          employee_id?: string
+          gross_pay?: number | null
+          id?: string
+          net_pay?: number | null
+          nssf_employee?: number | null
+          other_deductions?: number | null
+          tax_deduction?: number | null
+          total_daily_pay?: number | null
+          total_piece_pay?: number | null
+          updated_at?: string
+          validation_errors?: Json | null
+          work_log_validated?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "variable_pay_summaries_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "variable_pay_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variable_pay_summaries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variable_pay_summaries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "variable_pay_summaries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      variable_work_logs: {
+        Row: {
+          attendance_status: string
+          created_at: string
+          cycle_id: string
+          daily_cost: number | null
+          daily_rate: number | null
+          employee_id: string
+          hours_worked: number | null
+          id: string
+          remarks: string | null
+          updated_at: string
+          work_date: string
+        }
+        Insert: {
+          attendance_status?: string
+          created_at?: string
+          cycle_id: string
+          daily_cost?: number | null
+          daily_rate?: number | null
+          employee_id: string
+          hours_worked?: number | null
+          id?: string
+          remarks?: string | null
+          updated_at?: string
+          work_date: string
+        }
+        Update: {
+          attendance_status?: string
+          created_at?: string
+          cycle_id?: string
+          daily_cost?: number | null
+          daily_rate?: number | null
+          employee_id?: string
+          hours_worked?: number | null
+          id?: string
+          remarks?: string | null
+          updated_at?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "variable_work_logs_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "variable_pay_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variable_work_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "variable_work_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "variable_work_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
             referencedColumns: ["id"]
           },
         ]
