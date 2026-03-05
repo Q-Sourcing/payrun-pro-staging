@@ -81,6 +81,7 @@ import CompanyPicker from "./components/auth/CompanyPicker";
 import Diagnostics from "./pages/Diagnostics";
 import PayrollAdvancedSettings from "./pages/PayrollAdvancedSettings";
 import MyApprovals from "./pages/MyApprovals";
+import Timesheets from "./pages/Timesheets";
 
 // Query client is now imported from optimized configuration
 
@@ -200,6 +201,7 @@ const App = () => {
                   <Route path="diagnostics" element={<Diagnostics />} />
                   <Route path="settings/payroll/advanced" element={<PayrollAdvancedSettings />} />
                   <Route path="probation" element={<ProbationDashboard />} />
+                  <Route path="timesheets" element={<Timesheets />} />
                 </Route>
 
                 {/* Catch-all route */}
