@@ -25,7 +25,30 @@ export default function EmployeeProfile() {
       .eq("id", employeeId)
       .single();
     if (error) console.error(error);
-    setEmployee(data);
+
+    // Enrich with project data for data reusability in contracts
+    let enriched = data;
+    if (data?.project_id) {
+      const { data: projectData } = await supabase
+        .from("projects")
+        .select("id, name, code, client_name, location, responsible_manager_id")
+        .eq("id", data.project_id)
+        .single();
+      if (projectData) {
+        enriched = {
+          ...data,
+          project_name: projectData.name,
+          project_code: projectData.code,
+          project_client: projectData.client_name,
+          project_location: projectData.location,
+          // Data reusability: surface client_name and location for contract template rendering
+          client_name: data.client_name || projectData.client_name,
+          location: data.location || projectData.location,
+        };
+      }
+    }
+
+    setEmployee(enriched);
     setLoading(false);
   };
 
