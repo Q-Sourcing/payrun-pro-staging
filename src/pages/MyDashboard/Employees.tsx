@@ -18,6 +18,7 @@ import { PaginatedTable, ColumnDef } from '@/components/common/PaginatedTable';
 import { usePagination } from '@/hooks/usePagination';
 import { Badge } from '@/components/ui/badge';
 import { BulkOnboardingDialog } from '@/components/contracts/BulkOnboardingDialog';
+import { ProjectFirstGate } from '@/components/employees/ProjectFirstGate';
 
 interface Employee {
   id: string;
@@ -275,6 +276,11 @@ export default function EmployeesOverview() {
           </Button>
         </div>
       </div>
+
+      {/* Project-First Gate: warns if no active IPPMS/Manpower project exists */}
+      <ProjectFirstGate requiredTypes={["manpower", "ippms"]}>
+        <span />
+      </ProjectFirstGate>
 
       {/* Metrics */}
       <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
