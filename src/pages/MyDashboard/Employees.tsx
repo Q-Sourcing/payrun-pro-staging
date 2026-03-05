@@ -13,10 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, UserPlus } from 'lucide-react';
+import { Search, UserPlus, FileSpreadsheet } from 'lucide-react';
 import { PaginatedTable, ColumnDef } from '@/components/common/PaginatedTable';
 import { usePagination } from '@/hooks/usePagination';
 import { Badge } from '@/components/ui/badge';
+import { BulkOnboardingDialog } from '@/components/contracts/BulkOnboardingDialog';
 
 interface Employee {
   id: string;
@@ -45,6 +46,7 @@ export default function EmployeesOverview() {
   const [viewRow, setViewRow] = useState<Employee | null>(null);
   const [editRow, setEditRow] = useState<Employee | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showBulkOnboard, setShowBulkOnboard] = useState(false);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -262,8 +264,16 @@ export default function EmployeesOverview() {
   return (
     <div className="space-y-6 px-6 py-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Employees Overview</h1>
-        <p className="text-sm text-muted-foreground">Employees in your organization</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Employees Overview</h1>
+            <p className="text-sm text-muted-foreground">Employees in your organization</p>
+          </div>
+          <Button variant="outline" onClick={() => setShowBulkOnboard(true)}>
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Bulk Onboarding
+          </Button>
+        </div>
       </div>
 
       {/* Metrics */}
@@ -376,6 +386,16 @@ export default function EmployeesOverview() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Onboarding */}
+      {organizationId && (
+        <BulkOnboardingDialog
+          open={showBulkOnboard}
+          onOpenChange={setShowBulkOnboard}
+          organizationId={organizationId}
+          onComplete={fetchEmployees}
+        />
+      )}
 
       {/* Edit Dialog */}
       <Dialog open={!!editRow} onOpenChange={(o) => !o && setEditRow(null)}>

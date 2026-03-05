@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ArrowLeft, User, Mail, Phone, Briefcase, MapPin, DollarSign } from "lucide-react";
+import { ArrowLeft, User, Mail, Phone, Briefcase, MapPin, DollarSign, Clock } from "lucide-react";
 import { EmployeeContractsPanel } from "@/components/contracts/EmployeeContractsPanel";
+import { ProbationSection } from "@/components/employees/ProbationSection";
 import LoadingSkeleton from "@/components/LoadingSkeleton";
 
 export default function EmployeeProfile() {
@@ -16,18 +17,20 @@ export default function EmployeeProfile() {
   const [employee, setEmployee] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchEmployee = async () => {
     if (!employeeId) return;
-    (async () => {
-      const { data, error } = await supabase
-        .from("employees")
-        .select("*, pay_groups(name)")
-        .eq("id", employeeId)
-        .single();
-      if (error) console.error(error);
-      setEmployee(data);
-      setLoading(false);
-    })();
+    const { data, error } = await supabase
+      .from("employees")
+      .select("*, pay_groups(name)")
+      .eq("id", employeeId)
+      .single();
+    if (error) console.error(error);
+    setEmployee(data);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchEmployee();
   }, [employeeId]);
 
   if (loading) return <LoadingSkeleton />;
@@ -54,6 +57,7 @@ export default function EmployeeProfile() {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="probation">Probation</TabsTrigger>
           <TabsTrigger value="contracts">Contracts</TabsTrigger>
         </TabsList>
 
@@ -78,12 +82,23 @@ export default function EmployeeProfile() {
               <CardContent className="space-y-2 text-sm">
                 <InfoRow icon={Briefcase} label="Type" value={employee.employee_type} />
                 <InfoRow icon={Briefcase} label="Pay Group" value={employee.pay_groups?.name || "Unassigned"} />
-                <InfoRow icon={DollarSign} label="Pay Rate" value={`${employee.currency || ""} ${employee.pay_rate}`} />
+                <InfoRow icon={DollarSign} label="Pay Rate" value={`${employee.currency || ""} ${employee.pay_rate?.toLocaleString()}`} />
                 <InfoRow icon={Briefcase} label="Pay Type" value={employee.pay_type} />
                 {employee.date_joined && <InfoRow icon={Briefcase} label="Date Joined" value={employee.date_joined} />}
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* Probation Tab */}
+        <TabsContent value="probation">
+          <ProbationSection
+            employeeId={employee.id}
+            initialProbationEndDate={employee.probation_end_date}
+            initialProbationStatus={employee.probation_status}
+            initialProbationNotes={employee.probation_notes}
+            onUpdated={fetchEmployee}
+          />
         </TabsContent>
 
         {/* Contracts Tab */}
