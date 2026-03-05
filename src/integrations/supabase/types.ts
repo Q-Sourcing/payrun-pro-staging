@@ -5154,6 +5154,216 @@ export type Database = {
         }
         Relationships: []
       }
+      timesheet_departments: {
+        Row: {
+          code: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id: string
+        }
+        Update: {
+          code?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timesheet_departments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      timesheet_entries: {
+        Row: {
+          created_at: string
+          department: string
+          employee_id: string
+          hours_worked: number
+          id: string
+          is_aggregated: boolean
+          linked_pay_run_id: string | null
+          task_description: string
+          timesheet_id: string
+          updated_at: string
+          work_date: string
+        }
+        Insert: {
+          created_at?: string
+          department: string
+          employee_id: string
+          hours_worked: number
+          id?: string
+          is_aggregated?: boolean
+          linked_pay_run_id?: string | null
+          task_description: string
+          timesheet_id: string
+          updated_at?: string
+          work_date: string
+        }
+        Update: {
+          created_at?: string
+          department?: string
+          employee_id?: string
+          hours_worked?: number
+          id?: string
+          is_aggregated?: boolean
+          linked_pay_run_id?: string | null
+          task_description?: string
+          timesheet_id?: string
+          updated_at?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timesheet_entries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timesheet_entries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "timesheet_entries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timesheet_entries_linked_pay_run_id_fkey"
+            columns: ["linked_pay_run_id"]
+            isOneToOne: false
+            referencedRelation: "master_payrolls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timesheet_entries_linked_pay_run_id_fkey"
+            columns: ["linked_pay_run_id"]
+            isOneToOne: false
+            referencedRelation: "pay_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timesheet_entries_timesheet_id_fkey"
+            columns: ["timesheet_id"]
+            isOneToOne: false
+            referencedRelation: "timesheets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      timesheets: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          employee_id: string
+          id: string
+          organization_id: string
+          period_end: string
+          period_start: string
+          project_id: string | null
+          reviewer_notes: string | null
+          status: string
+          submitted_at: string | null
+          submitted_by: string | null
+          total_hours: number | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          employee_id: string
+          id?: string
+          organization_id: string
+          period_end: string
+          period_start: string
+          project_id?: string | null
+          reviewer_notes?: string | null
+          status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          total_hours?: number | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          employee_id?: string
+          id?: string
+          organization_id?: string
+          period_end?: string
+          period_start?: string
+          project_id?: string | null
+          reviewer_notes?: string | null
+          status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          total_hours?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timesheets_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timesheets_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "timesheets_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timesheets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timesheets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_company_memberships: {
         Row: {
           company_id: string
