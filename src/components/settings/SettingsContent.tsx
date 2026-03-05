@@ -11,9 +11,11 @@ import { DataManagementSection } from "@/components/settings/DataManagementSecti
 import { PayslipDesignerSection } from "@/components/settings/PayslipDesignerSection";
 import { SystemSettingsSection } from "@/components/settings/SystemSettingsSection";
 import { EmailSettingsSection } from "@/components/settings/EmailSettingsSection";
+import { ReminderSettings } from "@/components/settings/ReminderSettings";
 import { UserManagement } from "@/components/user-management/UserManagement";
 import { AdminAccessSection } from "@/components/settings/AdminAccessSection";
 import { SettingsSectionGuard } from "@/components/settings/SettingsSectionGuard";
+import { ContractTemplateManager } from "@/components/contracts/ContractTemplateManager";
 import { useUserRole } from "@/hooks/use-user-role";
 import { ROLE_DEFINITIONS } from "@/lib/types/roles";
 import {
@@ -29,6 +31,7 @@ import {
     Mail,
     FileText,
     ScrollText,
+    AlarmClock,
     Settings as SettingsIcon,
     Building2 as BuildingIcon
 } from "lucide-react";
@@ -38,7 +41,6 @@ import { CompanySettingsSection } from "./CompanySettingsSection";
 import PayrollAdvancedSettings from "@/pages/PayrollAdvancedSettings";
 import { OrganizationSetupModal } from "../organization-setup/OrganizationSetupModal";
 import { OrganizationSetupLayout } from "@/components/organization-setup/OrganizationSetupLayout";
-import { ContractTemplateManager } from "@/components/contracts/ContractTemplateManager";
 
 export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange?: (isAdvanced: boolean, mode: 'payroll' | 'org' | null) => void }) => {
     const [activeSection, setActiveSection] = useState("theme");
@@ -79,6 +81,13 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
             icon: FileText,
             requiredRole: 'ORG_FINANCE_CONTROLLER' as const,
             requiredPermission: 'process_payroll'
+        },
+        {
+            id: "contracts",
+            label: "Contract Templates",
+            icon: ScrollText,
+            requiredRole: 'ORG_ADMIN' as const,
+            requiredPermission: 'organization_configuration'
         },
         {
             id: "theme",
@@ -128,18 +137,18 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
             requiredPermission: 'organization_configuration'
         },
         {
+            id: "reminders",
+            label: "Reminders",
+            icon: AlarmClock,
+            requiredRole: 'ORG_ADMIN' as const,
+            requiredPermission: 'organization_configuration'
+        },
+        {
             id: "system",
             label: "System Settings",
             icon: SettingsIcon,
             requiredRole: 'PLATFORM_SUPER_ADMIN' as const,
             requiredPermission: 'system_configuration'
-        },
-        {
-            id: "contracts",
-            label: "Contract Templates",
-            icon: ScrollText,
-            requiredRole: 'ORG_ADMIN' as const,
-            requiredPermission: 'organization_configuration'
         },
         {
             id: "data",
@@ -171,7 +180,7 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
         }
 
         // Check permission if specified
-        if (item.requiredPermission && !roleDef.permissions.includes(item.requiredPermission as any)) {
+        if (item.requiredPermission && !roleDef.permissions.includes(item.requiredPermission)) {
             return false;
         }
 
@@ -196,6 +205,12 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
                 return (
                     <SettingsSectionGuard requiredRole="ORG_FINANCE_CONTROLLER" requiredPermission="process_payroll">
                         <PayslipDesignerSection />
+                    </SettingsSectionGuard>
+                );
+            case "contracts":
+                return (
+                    <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration">
+                        <ContractTemplateManager />
                     </SettingsSectionGuard>
                 );
             case "theme":
@@ -269,10 +284,10 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
                         <EmailSettingsSection />
                     </SettingsSectionGuard>
                 );
-            case "contracts":
+            case "reminders":
                 return (
                     <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration">
-                        <ContractTemplateManager />
+                        <ReminderSettings />
                     </SettingsSectionGuard>
                 );
             default:

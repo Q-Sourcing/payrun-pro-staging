@@ -33,6 +33,8 @@ interface Employee {
   base_rate: number;
   currency: string;
   status: string;
+  probation_status?: "on_probation" | "confirmed" | "extended" | null;
+  probation_end_date?: string | null;
   _company_name?: string;
   _pay_group_name?: string;
   _type_name?: string;
@@ -198,6 +200,30 @@ export default function EmployeesOverview() {
     return (Number(n) || 0).toLocaleString('en-US', { style: 'currency', currency: c });
   };
 
+  const renderProbationBadge = (row: Employee) => {
+    if (!row.probation_status || row.probation_status === "confirmed") return null;
+    if (!row.probation_end_date) {
+      return (
+        <Badge variant="outline" className="ml-2 border-amber-300 text-amber-700">
+          {row.probation_status === "extended" ? "Extended probation" : "On probation"}
+        </Badge>
+      );
+    }
+    const today = new Date();
+    const end = new Date(row.probation_end_date);
+    const daysLeft = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const nearing = daysLeft <= 7;
+
+    return (
+      <Badge
+        variant="outline"
+        className={`ml-2 ${nearing ? "border-red-300 text-red-700" : "border-amber-300 text-amber-700"}`}
+      >
+        {row.probation_status === "extended" ? "Extended" : "Probation"} • {daysLeft}d
+      </Badge>
+    );
+  };
+
   // Table columns
   const columns: ColumnDef<Employee>[] = [
     {
@@ -230,9 +256,12 @@ export default function EmployeesOverview() {
     {
       header: 'Status',
       accessor: (row) => (
-        <Badge variant={row.status === 'active' ? 'default' : 'secondary'}>
-          {row.status}
-        </Badge>
+        <div className="flex items-center">
+          <Badge variant={row.status === 'active' ? 'default' : 'secondary'}>
+            {row.status}
+          </Badge>
+          {renderProbationBadge(row)}
+        </div>
       ),
     },
     {

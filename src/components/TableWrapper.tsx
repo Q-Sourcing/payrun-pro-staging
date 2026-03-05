@@ -1,9 +1,14 @@
 import { ReactNode } from "react";
 
-export default function TableWrapper({ children }: { children: ReactNode }) {
+interface TableWrapperProps {
+  children: ReactNode;
+  containerClassName?: string;
+}
+
+export default function TableWrapper({ children, containerClassName = "" }: TableWrapperProps) {
   return (
-    <div className="bg-card border-border rounded-xl shadow-sm overflow-hidden">
-      <div className="overflow-x-auto">
+    <div className={`bg-card border-border rounded-xl shadow-sm overflow-hidden ${containerClassName}`}>
+      <div className="overflow-auto max-h-full">
         <table className="min-w-full border-collapse">
           {children}
         </table>

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Pencil, Upload, Globe, Flag, ChevronDown, UserPlus, Link as LinkIcon } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,6 +15,7 @@ import { format } from "date-fns";
 import AddEmployeeDialog from "./AddEmployeeDialog";
 import EditEmployeeDialog from "./EditEmployeeDialog";
 import BulkUploadEmployeesDialog from "./BulkUploadEmployeesDialog";
+import BulkImportEmployeesXlsxDialog from "./BulkImportEmployeesXlsxDialog";
 import { ColumnVisibilityDialog } from "./ColumnVisibilityDialog";
 import PageHeader from "@/components/PageHeader";
 import TableWrapper from "@/components/TableWrapper";
@@ -40,9 +41,12 @@ interface Employee {
   pay_groups?: { name: string };
   created_at?: string; // Date added timestamp
   sub_department?: string | null;
+  probation_status?: "on_probation" | "confirmed" | "extended" | null;
+  probation_end_date?: string | null;
 }
 
 const EmployeesTab = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -58,6 +62,7 @@ const EmployeesTab = () => {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showBulkUploadDialog, setShowBulkUploadDialog] = useState(false);
+  const [showBulkImportDialog, setShowBulkImportDialog] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const { toast } = useToast();
   const [companyName, setCompanyName] = useState<string | null>(null);
@@ -198,6 +203,15 @@ const EmployeesTab = () => {
     fetchEmployees();
   }, []);
 
+  useEffect(() => {
+    const action = searchParams.get("action");
+    if (action !== "create") return;
+    setShowAddDialog(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("action");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
   const getFullName = (employee: Employee) => {
     const parts = [employee.first_name, employee.middle_name, employee.last_name].filter(Boolean);
     return parts.join(" ");
@@ -278,6 +292,33 @@ const EmployeesTab = () => {
       default:
         return `${symbol}${formattedRate}`;
     }
+  };
+
+  const renderProbationBadge = (employee: Employee) => {
+    if (!employee.probation_status || employee.probation_status === "confirmed") return null;
+
+    if (!employee.probation_end_date) {
+      return (
+        <Badge variant="outline" className="mt-1 border-amber-300 text-amber-700">
+          {employee.probation_status === "extended" ? "Extended probation" : "On probation"}
+        </Badge>
+      );
+    }
+
+    const today = new Date();
+    const end = new Date(employee.probation_end_date);
+    const diffMs = end.getTime() - today.getTime();
+    const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const nearing = daysLeft <= 7;
+
+    return (
+      <Badge
+        variant="outline"
+        className={`mt-1 ${nearing ? "border-red-300 text-red-700" : "border-amber-300 text-amber-700"}`}
+      >
+        {employee.probation_status === "extended" ? "Extended" : "Probation"} • {daysLeft} day(s) left
+      </Badge>
+    );
   };
 
   const handleEditEmployee = (employee: Employee) => {
@@ -364,6 +405,15 @@ const EmployeesTab = () => {
               <Settings2 className="h-4 w-4 mr-2" />
               Columns
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowBulkImportDialog(true)}
+              className="h-9 px-3"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Bulk Import
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button className="bg-blue-600 hover:bg-blue-700 h-9 px-3 text-sm">
@@ -379,6 +429,10 @@ const EmployeesTab = () => {
                 <DropdownMenuItem onClick={() => setShowBulkUploadDialog(true)}>
                   <Upload className="h-4 w-4 mr-2" />
                   Bulk Upload
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowBulkImportDialog(true)}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Bulk Import (XLSX)
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -662,6 +716,7 @@ const EmployeesTab = () => {
                     >
                       {employee.status}
                     </Badge>
+                    {renderProbationBadge(employee)}
                   </td>
                 )}
                 {visibleColumns.created_at !== false && (
@@ -710,6 +765,12 @@ const EmployeesTab = () => {
       <BulkUploadEmployeesDialog
         open={showBulkUploadDialog}
         onOpenChange={setShowBulkUploadDialog}
+        onEmployeesAdded={fetchEmployees}
+      />
+
+      <BulkImportEmployeesXlsxDialog
+        open={showBulkImportDialog}
+        onOpenChange={setShowBulkImportDialog}
         onEmployeesAdded={fetchEmployees}
       />
 

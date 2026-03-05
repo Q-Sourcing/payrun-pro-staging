@@ -1,6 +1,4 @@
 import { useCallback } from "react";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrg } from "@/lib/tenant/OrgContext";
@@ -52,6 +50,8 @@ export const EmployeeCreateForm = ({ onSuccess, onCancel }: EmployeeCreateFormPr
                     category: values.category || undefined,
                     employee_type: values.employee_type || undefined,
                     pay_frequency: values.pay_frequency || null,
+                    probation_end_date: values.probation_end_date || null,
+                    probation_status: values.probation_status || null,
                     organization_id: finalOrgId,
                     project_id: values.category === "projects" ? (values.project_id || null) : null,
                 },
@@ -65,18 +65,13 @@ export const EmployeeCreateForm = ({ onSuccess, onCancel }: EmployeeCreateFormPr
     }, [organizationId, onSuccess, toast]);
 
     return (
-        <div className="flex flex-col h-full bg-muted/30">
-            <ScrollArea className="flex-1 px-6 py-6">
-                <div className="max-w-3xl mx-auto space-y-6 pb-20">
+        <div className="bg-muted/30 w-full max-w-full min-w-0 overflow-x-hidden">
+            <div className="px-3 sm:px-6 py-6 w-full max-w-full min-w-0 overflow-x-hidden">
+                <div className="max-w-3xl mx-auto w-full min-w-0 space-y-6">
                     <EmployeeForm mode="create" onSubmit={handleCreate} />
                 </div>
-            </ScrollArea>
-
-            <div className="p-4 border-t border-border bg-card flex justify-end gap-3 z-10">
-                <Button variant="outline" onClick={onCancel}>
-                    Cancel
-                </Button>
             </div>
+
         </div>
     );
 };

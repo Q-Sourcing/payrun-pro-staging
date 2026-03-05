@@ -1,0 +1,176 @@
+{
+  "info": {
+    "_postman_id": "5f2010d4-7ac7-47cf-820b-6950d42717db",
+    "name": "Payrun Pro - Supabase API Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Postman collection for Supabase Edge Functions and PostgREST queries used by Payrun Pro."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://YOUR_PROJECT_REF.supabase.co" },
+    { "key": "anonKey", "value": "YOUR_SUPABASE_ANON_KEY" },
+    { "key": "jwt", "value": "YOUR_USER_ACCESS_TOKEN" },
+    { "key": "orgId", "value": "00000000-0000-0000-0000-000000000001" },
+    { "key": "payRunId", "value": "00000000-0000-0000-0000-000000000002" },
+    { "key": "payGroupMasterId", "value": "00000000-0000-0000-0000-000000000003" },
+    { "key": "employeeId", "value": "00000000-0000-0000-0000-000000000004" },
+    { "key": "payItemId", "value": "00000000-0000-0000-0000-000000000005" },
+    { "key": "dateFrom", "value": "2026-01-01" },
+    { "key": "dateTo", "value": "2026-12-31" }
+  ],
+  "item": [
+    {
+      "name": "Edge Functions",
+      "item": [
+        {
+          "name": "Manage Pay Runs - Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "apikey", "value": "{{anonKey}}", "type": "text" },
+              { "key": "Authorization", "value": "Bearer {{jwt}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pay_period_start\": \"2026-02-01\",\n  \"pay_period_end\": \"2026-02-28\",\n  \"pay_group_master_id\": \"{{payGroupMasterId}}\",\n  \"status\": \"draft\",\n  \"category\": \"head_office\",\n  \"employee_type\": \"regular\",\n  \"pay_frequency\": \"monthly\",\n  \"payroll_type\": \"regular\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/functions/v1/manage-payruns",
+              "host": ["{{baseUrl}}"],
+              "path": ["functions", "v1", "manage-payruns"]
+            }
+          }
+        },
+        {
+          "name": "Manage Pay Runs - Update",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "apikey", "value": "{{anonKey}}", "type": "text" },
+              { "key": "Authorization", "value": "Bearer {{jwt}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{payRunId}}\",\n  \"status\": \"pending_approval\",\n  \"pay_period_start\": \"2026-02-01\",\n  \"pay_period_end\": \"2026-02-28\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/functions/v1/manage-payruns",
+              "host": ["{{baseUrl}}"],
+              "path": ["functions", "v1", "manage-payruns"]
+            }
+          }
+        },
+        {
+          "name": "Manage Pay Runs - Delete",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "apikey", "value": "{{anonKey}}", "type": "text" },
+              { "key": "Authorization", "value": "Bearer {{jwt}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{payRunId}}\",\n  \"hard_delete\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/functions/v1/manage-payruns",
+              "host": ["{{baseUrl}}"],
+              "path": ["functions", "v1", "manage-payruns"]
+            }
+          }
+        },
+        {
+          "name": "Manage Pay Items - Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "apikey", "value": "{{anonKey}}", "type": "text" },
+              { "key": "Authorization", "value": "Bearer {{jwt}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pay_run_id\": \"{{payRunId}}\",\n  \"employee_id\": \"{{employeeId}}\",\n  \"gross_pay\": 1000000,\n  \"tax_deduction\": 100000,\n  \"benefit_deductions\": 50000,\n  \"status\": \"draft\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/functions/v1/manage-payitems",
+              "host": ["{{baseUrl}}"],
+              "path": ["functions", "v1", "manage-payitems"]
+            }
+          }
+        },
+        {
+          "name": "Manage Pay Items - Update",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "apikey", "value": "{{anonKey}}", "type": "text" },
+              { "key": "Authorization", "value": "Bearer {{jwt}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{payItemId}}\",\n  \"gross_pay\": 1200000,\n  \"tax_deduction\": 120000,\n  \"benefit_deductions\": 60000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/functions/v1/manage-payitems",
+              "host": ["{{baseUrl}}"],
+              "path": ["functions", "v1", "manage-payitems"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "PostgREST (Report-style Queries)",
+      "item": [
+        {
+          "name": "Report Query - Pay Runs with Pay Group Master",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "apikey", "value": "{{anonKey}}", "type": "text" },
+              { "key": "Authorization", "value": "Bearer {{jwt}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/pay_runs?select=id,pay_run_date,pay_period_start,pay_period_end,status,total_gross_pay,total_deductions,total_net_pay,pay_group:pay_group_master(name,country),pay_items(id,employee_id,gross_pay,total_deductions,net_pay)&organization_id=eq.{{orgId}}&pay_run_date=gte.{{dateFrom}}&pay_run_date=lte.{{dateTo}}&order=pay_run_date.desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["rest", "v1", "pay_runs"],
+              "query": [
+                {
+                  "key": "select",
+                  "value": "id,pay_run_date,pay_period_start,pay_period_end,status,total_gross_pay,total_deductions,total_net_pay,pay_group:pay_group_master(name,country),pay_items(id,employee_id,gross_pay,total_deductions,net_pay)"
+                },
+                { "key": "organization_id", "value": "eq.{{orgId}}" },
+                { "key": "pay_run_date", "value": "gte.{{dateFrom}}" },
+                { "key": "pay_run_date", "value": "lte.{{dateTo}}" },
+                { "key": "order", "value": "pay_run_date.desc" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Quick FK Check - pay_runs to pay_group_master",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "apikey", "value": "{{anonKey}}", "type": "text" },
+              { "key": "Authorization", "value": "Bearer {{jwt}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rest/v1/pay_runs?select=id,pay_group_master_id,pay_group:pay_group_master(id,name)&limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["rest", "v1", "pay_runs"],
+              "query": [
+                { "key": "select", "value": "id,pay_group_master_id,pay_group:pay_group_master(id,name)" },
+                { "key": "limit", "value": "5" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -4,11 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, ScrollText } from "lucide-react";
+import { Plus, Pencil, Trash2, ScrollText, Eye } from "lucide-react";
 import { ContractsService, ContractTemplate } from "@/lib/data/contracts.service";
 import { ContractTemplateForm } from "./ContractTemplateForm";
-import { useOrganization } from "@/hooks/use-auth-context";
+import { useOrg } from "@/lib/tenant/OrgContext";
 import { toast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,17 +22,21 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export function ContractTemplateManager() {
-  const { getCurrentOrganizationId } = useOrganization();
-  const orgId = getCurrentOrganizationId();
+  const { organizationId: orgId } = useOrg();
 
   const [templates, setTemplates] = useState<ContractTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ContractTemplate | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ContractTemplate | null>(null);
+  const [viewTarget, setViewTarget] = useState<ContractTemplate | null>(null);
 
   const fetchTemplates = async () => {
-    if (!orgId) return;
+    if (!orgId) {
+      setTemplates([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const data = await ContractsService.getTemplates(orgId);
@@ -120,6 +125,9 @@ export function ContractTemplateManager() {
                     <TableCell>{t.employment_type ? <Badge variant="secondary" className="capitalize">{t.employment_type}</Badge> : "—"}</TableCell>
                     <TableCell>v{t.version}</TableCell>
                     <TableCell className="text-right space-x-1">
+                      <Button size="icon" variant="ghost" onClick={() => setViewTarget(t)} title="View template">
+                        <Eye className="h-4 w-4" />
+                      </Button>
                       <Button size="icon" variant="ghost" onClick={() => openEdit(t)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -160,6 +168,93 @@ export function ContractTemplateManager() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!viewTarget} onOpenChange={(open) => { if (!open) setViewTarget(null); }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewTarget?.name || "Template Preview"}</DialogTitle>
+            <DialogDescription>
+              Full read-only details for the selected contract template.
+            </DialogDescription>
+          </DialogHeader>
+          {viewTarget && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm rounded-md border p-4 bg-muted/10">
+                <div>
+                  <p className="text-muted-foreground">Template Name</p>
+                  <p className="font-medium">{viewTarget.name}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Version</p>
+                  <p className="font-medium">v{viewTarget.version}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Status</p>
+                  <p className="font-medium">{viewTarget.is_active ? "Active" : "Inactive"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Country</p>
+                  <p className="font-medium">{viewTarget.country_code || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Employment Type</p>
+                  <p className="font-medium capitalize">{viewTarget.employment_type || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Organization ID</p>
+                  <p className="font-mono text-xs break-all">{viewTarget.organization_id}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-muted-foreground">Description</p>
+                  <p className="font-medium">{viewTarget.description || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Created</p>
+                  <p className="font-medium">{new Date(viewTarget.created_at).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Last Updated</p>
+                  <p className="font-medium">{new Date(viewTarget.updated_at).toLocaleString()}</p>
+                </div>
+              </div>
+
+              <div className="rounded-md border p-4 bg-muted/10">
+                <p className="text-xs font-medium text-muted-foreground mb-2">
+                  Placeholders ({viewTarget.placeholders?.length || 0})
+                </p>
+                {!viewTarget.placeholders || viewTarget.placeholders.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No custom placeholders defined.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {viewTarget.placeholders.map((p: any) => (
+                      <div key={p.key} className="flex items-center gap-2 rounded border p-2 text-sm">
+                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{`{{${p.key}}}`}</code>
+                        <span className="font-medium">{p.label || p.key}</span>
+                        {p.default_value ? <span className="text-muted-foreground">default: {p.default_value}</span> : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-md border p-4 bg-muted/20">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Template Body</p>
+                <div
+                  className="prose prose-sm max-w-none dark:prose-invert"
+                  dangerouslySetInnerHTML={{ __html: viewTarget.body_html || "<p>No template body available.</p>" }}
+                />
+              </div>
+
+              <div className="rounded-md border p-4 bg-muted/10">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Template Body (Raw HTML)</p>
+                <pre className="text-xs whitespace-pre-wrap break-words font-mono max-h-56 overflow-y-auto">
+                  {viewTarget.body_html || "—"}
+                </pre>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

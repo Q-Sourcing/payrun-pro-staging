@@ -72,6 +72,8 @@ export type EmployeeFormValues = {
   employee_type?: HeadOfficeSubType | ProjectsSubType | "";
   pay_frequency?: ManpowerFrequency | "";
   project_id?: string | "";
+  probation_end_date?: string | null;
+  probation_status?: "on_probation" | "confirmed" | "extended" | "" | null;
 };
 
 const employeeFormSchema = z.object({
@@ -112,6 +114,8 @@ const employeeFormSchema = z.object({
   employee_type: z.string({ required_error: "Employee Type is required" }).min(1, "Employee Type is required"),
   pay_frequency: z.enum(["daily", "bi_weekly", "monthly"]).optional().or(z.literal("")),
   project_id: z.string().optional().or(z.literal("")),
+  probation_end_date: z.string().optional().nullable(),
+  probation_status: z.enum(["on_probation", "confirmed", "extended"]).optional().or(z.literal("")).or(z.null()),
 }).superRefine((data, ctx) => {
   if (data.employee_type === "manpower" && !data.pay_frequency) {
     ctx.addIssue({
@@ -212,6 +216,8 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
       employee_type: "" as HeadOfficeSubType | ProjectsSubType | "",
       pay_frequency: "" as ManpowerFrequency | "",
       project_id: "",
+      probation_end_date: "",
+      probation_status: "on_probation",
       ...defaultValues,
     },
   });
@@ -232,6 +238,8 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
   const watchBankName = form.watch("bank_name");
   const watchAccountType = form.watch("account_type");
   const watchReportingManagerId = form.watch("reporting_manager_id");
+  const watchProbationStatus = form.watch("probation_status");
+  const watchProbationEndDate = form.watch("probation_end_date");
 
   const watchDateJoined = form.watch("date_joined");
   const watchPayRate = form.watch("pay_rate");
@@ -246,6 +254,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
   const [allowedPayTypes, setAllowedPayTypes] = useState<string[]>(["hourly", "salary", "piece_rate", "daily_rate"]);
   const [payGroups, setPayGroups] = useState<PayGroupOption[]>([]);
   const [reportingManagers, setReportingManagers] = useState<Array<{ value: string; label: string }>>([]);
+  const [probationPeriodDays, setProbationPeriodDays] = useState(90);
   const [addingSubDept, setAddingSubDept] = useState(false);
   const [newSubDeptName, setNewSubDeptName] = useState("");
 
@@ -277,6 +286,60 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
       if (code) form.setValue("currency", code, { shouldDirty: true });
     }
   }, [watchCountry]);
+
+  // Load probation period setting (org_settings -> fallback settings key).
+  useEffect(() => {
+    const loadProbationPeriod = async () => {
+      if (!organizationId) return;
+      try {
+        const { data: orgSettings } = await supabase
+          .from("org_settings")
+          .select("probation_period_days")
+          .eq("organization_id", organizationId)
+          .limit(1)
+          .maybeSingle();
+
+        const orgValue = Number((orgSettings as any)?.probation_period_days);
+        if (!Number.isNaN(orgValue) && orgValue > 0) {
+          setProbationPeriodDays(orgValue);
+          return;
+        }
+
+        const { data: fallback } = await supabase
+          .from("settings")
+          .select("value")
+          .eq("category", "organization")
+          .eq("key", "probation_period_days")
+          .limit(1)
+          .maybeSingle();
+        const fallbackValue = Number((fallback as any)?.value);
+        if (!Number.isNaN(fallbackValue) && fallbackValue > 0) {
+          setProbationPeriodDays(fallbackValue);
+        }
+      } catch {
+        setProbationPeriodDays(90);
+      }
+    };
+    void loadProbationPeriod();
+  }, [organizationId]);
+
+  // Auto-suggest probation end date when onboarding probation employees.
+  useEffect(() => {
+    if (!watchDateJoined) return;
+    if (watchProbationStatus && !["on_probation", "extended", ""].includes(String(watchProbationStatus))) return;
+    if (watchProbationEndDate) return;
+
+    const joined = new Date(watchDateJoined);
+    if (isNaN(joined.getTime())) return;
+    joined.setDate(joined.getDate() + probationPeriodDays);
+    const yyyy = joined.getFullYear();
+    const mm = String(joined.getMonth() + 1).padStart(2, "0");
+    const dd = String(joined.getDate()).padStart(2, "0");
+    form.setValue("probation_end_date", `${yyyy}-${mm}-${dd}`, { shouldDirty: true });
+    if (!watchProbationStatus) {
+      form.setValue("probation_status", "on_probation", { shouldDirty: true });
+    }
+  }, [watchDateJoined, watchProbationStatus, watchProbationEndDate, probationPeriodDays, form]);
 
   // Experience calculator
   const calculateExperienceFromDateJoined = (dateJoined?: string | null): string => {
@@ -469,7 +532,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
         const projectType = EMPLOYEE_TYPE_TO_PROJECT_TYPE[watchEmployeeType as keyof typeof EMPLOYEE_TYPE_TO_PROJECT_TYPE];
         if (projectType) {
           try {
-            const list = await ProjectsService.getProjectsByType(projectType, organizationId || "");
+            const list = await ProjectsService.getProjectsByType(projectType, organizationId || "", { onlyFullyOnboarded: true });
             setProjects(list);
           } catch {
             setProjects([]);
@@ -573,7 +636,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
           };
           const projectType = mapping[String(defaultValues.employee_type)] || (defaultValues.employee_type as any);
           try {
-            const list = await ProjectsService.getProjectsByType(projectType, organizationId || "");
+            const list = await ProjectsService.getProjectsByType(projectType, organizationId || "", { onlyFullyOnboarded: true });
             setProjects(list);
           } catch {
             setProjects([]);
@@ -622,41 +685,41 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
   };
 
   return (
-    <form onSubmit={form.handleSubmit(submit)} className="space-y-4">
-      <Accordion type="multiple" defaultValue={["personal", "employment", "pay"]} className="w-full">
+    <form onSubmit={form.handleSubmit(submit)} className="space-y-4 w-full max-w-full min-w-0 overflow-x-hidden">
+      <Accordion type="single" collapsible defaultValue="personal" className="w-full max-w-full min-w-0 overflow-x-hidden">
         <AccordionItem value="personal">
           <AccordionTrigger>
             <div className="font-medium">Personal Information</div>
           </AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-6">
+          <AccordionContent className="overflow-x-hidden">
+            <div className="space-y-4 min-w-0">
               {/* Row 1: First Name, Last Name */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
+                <div className="space-y-2 min-w-0">
                   <Label htmlFor="first_name">First Name *</Label>
                   <Input id="first_name" {...form.register("first_name")} />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 min-w-0">
                   <Label htmlFor="last_name">Last Name *</Label>
                   <Input id="last_name" {...form.register("last_name")} />
                 </div>
               </div>
               {/* Row 2: Middle Name, Email */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
+                <div className="space-y-2 min-w-0">
                   <Label htmlFor="middle_name">Middle Name</Label>
                   <Input id="middle_name" {...form.register("middle_name")} />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 min-w-0">
                   <Label htmlFor="email">Email *</Label>
                   <Input id="email" type="email" {...form.register("email")} />
                 </div>
               </div>
               {/* Row 3: Phone, Country */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
+                <div className="space-y-2 min-w-0">
                   <Label htmlFor="phone">Phone *</Label>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 min-w-0">
                     <Select
                       value={form.getValues("phone_country_code") || "+256"}
                       onValueChange={(value) => form.setValue("phone_country_code", value)}
@@ -677,12 +740,12 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                     <Input
                       id="phone"
                       placeholder="752 123 456"
-                      className="flex-1"
+                      className="flex-1 min-w-0"
                       {...form.register("phone")}
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 min-w-0">
                   <Label htmlFor="country">Country *</Label>
                   <SearchableSelect
                     options={ALL_COUNTRIES.map((c) => ({ value: c.code, label: c.name }))}
@@ -695,8 +758,8 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                 </div>
               </div>
               {/* Row 4: Gender, Date of Birth */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
+                <div className="space-y-2 min-w-0">
                   <Label htmlFor="gender">Gender</Label>
                   <Select value={String(watchGender || "")} onValueChange={(value) => form.setValue("gender", value)}>
                     <SelectTrigger>
@@ -709,36 +772,36 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 min-w-0">
                   <Label htmlFor="date_of_birth">Date of Birth</Label>
                   <Input id="date_of_birth" type="date" {...form.register("date_of_birth")} />
                 </div>
               </div>
               {/* Row 5: National ID, Passport Number */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
+                <div className="space-y-2 min-w-0">
                   <Label htmlFor="national_id">National ID</Label>
                   <Input id="national_id" {...form.register("national_id")} />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 min-w-0">
                   <Label htmlFor="passport_number">Passport Number</Label>
                   <Input id="passport_number" {...form.register("passport_number")} />
                 </div>
               </div>
               {/* Row 6: NSSF Number, TIN */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
+                <div className="space-y-2 min-w-0">
                   <Label htmlFor="nssf_number">NSSF Number</Label>
                   <Input id="nssf_number" {...form.register("nssf_number")} />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 min-w-0">
                   <Label htmlFor="tin">TIN</Label>
                   <Input id="tin" {...form.register("tin")} />
                 </div>
               </div>
               {/* Row 7: Marital Status */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
+                <div className="space-y-2 min-w-0">
                   <Label htmlFor="marital_status">Marital Status</Label>
                   <Select
                     value={String(watchMaritalStatus || "")}
@@ -764,7 +827,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
           <AccordionTrigger>
             <div className="font-medium">Employment Information</div>
           </AccordionTrigger>
-          <AccordionContent>
+          <AccordionContent className="overflow-x-hidden">
             {/* Row 1: Company, Company Unit */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -919,6 +982,33 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
               </div>
             </div>
 
+            {/* Row 3b: Probation fields */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="probation_status">Probation Status</Label>
+                <Select
+                  value={String(watchProbationStatus || "")}
+                  onValueChange={(value) => form.setValue("probation_status", value as any)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select probation status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="on_probation">On Probation</SelectItem>
+                    <SelectItem value="confirmed">Confirmed</SelectItem>
+                    <SelectItem value="extended">Extended</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="probation_end_date">Probation End Date</Label>
+                <Input id="probation_end_date" type="date" {...form.register("probation_end_date")} />
+                <p className="text-xs text-muted-foreground">
+                  Auto-calculated from Date Joined + {probationPeriodDays} days (editable).
+                </p>
+              </div>
+            </div>
+
             {/* Row 4: Sub-Department (with Quick Add), Reporting Manager */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div className="space-y-2">
@@ -1013,7 +1103,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
           <AccordionTrigger>
             <div className="font-medium">Pay Information</div>
           </AccordionTrigger>
-          <AccordionContent>
+          <AccordionContent className="overflow-x-hidden">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="pay_type">Pay Type *</Label>
@@ -1085,7 +1175,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
           <AccordionTrigger>
             <div className="font-medium">Bank Details</div>
           </AccordionTrigger>
-          <AccordionContent>
+          <AccordionContent className="overflow-x-hidden">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="bank_name">Bank Name</Label>

@@ -77,7 +77,7 @@ export default function MainLayout() {
   const sidebarWidth = sidebarCollapsed ? 64 : 256;
 
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 overflow-x-hidden">
+    <div className="flex min-h-screen w-full max-w-full bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 overflow-x-hidden">
       {/* Sidebar - Fully unmounted when advanced settings are open */}
       {!isAdvancedSettingsOpen && (
         <motion.aside
@@ -178,17 +178,21 @@ export default function MainLayout() {
 
       {/* Main Content */}
       <main
-        className="flex-1 transition-all duration-300 ease-in-out"
-        style={{ marginLeft: isAdvancedSettingsOpen ? 0 : `${sidebarWidth}px` }}
+        className="flex-1 min-w-0 overflow-x-hidden transition-all duration-300 ease-in-out"
+        style={{
+          marginLeft: isAdvancedSettingsOpen ? 0 : `${sidebarWidth}px`,
+          width: isAdvancedSettingsOpen ? "100vw" : `calc(100vw - ${sidebarWidth}px)`,
+          maxWidth: "100vw",
+        }}
       >
         {/* Header - Fully unmounted when advanced settings are open */}
         {!isAdvancedSettingsOpen && (
-          <header className={`sticky top-0 z-20 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-8 py-4 ${isSettingsOpen ? 'pointer-events-none opacity-50 transition-opacity' : ''}`}>
-            <div className="flex items-center justify-between">
+          <header className={`sticky top-0 z-20 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 lg:px-8 py-4 overflow-x-hidden ${isSettingsOpen ? 'pointer-events-none opacity-50 transition-opacity' : ''}`}>
+            <div className="flex items-center justify-between min-w-0">
               <div />
-              <div className="flex items-center gap-4">
+              <div className="flex items-center justify-end gap-3 flex-wrap min-w-0">
                 {/* Organization | Company context */}
-                <div className="hidden md:flex items-center gap-3 px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600">
+                <div className="hidden md:flex items-center gap-3 px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 min-w-0 max-w-full">
                   <div className="flex items-center gap-1">
                     <span className="text-xs text-slate-500 dark:text-slate-400">Org:</span>
                     <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
@@ -198,7 +202,7 @@ export default function MainLayout() {
                   <span className="text-slate-300 dark:text-slate-600">|</span>
                   <div className="flex items-center gap-1">
                     <span className="text-xs text-slate-500 dark:text-slate-400">Company:</span>
-                    <div className="min-w-[180px]">
+                    <div className="w-40 min-w-0">
                       <Select
                         value={companyId || ''}
                         onValueChange={(val) => {
@@ -276,12 +280,12 @@ export default function MainLayout() {
         )}
 
         {/* Page Content */}
-        <div className="px-8 py-6">
-          <div className="max-w-7xl mx-auto w-full">
+        <div className="px-4 lg:px-8 py-6 overflow-x-hidden">
+          <div className="max-w-7xl mx-auto w-full min-w-0">
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35 }}
+              initial={{ opacity: 1 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0 }}
             >
               <Outlet /> {/* This renders the current page */}
             </motion.div>

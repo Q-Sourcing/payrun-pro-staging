@@ -129,9 +129,27 @@
 }
 
 html, body, #root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   background-color: var(--background);
   color: var(--foreground);
   transition: var(--transition);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+img,
+svg,
+video,
+canvas,
+iframe {
+  max-width: 100%;
+  height: auto;
 }
 
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 

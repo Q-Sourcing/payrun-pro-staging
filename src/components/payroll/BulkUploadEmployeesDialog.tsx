@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, Download, FileText } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { useOrg } from "@/lib/tenant/OrgContext";
 
 interface BulkUploadEmployeesDialogProps {
   open: boolean;
@@ -17,6 +18,17 @@ const BulkUploadEmployeesDialog = ({ open, onOpenChange, onEmployeesAdded }: Bul
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { organizationId } = useOrg();
+  const REQUIRED_FIELDS = ["first_name", "email", "country", "currency", "pay_type", "pay_rate"] as const;
+  const OPTIONAL_FIELDS = [
+    "employee_number",
+    "middle_name",
+    "last_name",
+    "phone",
+    "pay_group_id",
+    "status",
+    "employee_type",
+  ] as const;
 
   const downloadTemplate = () => {
     const headers = [
@@ -62,24 +74,52 @@ const BulkUploadEmployeesDialog = ({ open, onOpenChange, onEmployeesAdded }: Bul
       const employee: any = {};
 
       headers.forEach((header, index) => {
-        const value = values[index];
-        if (value) {
-          if (header === "pay_rate") {
-            employee[header] = parseFloat(value);
-          } else {
-            employee[header] = value;
-          }
-        } else if (header === "middle_name" || header === "last_name" || header === "phone" || header === "pay_group_id") {
-          employee[header] = null;
-        }
+        const value = values[index] ?? "";
+        employee[header] = value;
       });
 
-      if (employee.first_name && employee.email) {
-        employees.push(employee);
-      }
+      employees.push({ ...employee, _rowNumber: i + 1 });
     }
 
     return employees;
+  };
+
+  const normalizeEmployeeRow = (raw: any) => {
+    const normalized: any = {};
+
+    Object.keys(raw).forEach((key) => {
+      if (key === "_rowNumber") return;
+      const value = raw[key];
+      normalized[key] = typeof value === "string" ? value.trim() : value;
+    });
+
+    OPTIONAL_FIELDS.forEach((field) => {
+      if (normalized[field] === "") normalized[field] = null;
+    });
+
+    if (normalized.pay_rate === "" || normalized.pay_rate === null || normalized.pay_rate === undefined) {
+      normalized.pay_rate = null;
+    } else {
+      const parsedPayRate = Number(normalized.pay_rate);
+      normalized.pay_rate = Number.isFinite(parsedPayRate) ? parsedPayRate : NaN;
+    }
+
+    normalized.status = normalized.status || "active";
+    normalized.employee_type = normalized.employee_type || "regular";
+
+    return normalized;
+  };
+
+  const validateRequiredFields = (row: any) => {
+    const missing: string[] = [];
+    REQUIRED_FIELDS.forEach((field) => {
+      if (field === "pay_rate") {
+        if (row.pay_rate === null || Number.isNaN(row.pay_rate)) missing.push(field);
+      } else if (!row[field]) {
+        missing.push(field);
+      }
+    });
+    return missing;
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -121,27 +161,34 @@ const BulkUploadEmployeesDialog = ({ open, onOpenChange, onEmployeesAdded }: Bul
         return;
       }
 
-      // Validate required fields and set defaults
-      const validEmployees = employees.filter(emp =>
-        emp.first_name &&
-        emp.email &&
-        emp.country &&
-        emp.currency &&
-        emp.pay_type &&
-        emp.pay_rate
-      ).map(emp => ({
-        ...emp,
-        employee_type: emp.employee_type || 'regular' // Default to regular if not specified
-      }));
+      const validEmployees: any[] = [];
+      const skippedRows: string[] = [];
+
+      employees.forEach((rawRow: any) => {
+        const row = normalizeEmployeeRow(rawRow);
+        const missingRequired = validateRequiredFields(row);
+
+        if (missingRequired.length > 0) {
+          skippedRows.push(`Row ${rawRow._rowNumber}: missing ${missingRequired.join(", ")}`);
+          return;
+        }
+
+        validEmployees.push(row);
+      });
 
       if (validEmployees.length === 0) {
         toast({
           title: "Error",
-          description: "No valid employees found. Ensure all required fields are filled.",
+          description: "No valid employees found. Ensure required fields are filled and pay_rate is numeric.",
           variant: "destructive",
         });
         return;
       }
+
+      const finalOrgId =
+        organizationId ||
+        localStorage.getItem("active_organization_id") ||
+        "00000000-0000-0000-0000-000000000001";
 
       // Pre-check duplicates for provided employee_number values
       const providedIds = validEmployees.map(e => e.employee_number).filter(Boolean);
@@ -162,15 +209,22 @@ const BulkUploadEmployeesDialog = ({ open, onOpenChange, onEmployeesAdded }: Bul
         }
       }
 
+      const rowsToInsert = validEmployees.map((employee) => ({
+        ...employee,
+        organization_id: finalOrgId,
+      }));
+
       const { error } = await supabase
         .from("employees")
-        .insert(validEmployees);
+        .insert(rowsToInsert);
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: `Successfully uploaded ${validEmployees.length} employee(s)`,
+        description: skippedRows.length > 0
+          ? `Uploaded ${validEmployees.length} employee(s). Skipped ${skippedRows.length} row(s) with missing required fields.`
+          : `Successfully uploaded ${validEmployees.length} employee(s)`,
       });
 
       setFile(null);
@@ -207,8 +261,9 @@ const BulkUploadEmployeesDialog = ({ open, onOpenChange, onEmployeesAdded }: Bul
                   <div className="flex-1">
                     <h4 className="font-medium mb-1">CSV Format Requirements</h4>
                     <ul className="text-sm text-muted-foreground space-y-1">
-                      <li>• Required: first_name, email, country, currency, pay_type, pay_rate, status, employee_type</li>
-                      <li>• Optional: middle_name, last_name, phone, pay_group_id</li>
+                      <li>• Required: first_name, email, country, currency, pay_type, pay_rate</li>
+                      <li>• Optional: employee_number, middle_name, last_name, phone, pay_group_id, status, employee_type</li>
+                      <li>• Empty optional fields are accepted and stored as null</li>
                       <li>• Pay types: salary, hourly, piece_rate</li>
                       <li>• Employee types: local, expatriate</li>
                       <li>• Status: active, inactive</li>

@@ -122,7 +122,7 @@ export default function MyApprovals() {
                                                     {step.step_name}
                                                 </CardTitle>
                                                 <CardDescription>
-                                                    Pay Run: {format(new Date(step.pay_run.period_start), 'MMM d, yyyy')} - {format(new Date(step.pay_run.period_end), 'MMM d, yyyy')}
+                                                    Pay Run: {format(new Date(step.pay_run.pay_period_start), 'MMM d, yyyy')} - {format(new Date(step.pay_run.pay_period_end), 'MMM d, yyyy')}
                                                 </CardDescription>
                                             </div>
                                             <Badge variant={

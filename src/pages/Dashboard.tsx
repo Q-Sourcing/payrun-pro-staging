@@ -61,7 +61,7 @@ const Dashboard = () => {
               <tbody>
                 {payRuns.map(pr => (
                   <tr key={pr.id} className="border-b last:border-none">
-                    <td>{pr.period_start?.slice(0, 10)} - {pr.period_end?.slice(0, 10)}</td>
+                    <td>{pr.pay_period_start?.slice(0, 10)} - {pr.pay_period_end?.slice(0, 10)}</td>
                     <td>{pr.pay_group?.name}</td>
                     <td>{pr.total_employees || '-'}</td>
                     <td>{pr.total_gross_pay?.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</td>

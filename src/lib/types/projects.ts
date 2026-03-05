@@ -16,6 +16,8 @@ export interface Project {
     client_name?: string | null;
     location?: string | null;
     contract_value?: number | null;
+    country?: string | null;
+    currency?: string | null;
     created_at: string;
     updated_at: string;
 }

@@ -36,15 +36,15 @@ export async function getDashboardStats(orgId: string) {
     let legacy = await supabase
       .from('pay_runs')
       .select('total_gross_pay')
-      .gte('period_end', monthStart)
-      .lte('period_end', monthEnd)
+      .gte('pay_period_end', monthStart)
+      .lte('pay_period_end', monthEnd)
       .eq('organization_id', orgId)
     if (legacy.error) {
       legacy = await supabase
         .from('pay_runs')
         .select('total_gross_pay')
-        .gte('period_end', monthStart)
-        .lte('period_end', monthEnd)
+        .gte('pay_period_end', monthStart)
+        .lte('pay_period_end', monthEnd)
     }
     if (!legacy.error && Array.isArray(legacy.data)) {
       payroll = legacy.data.reduce((a: any, r: any) => a + (Number(r.total_gross_pay) || 0), 0)
@@ -58,17 +58,17 @@ export async function getRecentPayRuns(orgId: string, limit = 5) {
   // Query pay_runs with correct column names
   let result = await supabase
     .from('pay_runs')
-    .select('id, period_start, period_end, total_gross_pay, total_net_pay, status, pay_group:pay_groups(name)')
+    .select('id, pay_period_start, pay_period_end, total_gross_pay, total_net_pay, status, pay_group:pay_group_master(name)')
     .eq('organization_id', orgId)
-    .order('period_end', { ascending: false })
+    .order('pay_period_end', { ascending: false })
     .limit(limit)
 
   if (result.error) {
     // Retry without org filter if needed
     result = await supabase
       .from('pay_runs')
-      .select('id, period_start, period_end, total_gross_pay, total_net_pay, status, pay_group:pay_groups(name)')
-      .order('period_end', { ascending: false })
+      .select('id, pay_period_start, pay_period_end, total_gross_pay, total_net_pay, status, pay_group:pay_group_master(name)')
+      .order('pay_period_end', { ascending: false })
       .limit(limit)
   }
 

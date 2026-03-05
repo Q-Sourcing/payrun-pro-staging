@@ -1,6 +1,7 @@
-// @ts-nocheck
 import { supabase } from '@/integrations/supabase/client';
 import { Project, PROJECT_TYPE_PAY_TYPES } from '@/lib/types/projects';
+
+type ProjectOnboardingStepRow = { project_id: string; completed: boolean | null };
 
 export class ProjectsService {
     /**
@@ -21,7 +22,8 @@ export class ProjectsService {
      */
     static async getProjectsByType(
         projectType: 'manpower' | 'ippms' | 'expatriate',
-        _organizationId: string
+        _organizationId: string,
+        options?: { onlyFullyOnboarded?: boolean }
     ): Promise<Project[]> {
         const { data, error } = await supabase
             .from('projects')
@@ -31,7 +33,53 @@ export class ProjectsService {
             .order('name');
 
         if (error) throw error;
-        return data || [];
+        const projects = data || [];
+        if (!options?.onlyFullyOnboarded || projects.length === 0) {
+            return projects;
+        }
+
+        const projectIds = projects.map((p) => p.id);
+        const { data: steps, error: stepsError } = await supabase
+            .from('project_onboarding_steps')
+            .select('project_id, completed')
+            .in('project_id', projectIds);
+
+        if (stepsError) throw stepsError;
+
+        const progressByProject = new Map<string, { total: number; completed: number }>();
+        const typedSteps = (steps ?? []) as ProjectOnboardingStepRow[];
+        typedSteps.forEach((step) => {
+            const current = progressByProject.get(step.project_id) || { total: 0, completed: 0 };
+            current.total += 1;
+            if (step.completed) current.completed += 1;
+            progressByProject.set(step.project_id, current);
+        });
+
+        return projects.filter((project) => {
+            const progress = progressByProject.get(project.id);
+            return !!progress && progress.total > 0 && progress.completed === progress.total;
+        });
+    }
+
+    static async getProjectOnboardingProgress(projectId: string): Promise<{
+        totalSteps: number;
+        completedSteps: number;
+        isFullyOnboarded: boolean;
+    }> {
+        const { data, error } = await supabase
+            .from('project_onboarding_steps')
+            .select('completed')
+            .eq('project_id', projectId);
+
+        if (error) throw error;
+
+        const totalSteps = (data || []).length;
+        const completedSteps = (data || []).filter((s) => s.completed).length;
+        return {
+            totalSteps,
+            completedSteps,
+            isFullyOnboarded: totalSteps > 0 && completedSteps === totalSteps,
+        };
     }
 
     /**

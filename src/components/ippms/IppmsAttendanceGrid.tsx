@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,16 +9,32 @@ import { IppmsAttendanceService } from '@/lib/services/ippms/ippms.attendance.se
 import { Textarea } from '@/components/ui/textarea';
 import { EmployeesService } from '@/lib/data/employees.service';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Save, Upload, RefreshCw, Users, CalendarCheck, Clock, AlertTriangle, Trash2, FileDown, FileUp, Loader2 } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Save, Upload, RefreshCw, Users, CalendarCheck, Clock, AlertTriangle, FileDown, FileUp, Loader2 } from 'lucide-react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import type { IppmsAttendanceRecord, IppmsAttendanceUpsertInput, IppmsAttendanceStatus } from '@/lib/types/ippmsWorkforce';
+import { supabase } from '@/integrations/supabase/client';
+import { formatCurrency, getCurrencySymbol } from '@/lib/constants/countries';
 
 interface Props {
   projectId: string;
 }
 
 const today = new Date();
+
+type ProjectMetaLite = {
+  currency: string | null;
+  country: string | null;
+};
+
+// EmployeesService returns a superset; we only rely on these fields here.
+type ProjectEmployeeLite = {
+  id: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  email?: string | null;
+  pay_rate?: number | null;
+  currency?: string | null;
+};
 
 function toISO(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -48,19 +64,14 @@ export function IppmsAttendanceGrid({ projectId }: Props) {
   const [rangeEnd, setRangeEnd] = useState<string>(toISO(new Date(today.getFullYear(), today.getMonth() + 1, 0)));
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [uploadPayload, setUploadPayload] = useState<string>('');
-  const [form, setForm] = useState<IppmsAttendanceUpsertInput>({
-    employee_id: '',
-    attendance_date: toISO(today),
-    status: 'PRESENT',
-    hours_worked: 8,
-    overtime_hours: 0,
-    remarks: ''
-  });
-  const [pendingRows, setPendingRows] = useState<IppmsAttendanceUpsertInput[]>([]);
+  const [batchDate, setBatchDate] = useState<string>(toISO(today));
+  const [batchRows, setBatchRows] = useState<IppmsAttendanceUpsertInput[]>([]);
+  const [batchInitializedFor, setBatchInitializedFor] = useState<string>('');
+  const [invoiceAmount, setInvoiceAmount] = useState<string>('');
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, refetch } = useQuery<IppmsAttendanceRecord[]>({
     queryKey: ['ippms-attendance', projectId, rangeStart, rangeEnd],
     queryFn: () =>
       IppmsAttendanceService.getAttendance({
@@ -70,9 +81,19 @@ export function IppmsAttendanceGrid({ projectId }: Props) {
       })
   });
 
-  const { data: employees } = useQuery({
+  const { data: employees } = useQuery<ProjectEmployeeLite[]>({
     queryKey: ['project-employees-lite', projectId],
     queryFn: () => EmployeesService.getEmployeesByProject(projectId),
+  });
+
+  const { data: projectMeta } = useQuery<ProjectMetaLite>({
+    queryKey: ['project-meta-lite', projectId],
+    queryFn: async () => {
+      const { data: row, error } = await supabase.from('projects').select('currency, country').eq('id', projectId).single();
+      if (error) throw error;
+      return (row || { currency: null, country: null }) as ProjectMetaLite;
+    },
+    enabled: !!projectId,
   });
 
   const saveMutation = useMutation({
@@ -81,48 +102,104 @@ export function IppmsAttendanceGrid({ projectId }: Props) {
     },
     onSuccess: async () => {
       toast({ title: 'Attendance saved successfully' });
-      setPendingRows([]);
       await qc.invalidateQueries({ queryKey: ['ippms-attendance', projectId] });
     },
-    onError: (err: any) => {
-      toast({ title: 'Failed to save', description: err?.message || 'Unknown error', variant: 'destructive' });
+    onError: (err: unknown) => {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      toast({ title: 'Failed to save', description: message, variant: 'destructive' });
     }
   });
 
-  const addRow = () => {
-    if (!form.employee_id || !form.attendance_date || !form.status) {
-      toast({ title: 'Missing required fields', description: 'Employee, date, and status are required.', variant: 'destructive' });
-      return;
-    }
-    setPendingRows((prev) => [...prev, { ...form }]);
-    toast({ title: 'Added to batch' });
-  };
-
-  const removeRow = (idx: number) => {
-    setPendingRows((prev) => prev.filter((_, i) => i !== idx));
-  };
-
-  const saveNow = () => {
-    if (pendingRows.length === 0 && form.employee_id) {
-      saveMutation.mutate([{ ...form }]);
-    } else if (pendingRows.length > 0) {
-      saveMutation.mutate(pendingRows);
-    } else {
-      toast({ title: 'Nothing to save', variant: 'destructive' });
-    }
-  };
-
   const statuses: IppmsAttendanceStatus[] = ['PRESENT', 'ABSENT', 'OFF', 'LEAVE', 'UNPAID_LEAVE', 'SICK', 'PUBLIC_HOLIDAY'];
 
-  const records = data || [];
+  const records = useMemo(() => data ?? [], [data]);
+
+  const employeesById = useMemo(() => {
+    const map = new Map<string, ProjectEmployeeLite>();
+    (employees || []).forEach((e) => map.set(e.id, e));
+    return map;
+  }, [employees]);
+
+  // Load/save invoice amount per project (local only).
+  useEffect(() => {
+    const key = `ippms_invoice_amount_${projectId}`;
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved != null) setInvoiceAmount(saved);
+    } catch {
+      // ignore
+    }
+    // Reset initialization when changing projects.
+    setBatchInitializedFor('');
+    setBatchRows([]);
+  }, [projectId]);
+
+  useEffect(() => {
+    const key = `ippms_invoice_amount_${projectId}`;
+    try {
+      localStorage.setItem(key, invoiceAmount);
+    } catch {
+      // ignore
+    }
+  }, [invoiceAmount, projectId]);
+
+  // Initialize / refresh the batch grid for the selected day (prefill Present).
+  useEffect(() => {
+    if (!batchDate) return;
+    if (!employees || employees.length === 0) return;
+    const initKey = `${projectId}:${batchDate}:${employees.length}`;
+    if (batchInitializedFor === initKey) return;
+
+    const existingForDate = (records || []).filter((r) => r.attendance_date === batchDate);
+    const existingByEmployee = new Map<string, IppmsAttendanceRecord>();
+    existingForDate.forEach((r) => existingByEmployee.set(r.employee_id, r));
+
+    const nextRows: IppmsAttendanceUpsertInput[] = (employees || []).map((e) => {
+      const existing = existingByEmployee.get(e.id);
+      const status = (existing?.status || 'PRESENT') as IppmsAttendanceStatus;
+      const defaultHours = status === 'PRESENT' ? 8 : 0;
+      return {
+        employee_id: e.id,
+        attendance_date: batchDate,
+        status,
+        shift_id: existing?.shift_id ?? null,
+        hours_worked: existing?.hours_worked ?? defaultHours,
+        overtime_hours: existing?.overtime_hours ?? 0,
+        remarks: existing?.remarks ?? '',
+        daily_rate_snapshot: existing?.daily_rate_snapshot ?? e.pay_rate ?? null,
+        recorded_source: 'PROJECT_ADMIN',
+      };
+    });
+
+    setBatchRows(nextRows);
+    setBatchInitializedFor(initKey);
+  }, [batchDate, batchInitializedFor, employees, projectId, records]);
 
   const stats = useMemo(() => {
     const present = records.filter((r) => r.status === 'PRESENT').length;
     const absent = records.filter((r) => r.status === 'ABSENT').length;
     const leave = records.filter((r) => ['LEAVE', 'UNPAID_LEAVE', 'SICK'].includes(r.status)).length;
-    const totalHours = records.reduce((sum, r) => sum + (r.hours_worked || 0), 0);
+    // For workboard outputs, only PRESENT hours contribute to totals.
+    const totalHours = records.reduce((sum, r) => sum + (r.status === 'PRESENT' ? (r.hours_worked || 0) : 0), 0);
     return { present, absent, leave, totalHours, total: records.length };
   }, [records]);
+
+  const batchSummary = useMemo(() => {
+    const presentRows = (batchRows || []).filter((r) => r.status === 'PRESENT');
+    const totalPresent = presentRows.length;
+    const totalHours = presentRows.reduce((sum, r) => sum + (r.hours_worked || 0), 0);
+    const estimatedCost = presentRows.reduce((sum, r) => {
+      const emp = employeesById.get(r.employee_id);
+      const rate = (r.daily_rate_snapshot ?? emp?.pay_rate ?? 0) as number;
+      const hours = (r.hours_worked ?? 0) as number;
+      return sum + hours * (Number.isFinite(rate) ? rate : 0);
+    }, 0);
+    return { totalPresent, totalHours, estimatedCost };
+  }, [batchRows, employeesById]);
+
+  const currencyCode = projectMeta?.currency || employees?.[0]?.currency || '';
+  const money = (amount: number) => (currencyCode ? formatCurrency(amount, currencyCode) : amount.toLocaleString());
+  const currencySymbol = currencyCode ? getCurrencySymbol(currencyCode) : '';
 
   const grouped = useMemo(() => {
     const map: Record<string, IppmsAttendanceRecord[]> = {};
@@ -134,9 +211,9 @@ export function IppmsAttendanceGrid({ projectId }: Props) {
   }, [records]);
 
   const getEmployeeName = (id: string) => {
-    const emp = (employees || []).find((e: any) => e.id === id);
+    const emp = (employees || []).find((e) => e.id === id);
     if (!emp) return id.slice(0, 8) + '…';
-    return [emp.first_name, emp.last_name].filter(Boolean).join(' ') || emp.email;
+    return [emp.first_name, emp.last_name].filter(Boolean).join(' ') || emp.email || id.slice(0, 8) + '…';
   };
 
   return (
@@ -182,153 +259,206 @@ export function IppmsAttendanceGrid({ projectId }: Props) {
         </Button>
       </div>
 
-      {/* Entry Form */}
+      {/* Batch Attendance Entry (single grid, default Present) */}
       <div className="rounded-lg border bg-card">
         <div className="border-b px-4 py-3">
-          <h3 className="text-sm font-semibold">Record Attendance</h3>
-          <p className="text-[11px] text-muted-foreground mt-0.5">Add individual or batch attendance entries</p>
+          <h3 className="text-sm font-semibold">Batch Attendance Entry</h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            One row per project employee. Defaults to Present; Absent rows are excluded from totals and cost.
+          </p>
         </div>
-        <div className="p-4 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Employee *</Label>
-              <Select value={form.employee_id} onValueChange={(v) => setForm((f) => ({ ...f, employee_id: v }))}>
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Select employee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(employees || []).map((e: any) => (
-                    <SelectItem key={e.id} value={e.id}>
-                      {[e.first_name, e.last_name].filter(Boolean).join(' ') || e.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <div className="p-4 space-y-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1">
+              <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Work Date</Label>
+              <Input type="date" value={batchDate} onChange={(e) => { setBatchDate(e.target.value); setBatchInitializedFor(''); }} className="h-9 w-[170px] text-sm" />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Date *</Label>
-              <Input type="date" value={form.attendance_date} onChange={(e) => setForm((f) => ({ ...f, attendance_date: e.target.value }))} className="h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Status *</Label>
-              <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v as IppmsAttendanceStatus }))}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      <div className="flex items-center gap-2">
-                        <StatusBadge status={s} />
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1.5">
-                <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Hours</Label>
-                <Input
-                  type="number"
-                  step="0.25"
-                  value={form.hours_worked ?? ''}
-                  onChange={(e) => setForm((f) => ({ ...f, hours_worked: e.target.value ? Number(e.target.value) : undefined }))}
-                  placeholder="8"
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">OT</Label>
-                <Input
-                  type="number"
-                  step="0.25"
-                  value={form.overtime_hours ?? ''}
-                  onChange={(e) => setForm((f) => ({ ...f, overtime_hours: e.target.value ? Number(e.target.value) : undefined }))}
-                  placeholder="0"
-                  className="h-9"
-                />
-              </div>
-            </div>
-          </div>
-          <div className="flex items-end gap-3">
-            <div className="flex-1 space-y-1.5">
-              <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Remarks</Label>
-              <Input
-                value={form.remarks ?? ''}
-                onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))}
-                placeholder="Optional remarks"
-                className="h-9"
-              />
-            </div>
-            <div className="flex gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={addRow}>
-                      <Plus className="h-3.5 w-3.5" />
-                      Batch
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Add to batch queue</p></TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <Button size="sm" className="h-9 gap-1.5" onClick={saveNow} disabled={saveMutation.isPending}>
-                {saveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                Save
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Pending Batch */}
-      {pendingRows.length > 0 && (
-        <div className="rounded-lg border bg-card">
-          <div className="border-b px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold">Pending Batch</h3>
-              <Badge variant="secondary" className="text-[10px]">{pendingRows.length} entries</Badge>
-            </div>
-            <Button size="sm" className="h-8 gap-1.5" onClick={saveNow} disabled={saveMutation.isPending}>
+            <div className="flex-1" />
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9"
+              onClick={() => {
+                // Force re-init for date (resets to default Present where no existing record).
+                setBatchInitializedFor('');
+              }}
+            >
+              Reset Defaults
+            </Button>
+            <Button
+              size="sm"
+              className="h-9 gap-1.5"
+              onClick={() => {
+                if (!batchRows || batchRows.length === 0) {
+                  toast({ title: 'No employees in grid', description: 'Assign employees to the project first.', variant: 'destructive' });
+                  return;
+                }
+                saveMutation.mutate(batchRows);
+              }}
+              disabled={saveMutation.isPending}
+            >
               {saveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
               Save All
             </Button>
           </div>
-          <ScrollArea className="max-h-[200px]">
+
+          <ScrollArea className="max-h-[420px] border rounded-md">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b bg-muted/30">
                   <th className="text-left py-2 px-3 font-medium text-muted-foreground">Employee</th>
-                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">Date</th>
-                  <th className="text-left py-2 px-3 font-medium text-muted-foreground">Status</th>
-                  <th className="text-right py-2 px-3 font-medium text-muted-foreground">Hours</th>
-                  <th className="text-right py-2 px-3 font-medium text-muted-foreground">OT</th>
+                  <th className="text-left py-2 px-3 font-medium text-muted-foreground w-[160px]">Status</th>
+                  <th className="text-right py-2 px-3 font-medium text-muted-foreground w-[100px]">Hours</th>
+                  <th className="text-right py-2 px-3 font-medium text-muted-foreground w-[90px]">OT</th>
+                  <th className="text-right py-2 px-3 font-medium text-muted-foreground w-[130px]">Rate</th>
                   <th className="text-left py-2 px-3 font-medium text-muted-foreground">Remarks</th>
-                  <th className="py-2 px-3 w-10"></th>
                 </tr>
               </thead>
               <tbody>
-                {pendingRows.map((r, idx) => (
-                  <tr key={`${r.employee_id}-${r.attendance_date}-${idx}`} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
-                    <td className="py-2 px-3 font-medium">{getEmployeeName(r.employee_id)}</td>
-                    <td className="py-2 px-3 font-mono text-muted-foreground">{r.attendance_date}</td>
-                    <td className="py-2 px-3"><StatusBadge status={r.status} /></td>
-                    <td className="py-2 px-3 text-right tabular-nums">{r.hours_worked ?? '-'}</td>
-                    <td className="py-2 px-3 text-right tabular-nums">{r.overtime_hours ?? '-'}</td>
-                    <td className="py-2 px-3 text-muted-foreground truncate max-w-[120px]">{r.remarks || '-'}</td>
-                    <td className="py-2 px-3">
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => removeRow(idx)}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                {(batchRows || []).map((r) => {
+                  const emp = employeesById.get(r.employee_id);
+                  const name = emp ? ([emp.first_name, emp.last_name].filter(Boolean).join(' ') || emp.email) : r.employee_id;
+                  return (
+                    <tr key={r.employee_id} className="border-b last:border-0 hover:bg-muted/10 transition-colors">
+                      <td className="py-2 px-3 font-medium">{name}</td>
+                      <td className="py-2 px-3">
+                        <Select
+                          value={r.status}
+                          onValueChange={(v) => {
+                            const nextStatus = v as IppmsAttendanceStatus;
+                            setBatchRows((prev) =>
+                              prev.map((x) =>
+                                x.employee_id === r.employee_id
+                                  ? {
+                                      ...x,
+                                      status: nextStatus,
+                                      // Keep batch output totals clean: non-present rows always carry 0 hours.
+                                      hours_worked: nextStatus === 'PRESENT' ? (x.hours_worked ?? 8) : 0,
+                                    }
+                                  : x
+                              )
+                            );
+                          }}
+                        >
+                          <SelectTrigger className="h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {statuses.map((s) => (
+                              <SelectItem key={s} value={s}>
+                                <div className="flex items-center gap-2">
+                                  <StatusBadge status={s} />
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="py-2 px-3 text-right">
+                        <Input
+                          type="number"
+                          step="0.25"
+                          value={r.hours_worked ?? ''}
+                          onChange={(e) => {
+                            const value = e.target.value ? Number(e.target.value) : null;
+                            setBatchRows((prev) => prev.map((x) => (x.employee_id === r.employee_id ? { ...x, hours_worked: value } : x)));
+                          }}
+                          className="h-8 text-right"
+                        />
+                      </td>
+                      <td className="py-2 px-3 text-right">
+                        <Input
+                          type="number"
+                          step="0.25"
+                          value={r.overtime_hours ?? ''}
+                          onChange={(e) => {
+                            const value = e.target.value ? Number(e.target.value) : null;
+                            setBatchRows((prev) => prev.map((x) => (x.employee_id === r.employee_id ? { ...x, overtime_hours: value } : x)));
+                          }}
+                          className="h-8 text-right"
+                        />
+                      </td>
+                      <td className="py-2 px-3 text-right">
+                        <div className="flex items-center justify-end gap-1 text-muted-foreground">
+                          {currencySymbol ? <span className="text-[10px]">{currencySymbol}</span> : null}
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={r.daily_rate_snapshot ?? ''}
+                            onChange={(e) => {
+                              const value = e.target.value ? Number(e.target.value) : null;
+                              setBatchRows((prev) => prev.map((x) => (x.employee_id === r.employee_id ? { ...x, daily_rate_snapshot: value } : x)));
+                            }}
+                            className="h-8 text-right w-[110px]"
+                          />
+                        </div>
+                      </td>
+                      <td className="py-2 px-3">
+                        <Input
+                          value={r.remarks ?? ''}
+                          onChange={(e) => setBatchRows((prev) => prev.map((x) => (x.employee_id === r.employee_id ? { ...x, remarks: e.target.value } : x)))}
+                          className="h-8"
+                          placeholder="Optional"
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
+              <tfoot>
+                <tr className="border-t bg-muted/20">
+                  <td className="py-2 px-3 text-xs font-semibold" colSpan={2}>Totals</td>
+                  <td className="py-2 px-3 text-right text-xs font-semibold tabular-nums">{batchSummary.totalHours.toFixed(2)}</td>
+                  <td className="py-2 px-3" />
+                  <td className="py-2 px-3 text-right text-xs font-semibold tabular-nums">{money(batchSummary.estimatedCost)}</td>
+                  <td className="py-2 px-3 text-xs text-muted-foreground">
+                    Present: <span className="font-medium text-foreground">{batchSummary.totalPresent}</span>
+                  </td>
+                </tr>
+              </tfoot>
             </table>
+            <ScrollBar orientation="horizontal" />
           </ScrollArea>
+
+          {/* Compare with Invoice */}
+          <div className="rounded-md border bg-muted/10 p-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Compare with Invoice</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={invoiceAmount}
+                    onChange={(e) => setInvoiceAmount(e.target.value)}
+                    placeholder="Invoice amount"
+                    className="h-9 w-[220px]"
+                  />
+                  <div className="text-xs text-muted-foreground">
+                    Estimated cost: <span className="font-medium text-foreground">{money(batchSummary.estimatedCost)}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex-1" />
+              <div className="text-xs">
+                {(() => {
+                  const inv = invoiceAmount.trim() ? Number(invoiceAmount) : 0;
+                  const diff = inv - batchSummary.estimatedCost;
+                  const label = diff === 0 ? 'Even' : diff > 0 ? 'Under invoice' : 'Over invoice';
+                  return (
+                    <span className="text-muted-foreground">
+                      Variance: <span className={`font-semibold ${diff < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                        {money(Math.abs(diff))}
+                      </span>{' '}
+                      <span className="text-muted-foreground">({label})</span>
+                    </span>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Bulk Upload Section */}
       {showBulkUpload && (
@@ -355,8 +485,9 @@ export function IppmsAttendanceGrid({ projectId }: Props) {
                     const tmpl = await IppmsAttendanceService.generateTemplate(projectId);
                     setUploadPayload(JSON.stringify(tmpl, null, 2));
                     toast({ title: 'Template loaded' });
-                  } catch (err: any) {
-                    toast({ title: 'Failed to load template', description: err?.message || 'Unknown error', variant: 'destructive' });
+                  } catch (err: unknown) {
+                    const message = err instanceof Error ? err.message : 'Unknown error';
+                    toast({ title: 'Failed to load template', description: message, variant: 'destructive' });
                   }
                 }}
               >
@@ -378,8 +509,9 @@ export function IppmsAttendanceGrid({ projectId }: Props) {
                     setUploadPayload('');
                     setShowBulkUpload(false);
                     await qc.invalidateQueries({ queryKey: ['ippms-attendance', projectId] });
-                  } catch (err: any) {
-                    toast({ title: 'Upload failed', description: err?.message || 'Invalid JSON', variant: 'destructive' });
+                  } catch (err: unknown) {
+                    const message = err instanceof Error ? err.message : 'Invalid JSON';
+                    toast({ title: 'Upload failed', description: message, variant: 'destructive' });
                   }
                 }}
               >

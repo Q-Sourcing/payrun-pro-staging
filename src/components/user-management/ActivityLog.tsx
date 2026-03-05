@@ -28,7 +28,7 @@ import {
 import { 
   Activity, 
   Search, 
-  Filter, 
+  Filter,
   Download, 
   RefreshCw,
   MoreHorizontal,
@@ -43,7 +43,8 @@ import {
   Edit,
   UserPlus,
   UserX,
-  Key
+  Key,
+  FileText
 } from 'lucide-react';
 import { User as UserType } from '@/lib/types/roles';
 
@@ -64,6 +65,12 @@ interface ActivityEntry {
   timestamp: string;
   result: 'success' | 'failure' | 'denied';
 }
+
+const CONTRACT_GENERATION_ACTIONS = [
+  'contract_generated',
+  'contract_generation_blocked',
+  'contract_generation_failed',
+] as const;
 
 export function ActivityLog({ currentUser }: ActivityLogProps) {
   const [activities, setActivities] = useState<ActivityEntry[]>([]);
@@ -238,6 +245,10 @@ export function ActivityLog({ currentUser }: ActivityLogProps) {
         return <AlertCircle className="h-4 w-4" />;
       case 'export_users':
         return <Download className="h-4 w-4" />;
+      case 'contract_generated':
+      case 'contract_generation_blocked':
+      case 'contract_generation_failed':
+        return <FileText className="h-4 w-4" />;
       default:
         return <Settings className="h-4 w-4" />;
     }
@@ -261,6 +272,11 @@ export function ActivityLog({ currentUser }: ActivityLogProps) {
       case 'failed_login':
       case 'access_denied':
         return 'text-red-600';
+      case 'contract_generated':
+        return 'text-green-600';
+      case 'contract_generation_blocked':
+      case 'contract_generation_failed':
+        return 'text-amber-700';
       default:
         return 'text-gray-600';
     }
@@ -304,13 +320,18 @@ export function ActivityLog({ currentUser }: ActivityLogProps) {
       activity.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
       activity.resource.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesAction = selectedAction === 'all' || activity.action === selectedAction;
+    const matchesAction =
+      selectedAction === 'all' ||
+      activity.action === selectedAction ||
+      (selectedAction === 'contract_generation' && CONTRACT_GENERATION_ACTIONS.includes(activity.action as any));
     const matchesResult = selectedResult === 'all' || activity.result === selectedResult;
     
     return matchesSearch && matchesAction && matchesResult;
   });
 
-  const uniqueActions = [...new Set(activities.map(a => a.action))].sort();
+  const uniqueActions = [
+    ...new Set([...activities.map(a => a.action), ...CONTRACT_GENERATION_ACTIONS]),
+  ].sort();
 
   // Pagination
   const totalPages = Math.ceil(filteredActivities.length / activitiesPerPage);
@@ -375,6 +396,7 @@ export function ActivityLog({ currentUser }: ActivityLogProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Actions</SelectItem>
+                  <SelectItem value="contract_generation">Contract Generation</SelectItem>
                   {uniqueActions.map(action => (
                     <SelectItem key={action} value={action}>
                       {action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}

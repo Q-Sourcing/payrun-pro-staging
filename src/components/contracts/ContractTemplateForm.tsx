@@ -1,17 +1,16 @@
 // @ts-nocheck
-import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useEffect, useRef, useState } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Copy } from "lucide-react";
 import { ContractTemplate } from "@/lib/data/contracts.service";
 import { toast } from "@/hooks/use-toast";
+import { RichTextEditor, type RichTextEditorHandle } from "@/components/ui/rich-text-editor";
 
 const BUILT_IN_PLACEHOLDERS = [
   { key: "employee_name", label: "Employee Name" },
@@ -62,18 +61,19 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSave }: C
   const [newKey, setNewKey] = useState("");
   const [newLabel, setNewLabel] = useState("");
   const [newDefault, setNewDefault] = useState("");
+  const editorRef = useRef<RichTextEditorHandle | null>(null);
 
-  // Reset form when dialog opens
   useEffect(() => {
-    if (open) {
-      setName(template?.name ?? "");
-      setDescription(template?.description ?? "");
-      setCountryCode(template?.country_code ?? "");
-      setEmploymentType(template?.employment_type ?? "");
-      setBodyHtml(template?.body_html ?? "");
-      setPlaceholders((template?.placeholders as Placeholder[]) ?? []);
-      setNewKey(""); setNewLabel(""); setNewDefault("");
-    }
+    if (!open) return;
+    setName(template?.name ?? "");
+    setDescription(template?.description ?? "");
+    setCountryCode(template?.country_code ?? "");
+    setEmploymentType(template?.employment_type ?? "");
+    setBodyHtml(template?.body_html ?? "");
+    setPlaceholders((template?.placeholders as Placeholder[]) ?? []);
+    setNewKey("");
+    setNewLabel("");
+    setNewDefault("");
   }, [open, template]);
 
   const handleAddPlaceholder = () => {
@@ -93,7 +93,7 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSave }: C
   };
 
   const insertPlaceholder = (key: string) => {
-    setBodyHtml((prev) => prev + `{{${key}}}`);
+    editorRef.current?.insertText(`{{${key}}}`);
     toast({ title: "Inserted", description: `{{${key}}} added to body.` });
   };
 
@@ -135,17 +135,17 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSave }: C
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{template ? "Edit Template" : "New Contract Template"}</DialogTitle>
+          <DialogDescription>
+            Configure template details, placeholders, and contract body content before saving.
+          </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="editor" className="mt-2">
-          <TabsList>
-            <TabsTrigger value="editor">Editor</TabsTrigger>
-            <TabsTrigger value="placeholders">Placeholders</TabsTrigger>
-            <TabsTrigger value="preview">Preview</TabsTrigger>
-          </TabsList>
-
-          {/* ── Editor Tab ── */}
-          <TabsContent value="editor" className="space-y-4">
+        <div className="space-y-4 mt-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Template Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Template Name *</Label>
@@ -174,8 +174,14 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSave }: C
                 </Select>
               </div>
             </div>
+            </CardContent>
+          </Card>
 
-            {/* Quick-insert placeholder badges */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Contract Body</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>Available Placeholders (click to insert)</Label>
               <div className="flex flex-wrap gap-1.5">
@@ -194,18 +200,21 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSave }: C
             </div>
 
             <div className="space-y-2">
-              <Label>Body HTML</Label>
-              <Textarea
+              <Label>Body</Label>
+              <RichTextEditor
+                ref={editorRef}
                 value={bodyHtml}
-                onChange={(e) => setBodyHtml(e.target.value)}
-                placeholder="<h1>Employment Contract</h1><p>This contract is between {{company_name}} and {{employee_name}}...</p>"
-                className="min-h-[250px] font-mono text-sm"
+                onChange={setBodyHtml}
+                placeholder="Type contract content here..."
+                minHeightClassName="min-h-[320px]"
               />
+              <p className="text-xs text-muted-foreground">
+                Rich text is saved as HTML. Use placeholders like {"{{employee_name}}"} inside the content.
+              </p>
             </div>
-          </TabsContent>
+            </CardContent>
+          </Card>
 
-          {/* ── Placeholders Tab ── */}
-          <TabsContent value="placeholders" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm">Built-in Placeholders</CardTitle>
@@ -252,11 +261,11 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSave }: C
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
 
-          {/* ── Preview Tab ── */}
-          <TabsContent value="preview">
             <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Preview</CardTitle>
+              </CardHeader>
               <CardContent className="pt-6">
                 <div
                   className="prose prose-sm max-w-none dark:prose-invert"
@@ -264,8 +273,7 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSave }: C
                 />
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+        </div>
 
         <div className="flex justify-end gap-2 pt-4 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

@@ -29,6 +29,23 @@ export interface EmployeesQueryOptions {
   include_pay_group?: boolean;
 }
 
+type EmployeePayType = 'hourly' | 'salary' | 'piece_rate' | 'daily_rate';
+
+const PROJECT_TYPE_DEFAULT_PAY_TYPE: Record<string, EmployeePayType> = {
+  manpower: 'daily_rate',
+  ippms: 'piece_rate',
+  expatriate: 'salary',
+};
+
+const normalizeProjectPayTypeToEmployeePayType = (projectPayType: string): EmployeePayType | null => {
+  const normalized = String(projectPayType || '').toLowerCase();
+  if (normalized === 'daily' || normalized === 'daily_rate') return 'daily_rate';
+  if (normalized === 'monthly' || normalized === 'bi_weekly' || normalized === 'salary') return 'salary';
+  if (normalized === 'hourly') return 'hourly';
+  if (normalized === 'piece_rate') return 'piece_rate';
+  return null;
+};
+
 export class EmployeesService {
   private static readonly DEFAULT_PAGE_SIZE = 20;
   private static readonly MAX_PAGE_SIZE = 100;
@@ -175,7 +192,7 @@ export class EmployeesService {
     try {
       let query = (supabase
         .from('employees')
-        .select('id, first_name, middle_name, last_name, email, employee_type, sub_department, pay_type, pay_group_id, status, project_id, category, pay_frequency, currency, country')
+        .select('id, first_name, middle_name, last_name, email, employee_type, sub_department, pay_type, pay_group_id, status, project_id, category, pay_frequency, currency, country, pay_rate')
         .eq('project_id', projectId)) as any;
       if (organizationId) {
         query = (query as any).eq('organization_id', organizationId);
@@ -201,6 +218,7 @@ export class EmployeesService {
         pay_frequency: emp.pay_frequency,
         currency: emp.currency,
         country: emp.country,
+        pay_rate: emp.pay_rate,
       }));
     } catch (error: any) {
       console.error('Error fetching employees by project:', error);
@@ -212,9 +230,55 @@ export class EmployeesService {
    * Assign an employee to a project (sets project_id)
    */
   static async assignToProject(employeeId: string, projectId: string) {
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('project_type, allowed_pay_types, supports_all_pay_types, country, currency')
+      .eq('id', projectId)
+      .single() as any;
+    if (projectError) throw projectError;
+
+    const employeeTypeMap: Record<string, string> = {
+      manpower: 'manpower',
+      ippms: 'ippms',
+      expatriate: 'expatriate',
+    };
+
+    const projectType = String(project?.project_type || '');
+    const allowedPayTypesRaw: string[] = Array.isArray(project?.allowed_pay_types) ? project.allowed_pay_types : [];
+    const allowedEmployeePayTypes = Array.from(
+      new Set(
+        allowedPayTypesRaw
+          .map((pt) => normalizeProjectPayTypeToEmployeePayType(pt))
+          .filter((pt): pt is EmployeePayType => !!pt),
+      ),
+    );
+    const supportsAllPayTypes = Boolean(project?.supports_all_pay_types);
+    const fallbackByProjectType = PROJECT_TYPE_DEFAULT_PAY_TYPE[projectType] || 'salary';
+
+    const { data: employee, error: employeeError } = await supabase
+      .from('employees')
+      .select('pay_type, country, currency')
+      .eq('id', employeeId)
+      .single() as any;
+    if (employeeError) throw employeeError;
+
+    const employeeCurrentPayType = normalizeProjectPayTypeToEmployeePayType(String(employee?.pay_type || ''));
+    const nextPayType: EmployeePayType = supportsAllPayTypes
+      ? employeeCurrentPayType || fallbackByProjectType
+      : allowedEmployeePayTypes.includes(employeeCurrentPayType as EmployeePayType)
+        ? (employeeCurrentPayType as EmployeePayType)
+        : (allowedEmployeePayTypes[0] || fallbackByProjectType);
+
     const { error } = await supabase
       .from('employees')
-      .update({ project_id: projectId, category: 'projects' } as any)
+      .update({
+        project_id: projectId,
+        category: 'projects',
+        employee_type: employeeTypeMap[projectType] || projectType || null,
+        pay_type: nextPayType,
+        country: project?.country || employee?.country || null,
+        currency: project?.currency || employee?.currency || null,
+      } as any)
       .eq('id', employeeId);
     if (error) throw error;
   }

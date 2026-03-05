@@ -60,17 +60,17 @@ export function SearchableSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn('w-full justify-between', className)}
+          className={cn('w-full min-w-0 justify-between overflow-hidden', className)}
           disabled={disabled}
         >
           {selectedOption ? (
             renderOption ? (
               renderOption(selectedOption)
             ) : (
-              selectedOption.label
+              <span className="min-w-0 flex-1 truncate text-left">{selectedOption.label}</span>
             )
           ) : (
-            <span className="text-muted-foreground">{placeholder}</span>
+            <span className="min-w-0 flex-1 truncate text-left text-muted-foreground">{placeholder}</span>
           )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>

@@ -1,13 +1,14 @@
 // @ts-nocheck
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, FileText, Calendar, RefreshCw, Download } from "lucide-react";
+import { Plus, FileText, Calendar, RefreshCw, Download, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { ContractsService, EmployeeContract } from "@/lib/data/contracts.service";
 import { useToast } from "@/hooks/use-toast";
 import { GenerateContractDialog } from "./GenerateContractDialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -29,7 +30,14 @@ export function EmployeeContractsPanel({ employeeId, organizationId, employeeNam
   const [contracts, setContracts] = useState<EmployeeContract[]>([]);
   const [loading, setLoading] = useState(true);
   const [showGenerate, setShowGenerate] = useState(false);
+  const [viewingContract, setViewingContract] = useState<EmployeeContract | null>(null);
   const { toast } = useToast();
+  const onboardingValidation = useMemo(
+    () => ContractsService.validateEmployeeForContractGeneration(employeeData),
+    [employeeData]
+  );
+  const missingPreview = onboardingValidation.missingFieldLabels.slice(0, 3).join(", ");
+  const hasMoreMissing = onboardingValidation.missingFieldLabels.length > 3;
 
   const fetchContracts = async () => {
     try {
@@ -86,11 +94,27 @@ export function EmployeeContractsPanel({ employeeId, organizationId, employeeNam
           <FileText className="h-5 w-5" />
           Contracts
         </CardTitle>
-        <Button size="sm" onClick={() => setShowGenerate(true)}>
+        <Button
+          size="sm"
+          onClick={() => setShowGenerate(true)}
+          disabled={!onboardingValidation.isValid}
+          title={
+            onboardingValidation.isValid
+              ? "Generate a contract from validated onboarding data."
+              : `Complete required onboarding fields first: ${onboardingValidation.missingFieldLabels.join(", ")}`
+          }
+        >
           <Plus className="h-4 w-4 mr-1" /> Generate Contract
         </Button>
       </CardHeader>
       <CardContent>
+        {!onboardingValidation.isValid && (
+          <div className="mb-4 rounded-md border border-amber-300/60 bg-amber-50/70 p-3 text-xs text-amber-900 dark:border-amber-600/40 dark:bg-amber-950/20 dark:text-amber-200">
+            Contract generation is locked until onboarding is complete. Missing fields:{" "}
+            {missingPreview}
+            {hasMoreMissing ? `, +${onboardingValidation.missingFieldLabels.length - 3} more.` : "."}
+          </div>
+        )}
         {loading ? (
           <p className="text-sm text-muted-foreground py-4 text-center">Loading contracts...</p>
         ) : contracts.length === 0 ? (
@@ -126,7 +150,7 @@ export function EmployeeContractsPanel({ employeeId, organizationId, employeeNam
                     {c.signed_by_employer_at && <span>Signed by employer</span>}
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   {c.status === "draft" && (
                     <Button variant="outline" size="sm" onClick={() => handleStatusChange(c.id, "sent")}>
                       Mark Sent
@@ -142,8 +166,20 @@ export function EmployeeContractsPanel({ employeeId, organizationId, employeeNam
                       Activate
                     </Button>
                   )}
-                  <Button variant="ghost" size="sm" onClick={() => handleExportPdf(c)} title="Export PDF">
-                    <Download className="h-4 w-4" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setViewingContract(c)}
+                    title="View Contract"
+                    aria-label="View Contract"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" className="whitespace-nowrap" onClick={() => setViewingContract(c)} title="View Contract">
+                    <Eye className="h-4 w-4 mr-1" /> View Contract
+                  </Button>
+                  <Button variant="outline" size="sm" className="whitespace-nowrap" onClick={() => handleExportPdf(c)} title="Download Contract PDF">
+                    <Download className="h-4 w-4 mr-1" /> Download Contract
                   </Button>
                 </div>
               </div>
@@ -161,6 +197,54 @@ export function EmployeeContractsPanel({ employeeId, organizationId, employeeNam
         employeeData={employeeData}
         onContractCreated={fetchContracts}
       />
+
+      <Dialog open={!!viewingContract} onOpenChange={(open) => { if (!open) setViewingContract(null); }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Contract Details</DialogTitle>
+            <DialogDescription>
+              {viewingContract?.contract_number || "Draft Contract"} for {employeeName}
+            </DialogDescription>
+          </DialogHeader>
+          {viewingContract && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Status</p>
+                  <p className="font-medium capitalize">{viewingContract.status}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Template</p>
+                  <p className="font-medium">{viewingContract.contract_templates?.name || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Start Date</p>
+                  <p className="font-medium">{viewingContract.start_date || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">End Date</p>
+                  <p className="font-medium">{viewingContract.end_date || "—"}</p>
+                </div>
+              </div>
+              <div className="rounded-md border p-4 bg-muted/20">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Contract Body</p>
+                <div
+                  className="prose prose-sm max-w-none dark:prose-invert"
+                  dangerouslySetInnerHTML={{ __html: viewingContract.body_html || "<p>No contract body available.</p>" }}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewingContract(null)}>Close</Button>
+            {viewingContract && (
+              <Button onClick={() => handleExportPdf(viewingContract)}>
+                <Download className="h-4 w-4 mr-1" /> Download Contract
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

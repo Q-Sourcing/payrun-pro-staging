@@ -161,9 +161,9 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
           ======================================== */}
       <SectionHeader title="My Dashboard" />
       <NavItem to="/dashboard" icon={<BarChart3 size={16} />} label="Overview" />
-      <NavItem to="/my/employees" icon={<Users size={16} />} label="My Employees" />
-      <NavItem to="/my/paygroups" icon={<FolderKanban size={16} />} label="My Pay Groups" />
-      <NavItem to="/my/payruns" icon={<DollarSign size={16} />} label="My Pay Runs" />
+      <NavItem to="/dashboard/employees" icon={<Users size={16} />} label="My Employees" />
+      <NavItem to="/dashboard/paygroups" icon={<FolderKanban size={16} />} label="My Pay Groups" />
+      <NavItem to="/dashboard/payruns" icon={<DollarSign size={16} />} label="My Pay Runs" />
       <NavItem to="/my/approvals" icon={<CheckSquare size={16} />} label="My Approvals" />
       <NavItem to="/timesheets" icon={<AlarmClock size={16} />} label="Timesheets" />
 

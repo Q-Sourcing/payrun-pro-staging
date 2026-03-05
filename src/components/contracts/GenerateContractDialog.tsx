@@ -15,6 +15,7 @@ import { Loader2, AlertTriangle, CheckCircle2, Lock } from "lucide-react";
 import { ContractsService, ContractTemplate } from "@/lib/data/contracts.service";
 import { useToast } from "@/hooks/use-toast";
 import { AllowancesSection, AllowanceItem, DEFAULT_ALLOWANCES, serializeAllowances } from "@/components/employees/AllowancesSection";
+import { AuditLogger } from "@/lib/services/audit-logger";
 
 interface Props {
   open: boolean;
@@ -79,6 +80,39 @@ export function GenerateContractDialog({
   const [previewHtml, setPreviewHtml] = useState("");
   const [allowances, setAllowances] = useState<AllowanceItem[]>(DEFAULT_ALLOWANCES);
   const { toast } = useToast();
+  const onboardingValidation = ContractsService.validateEmployeeForContractGeneration(employeeData);
+
+  const getPreviewValues = () =>
+    ContractsService.buildTemplateValues({
+      employeeName,
+      employeeData,
+      startDate,
+      endDate,
+      contractNumber,
+      template: templates.find((t) => t.id === selectedTemplateId) || null,
+    });
+
+  const sha256 = async (value: string) => {
+    if (typeof crypto === "undefined" || !crypto.subtle) return null;
+    try {
+      const bytes = new TextEncoder().encode(value);
+      const digest = await crypto.subtle.digest("SHA-256", bytes);
+      return Array.from(new Uint8Array(digest))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+    } catch {
+      return null;
+    }
+  };
+
+  const buildTermsSnapshot = () => ({
+    start_date: startDate || null,
+    end_date: endDate || null,
+    auto_renew: autoRenew,
+    contract_number: contractNumber || null,
+    employment_status: employeeData?.employment_status || null,
+    employee_type: employeeData?.employee_type || null,
+  });
 
   // Validation gate
   const missingFields = getMissingFields(employeeData);
@@ -139,9 +173,73 @@ export function GenerateContractDialog({
       toast({ title: "Select a template", variant: "destructive" });
       return;
     }
+    if (!onboardingValidation.isValid) {
+      const missing = onboardingValidation.missingFieldLabels.join(", ");
+      toast({
+        title: "Onboarding validation failed",
+        description: `Cannot generate contract. Missing required fields: ${missing}`,
+        variant: "destructive",
+      });
+      await AuditLogger.log(
+        "contract_generation_blocked",
+        "employee_contract",
+        {
+          employee_id: employeeId,
+          organization_id: organizationId,
+          template_id: selectedTemplateId,
+          reason: "missing_mandatory_onboarding_fields",
+          missing_fields: onboardingValidation.missingFieldLabels,
+        },
+        { compliance_event: true, gate: "pre_generation_validation" },
+        employeeId
+      );
+      return;
+    }
 
     setSaving(true);
     try {
+      const tpl = templates.find((t) => t.id === selectedTemplateId);
+      if (!tpl) {
+        throw new Error("Selected template not found");
+      }
+      const allowanceText = buildAllowanceText(allowances, employeeData.currency || "UGX");
+      const values = {
+        ...getPreviewValues(),
+        allowances: allowanceText,
+        probation_end_date: auto15DayProbation || "",
+      };
+      const mappingValidation = ContractsService.validateTemplateMapping(tpl, values);
+      if (!mappingValidation.isValid) {
+        toast({
+          title: "Template mapping incomplete",
+          description: `Missing values for: ${mappingValidation.missingTokenLabels.join(", ")}`,
+          variant: "destructive",
+        });
+        await AuditLogger.log(
+          "contract_generation_blocked",
+          "employee_contract",
+          {
+            employee_id: employeeId,
+            organization_id: organizationId,
+            template_id: selectedTemplateId,
+            reason: "template_placeholder_mapping_failed",
+            missing_placeholders: mappingValidation.missingTokenLabels,
+          },
+          { compliance_event: true, gate: "placeholder_mapping_validation" },
+          employeeId
+        );
+        return;
+      }
+
+      const payloadHash = await sha256(
+        JSON.stringify({
+          employeeId,
+          organizationId,
+          templateId: selectedTemplateId,
+          values,
+          terms: buildTermsSnapshot(),
+        })
+      );
       const salarySnapshot = {
         pay_rate: employeeData.pay_rate,
         pay_type: employeeData.pay_type,
@@ -165,7 +263,7 @@ export function GenerateContractDialog({
         );
       }
 
-      await ContractsService.createContract({
+      const createdContract = await ContractsService.createContract({
         organization_id: organizationId,
         employee_id: employeeId,
         template_id: selectedTemplateId,
@@ -175,9 +273,26 @@ export function GenerateContractDialog({
         end_date: endDate || null,
         auto_renew: autoRenew,
         salary_snapshot: salarySnapshot,
-        body_html: previewHtml,
+        terms_snapshot: buildTermsSnapshot(),
+        body_html: ContractsService.renderTemplate(tpl.body_html, values),
         notes: notes || null,
       });
+
+      await AuditLogger.log(
+        "contract_generated",
+        "employee_contract",
+        {
+          employee_id: employeeId,
+          organization_id: organizationId,
+          contract_id: createdContract.id,
+          template_id: selectedTemplateId,
+          contract_status: createdContract.status,
+          payload_hash: payloadHash,
+          generated_at: new Date().toISOString(),
+        },
+        { compliance_event: true, integrity_verified: !!payloadHash },
+        createdContract.id
+      );
 
       toast({ title: "Contract created", description: `15-day probation reminder set for ${auto15DayProbation || "N/A"}.` });
       onContractCreated();
@@ -190,6 +305,18 @@ export function GenerateContractDialog({
       setNotes("");
       setAllowances(DEFAULT_ALLOWANCES);
     } catch (err: any) {
+      await AuditLogger.log(
+        "contract_generation_failed",
+        "employee_contract",
+        {
+          employee_id: employeeId,
+          organization_id: organizationId,
+          template_id: selectedTemplateId || null,
+          error_message: err?.message || "Unknown error",
+        },
+        { compliance_event: true },
+        employeeId
+      );
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setSaving(false);
@@ -256,7 +383,6 @@ export function GenerateContractDialog({
               </p>
             </div>
           )}
-
           {/* Template selection */}
           <div className="space-y-2">
             <Label>Contract Template</Label>
@@ -340,7 +466,7 @@ export function GenerateContractDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={saving || !selectedTemplateId || isGateLocked}>
+          <Button onClick={handleSubmit} disabled={saving || !selectedTemplateId || isGateLocked || !onboardingValidation.isValid}>
             {saving ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating...</>
             ) : isGateLocked ? (

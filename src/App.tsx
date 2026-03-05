@@ -14,6 +14,7 @@ import SignUp from "./pages/SignUp";
 import AcceptInvite from "./pages/AcceptInvite";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { SupabaseAuthProvider, useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { AuthProvider as LegacyAuthProvider } from "@/hooks/use-auth-context";
 import Settings from "./pages/Settings";
 import EnvBanner from "@/components/EnvBanner";
 
@@ -108,12 +109,13 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <SupabaseAuthProvider>
-          <TooltipProvider>
-            <EnvBanner />
-            <Toaster />
-            <Sonner />
-            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-              <Routes>
+          <LegacyAuthProvider>
+            <TooltipProvider>
+              <EnvBanner />
+              <Toaster />
+              <Sonner />
+              <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/signup" element={<SignUp />} />
@@ -151,6 +153,11 @@ const App = () => {
                   <Route path="/dashboard/employees" element={<MyEmployees />} />
                   <Route path="/dashboard/paygroups" element={<MyPayGroups />} />
                   <Route path="/dashboard/payruns" element={<MyPayRuns />} />
+
+                  {/* Backward-compatible redirects for old My routes */}
+                  <Route path="/my/employees" element={<Navigate to="/dashboard/employees" replace />} />
+                  <Route path="/my/paygroups" element={<Navigate to="/dashboard/paygroups" replace />} />
+                  <Route path="/my/payruns" element={<Navigate to="/dashboard/payruns" replace />} />
 
                   <Route path="/my/approvals" element={<MyApprovals />} />
 
@@ -206,9 +213,10 @@ const App = () => {
 
                 {/* Catch-all route */}
                 <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
+                </Routes>
+              </BrowserRouter>
+            </TooltipProvider>
+          </LegacyAuthProvider>
         </SupabaseAuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

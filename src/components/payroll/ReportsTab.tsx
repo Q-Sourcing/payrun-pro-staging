@@ -146,7 +146,7 @@ const ReportsTab = () => {
         .from("pay_runs" as any)
         .select(`
           *,
-          pay_groups (name, country),
+          pay_group:pay_group_master (name, country),
           pay_items (
             *,
             employees (first_name, middle_name, last_name, email, sub_department)
@@ -204,7 +204,7 @@ const ReportsTab = () => {
       headers = ['Pay Run Date', 'Pay Group', 'Period Start', 'Period End', 'Employees', 'Gross Pay', 'Deductions', 'Net Pay', 'Status'];
       rows = data.map(run => [
         format(new Date(run.pay_run_date), 'yyyy-MM-dd'),
-        run.pay_groups?.name || '',
+        run.pay_group?.name || '',
         format(new Date(run.pay_period_start), 'yyyy-MM-dd'),
         format(new Date(run.pay_period_end), 'yyyy-MM-dd'),
         run.pay_items?.length?.toString() || '0',

@@ -509,9 +509,9 @@ export const workflowService = {
                 *,
                 pay_run:payrun_id (
                     id,
-                    period_start,
-                    period_end,
-                    payment_date,
+                    pay_period_start,
+                    pay_period_end,
+                    pay_run_date,
                     status
                 )
             `)

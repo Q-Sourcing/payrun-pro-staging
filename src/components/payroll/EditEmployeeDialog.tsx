@@ -37,6 +37,8 @@ interface Employee {
   bank_branch?: string | null;
   account_number?: string | null;
   account_type?: string | null;
+  probation_end_date?: string | null;
+  probation_status?: "on_probation" | "confirmed" | "extended" | null;
 }
 
 interface EditEmployeeDialogProps {
@@ -74,6 +76,8 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
     category: (employee.category as any) || "",
     project_id: (employee as any).project_id || "",
     pay_frequency: (employee as any).pay_frequency || "",
+    probation_end_date: (employee as any).probation_end_date || "",
+    probation_status: (employee as any).probation_status || "on_probation",
   };
 
   const onSubmit = async (values: EmployeeFormValues) => {
@@ -104,6 +108,8 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
         date_joined: values.date_joined || null,
         category: values.category || undefined,
         pay_frequency: values.pay_frequency || null,
+        probation_end_date: values.probation_end_date || null,
+        probation_status: values.probation_status || null,
         project_id: values.category === "projects" ? (values.project_id || null) : null,
         employee_type: values.employee_type || undefined,
       })
