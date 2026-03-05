@@ -16,6 +16,7 @@ import { X, UserPlus, MapPin, Building2, DollarSign } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import AddProjectEmployeesDialog from "./AddProjectEmployeesDialog";
 import { IppmsWorkTab } from "../ippms/IppmsWorkTab";
+import { IppmsWorkboardEnhanced } from "../ippms/IppmsWorkboardEnhanced";
 import ProjectOnboardingChecklist from "./ProjectOnboardingChecklist";
 
 export default function ProjectDetailPage() {
@@ -283,7 +284,15 @@ export default function ProjectDetailPage() {
         {/* Workboard Tab (IPPMS only) */}
         {isIppms && (
           <TabsContent value="workboard" className="mt-4">
-            <IppmsWorkTab projectId={projectId as string} />
+            <Card>
+              <CardContent className="pt-5">
+                <IppmsWorkboardEnhanced
+                  projectId={projectId as string}
+                  projectName={project.name}
+                  invoiceAmount={project.contract_value ?? 0}
+                />
+              </CardContent>
+            </Card>
           </TabsContent>
         )}
       </Tabs>

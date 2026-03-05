@@ -68,6 +68,7 @@ import SuperAdmin from "./pages/SuperAdmin";
 import { SecuritySettingsPage } from "./pages/SecuritySettings";
 import { AdminSecurityDashboard } from "./pages/AdminSecurityDashboard";
 import PlatformAdminDashboard from "./pages/PlatformAdminDashboard";
+import ProbationDashboard from "./pages/ProbationDashboard";
 
 // Import MainLayout component
 import MainLayout from "./layouts/MainLayout";
@@ -198,6 +199,7 @@ const App = () => {
                   <Route path="payruns/local/casual" element={<LocalPayrollCasual />} />
                   <Route path="diagnostics" element={<Diagnostics />} />
                   <Route path="settings/payroll/advanced" element={<PayrollAdvancedSettings />} />
+                  <Route path="probation" element={<ProbationDashboard />} />
                 </Route>
 
                 {/* Catch-all route */}

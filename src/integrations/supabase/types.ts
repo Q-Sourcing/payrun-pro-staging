@@ -1499,6 +1499,9 @@ export type Database = {
           pay_rate: number
           pay_type: Database["public"]["Enums"]["pay_type"]
           phone: string | null
+          probation_end_date: string | null
+          probation_notes: string | null
+          probation_status: string | null
           project: string | null
           project_id: string | null
           social_security_number: string | null
@@ -1544,6 +1547,9 @@ export type Database = {
           pay_rate: number
           pay_type?: Database["public"]["Enums"]["pay_type"]
           phone?: string | null
+          probation_end_date?: string | null
+          probation_notes?: string | null
+          probation_status?: string | null
           project?: string | null
           project_id?: string | null
           social_security_number?: string | null
@@ -1589,6 +1595,9 @@ export type Database = {
           pay_rate?: number
           pay_type?: Database["public"]["Enums"]["pay_type"]
           phone?: string | null
+          probation_end_date?: string | null
+          probation_notes?: string | null
+          probation_status?: string | null
           project?: string | null
           project_id?: string | null
           social_security_number?: string | null
@@ -4398,6 +4407,59 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      probation_reminder_logs: {
+        Row: {
+          employee_id: string
+          id: string
+          organization_id: string
+          reminder_type: string
+          sent_at: string
+        }
+        Insert: {
+          employee_id: string
+          id?: string
+          organization_id: string
+          reminder_type: string
+          sent_at?: string
+        }
+        Update: {
+          employee_id?: string
+          id?: string
+          organization_id?: string
+          reminder_type?: string
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "probation_reminder_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "probation_reminder_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "probation_reminder_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "probation_reminder_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
