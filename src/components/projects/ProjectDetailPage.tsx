@@ -18,6 +18,7 @@ import AddProjectEmployeesDialog from "./AddProjectEmployeesDialog";
 import { IppmsWorkTab } from "../ippms/IppmsWorkTab";
 import { IppmsWorkboardEnhanced } from "../ippms/IppmsWorkboardEnhanced";
 import ProjectOnboardingChecklist from "./ProjectOnboardingChecklist";
+import { VariablePayrollPage } from "@/components/payroll/variable/VariablePayrollPage";
 
 export default function ProjectDetailPage() {
   const { projectId } = useParams();
@@ -78,6 +79,8 @@ export default function ProjectDetailPage() {
   }
 
   const isIppms = project.project_type === "ippms";
+  const isManpower = project.project_type === "manpower";
+  const hasVariablePay = isIppms || isManpower;
 
   return (
     <div className="p-6 space-y-6">
@@ -123,7 +126,8 @@ export default function ProjectDetailPage() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="employees">Employees ({totalEmployees})</TabsTrigger>
           <TabsTrigger value="paygroups">Pay Groups ({payGroups.length})</TabsTrigger>
-          {isIppms && <TabsTrigger value="workboard">Workboard</TabsTrigger>}
+          {isIppms && <TabsTrigger value="workboard">IPPMS Workboard</TabsTrigger>}
+          {hasVariablePay && <TabsTrigger value="variable-payroll">⚡ Variable Pay</TabsTrigger>}
         </TabsList>
 
         {/* Overview Tab */}
@@ -293,6 +297,16 @@ export default function ProjectDetailPage() {
                 />
               </CardContent>
             </Card>
+          </TabsContent>
+        )}
+
+        {/* Variable Pay Tab (IPPMS & Manpower) */}
+        {hasVariablePay && (
+          <TabsContent value="variable-payroll" className="mt-4">
+            <VariablePayrollPage
+              projectId={projectId as string}
+              projectName={project.name}
+            />
           </TabsContent>
         )}
       </Tabs>
