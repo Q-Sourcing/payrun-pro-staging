@@ -132,10 +132,72 @@ const PayRunsTab = () => {
 
           if (error) throw error;
 
-          const payRunsWithCount = data?.map(run => ({
-            ...run,
-            pay_items_count: run.pay_items?.[0]?.count || 0
-          })) || [];
+          const payRunIds = (data || []).map((run: any) => run.id);
+          let totalsByRunId: Record<string, { gross: number; deductions: number; net: number; count: number }> = {};
+          if (payRunIds.length > 0) {
+            const [{ data: standardItems }, { data: hoItems }, { data: expItems }] = await Promise.all([
+              (supabase as any)
+                .from('pay_items')
+                .select('pay_run_id, gross_pay, total_deductions, net_pay')
+                .in('pay_run_id', payRunIds),
+              (supabase as any)
+                .from('head_office_pay_run_items')
+                .select('pay_run_id, gross_pay, total_deductions, net_pay')
+                .in('pay_run_id', payRunIds),
+              (supabase as any)
+                .from('expatriate_pay_run_items')
+                .select('pay_run_id, gross_local, local_net_pay')
+                .in('pay_run_id', payRunIds),
+            ]);
+
+            const addTotals = (payRunId: string, gross: number, deductions: number, net: number) => {
+              const current = totalsByRunId[payRunId] || { gross: 0, deductions: 0, net: 0, count: 0 };
+              current.gross += gross;
+              current.deductions += deductions;
+              current.net += net;
+              current.count += 1;
+              totalsByRunId[payRunId] = current;
+            };
+
+            (standardItems || []).forEach((item: any) => {
+              addTotals(
+                item.pay_run_id,
+                Number(item.gross_pay) || 0,
+                Number(item.total_deductions) || 0,
+                Number(item.net_pay) || 0
+              );
+            });
+            (hoItems || []).forEach((item: any) => {
+              addTotals(
+                item.pay_run_id,
+                Number(item.gross_pay) || 0,
+                Number(item.total_deductions) || 0,
+                Number(item.net_pay) || 0
+              );
+            });
+            (expItems || []).forEach((item: any) => {
+              addTotals(
+                item.pay_run_id,
+                Number(item.gross_local) || 0,
+                0,
+                Number(item.local_net_pay) || 0
+              );
+            });
+          }
+
+          const payRunsWithCount = data?.map((run: any) => {
+            const fallback = totalsByRunId[run.id] || { gross: 0, deductions: 0, net: 0, count: 0 };
+            const dbGross = Number(run.total_gross_pay ?? run.total_gross) || 0;
+            const dbDeductions = Number(run.total_deductions) || 0;
+            const dbNet = Number(run.total_net_pay ?? run.total_net) || 0;
+            return {
+              ...run,
+              total_gross_pay: dbGross > 0 ? dbGross : fallback.gross,
+              total_deductions: dbDeductions > 0 ? dbDeductions : fallback.deductions,
+              total_net_pay: dbNet > 0 ? dbNet : fallback.net,
+              pay_items_count: fallback.count || run.pay_items?.[0]?.count || 0
+            };
+          }) || [];
 
           setPayRuns(payRunsWithCount);
           return; // Success, exit retry loop

@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { format, parseISO, addDays, startOfWeek, endOfWeek } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { toast } from "sonner";
 
 const STATUS_CONFIG = {
   draft: { label: "Draft", icon: Clock, variant: "secondary" as const },
@@ -58,6 +58,8 @@ export function TimesheetManager() {
 
   const [newPeriodStart, setNewPeriodStart] = useState(getWeekBounds().start);
   const [newPeriodEnd, setNewPeriodEnd] = useState(getWeekBounds().end);
+  const [singleDay, setSingleDay] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [createMode, setCreateMode] = useState<"period" | "day">("period");
   const [activeSheetId, setActiveSheetId] = useState<string | null>(null);
   const [showNewRow, setShowNewRow] = useState(false);
   const [submitDialogId, setSubmitDialogId] = useState<string | null>(null);
@@ -76,11 +78,13 @@ export function TimesheetManager() {
   }, [activeSheet]);
 
   async function handleCreateSheet() {
-    if (!newPeriodStart || !newPeriodEnd) return;
-    if (newPeriodEnd < newPeriodStart) return;
+    const periodStart = createMode === "day" ? singleDay : newPeriodStart;
+    const periodEnd = createMode === "day" ? singleDay : newPeriodEnd;
+    if (!periodStart || !periodEnd) return;
+    if (periodEnd < periodStart) return;
     const sheet = await upsert.mutateAsync({
-      period_start: newPeriodStart,
-      period_end: newPeriodEnd,
+      period_start: periodStart,
+      period_end: periodEnd,
     });
     setActiveSheetId(sheet.id);
     setShowNewRow(true);
@@ -140,39 +144,75 @@ export function TimesheetManager() {
       {/* Create new timesheet */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">New Timesheet Period</CardTitle>
+          <CardTitle className="text-base">New Timesheet</CardTitle>
           <CardDescription className="text-xs">
-            Create a timesheet for a specific period, then add daily work entries.
+            Create either a period timesheet or a single-day timesheet, then add daily work entries.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="space-y-1">
-              <Label className="text-xs">Period Start</Label>
-              <Input
-                type="date"
-                className="h-9 text-xs w-40"
-                value={newPeriodStart}
-                onChange={(e) => setNewPeriodStart(e.target.value)}
-              />
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant={createMode === "period" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setCreateMode("period")}
+              >
+                Period
+              </Button>
+              <Button
+                type="button"
+                variant={createMode === "day" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setCreateMode("day")}
+              >
+                Single Day
+              </Button>
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Period End</Label>
-              <Input
-                type="date"
-                className="h-9 text-xs w-40"
-                value={newPeriodEnd}
-                min={newPeriodStart}
-                onChange={(e) => setNewPeriodEnd(e.target.value)}
-              />
+
+            <div className="flex flex-wrap items-end gap-4">
+              {createMode === "period" ? (
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Period Start</Label>
+                    <Input
+                      type="date"
+                      className="h-9 text-xs w-40"
+                      value={newPeriodStart}
+                      onChange={(e) => setNewPeriodStart(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Period End</Label>
+                    <Input
+                      type="date"
+                      className="h-9 text-xs w-40"
+                      value={newPeriodEnd}
+                      min={newPeriodStart}
+                      onChange={(e) => setNewPeriodEnd(e.target.value)}
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-1">
+                  <Label className="text-xs">Work Day</Label>
+                  <Input
+                    type="date"
+                    className="h-9 text-xs w-40"
+                    value={singleDay}
+                    onChange={(e) => setSingleDay(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
+
             <Button
               onClick={handleCreateSheet}
               disabled={upsert.isPending}
               className="h-9"
             >
               <Plus className="w-4 h-4 mr-2" />
-              {upsert.isPending ? "Creating…" : "Create / Open"}
+              {upsert.isPending ? "Creating…" : createMode === "day" ? "Create Day Timesheet" : "Create Timesheet"}
             </Button>
           </div>
         </CardContent>
@@ -293,7 +333,7 @@ export function TimesheetManager() {
                           setShowNewRow(true);
                         }}
                       >
-                        <Plus className="w-3.5 h-3.5 mr-1" /> Add Row
+                        <Plus className="w-3.5 h-3.5 mr-1" /> Add Record
                       </Button>
 
                       <div className="ml-auto flex items-center gap-2">
@@ -304,12 +344,19 @@ export function TimesheetManager() {
                           </p>
                         )}
                         <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => toast.success("Draft saved")}
+                        >
+                          Save as Draft
+                        </Button>
+                        <Button
                           size="sm"
                           onClick={() => setSubmitDialogId(sheet.id)}
                           disabled={!!validationError}
                         >
                           <SendHorizontal className="w-3.5 h-3.5 mr-1" />
-                          Submit for Approval
+                          Submit Everything
                         </Button>
                       </div>
                     </div>

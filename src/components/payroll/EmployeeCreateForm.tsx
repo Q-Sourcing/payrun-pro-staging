@@ -9,6 +9,22 @@ interface EmployeeCreateFormProps {
     onCancel: () => void;
 }
 
+function mapEmploymentStatusToRecordStatus(
+    employmentStatus?: EmployeeFormValues["employment_status"]
+): "active" | "inactive" {
+    switch (employmentStatus) {
+        case "Terminated":
+        case "Resigned":
+        case "Deceased":
+            return "inactive";
+        case "Active":
+        case "Probation":
+        case "Notice Period":
+        default:
+            return "active";
+    }
+}
+
 export const EmployeeCreateForm = ({ onSuccess, onCancel }: EmployeeCreateFormProps) => {
     const { toast } = useToast();
     const { organizationId } = useOrg();
@@ -16,6 +32,9 @@ export const EmployeeCreateForm = ({ onSuccess, onCancel }: EmployeeCreateFormPr
     const handleCreate = useCallback(async (values: EmployeeFormValues) => {
         try {
             const finalOrgId = organizationId || localStorage.getItem('active_organization_id') || '00000000-0000-0000-0000-000000000001';
+            const parsedPayRate = Number(values.pay_rate);
+            const safePayRate = Number.isFinite(parsedPayRate) ? parsedPayRate : 0;
+            const recordStatus = mapEmploymentStatusToRecordStatus(values.employment_status);
             const { error } = await supabase.from("employees").insert([
                 {
                     employee_number: values.employee_number || `EMP-${Date.now()}`,
@@ -31,11 +50,11 @@ export const EmployeeCreateForm = ({ onSuccess, onCancel }: EmployeeCreateFormPr
                     nssf_number: values.nssf_number || null,
                     passport_number: values.passport_number || null,
                     pay_type: values.pay_type,
-                    pay_rate: values.pay_rate ? Number(values.pay_rate) : null,
+                    pay_rate: safePayRate,
                     country: values.country,
                     currency: values.currency,
                     pay_group_id: values.pay_group_id || null,
-                    status: values.status || "active",
+                    status: recordStatus,
                     employment_status: values.employment_status || "Active",
                     bank_name: values.bank_name || null,
                     bank_branch: values.bank_branch || null,

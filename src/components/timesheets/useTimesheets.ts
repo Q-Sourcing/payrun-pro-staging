@@ -33,6 +33,15 @@ export interface Timesheet {
   timesheet_entries?: TimesheetEntry[];
 }
 
+export interface TimesheetIdentity {
+  userId: string;
+  userEmail: string | null;
+  organizationId: string | null;
+  employeeId: string | null;
+  employeeName: string | null;
+  matchedVia: "user_id" | "email_fallback" | "none";
+}
+
 const DEFAULT_DEPARTMENTS = [
   "Administration",
   "Construction",
@@ -50,16 +59,199 @@ const DEFAULT_DEPARTMENTS = [
   "Welding & Fabrication",
 ];
 
-// Fetch my employee record
-async function fetchMyEmployee() {
+async function resolveTimesheetIdentity(): Promise<TimesheetIdentity | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
-  const { data } = await supabase
+
+  const identityBase: TimesheetIdentity = {
+    userId: user.id,
+    userEmail: user.email ?? null,
+    organizationId: null,
+    employeeId: null,
+    employeeName: null,
+    matchedVia: "none",
+  };
+
+  const { data: direct } = await supabase
     .from("employees")
-    .select("id, organization_id, first_name, last_name")
+    .select("id, organization_id, first_name, last_name, email")
     .eq("user_id", user.id)
     .maybeSingle();
-  return data;
+  if (direct) {
+    return {
+      ...identityBase,
+      organizationId: direct.organization_id,
+      employeeId: direct.id,
+      employeeName: [direct.first_name, direct.last_name].filter(Boolean).join(" ").trim() || null,
+      matchedVia: "user_id",
+    };
+  }
+
+  // Fallback: some users exist as employees but user_id is not linked yet.
+  const { data: profile } = await supabase
+    .from("user_profiles")
+    .select("organization_id, email")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!profile?.organization_id || !profile?.email) {
+    return identityBase;
+  }
+
+  const { data: byEmail } = await supabase
+    .from("employees")
+    .select("id, organization_id, first_name, last_name, email")
+    .eq("organization_id", profile.organization_id)
+    .ilike("email", profile.email)
+    .maybeSingle();
+
+  if (byEmail) {
+    return {
+      ...identityBase,
+      organizationId: byEmail.organization_id,
+      employeeId: byEmail.id,
+      employeeName: [byEmail.first_name, byEmail.last_name].filter(Boolean).join(" ").trim() || null,
+      matchedVia: "email_fallback",
+    };
+  }
+
+  // Last read fallback: match by email across orgs when profile org is stale.
+  const { data: globalByEmail } = await supabase
+    .from("employees")
+    .select("id, organization_id, first_name, last_name, email")
+    .ilike("email", profile.email)
+    .maybeSingle();
+
+  if (globalByEmail) {
+    return {
+      ...identityBase,
+      organizationId: globalByEmail.organization_id,
+      employeeId: globalByEmail.id,
+      employeeName: [globalByEmail.first_name, globalByEmail.last_name].filter(Boolean).join(" ").trim() || null,
+      matchedVia: "email_fallback",
+    };
+  }
+
+  return {
+    ...identityBase,
+    organizationId: profile.organization_id ?? null,
+    matchedVia: "none",
+  };
+}
+
+// Fetch my employee record
+async function fetchMyEmployee() {
+  const identity = await resolveTimesheetIdentity();
+  if (identity?.employeeId && identity.organizationId) {
+    return {
+      id: identity.employeeId,
+      organization_id: identity.organizationId,
+      first_name: identity.employeeName ?? "",
+      last_name: "",
+    };
+  }
+
+  // Final fallback uses a SECURITY DEFINER function that handles RLS-safe
+  // employee linking/provisioning for the current authenticated user.
+  const { data: ensured, error: ensureError } = await (supabase as any).rpc(
+    "ensure_timesheet_employee_for_current_user"
+  );
+  if (ensureError) {
+    // Backward compatibility: if migration isn't applied yet, attempt direct insert path.
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated.");
+
+    // If RPC is not deployed yet, do not fail here; continue with legacy fallback path.
+    const rpcMissing =
+      ensureError.message?.includes("Could not find the function") ||
+      ensureError.code === "PGRST202";
+
+    const { data: profile } = await supabase
+      .from("user_profiles")
+      .select("organization_id, email, first_name, last_name")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!profile?.organization_id) {
+      // Try one more best-effort lookup by user_id/email across existing employees.
+      const { data: byUser } = await supabase
+        .from("employees")
+        .select("id, organization_id, first_name, last_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (byUser) return byUser;
+
+      if (user.email) {
+        const { data: byEmailAny } = await supabase
+          .from("employees")
+          .select("id, organization_id, first_name, last_name")
+          .ilike("email", user.email)
+          .maybeSingle();
+        if (byEmailAny) return byEmailAny;
+      }
+
+      throw new Error(
+        rpcMissing
+          ? "Timesheet setup is pending. Please refresh and try again in a moment."
+          : (ensureError.message || "Failed to provision timesheet identity.")
+      );
+    }
+
+    const emailFromProfile = profile.email || user.email || `${user.id}@timesheet.local`;
+    const employeeNumberBase = `TS-${Date.now().toString().slice(-8)}`;
+    const tryInsert = async (emailValue: string, employeeNumber: string) =>
+      supabase
+        .from("employees")
+        .insert({
+          organization_id: profile.organization_id,
+          user_id: user.id,
+          first_name: profile.first_name || (user.email ? user.email.split("@")[0] : "Timesheet"),
+          last_name: profile.last_name || "User",
+          email: emailValue,
+          employee_number: employeeNumber,
+          country: "UG",
+          currency: "UGX",
+          pay_rate: 1,
+          pay_type: "hourly",
+          status: "active",
+          employment_status: "Active",
+        })
+        .select("id, organization_id, first_name, last_name")
+        .single();
+
+    let created = await tryInsert(emailFromProfile, employeeNumberBase);
+    if (created.error) {
+      created = await tryInsert(`${user.id}@timesheet.local`, `${employeeNumberBase}-A`);
+    }
+    if (created.data) return created.data;
+
+    // Prefer concrete insert error over missing-RPC error.
+    throw new Error(
+      created.error?.message ||
+      (rpcMissing
+        ? "Unable to create your timesheet profile automatically yet."
+        : ensureError.message) ||
+      "Failed to provision timesheet identity."
+    );
+  }
+
+  const row = Array.isArray(ensured) ? ensured[0] : ensured;
+  if (!row?.employee_id) return null;
+
+  const { data: employee } = await supabase
+    .from("employees")
+    .select("id, organization_id, first_name, last_name")
+    .eq("id", row.employee_id)
+    .maybeSingle();
+
+  return employee ?? null;
+}
+
+export function useTimesheetIdentity() {
+  return useQuery({
+    queryKey: ["timesheet-identity"],
+    queryFn: async () => resolveTimesheetIdentity(),
+  });
 }
 
 // Fetch departments for org (falls back to defaults)
@@ -167,6 +359,9 @@ export function useUpsertTimesheet() {
       return data as Timesheet;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["my-timesheets"] }),
+    onError: (e: any) => {
+      toast.error(e?.message || "Unable to create timesheet at the moment.");
+    },
   });
 }
 

@@ -49,12 +49,24 @@ interface HeadOfficePayGroupDialogProps {
 
 type Step = 'details' | 'units' | 'members';
 
+const getDefaultHeadOfficePaygroupName = (paygroupType: HeadOfficePayGroupRefType) => {
+    const typeLabel =
+        paygroupType === 'regular' ? 'Regular Staff' :
+            paygroupType === 'intern' ? 'Interns' : 'Expatriates';
+    const periodLabel = new Date().toLocaleDateString('en-US', {
+        month: 'short',
+        year: 'numeric',
+    });
+
+    return `${periodLabel} - ${typeLabel}`;
+};
+
 export const HeadOfficePayGroupDialog: React.FC<HeadOfficePayGroupDialogProps> = ({
     open,
     onOpenChange,
     onSuccess,
 }) => {
-    const { organizationId } = useOrg();
+    const { organizationId, companyId, setCompanyId } = useOrg();
     const { toast } = useToast();
     const [currentStep, setCurrentStep] = useState<Step>('details');
     const [loading, setLoading] = useState(false);
@@ -78,6 +90,29 @@ export const HeadOfficePayGroupDialog: React.FC<HeadOfficePayGroupDialogProps> =
     const [employees, setEmployees] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
 
+    const resolveEffectiveCompanyId = async () => {
+        if (companyId) return companyId;
+        if (!organizationId) return null;
+
+        const { data: companies, error: companyLookupError } = await supabase
+            .from('companies')
+            .select('id')
+            .eq('organization_id', organizationId)
+            .order('created_at', { ascending: true })
+            .limit(1);
+
+        if (!companyLookupError && companies && companies.length > 0) {
+            const resolvedCompanyId = companies[0].id;
+            setCompanyId(resolvedCompanyId);
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('active_company_id', resolvedCompanyId);
+            }
+            return resolvedCompanyId;
+        }
+
+        return null;
+    };
+
     useEffect(() => {
         if (open) {
             fetchInitialData();
@@ -86,7 +121,7 @@ export const HeadOfficePayGroupDialog: React.FC<HeadOfficePayGroupDialogProps> =
             setSelectedUnitIds([]);
             setSelectedEmployeeIds([]);
             setFormData({
-                name: '',
+                name: getDefaultHeadOfficePaygroupName('regular'),
                 pay_frequency: 'monthly',
                 period_start: '',
                 period_end: '',
@@ -99,9 +134,19 @@ export const HeadOfficePayGroupDialog: React.FC<HeadOfficePayGroupDialogProps> =
         if (!organizationId) return;
         setLoading(true);
         try {
+            const effectiveCompanyId = await resolveEffectiveCompanyId();
+            let unitsQuery = supabase.from('company_units').select('*').eq('active', true);
+            if (effectiveCompanyId) {
+                unitsQuery = unitsQuery.eq('company_id', effectiveCompanyId);
+            }
+
             const [unitsRes, employeesRes] = await Promise.all([
-                supabase.from('company_units').select('*').eq('active', true),
-                supabase.from('employees').select('id, first_name, last_name, sub_department, employee_type').eq('status', 'active')
+                unitsQuery,
+                supabase
+                    .from('employees')
+                    .select('id, first_name, last_name, sub_department, employee_type')
+                    .eq('status', 'active')
+                    .eq('organization_id', organizationId)
             ]);
 
             setCompanyUnits(unitsRes.data || []);
@@ -114,19 +159,68 @@ export const HeadOfficePayGroupDialog: React.FC<HeadOfficePayGroupDialogProps> =
     };
 
     const handleCreate = async () => {
-        if (!organizationId) return;
+        const effectiveCompanyId = await resolveEffectiveCompanyId();
+
+        if (!organizationId || !effectiveCompanyId) {
+            toast({
+                title: 'Missing Context',
+                description: 'Unable to resolve a company for this organization. Please select a company and try again.',
+                variant: 'destructive',
+            });
+            return;
+        }
         setLoading(true);
         try {
-            // 1. Create Paygroup
-            const pg = await HeadOfficePayGroupsService.createPayGroup(type, {
-                ...formData,
+            const cleanedName = formData.name.trim() || getDefaultHeadOfficePaygroupName(type);
+            const today = new Date().toISOString().slice(0, 10);
+            const periodStart = formData.period_start || today;
+            const periodEnd = formData.period_end || periodStart;
+            let skippedUnitTagging = false;
+            const basePayload = {
+                name: cleanedName,
+                pay_frequency: formData.pay_frequency,
+                period_start: periodStart,
+                period_end: periodEnd,
                 organization_id: organizationId,
-                status: 'draft'
-            } as any);
+                company_id: effectiveCompanyId,
+                category: 'head_office',
+                employee_type: type,
+                status: 'active' as const,
+            };
+
+            // 1. Create Paygroup
+            const pg = await HeadOfficePayGroupsService.createPayGroup(
+                type,
+                type === 'expatriate'
+                    ? {
+                        ...basePayload,
+                        currency: 'USD',
+                        exchange_rate_to_local: 1,
+                        tax_country: 'UG',
+                    }
+                    : basePayload
+            );
 
             // 2. Tag Company Units
             if (selectedUnitIds.length > 0) {
-                await HeadOfficePayGroupsService.tagCompanyUnits(pg.id, type, selectedUnitIds);
+                const { data: allowedUnits } = await supabase
+                    .from('company_units')
+                    .select('id')
+                    .eq('company_id', effectiveCompanyId)
+                    .eq('active', true)
+                    .in('id', selectedUnitIds);
+
+                const allowedUnitIds = (allowedUnits || []).map(unit => unit.id);
+                if (allowedUnitIds.length > 0) {
+                    try {
+                        await HeadOfficePayGroupsService.tagCompanyUnits(pg.id, type, allowedUnitIds);
+                    } catch (unitTagError: any) {
+                        // RLS on unit-tag mapping is stricter in some tenant setups.
+                        // Keep paygroup creation successful and let user tag units later.
+                        skippedUnitTagging = true;
+                        console.warn('Unable to tag company units during creation:', unitTagError);
+                    }
+                }
             }
 
             // 3. Add Members
@@ -136,7 +230,9 @@ export const HeadOfficePayGroupDialog: React.FC<HeadOfficePayGroupDialogProps> =
 
             toast({
                 title: 'Success',
-                description: 'Head Office paygroup created successfully.',
+                description: skippedUnitTagging
+                    ? 'Paygroup created, but company-unit tagging was skipped due to access policy. You can tag units later.'
+                    : 'Head Office paygroup created successfully.',
             });
             onSuccess();
             onOpenChange(false);
@@ -499,9 +595,17 @@ export const HeadOfficePayGroupDialog: React.FC<HeadOfficePayGroupDialogProps> =
                                 className="rounded-2xl px-8 h-12 bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-95"
                                 onClick={() => {
                                     if (currentStep === 'details') {
-                                        if (!formData.name) {
-                                            toast({ title: 'Missing Info', description: 'Please enter a name for the paygroup.', variant: 'destructive' });
-                                            return;
+                                        const trimmedName = formData.name.trim();
+                                        if (!trimmedName) {
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                name: getDefaultHeadOfficePaygroupName(type),
+                                            }));
+                                        } else if (trimmedName !== formData.name) {
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                name: trimmedName,
+                                            }));
                                         }
                                         setCurrentStep('units');
                                     }

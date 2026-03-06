@@ -26,6 +26,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { RBACService } from "@/lib/services/auth/rbac";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 
+const FALLBACK_CATEGORIES = [
+  { id: "fallback-head-office", key: "head_office", label: "Head Office" },
+  { id: "fallback-projects", key: "projects", label: "Projects" },
+] as const;
+
 // Account type options
 const ACCOUNT_TYPES = [
   { value: "Savings Account", label: "Savings Account" },
@@ -397,11 +402,15 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
     const loadCategories = async () => {
       if (organizationId) {
         try {
+          await EmployeeCategoriesService.seedDefaults(organizationId);
           const list = await EmployeeCategoriesService.getCategoriesByOrg(organizationId);
-          setCategories(list);
+          setCategories(list.length > 0 ? list : (FALLBACK_CATEGORIES as any));
         } catch (error) {
           console.error('Error loading categories:', error);
+          setCategories(FALLBACK_CATEGORIES as any);
         }
+      } else {
+        setCategories(FALLBACK_CATEGORIES as any);
       }
     };
     void loadCategories();
@@ -684,8 +693,22 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
     }
   };
 
+  const submitInvalid = (errors: any) => {
+    const firstErrorMessage =
+      errors?.category?.message ||
+      errors?.employee_type?.message ||
+      errors?.pay_frequency?.message ||
+      errors?.project_id?.message ||
+      "Please complete all required fields before creating the employee.";
+    toast({
+      title: "Missing required information",
+      description: String(firstErrorMessage),
+      variant: "destructive",
+    });
+  };
+
   return (
-    <form onSubmit={form.handleSubmit(submit)} className="space-y-4 w-full max-w-full min-w-0 overflow-x-hidden">
+    <form onSubmit={form.handleSubmit(submit, submitInvalid)} className="space-y-4 w-full max-w-full min-w-0 overflow-x-hidden">
       <Accordion type="single" collapsible defaultValue="personal" className="w-full max-w-full min-w-0 overflow-x-hidden">
         <AccordionItem value="personal">
           <AccordionTrigger>
@@ -859,7 +882,6 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <Select
-                  disabled={categories.length === 0}
                   onValueChange={(value: PayGroupCategory) => {
                     form.setValue("category", value || "");
                     form.setValue("employee_type", "");

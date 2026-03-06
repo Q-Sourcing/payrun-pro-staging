@@ -51,9 +51,9 @@ export class PayGroupsService {
         { data: hoExpatriates },
         { data: hoMembers, error: hoMembersError }
       ] = await Promise.all([
-        supabase.from('head_office_pay_groups_regular' as any).select('*').eq('status', 'active') as any,
-        supabase.from('head_office_pay_groups_interns' as any).select('*').eq('status', 'active') as any,
-        supabase.from('head_office_pay_groups_expatriates' as any).select('*').eq('status', 'active') as any,
+        supabase.from('head_office_pay_groups_regular' as any).select('*').in('status', ['active', 'draft']) as any,
+        supabase.from('head_office_pay_groups_interns' as any).select('*').in('status', ['active', 'draft']) as any,
+        supabase.from('head_office_pay_groups_expatriates' as any).select('*').in('status', ['active', 'draft']) as any,
         supabase.from('head_office_pay_group_members' as any).select('pay_group_id').eq('active', true) as any
       ]);
 

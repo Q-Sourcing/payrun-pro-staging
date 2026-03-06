@@ -54,7 +54,10 @@ const STATUS_CONFIG: Record<
 };
 
 export default function Timesheets() {
-  const isManager = RBACService.isOrgAdmin() || RBACService.isPlatformAdmin();
+  const canReviewTeam =
+    RBACService.isOrgAdmin() ||
+    RBACService.isPlatformAdmin() ||
+    RBACService.hasPermission("payroll.approve");
   const { data: timesheets = [], isLoading } = useMyTimesheets();
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -85,7 +88,7 @@ export default function Timesheets() {
         </Button>
       </div>
 
-      {isManager ? (
+      {canReviewTeam ? (
         <Tabs defaultValue="my">
           <TabsList>
             <TabsTrigger value="my" className="flex items-center gap-2">

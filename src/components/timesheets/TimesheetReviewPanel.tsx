@@ -71,6 +71,9 @@ export function TimesheetReviewPanel() {
 
   return (
     <div className="space-y-4">
+      <p className="text-xs text-muted-foreground">
+        Review submitted timesheets by employee, expand any item to inspect full entries, then approve or reject with an optional note.
+      </p>
       {sheets.map((sheet: any) => {
         const entries = sheet.timesheet_entries || [];
         const emp = sheet.employees;
@@ -158,7 +161,7 @@ export function TimesheetReviewPanel() {
                             setDialogSheet({ id: sheet.id, action: "rejected" });
                           }}
                         >
-                          <XCircle className="w-3.5 h-3.5 mr-1" /> Reject
+                          <XCircle className="w-3.5 h-3.5 mr-1" /> ❌ Reject
                         </Button>
                         <Button
                           size="sm"
@@ -167,7 +170,7 @@ export function TimesheetReviewPanel() {
                             setDialogSheet({ id: sheet.id, action: "approved" });
                           }}
                         >
-                          <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Approve
+                          <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> ✅ Approve
                         </Button>
                       </div>
                     )}
@@ -177,6 +180,11 @@ export function TimesheetReviewPanel() {
                       </p>
                     )}
                   </div>
+                  {sheet.status === "approved" && (
+                    <p className="text-xs text-muted-foreground">
+                      Approved hours are now available for payroll aggregation in the pay run flow.
+                    </p>
+                  )}
                 </CardContent>
               </>
             )}

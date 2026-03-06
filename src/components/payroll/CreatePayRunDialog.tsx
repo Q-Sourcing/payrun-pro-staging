@@ -408,7 +408,7 @@ const CreatePayRunDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] modern-dialog">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto modern-dialog">
         <DialogHeader className="modern-dialog-header">
           <DialogTitle className="modern-dialog-title">Create New Pay Run</DialogTitle>
           <DialogDescription className="modern-dialog-description">

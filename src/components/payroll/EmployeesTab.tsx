@@ -35,6 +35,7 @@ interface Employee {
   country: string;
   currency: string;
   status: string;
+  employment_status?: string | null;
   employee_type: string;
   employee_type_id?: string | null;
   employee_type_name?: string; // resolved from employee_types
@@ -217,6 +218,12 @@ const EmployeesTab = () => {
     return parts.join(" ");
   };
 
+  const getDisplayStatus = (employee: Employee) =>
+    (employee.employment_status && employee.employment_status.trim()) ||
+    (employee.status ? employee.status.charAt(0).toUpperCase() + employee.status.slice(1) : "Active");
+
+  const uniqueStatusOptions = [...new Set(employees.map((e) => getDisplayStatus(e)).filter(Boolean))].sort();
+
   const filteredEmployees = employees.filter((employee) => {
     const fullName = getFullName(employee);
     const matchesSearch = (
@@ -226,7 +233,7 @@ const EmployeesTab = () => {
       (employee.phone || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       ((employee as any).sub_department || "").toLowerCase().includes(searchTerm.toLowerCase())
     );
-    const matchesStatus = statusFilter === "all" || employee.status === statusFilter;
+    const matchesStatus = statusFilter === "all" || getDisplayStatus(employee) === statusFilter;
     const matchesPayType = payTypeFilter === "all" || employee.pay_type === payTypeFilter;
     const matchesPrefix = prefixFilter === "all" || (employee.employee_number || "").startsWith(prefixFilter + "-");
     const matchesCountry = countryFilter === "all" || employee.country === countryFilter;
@@ -292,33 +299,6 @@ const EmployeesTab = () => {
       default:
         return `${symbol}${formattedRate}`;
     }
-  };
-
-  const renderProbationBadge = (employee: Employee) => {
-    if (!employee.probation_status || employee.probation_status === "confirmed") return null;
-
-    if (!employee.probation_end_date) {
-      return (
-        <Badge variant="outline" className="mt-1 border-amber-300 text-amber-700">
-          {employee.probation_status === "extended" ? "Extended probation" : "On probation"}
-        </Badge>
-      );
-    }
-
-    const today = new Date();
-    const end = new Date(employee.probation_end_date);
-    const diffMs = end.getTime() - today.getTime();
-    const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-    const nearing = daysLeft <= 7;
-
-    return (
-      <Badge
-        variant="outline"
-        className={`mt-1 ${nearing ? "border-red-300 text-red-700" : "border-amber-300 text-amber-700"}`}
-      >
-        {employee.probation_status === "extended" ? "Extended" : "Probation"} • {daysLeft} day(s) left
-      </Badge>
-    );
   };
 
   const handleEditEmployee = (employee: Employee) => {
@@ -458,8 +438,11 @@ const EmployeesTab = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
+                  {uniqueStatusOptions.map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
@@ -707,16 +690,21 @@ const EmployeesTab = () => {
                 )}
                 {visibleColumns.status !== false && (
                   <td className="px-4 py-2 text-sm">
-                    <Badge
-                      variant={employee.status === "active" ? "default" : "secondary"}
-                      className={`font-medium px-3 py-1 ${employee.status === "active"
-                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800"
-                        : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700"
-                        }`}
-                    >
-                      {employee.status}
-                    </Badge>
-                    {renderProbationBadge(employee)}
+                    {(() => {
+                      const statusLabel = getDisplayStatus(employee);
+                      const isInactive = ["inactive", "terminated", "resigned", "deceased"].includes(statusLabel.toLowerCase());
+                      return (
+                        <Badge
+                          variant={isInactive ? "secondary" : "default"}
+                          className={`font-medium px-3 py-1 ${isInactive
+                            ? "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700"
+                            : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800"
+                            }`}
+                        >
+                          {statusLabel}
+                        </Badge>
+                      );
+                    })()}
                   </td>
                 )}
                 {visibleColumns.created_at !== false && (

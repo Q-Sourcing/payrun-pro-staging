@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +31,7 @@ import { CloneHeadOfficePayGroupDialog } from '@/components/paygroups/CloneHeadO
 import { ViewAssignedEmployeesDialog } from '@/components/paygroups/ViewAssignedEmployeesDialog';
 
 export const PayGroupsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [payGroups, setPayGroups] = useState<PayGroup[]>([]);
   const [summary, setSummary] = useState<PayGroupSummary | null>(null);
@@ -238,6 +239,13 @@ export const PayGroupsPage: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            onClick={() => navigate('/payruns')}
+            variant="outline"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Create Pay Run
+          </Button>
           <Button
             onClick={() => setShowHODialog(true)}
             className="bg-indigo-600 hover:bg-indigo-700"
