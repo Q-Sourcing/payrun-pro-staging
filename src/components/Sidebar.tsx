@@ -166,7 +166,6 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
       <NavItem to="/dashboard/payruns" icon={<DollarSign size={16} />} label="My Pay Runs" />
       <NavItem to="/my/approvals" icon={<CheckSquare size={16} />} label="My Approvals" />
       <NavItem to="/timesheets" icon={<AlarmClock size={16} />} label="Timesheets" />
-      <NavItem to="/users" icon={<UserCog size={16} />} label="Users" />
 
       {/* ========================================
           PERMISSION-BASED SECTIONS

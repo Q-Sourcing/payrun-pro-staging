@@ -13,7 +13,7 @@ import { DataManagementSection } from "@/components/settings/DataManagementSecti
 import { PayslipDesignerSection } from "@/components/settings/PayslipDesignerSection";
 import { SystemSettingsSection } from "@/components/settings/SystemSettingsSection";
 import { EmailSettingsSection } from "@/components/settings/EmailSettingsSection";
-import { UserManagement } from "@/components/user-management/UserManagement";
+import UsersManagement from "@/pages/UsersManagement";
 import { AdminAccessSection } from "@/components/settings/AdminAccessSection";
 import { SettingsSectionGuard } from "@/components/settings/SettingsSectionGuard";
 import { ContractTemplateManager } from "@/components/contracts/ContractTemplateManager";
@@ -237,7 +237,7 @@ const Settings = () => {
       case "user-management":
         return (
           <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="manage_organization_users">
-            <UserManagement />
+            <UsersManagement />
           </SettingsSectionGuard>
         );
       case "admin-obac":
