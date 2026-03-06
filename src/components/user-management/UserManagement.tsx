@@ -29,8 +29,8 @@ interface UserManagementProps {
 }
 
 type SupabaseProfileLike = {
-  role?: UserRole;
-  roles?: UserRole[];
+  role?: string;
+  roles?: string[];
   first_name?: string;
   last_name?: string;
   organization_id?: string | null;
@@ -78,10 +78,10 @@ const convertProfileToUser = (profile: SupabaseProfileLike | null, supabaseUser:
   return {
     id: supabaseUser.id,
     email: supabaseUser.email || '',
-    firstName,
-    lastName,
-    role: primaryRole,
-    organizationId: profile?.organization_id || supabaseUser.user_metadata?.organization_id || null,
+    firstName: firstName as string,
+    lastName: lastName as string,
+    role: primaryRole as UserRole,
+    organizationId: (profile?.organization_id as string | null) || (supabaseUser.user_metadata?.organization_id as string | null) || null,
     managerId: null,
     isActive: true,
     lastLogin: supabaseUser.last_sign_in_at || new Date().toISOString(),
