@@ -178,7 +178,8 @@ serve(async (req) => {
       outcomes: [] as Array<Record<string, unknown>>,
     }
 
-    const safeSelect = async (query: () => Promise<{ data: unknown; error: unknown }>) => {
+    // deno-lint-ignore no-explicit-any
+    const safeSelect = async (query: () => PromiseLike<{ data: unknown; error: unknown }>) => {
       const res = await query()
       const err = (res as { error?: unknown }).error
       if (err && !isMissingRelationError(err)) throw err
@@ -274,7 +275,8 @@ serve(async (req) => {
 
         // 1) Related app tables (best-effort)
         if (userId) {
-          const deletions: Array<Promise<unknown>> = []
+          // deno-lint-ignore no-explicit-any
+          const deletions: Array<PromiseLike<any>> = []
 
           deletions.push(supabaseAdmin.from('org_users').delete().eq('user_id', userId))
           deletions.push(supabaseAdmin.from('user_profiles').delete().eq('id', userId))
