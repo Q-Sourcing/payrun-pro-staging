@@ -183,7 +183,7 @@ export const HeadOfficePayGroupDialog: React.FC<HeadOfficePayGroupDialogProps> =
                 period_end: periodEnd,
                 organization_id: organizationId,
                 company_id: effectiveCompanyId,
-                category: 'head_office',
+                category: 'head_office' as const,
                 employee_type: type,
                 status: 'active' as const,
             };

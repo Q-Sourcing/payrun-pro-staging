@@ -126,22 +126,42 @@ export function TimesheetReviewPanel() {
                     <TableHeader>
                       <TableRow>
                         <TableHead className="text-xs">Date</TableHead>
+                        <TableHead className="text-xs">Time In</TableHead>
+                        <TableHead className="text-xs">Time Out</TableHead>
                         <TableHead className="text-xs">Hours</TableHead>
                         <TableHead className="text-xs">Department</TableHead>
-                        <TableHead className="text-xs">Task Description</TableHead>
+                        <TableHead className="text-xs">Tasks Performed</TableHead>
+                        <TableHead className="text-xs">Emp. Sign</TableHead>
+                        <TableHead className="text-xs">Supervisor Comments</TableHead>
+                        <TableHead className="text-xs">Sup/HR Sign</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {entries.map((e: any) => (
                         <TableRow key={e.id}>
-                          <TableCell className="text-xs">
+                          <TableCell className="text-xs whitespace-nowrap">
                             {format(parseISO(e.work_date), "dd MMM yyyy")}
                           </TableCell>
-                          <TableCell className="text-xs font-medium">
-                            {e.hours_worked}h
-                          </TableCell>
+                          <TableCell className="text-xs">{e.time_in || "—"}</TableCell>
+                          <TableCell className="text-xs">{e.time_out || "—"}</TableCell>
+                          <TableCell className="text-xs font-medium">{e.hours_worked}h</TableCell>
                           <TableCell className="text-xs">{e.department}</TableCell>
-                          <TableCell className="text-xs">{e.task_description}</TableCell>
+                          <TableCell className="text-xs max-w-[160px]">{e.task_description}</TableCell>
+                          <TableCell className="text-xs">{e.employee_sign || "—"}</TableCell>
+                          <TableCell className="text-xs max-w-[140px]">
+                            {e.supervisor_comments ? (
+                              <span>{e.supervisor_comments}</span>
+                            ) : (
+                              <span className="text-muted-foreground italic">Pending</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {e.supervisor_sign ? (
+                              <span className="text-success font-medium">{e.supervisor_sign}</span>
+                            ) : (
+                              <span className="text-muted-foreground italic">Pending</span>
+                            )}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
