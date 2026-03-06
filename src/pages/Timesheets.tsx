@@ -19,10 +19,16 @@ import {
   XCircle,
   Send,
   Hourglass,
-  Filter,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
+
+function formatMaybeDate(value?: string | null, output = "dd MMM yyyy"): string {
+  if (!value) return "—";
+  const parsed = parseISO(value);
+  if (Number.isNaN(parsed.getTime())) return "—";
+  return format(parsed, output);
+}
 
 // ─── Status config ──────────────────────────────────────────────────────────
 
@@ -64,13 +70,29 @@ const STATUS_CONFIG: Record<
 // ─── Filter tabs definition ──────────────────────────────────────────────────
 
 const FILTER_TABS = [
-  { key: "all", label: "All", statuses: ["draft", "submitted", "approved", "rejected"] },
+  { key: "all", label: "All", statuses: ["draft", "submitted", "approved"] },
   { key: "pending", label: "Pending Approval", statuses: ["submitted"] },
   { key: "approved", label: "Approved", statuses: ["approved"] },
   { key: "rejected", label: "Rejected", statuses: ["rejected"] },
 ] as const;
 
 type FilterKey = (typeof FILTER_TABS)[number]["key"];
+interface HoursStats {
+  submittedHours: number;
+  pendingCount: number;
+  approvedCount: number;
+}
+
+function normalizeTimesheetStatus(rawStatus: unknown): "draft" | "submitted" | "approved" | "rejected" {
+  const status = String(rawStatus ?? "")
+    .trim()
+    .toLowerCase();
+
+  if (status.includes("reject")) return "rejected";
+  if (status.includes("approve")) return "approved";
+  if (status.includes("submit") || status.includes("pending")) return "submitted";
+  return "draft";
+}
 
 // ─── Main page ───────────────────────────────────────────────────────────────
 
@@ -96,16 +118,37 @@ export default function Timesheets() {
 
   // Counts per filter tab
   const counts: Record<FilterKey, number> = {
-    all: timesheets.length,
-    pending: timesheets.filter((t) => t.status === "submitted").length,
-    approved: timesheets.filter((t) => t.status === "approved").length,
-    rejected: timesheets.filter((t) => t.status === "rejected").length,
+    all: timesheets.filter((t) => normalizeTimesheetStatus(t.status) !== "rejected").length,
+    pending: timesheets.filter((t) => normalizeTimesheetStatus(t.status) === "submitted").length,
+    approved: timesheets.filter((t) => normalizeTimesheetStatus(t.status) === "approved").length,
+    rejected: timesheets.filter((t) => normalizeTimesheetStatus(t.status) === "rejected").length,
   };
 
   const activeTabStatuses =
     FILTER_TABS.find((t) => t.key === activeFilter)?.statuses ?? [];
   const filtered = timesheets.filter((t) =>
-    (activeTabStatuses as readonly string[]).includes(t.status)
+    (activeTabStatuses as readonly string[]).includes(normalizeTimesheetStatus(t.status))
+  );
+  const hoursStats: HoursStats = timesheets.reduce(
+    (acc, sheet) => {
+      const status = normalizeTimesheetStatus(sheet.status);
+      const hours = Number(sheet.total_hours ?? 0);
+      if (status !== "draft") {
+        acc.submittedHours += hours;
+      }
+      if (status === "submitted") {
+        acc.pendingCount += 1;
+      }
+      if (status === "approved") {
+        acc.approvedCount += 1;
+      }
+      return acc;
+    },
+    {
+      submittedHours: 0,
+      pendingCount: 0,
+      approvedCount: 0,
+    }
   );
 
   return (
@@ -131,7 +174,7 @@ export default function Timesheets() {
               <Clock className="w-4 h-4" /> My Timesheets
             </TabsTrigger>
             <TabsTrigger value="review" className="flex items-center gap-2">
-              <ClipboardList className="w-4 h-4" /> Review Team
+              <ClipboardList className="w-4 h-4" /> Review
             </TabsTrigger>
           </TabsList>
           <TabsContent value="my" className="mt-4">
@@ -145,6 +188,7 @@ export default function Timesheets() {
               setActiveFilter={setActiveFilter}
               filtered={filtered}
               counts={counts}
+              hoursStats={hoursStats}
             />
           </TabsContent>
           <TabsContent value="review" className="mt-4">
@@ -162,6 +206,7 @@ export default function Timesheets() {
           setActiveFilter={setActiveFilter}
           filtered={filtered}
           counts={counts}
+          hoursStats={hoursStats}
         />
       )}
 
@@ -193,6 +238,7 @@ interface MyTimesheetsContentProps {
   setActiveFilter: (k: FilterKey) => void;
   filtered: any[];
   counts: Record<FilterKey, number>;
+  hoursStats: HoursStats;
 }
 
 function MyTimesheetsContent({
@@ -204,18 +250,18 @@ function MyTimesheetsContent({
   setActiveFilter,
   filtered,
   counts,
+  hoursStats,
 }: MyTimesheetsContentProps) {
   return (
     <div className="space-y-4">
       {/* Status filter bar */}
       <div className="flex flex-wrap items-center gap-2">
-        <Filter className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
         {FILTER_TABS.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveFilter(tab.key)}
             className={cn(
-              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
+              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] text-xs font-medium transition-all border",
               activeFilter === tab.key
                 ? "bg-primary text-primary-foreground border-primary shadow-sm"
                 : "bg-background text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
@@ -235,6 +281,15 @@ function MyTimesheetsContent({
           </button>
         ))}
       </div>
+
+      {activeFilter === "all" && (
+        <HoursStatsCards
+          stats={hoursStats}
+          onOpenPending={() => setActiveFilter("pending")}
+          onOpenApproved={() => setActiveFilter("approved")}
+          onOpenAll={() => setActiveFilter("all")}
+        />
+      )}
 
       {/* Status summary cards (for non-all filters show a callout) */}
       {activeFilter !== "all" && (
@@ -258,6 +313,67 @@ function MyTimesheetsContent({
             : "No timesheets yet."
         }
       />
+
+    </div>
+  );
+}
+
+function HoursStatsCards({
+  stats,
+  onOpenPending,
+  onOpenApproved,
+  onOpenAll,
+}: {
+  stats: HoursStats;
+  onOpenPending: () => void;
+  onOpenApproved: () => void;
+  onOpenAll: () => void;
+}) {
+  const cards = [
+    {
+      key: "submitted",
+      title: "Submitted Hours",
+      subtitle: "Open all submitted timesheets",
+      accent: "text-primary",
+      border: "border-primary/20",
+      onClick: onOpenAll,
+      valueText: `${stats.submittedHours.toFixed(1)}h`,
+    },
+    {
+      key: "pending",
+      title: "Pending Timesheets",
+      subtitle: "Open pending approvals",
+      accent: "text-warning",
+      border: "border-warning/25",
+      onClick: onOpenPending,
+      valueText: String(stats.pendingCount),
+    },
+    {
+      key: "approved",
+      title: "Approved Timesheets",
+      subtitle: "Open approved timesheets",
+      accent: "text-success",
+      border: "border-success/25",
+      onClick: onOpenApproved,
+      valueText: String(stats.approvedCount),
+    },
+  ] as const;
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      {cards.map((card) => (
+        <Card
+          key={card.key}
+          className={cn("border cursor-pointer transition-colors hover:bg-muted/30", card.border)}
+          onClick={card.onClick}
+        >
+          <CardContent className="py-2.5 px-3">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{card.title}</p>
+            <p className={cn("text-base font-semibold mt-0.5", card.accent)}>{card.valueText}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{card.subtitle}</p>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }
@@ -343,11 +459,12 @@ function TimesheetList({
   return (
     <div className="space-y-3">
       {timesheets.map((sheet) => {
-        const cfg = STATUS_CONFIG[sheet.status] ?? STATUS_CONFIG.draft;
+        const normalizedStatus = normalizeTimesheetStatus(sheet.status);
+        const cfg = STATUS_CONFIG[normalizedStatus] ?? STATUS_CONFIG.draft;
         const StatusIcon = cfg.icon;
         const isExpanded = expanded.has(sheet.id);
         const entries = sheet.timesheet_entries || [];
-        const isDraft = sheet.status === "draft";
+        const isDraft = normalizedStatus === "draft";
 
         return (
           <Card
@@ -355,9 +472,9 @@ function TimesheetList({
             className={cn(
               "transition-all border",
               isDraft && "border-dashed",
-              sheet.status === "submitted" && "border-warning/30",
-              sheet.status === "approved" && "border-success/30",
-              sheet.status === "rejected" && "border-destructive/25",
+              normalizedStatus === "submitted" && "border-warning/30",
+              normalizedStatus === "approved" && "border-success/30",
+              normalizedStatus === "rejected" && "border-destructive/25",
             )}
           >
             {/* Header row */}
@@ -370,12 +487,12 @@ function TimesheetList({
                 <span className={cn("w-2 h-2 rounded-full shrink-0", cfg.dotClass)} />
                 <div className="min-w-0">
                   <p className="text-sm font-semibold truncate">
-                    {format(parseISO(sheet.period_start), "dd MMM")}
+                    {formatMaybeDate(sheet.period_start, "dd MMM")}
                     {sheet.period_start !== sheet.period_end && (
-                      <> – {format(parseISO(sheet.period_end), "dd MMM yyyy")}</>
+                      <> – {formatMaybeDate(sheet.period_end, "dd MMM yyyy")}</>
                     )}
                     {sheet.period_start === sheet.period_end && (
-                      <> {format(parseISO(sheet.period_start), "yyyy")}</>
+                      <> {formatMaybeDate(sheet.period_start, "yyyy")}</>
                     )}
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -421,25 +538,6 @@ function TimesheetList({
               <>
                 <Separator />
                 <CardContent className="pt-4 pb-4">
-                  {/* Reviewer note */}
-                  {sheet.reviewer_notes && (
-                    <div className={cn(
-                      "flex items-start gap-2 text-xs rounded-md p-3 mb-4 border",
-                      sheet.status === "rejected"
-                        ? "bg-destructive/8 border-destructive/20"
-                        : "bg-muted border-border"
-                    )}>
-                      <AlertTriangle className={cn(
-                        "w-3.5 h-3.5 mt-0.5 shrink-0",
-                        sheet.status === "rejected" ? "text-destructive" : "text-warning"
-                      )} />
-                      <span>
-                        <span className="font-semibold">Reviewer note: </span>
-                        {sheet.reviewer_notes}
-                      </span>
-                    </div>
-                  )}
-
                   {entries.length === 0 ? (
                     <p className="text-xs text-muted-foreground italic py-2">
                       No entries — edit this draft to add records.
@@ -456,14 +554,14 @@ function TimesheetList({
                             <th className="text-left pb-2 pr-4 font-medium text-muted-foreground whitespace-nowrap">Department</th>
                             <th className="text-left pb-2 pr-4 font-medium text-muted-foreground whitespace-nowrap">Tasks Performed</th>
                             <th className="text-left pb-2 pr-4 font-medium text-muted-foreground whitespace-nowrap">Sign</th>
-                            <th className="text-left pb-2 font-medium text-muted-foreground whitespace-nowrap">Sup. Comments</th>
+                            <th className="text-left pb-2 font-medium text-muted-foreground whitespace-nowrap">Status</th>
                           </tr>
                         </thead>
                         <tbody>
                           {entries.map((e: any) => (
                             <tr key={e.id} className="border-b last:border-0">
                               <td className="py-2 pr-4 whitespace-nowrap">
-                                {format(parseISO(e.work_date), "dd MMM yyyy")}
+                                {formatMaybeDate(e.work_date, "dd MMM yyyy")}
                               </td>
                               <td className="py-2 pr-4 whitespace-nowrap">{e.time_in || "—"}</td>
                               <td className="py-2 pr-4 whitespace-nowrap">{e.time_out || "—"}</td>
@@ -471,8 +569,13 @@ function TimesheetList({
                               <td className="py-2 pr-4 whitespace-nowrap">{e.department}</td>
                               <td className="py-2 pr-4 text-muted-foreground max-w-[200px]">{e.task_description}</td>
                               <td className="py-2 pr-4">{e.employee_sign || "—"}</td>
-                              <td className="py-2 text-muted-foreground italic">
-                                {e.supervisor_comments || "Pending approval"}
+                              <td className="py-2">
+                                <span className={cn(
+                                  "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
+                                  STATUS_CONFIG[normalizedStatus]?.chipClass ?? "bg-muted text-muted-foreground"
+                                )}>
+                                  {STATUS_CONFIG[normalizedStatus]?.label ?? sheet.status}
+                                </span>
                               </td>
                             </tr>
                           ))}
@@ -489,12 +592,12 @@ function TimesheetList({
 
                   {sheet.submitted_at && (
                     <p className="text-xs text-muted-foreground mt-3">
-                      Submitted {format(parseISO(sheet.submitted_at), "dd MMM yyyy 'at' HH:mm")}
+                      Submitted {formatMaybeDate(sheet.submitted_at, "dd MMM yyyy 'at' HH:mm")}
                     </p>
                   )}
                   {sheet.approved_at && (
                     <p className="text-xs text-success mt-1">
-                      ✓ Approved {format(parseISO(sheet.approved_at), "dd MMM yyyy 'at' HH:mm")}
+                      ✓ Approved {formatMaybeDate(sheet.approved_at, "dd MMM yyyy 'at' HH:mm")}
                     </p>
                   )}
                 </CardContent>

@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/data/query-client";
 import { RealtimeService } from "@/lib/data/realtime.service";
+import { supabase } from "@/integrations/supabase/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect } from "react";
 import Index from "./pages/Index";
@@ -90,18 +91,51 @@ import Timesheets from "./pages/Timesheets";
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
 const App = () => {
-  // Initialize realtime subscriptions when app starts
+  // Initialize realtime subscriptions only after auth session exists
   useEffect(() => {
+    let isMounted = true;
+    let isRealtimeStarted = false;
+
+    const startRealtime = () => {
+      if (isRealtimeStarted) return;
+      isRealtimeStarted = true;
+      RealtimeService.initializeRealtimeSubscriptions();
+    };
+
+    const stopRealtime = () => {
+      if (!isRealtimeStarted) return;
+      isRealtimeStarted = false;
+      RealtimeService.cleanupSubscriptions();
+    };
+
+    const bootstrapRealtime = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!isMounted) return;
+      if (session) {
+        startRealtime();
+      }
+    };
+
+    bootstrapRealtime();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        startRealtime();
+      } else {
+        stopRealtime();
+      }
+    });
+
     // Environment verification logging
     console.log('🌿 Environment:', import.meta.env.VITE_ENVIRONMENT || import.meta.env.NEXT_PUBLIC_ENVIRONMENT || 'unknown');
     console.log('🔗 Supabase URL:', import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL || 'not configured');
     console.log('🔧 Vite Mode:', import.meta.env.MODE);
 
-    RealtimeService.initializeRealtimeSubscriptions();
-
     // Cleanup on unmount
     return () => {
-      RealtimeService.cleanupSubscriptions();
+      isMounted = false;
+      subscription.unsubscribe();
+      stopRealtime();
     };
   }, []);
 

@@ -4,11 +4,16 @@ import { queryKeys } from './query-client';
 
 export class RealtimeService {
   private static subscriptions: Map<string, any> = new Map();
+  private static initialized = false;
 
   /**
    * Initialize realtime subscriptions for all data
    */
   static async initializeRealtimeSubscriptions() {
+    if (this.initialized) {
+      return;
+    }
+
     console.log('🔄 Initializing realtime subscriptions...');
     
     // Subscribe to employees table changes
@@ -23,6 +28,7 @@ export class RealtimeService {
     // Subscribe to pay runs table changes
     this.subscribeToPayRuns();
     
+    this.initialized = true;
     console.log('✅ Realtime subscriptions initialized');
   }
 
@@ -201,6 +207,10 @@ export class RealtimeService {
    * Clean up all subscriptions
    */
   static async cleanupSubscriptions() {
+    if (!this.initialized && this.subscriptions.size === 0) {
+      return;
+    }
+
     console.log('🧹 Cleaning up realtime subscriptions...');
     
     for (const [name, channel] of this.subscriptions) {
@@ -209,6 +219,7 @@ export class RealtimeService {
     }
     
     this.subscriptions.clear();
+    this.initialized = false;
   }
 
   /**

@@ -24,6 +24,13 @@ import { CheckCircle2, XCircle, ChevronDown, ChevronUp, Clock } from "lucide-rea
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 
+function formatMaybeDate(value?: string | null, output = "dd MMM yyyy"): string {
+  if (!value) return "—";
+  const parsed = parseISO(value);
+  if (Number.isNaN(parsed.getTime())) return "—";
+  return format(parsed, output);
+}
+
 const STATUS_COLORS: Record<string, string> = {
   submitted: "bg-blue-100 text-blue-800",
   approved: "bg-green-100 text-green-800",
@@ -95,8 +102,8 @@ export function TimesheetReviewPanel() {
                     </span>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {format(parseISO(sheet.period_start), "dd MMM")} –{" "}
-                    {format(parseISO(sheet.period_end), "dd MMM yyyy")} ·{" "}
+                    {formatMaybeDate(sheet.period_start, "dd MMM")} –{" "}
+                    {formatMaybeDate(sheet.period_end, "dd MMM yyyy")} ·{" "}
                     {sheet.total_hours ?? 0}h · {entries.length} entries
                   </p>
                 </div>
@@ -132,15 +139,13 @@ export function TimesheetReviewPanel() {
                         <TableHead className="text-xs">Department</TableHead>
                         <TableHead className="text-xs">Tasks Performed</TableHead>
                         <TableHead className="text-xs">Emp. Sign</TableHead>
-                        <TableHead className="text-xs">Supervisor Comments</TableHead>
-                        <TableHead className="text-xs">Sup/HR Sign</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {entries.map((e: any) => (
                         <TableRow key={e.id}>
                           <TableCell className="text-xs whitespace-nowrap">
-                            {format(parseISO(e.work_date), "dd MMM yyyy")}
+                            {formatMaybeDate(e.work_date, "dd MMM yyyy")}
                           </TableCell>
                           <TableCell className="text-xs">{e.time_in || "—"}</TableCell>
                           <TableCell className="text-xs">{e.time_out || "—"}</TableCell>
@@ -148,20 +153,6 @@ export function TimesheetReviewPanel() {
                           <TableCell className="text-xs">{e.department}</TableCell>
                           <TableCell className="text-xs max-w-[160px]">{e.task_description}</TableCell>
                           <TableCell className="text-xs">{e.employee_sign || "—"}</TableCell>
-                          <TableCell className="text-xs max-w-[140px]">
-                            {e.supervisor_comments ? (
-                              <span>{e.supervisor_comments}</span>
-                            ) : (
-                              <span className="text-muted-foreground italic">Pending</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-xs">
-                            {e.supervisor_sign ? (
-                              <span className="text-success font-medium">{e.supervisor_sign}</span>
-                            ) : (
-                              <span className="text-muted-foreground italic">Pending</span>
-                            )}
-                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -169,7 +160,7 @@ export function TimesheetReviewPanel() {
 
                   <div className="flex items-center justify-between pt-1">
                     <div className="text-xs text-muted-foreground">
-                      Submitted {sheet.submitted_at ? format(parseISO(sheet.submitted_at), "dd MMM yyyy HH:mm") : "—"}
+                      Submitted {formatMaybeDate(sheet.submitted_at, "dd MMM yyyy HH:mm")}
                     </div>
                     {sheet.status === "submitted" && (
                       <div className="flex gap-2">
@@ -193,11 +184,6 @@ export function TimesheetReviewPanel() {
                           <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> ✅ Approve
                         </Button>
                       </div>
-                    )}
-                    {sheet.reviewer_notes && (
-                      <p className="text-xs text-muted-foreground italic">
-                        "{sheet.reviewer_notes}"
-                      </p>
                     )}
                   </div>
                   {sheet.status === "approved" && (

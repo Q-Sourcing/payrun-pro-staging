@@ -27,8 +27,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarIcon, Plus, Trash2, Loader2, Send, FileText, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -56,6 +55,16 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
+type Meridiem = "AM" | "PM";
+
+const HOUR_OPTIONS = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"));
+const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
+
+interface TimeParts {
+  hour12: string;
+  minute: string;
+  meridiem: Meridiem;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -63,8 +72,8 @@ function emptyRecord() {
   return {
     work_date: "",
     department: "",
-    time_in: "",
-    time_out: "",
+    time_in: "08:00",
+    time_out: "17:00",
     hours_worked: 8,
     employee_sign: "",
     task_description: "",
@@ -85,6 +94,39 @@ function calcHours(timeIn: string, timeOut: string): number | null {
   } catch {
     return null;
   }
+}
+
+function parseTimeTo12HourParts(value: string): TimeParts {
+  const [hourRaw, minuteRaw] = (value || "").split(":");
+  const hour = Number(hourRaw);
+  const minute = Number(minuteRaw);
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
+    return { hour12: "08", minute: "00", meridiem: "AM" };
+  }
+
+  const meridiem: Meridiem = hour >= 12 ? "PM" : "AM";
+  const normalizedHour = hour % 12 === 0 ? 12 : hour % 12;
+
+  return {
+    hour12: String(normalizedHour).padStart(2, "0"),
+    minute: String(Math.max(0, Math.min(59, minute))).padStart(2, "0"),
+    meridiem,
+  };
+}
+
+function to24HourTime(parts: TimeParts): string {
+  const hour = Number(parts.hour12);
+  const minute = Number(parts.minute);
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return "08:00";
+
+  let normalizedHour = hour % 12;
+  if (parts.meridiem === "PM") normalizedHour += 12;
+
+  return `${String(normalizedHour).padStart(2, "0")}:${String(
+    Math.max(0, Math.min(59, minute))
+  ).padStart(2, "0")}`;
 }
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -116,8 +158,8 @@ export function CreateTimesheetDialog({ open, onOpenChange, draftTimesheet }: Pr
           ? draftTimesheet.timesheet_entries.map((e) => ({
               work_date: e.work_date,
               department: e.department,
-              time_in: e.time_in || "",
-              time_out: e.time_out || "",
+              time_in: e.time_in || "08:00",
+              time_out: e.time_out || "17:00",
               hours_worked: e.hours_worked,
               employee_sign: e.employee_sign || "",
               task_description: e.task_description,
@@ -153,8 +195,8 @@ export function CreateTimesheetDialog({ open, onOpenChange, draftTimesheet }: Pr
           ? draftTimesheet.timesheet_entries.map((e) => ({
               work_date: e.work_date,
               department: e.department,
-              time_in: e.time_in || "",
-              time_out: e.time_out || "",
+              time_in: e.time_in || "08:00",
+              time_out: e.time_out || "17:00",
               hours_worked: e.hours_worked,
               employee_sign: e.employee_sign || "",
               task_description: e.task_description,
@@ -315,9 +357,6 @@ export function CreateTimesheetDialog({ open, onOpenChange, draftTimesheet }: Pr
                   .reduce((s, r) => s + (r.hours_worked || 0), 0)
                   .toFixed(1)}h total
               </span>
-              <Badge variant="outline" className="text-[10px] py-0">
-                Supervisor fields filled during approval
-              </Badge>
             </div>
           )}
         </Form>
@@ -364,6 +403,65 @@ interface RecordCardProps {
   total: number;
   onRemove: () => void;
   onTimeChange: (index: number, field: "time_in" | "time_out", value: string) => void;
+}
+
+interface Time12SelectProps {
+  value?: string;
+  onChange: (value: string) => void;
+}
+
+function Time12Select({ value, onChange }: Time12SelectProps) {
+  const parsed = parseTimeTo12HourParts(value || "08:00");
+
+  const update = (next: Partial<TimeParts>) => {
+    onChange(
+      to24HourTime({
+        hour12: next.hour12 ?? parsed.hour12,
+        minute: next.minute ?? parsed.minute,
+        meridiem: next.meridiem ?? parsed.meridiem,
+      })
+    );
+  };
+
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      <Select value={parsed.hour12} onValueChange={(v) => update({ hour12: v })}>
+        <SelectTrigger className="h-9 text-xs">
+          <SelectValue placeholder="Hour" />
+        </SelectTrigger>
+        <SelectContent>
+          {HOUR_OPTIONS.map((hour) => (
+            <SelectItem key={hour} value={hour}>
+              {hour}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select value={parsed.minute} onValueChange={(v) => update({ minute: v })}>
+        <SelectTrigger className="h-9 text-xs">
+          <SelectValue placeholder="Minute" />
+        </SelectTrigger>
+        <SelectContent>
+          {MINUTE_OPTIONS.map((minute) => (
+            <SelectItem key={minute} value={minute}>
+              {minute}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select value={parsed.meridiem} onValueChange={(v: Meridiem) => update({ meridiem: v })}>
+        <SelectTrigger className="h-9 text-xs">
+          <SelectValue placeholder="AM/PM" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="AM">AM</SelectItem>
+          <SelectItem value="PM">PM</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
 }
 
 function RecordCard({ index, form, total, onRemove, onTimeChange }: RecordCardProps) {
@@ -457,11 +555,9 @@ function RecordCard({ index, form, total, onRemove, onTimeChange }: RecordCardPr
               <FormItem>
                 <FormLabel className="text-xs">Time In <span className="text-destructive">*</span></FormLabel>
                 <FormControl>
-                  <Input
-                    type="time"
-                    className="h-9 text-xs"
+                  <Time12Select
                     value={f.value}
-                    onChange={(e) => onTimeChange(index, "time_in", e.target.value)}
+                    onChange={(value) => onTimeChange(index, "time_in", value)}
                   />
                 </FormControl>
                 <FormMessage className="text-xs" />
@@ -477,11 +573,9 @@ function RecordCard({ index, form, total, onRemove, onTimeChange }: RecordCardPr
               <FormItem>
                 <FormLabel className="text-xs">Time Out <span className="text-destructive">*</span></FormLabel>
                 <FormControl>
-                  <Input
-                    type="time"
-                    className="h-9 text-xs"
+                  <Time12Select
                     value={f.value}
-                    onChange={(e) => onTimeChange(index, "time_out", e.target.value)}
+                    onChange={(value) => onTimeChange(index, "time_out", value)}
                   />
                 </FormControl>
                 <FormMessage className="text-xs" />
@@ -558,21 +652,6 @@ function RecordCard({ index, form, total, onRemove, onTimeChange }: RecordCardPr
           )}
         />
 
-        {/* Row 5: Supervisor fields (read-only info) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground">Supervisor's Comments</p>
-            <div className="h-9 flex items-center px-3 rounded-md border border-dashed border-border bg-muted/30 text-xs text-muted-foreground">
-              Filled by supervisor during approval
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground">Supervisor's &amp; HR's Sign</p>
-            <div className="h-9 flex items-center px-3 rounded-md border border-dashed border-border bg-muted/30 text-xs text-muted-foreground">
-              Confirmed upon approval
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
