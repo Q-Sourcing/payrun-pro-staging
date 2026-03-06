@@ -11,7 +11,6 @@ import { NotificationsSection } from "@/components/settings/NotificationsSection
 import { IntegrationsSection } from "@/components/settings/IntegrationsSection";
 import { DataManagementSection } from "@/components/settings/DataManagementSection";
 import { PayslipDesignerSection } from "@/components/settings/PayslipDesignerSection";
-import { SystemSettingsSection } from "@/components/settings/SystemSettingsSection";
 import { EmailSettingsSection } from "@/components/settings/EmailSettingsSection";
 import UsersManagement from "@/pages/UsersManagement";
 import { AdminAccessSection } from "@/components/settings/AdminAccessSection";
@@ -103,13 +102,6 @@ const Settings = () => {
       requiredPermission: 'manage_integrations'
     },
     {
-      id: "user-management",
-      label: "User Management",
-      icon: Users,
-      requiredRole: 'ORG_ADMIN' as const,
-      requiredPermission: 'manage_organization_users'
-    },
-    {
       id: "admin-obac",
       label: "Admin (Access Control)",
       icon: Shield,
@@ -127,8 +119,8 @@ const Settings = () => {
       id: "system",
       label: "System Settings",
       icon: SettingsIcon,
-      requiredRole: 'PLATFORM_SUPER_ADMIN' as const,
-      requiredPermission: 'system_configuration'
+      requiredRole: 'ORG_ADMIN' as const,
+      requiredPermission: 'manage_organization_users'
     },
     {
       id: "data",
@@ -234,12 +226,6 @@ const Settings = () => {
             <IntegrationsSection />
           </SettingsSectionGuard>
         );
-      case "user-management":
-        return (
-          <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="manage_organization_users">
-            <UsersManagement />
-          </SettingsSectionGuard>
-        );
       case "admin-obac":
         return (
           <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="manage_organization_users">
@@ -248,8 +234,8 @@ const Settings = () => {
         );
       case "system":
         return (
-          <SettingsSectionGuard requiredRole="PLATFORM_SUPER_ADMIN" requiredPermission="system_configuration">
-            <SystemSettingsSection />
+          <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="manage_organization_users">
+            <UsersManagement />
           </SettingsSectionGuard>
         );
       case "data":

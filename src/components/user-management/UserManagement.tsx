@@ -28,8 +28,27 @@ interface UserManagementProps {
   currentUser?: User;
 }
 
+type SupabaseProfileLike = {
+  role?: UserRole;
+  roles?: UserRole[];
+  first_name?: string;
+  last_name?: string;
+  organization_id?: string | null;
+  updated_at?: string;
+};
+
+type SupabaseUserLike = {
+  id: string;
+  email?: string;
+  user_metadata?: Record<string, unknown>;
+  app_metadata?: Record<string, unknown>;
+  last_sign_in_at?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
 // Helper function to convert Supabase profile to our User type
-const convertProfileToUser = (profile: any, supabaseUser: any): User | null => {
+const convertProfileToUser = (profile: SupabaseProfileLike | null, supabaseUser: SupabaseUserLike | null): User | null => {
   if (!supabaseUser) return null;
 
   // Handle mixed profile shapes (legacy array vs new singular role)
@@ -202,6 +221,16 @@ export function UserManagement({ currentUser }: UserManagementProps) {
     setEditingUser(null);
   };
 
+  const handleToggleUserStatus = (userId: string) => {
+    setUsers(prev =>
+      prev.map(u => (u.id === userId ? { ...u, isActive: !u.isActive, updatedAt: new Date().toISOString() } : u))
+    );
+  };
+
+  const handleDeleteUser = (userId: string) => {
+    setUsers(prev => prev.filter(u => u.id !== userId));
+  };
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = !searchTerm ||
       user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -343,6 +372,8 @@ export function UserManagement({ currentUser }: UserManagementProps) {
               users={filteredUsers}
               isLoading={isLoading}
               onEditUser={handleEditUser}
+              onDeleteUser={handleDeleteUser}
+              onToggleUserStatus={handleToggleUserStatus}
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
               selectedRole={selectedRole}

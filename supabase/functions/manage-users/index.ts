@@ -1,676 +1,371 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { logAuditEvent, extractIpAddress, extractUserAgent } from '../_shared/audit-logger.ts'
-import { validateRequest, UpdateUserRequestSchema, DeleteUserRequestSchema } from '../_shared/validation-schemas.ts'
-import { corsHeaders } from '../_shared/cors.ts'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { corsHeaders } from "../_shared/cors.ts";
 
-interface UpdateUserRequest {
+type CallerContext = {
   id: string;
-  email?: string;
-  first_name?: string;
-  last_name?: string;
-  role?: 'employee' | 'hr_manager' | 'finance' | 'admin' | 'super_admin';
-  is_active?: boolean;
-  permissions?: any[];
-  restrictions?: string[];
-  two_factor_enabled?: boolean;
-  session_timeout?: number;
+  email: string | null;
+  role: string;
+  orgId: string | null;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
+};
+
+function json(status: number, body: Record<string, unknown>) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }
 
-interface UpdateUserResponse {
-  success: boolean;
-  message: string;
-  user?: any;
-  error?: string;
+function splitFullName(fullName: string) {
+  const trimmed = fullName.trim();
+  if (!trimmed) return { firstName: "", lastName: "" };
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 1) return { firstName: parts[0], lastName: "" };
+  return { firstName: parts.slice(0, -1).join(" "), lastName: parts.at(-1) || "" };
 }
 
-interface DeleteUserRequest {
-  id: string;
-  hard_delete?: boolean;
-}
+async function getCallerContext(req: Request, supabaseAdmin: ReturnType<typeof createClient>) {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) return { error: json(401, { success: false, message: "Authorization header required" }) };
 
-interface DeleteUserResponse {
-  success: boolean;
-  message: string;
-  error?: string;
+  const token = authHeader.replace("Bearer ", "");
+  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !authData.user) {
+    return { error: json(401, { success: false, message: "Invalid authentication token" }) };
+  }
+
+  const caller = authData.user;
+  const { data: profile } = await supabaseAdmin
+    .from("user_profiles")
+    .select("role, organization_id")
+    .eq("id", caller.id)
+    .maybeSingle();
+
+  const callerRole = String(profile?.role || "").toLowerCase();
+  const orgId = profile?.organization_id ?? null;
+
+  const { data: platformAdmin } = await supabaseAdmin
+    .from("platform_admins")
+    .select("allowed")
+    .eq("email", caller.email || "")
+    .maybeSingle();
+
+  const SUPER_ADMIN_EMAILS = ["nalungukevin@gmail.com"];
+  const isWhitelisted = SUPER_ADMIN_EMAILS.includes(caller.email || "");
+  const isPlatformAdmin = !!platformAdmin?.allowed;
+
+  const isAdmin =
+    ["super_admin", "admin", "org_admin", "organization_admin", "hr"].includes(callerRole) ||
+    isPlatformAdmin ||
+    isWhitelisted;
+
+  const isSuperAdmin = ["super_admin", "org_admin"].includes(callerRole) || isPlatformAdmin || isWhitelisted;
+
+  const context: CallerContext = {
+    id: caller.id,
+    email: caller.email || null,
+    role: callerRole,
+    orgId,
+    isAdmin,
+    isSuperAdmin,
+  };
+
+  return { context };
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    // Get the service role key from environment
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-    if (!serviceRoleKey) {
-      throw new Error('SUPABASE_SERVICE_ROLE_KEY not found in environment')
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!serviceRoleKey) return json(500, { success: false, message: "Missing service role key" });
+
+    const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL") ?? "", serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const auth = await getCallerContext(req, supabaseAdmin);
+    if (auth.error) return auth.error;
+    const caller = auth.context!;
+
+    if (!caller.isAdmin) {
+      return json(403, { success: false, message: "Insufficient permissions. Admin role required." });
+    }
+    if (!caller.orgId && !caller.isSuperAdmin) {
+      return json(400, { success: false, message: "Could not resolve caller organization." });
     }
 
-    // Create Supabase client with service role
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      serviceRoleKey,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    )
+    // LIST USERS
+    if (req.method === "GET") {
+      const orgId = caller.orgId;
+      if (!orgId) return json(400, { success: false, message: "Organization context is required." });
 
-    // Get the authorization header
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: 'Authorization header required'
-        }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+      const { data: orgUsers, error: orgUsersError } = await supabaseAdmin
+        .from("org_users")
+        .select("id, user_id, status, created_at")
+        .eq("org_id", orgId)
+        .order("created_at", { ascending: false });
+
+      if (orgUsersError) return json(500, { success: false, message: orgUsersError.message });
+
+      const userIds = (orgUsers || []).map((row) => row.user_id);
+      if (userIds.length === 0) return json(200, { success: true, users: [] });
+
+      const { data: profiles } = await supabaseAdmin
+        .from("user_profiles")
+        .select("id, email, first_name, last_name")
+        .in("id", userIds);
+
+      const { data: managementProfiles } = await supabaseAdmin
+        .from("user_management_profiles")
+        .select("user_id, phone, department, status")
+        .in("user_id", userIds);
+
+      const { data: assignments } = await supabaseAdmin
+        .from("rbac_assignments")
+        .select("user_id, role_code")
+        .eq("org_id", orgId)
+        .in("user_id", userIds);
+
+      const profileById = new Map((profiles || []).map((p) => [p.id, p]));
+      const managementByUserId = new Map((managementProfiles || []).map((p) => [p.user_id, p]));
+      const roleByUserId = new Map<string, string>();
+      for (const assignment of assignments || []) {
+        if (!roleByUserId.has(assignment.user_id)) roleByUserId.set(assignment.user_id, assignment.role_code);
+      }
+
+      const users = (orgUsers || []).map((row) => {
+        const profile = profileById.get(row.user_id);
+        const management = managementByUserId.get(row.user_id);
+        const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ").trim();
+        const status = management?.status || (row.status === "active" ? "active" : "inactive");
+        return {
+          id: row.user_id,
+          full_name: fullName || profile?.email || "Unnamed User",
+          email: profile?.email || "",
+          role: roleByUserId.get(row.user_id) || "SELF_USER",
+          phone: management?.phone || null,
+          department: management?.department || null,
+          status: status === "active" ? "active" : "inactive",
+          created_at: row.created_at,
+        };
+      });
+
+      return json(200, { success: true, users });
     }
 
-    // Extract the JWT token
-    const token = authHeader.replace('Bearer ', '')
+    // CREATE USER (DIRECT - NO INVITATION)
+    if (req.method === "POST") {
+      const body = await req.json().catch(() => ({}));
+      const fullName = String(body.full_name || "").trim();
+      const email = String(body.email || "").trim().toLowerCase();
+      const password = String(body.password || "");
+      const roleCode = String(body.role_code || body.role || "").trim();
+      const phone = body.phone ? String(body.phone) : null;
+      const department = body.department ? String(body.department) : null;
+      const status = String(body.status || "active").toLowerCase() === "active" ? "active" : "inactive";
 
-    // Verify the token and get user info
-    const { data: { user: currentUser }, error: authError } = await supabaseAdmin.auth.getUser(token)
-
-    if (authError || !currentUser) {
-      console.error('Authentication failed:', authError)
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: 'Invalid authentication token'
-        }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
-    // Check permissions using user_profiles (standard for this app)
-    const { data: callerProfile, error: callerProfileError } = await supabaseAdmin
-      .from('user_profiles')
-      .select('role')
-      .eq('id', currentUser.id)
-      .maybeSingle()
-
-    const callerRole = callerProfile?.role || '';
-
-    // Check Platform Admin
-    const { data: platformAdmin } = await supabaseAdmin
-      .from('platform_admins')
-      .select('allowed')
-      .eq('email', currentUser.email)
-      .maybeSingle()
-
-    const isPlatformAdmin = !!platformAdmin?.allowed
-
-    // Check Super Admin Whitelist
-    const SUPER_ADMIN_EMAILS = ['nalungukevin@gmail.com'];
-    const isWhitelisted = SUPER_ADMIN_EMAILS.includes(currentUser.email || '');
-
-    const isAdmin =
-      callerRole === 'super_admin' ||
-      callerRole === 'admin' ||
-      callerRole === 'org_admin' ||
-      callerRole === 'organization_admin' ||
-      isPlatformAdmin ||
-      isWhitelisted;
-
-    const userRole = callerRole; // Alias for backward compatibility with downstream code
-
-    // Extract IP and user agent for audit logging
-    const ipAddress = extractIpAddress(req)
-    const userAgent = extractUserAgent(req)
-
-    // Log if denied
-    if (!isAdmin) {
-      await logAuditEvent(supabaseAdmin, {
-        user_id: currentUser.id,
-        action: 'user.update', // or user.delete, generic check here
-        resource: 'users',
-        details: { attempted_action: 'access_manage_users', reason: 'insufficient_permissions', role: callerRole },
-        ip_address: ipAddress,
-        user_agent: userAgent,
-        result: 'denied',
-      })
-
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: 'Insufficient permissions. Admin role required.',
-          code: 'PERMISSION_DENIED'
-        }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
-    // Determine specific privileges
-    const isSuperAdmin = callerRole === 'super_admin' || isWhitelisted || isPlatformAdmin;
-    // Pass this down if needed, or re-check in delete block
-
-    const url = new URL(req.url)
-    const action = url.pathname.split('/').pop()
-
-    // Handle UPDATE request
-    if (req.method === 'PUT' || req.method === 'PATCH') {
-      let body: UpdateUserRequest
-      try {
-        const rawBody = await req.json()
-        body = validateRequest(UpdateUserRequestSchema, rawBody)
-      } catch (validationError) {
-        await logAuditEvent(supabaseAdmin, {
-          user_id: currentUser.id,
-          action: 'user.update',
-          resource: 'users',
-          details: { error: validationError instanceof Error ? validationError.message : 'Validation failed' },
-          ip_address: ipAddress,
-          user_agent: userAgent,
-          result: 'failure',
-        })
-
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: validationError instanceof Error ? validationError.message : 'Invalid request data',
-            code: 'VALIDATION_ERROR'
-          } as UpdateUserResponse),
-          {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        )
+      if (!caller.orgId) return json(400, { success: false, message: "Organization context is required." });
+      if (!fullName || !email || !password || !roleCode) {
+        return json(400, { success: false, message: "full_name, email, password and role_code are required." });
+      }
+      if (password.length < 8) {
+        return json(400, { success: false, message: "Password must be at least 8 characters." });
       }
 
-      // Check if user exists
-      const { data: existingProfile, error: fetchError } = await supabaseAdmin
-        .from('profiles')
-        .select('*')
-        .eq('id', body.id)
-        .single()
+      const { data: roleRow, error: roleError } = await supabaseAdmin
+        .from("rbac_roles")
+        .select("code")
+        .eq("org_id", caller.orgId)
+        .eq("code", roleCode)
+        .maybeSingle();
+      if (roleError) return json(500, { success: false, message: roleError.message });
+      if (!roleRow) return json(400, { success: false, message: `Role '${roleCode}' is not available in this organization.` });
 
-      if (fetchError || !existingProfile) {
-        await logAuditEvent(supabaseAdmin, {
-          user_id: currentUser.id,
-          action: 'user.update',
-          resource: 'users',
-          details: { target_user_id: body.id, error: 'User not found' },
-          ip_address: ipAddress,
-          user_agent: userAgent,
-          result: 'failure',
-        })
-
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: 'User not found',
-            code: 'NOT_FOUND'
-          } as UpdateUserResponse),
-          {
-            status: 404,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        )
-      }
-
-      // Prepare profile update data
-      const profileUpdate: any = {
-        updated_at: new Date().toISOString(),
-      }
-
-      if (body.first_name !== undefined) profileUpdate.first_name = body.first_name
-      if (body.last_name !== undefined) profileUpdate.last_name = body.last_name
-      if (body.email !== undefined) profileUpdate.email = body.email
-
-      // Update profile
-      const { data: updatedProfile, error: profileError } = await supabaseAdmin
-        .from('profiles')
-        .update(profileUpdate)
-        .eq('id', body.id)
-        .select()
-        .single()
-
-      if (profileError) {
-        console.error('Error updating profile:', profileError)
-
-        await logAuditEvent(supabaseAdmin, {
-          user_id: currentUser.id,
-          action: 'user.update',
-          resource: 'users',
-          details: { target_user_id: body.id, error: profileError.message },
-          ip_address: ipAddress,
-          user_agent: userAgent,
-          result: 'failure',
-        })
-
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: 'Failed to update user profile: ' + profileError.message,
-            code: 'UPDATE_ERROR'
-          } as UpdateUserResponse),
-          {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        )
-      }
-
-      // Update role if changed
-      if (body.role !== undefined) {
-        // Only super_admin can change roles
-        if (userRole !== 'super_admin') {
-          await logAuditEvent(supabaseAdmin, {
-            user_id: currentUser.id,
-            action: 'user.update',
-            resource: 'users',
-            details: { target_user_id: body.id, attempted_action: 'change_role', reason: 'insufficient_permissions' },
-            ip_address: ipAddress,
-            user_agent: userAgent,
-            result: 'denied',
-          })
-
-          return new Response(
-            JSON.stringify({
-              success: false,
-              message: 'Only super admin can change user roles',
-              code: 'PERMISSION_DENIED'
-            } as UpdateUserResponse),
-            {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            }
-          )
-        }
-
-        const { error: roleUpdateError } = await supabaseAdmin
-          .from('user_roles')
-          .update({ role: body.role })
-          .eq('user_id', body.id)
-
-        if (roleUpdateError) {
-          console.error('Error updating role:', roleUpdateError)
-
-          await logAuditEvent(supabaseAdmin, {
-            user_id: currentUser.id,
-            action: 'user.update',
-            resource: 'users',
-            details: { target_user_id: body.id, attempted_action: 'change_role', error: roleUpdateError.message },
-            ip_address: ipAddress,
-            user_agent: userAgent,
-            result: 'failure',
-          })
-
-          return new Response(
-            JSON.stringify({
-              success: false,
-              message: 'Failed to update user role: ' + roleUpdateError.message,
-              code: 'UPDATE_ERROR'
-            } as UpdateUserResponse),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            }
-          )
-        }
-      }
-
-      // Update auth user if email changed
-      if (body.email !== undefined && body.email !== existingProfile.email) {
-        const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
-          body.id,
-          { email: body.email }
-        )
-
-        if (authUpdateError) {
-          console.error('Error updating auth user:', authUpdateError)
-
-          await logAuditEvent(supabaseAdmin, {
-            user_id: currentUser.id,
-            action: 'user.update',
-            resource: 'users',
-            details: { target_user_id: body.id, attempted_action: 'change_email', error: authUpdateError.message },
-            ip_address: ipAddress,
-            user_agent: userAgent,
-            result: 'failure',
-          })
-
-          return new Response(
-            JSON.stringify({
-              success: false,
-              message: 'Failed to update user email: ' + authUpdateError.message,
-              code: 'UPDATE_ERROR'
-            } as UpdateUserResponse),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            }
-          )
-        }
-      }
-
-      // Get updated user role
-      const { data: updatedRole } = await supabaseAdmin
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', body.id)
-        .single()
-
-      const updatedUser = {
-        id: updatedProfile.id,
-        email: updatedProfile.email,
-        firstName: updatedProfile.first_name || '',
-        lastName: updatedProfile.last_name || '',
-        role: updatedRole?.role || 'employee',
-        isActive: body.is_active !== undefined ? body.is_active : true,
-        createdAt: updatedProfile.created_at,
-        updatedAt: updatedProfile.updated_at,
-        permissions: body.permissions || [],
-        restrictions: body.restrictions || [],
-        twoFactorEnabled: body.two_factor_enabled || false,
-        sessionTimeout: body.session_timeout || 480,
-      }
-
-      // Log successful update
-      await logAuditEvent(supabaseAdmin, {
-        user_id: currentUser.id,
-        action: 'user.update',
-        resource: 'users',
-        details: {
-          target_user_id: body.id,
-          changes: {
-            email: body.email !== undefined ? { old: existingProfile.email, new: body.email } : undefined,
-            first_name: body.first_name !== undefined ? { old: existingProfile.first_name, new: body.first_name } : undefined,
-            last_name: body.last_name !== undefined ? { old: existingProfile.last_name, new: body.last_name } : undefined,
-            role: body.role !== undefined ? { old: existingProfile.role, new: body.role } : undefined,
-          }
+      const { firstName, lastName } = splitFullName(fullName);
+      const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          first_name: firstName || null,
+          last_name: lastName || null,
+          organization_id: caller.orgId,
         },
-        ip_address: ipAddress,
-        user_agent: userAgent,
-        result: 'success',
-      })
+      });
+      if (createError || !created.user) {
+        return json(400, { success: false, message: createError?.message || "Failed to create auth user." });
+      }
 
-      console.log(`User updated successfully: ${body.id} by ${currentUser.email}`)
+      const userId = created.user.id;
+      const now = new Date().toISOString();
+      await supabaseAdmin.from("user_profiles").upsert({
+        id: userId,
+        email,
+        first_name: firstName || null,
+        last_name: lastName || null,
+        organization_id: caller.orgId,
+        role: roleCode,
+        updated_at: now,
+      });
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'User updated successfully',
-          user: updatedUser
-        } as UpdateUserResponse),
-        {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+      await supabaseAdmin.from("org_users").upsert(
+        { org_id: caller.orgId, user_id: userId, status },
+        { onConflict: "org_id,user_id" },
+      );
+
+      await supabaseAdmin.from("user_management_profiles").upsert(
+        { user_id: userId, phone, department, status, updated_at: now },
+        { onConflict: "user_id" },
+      );
+
+      await supabaseAdmin
+        .from("rbac_assignments")
+        .delete()
+        .eq("org_id", caller.orgId)
+        .eq("user_id", userId);
+
+      await supabaseAdmin.from("rbac_assignments").insert({
+        user_id: userId,
+        role_code: roleCode,
+        org_id: caller.orgId,
+        scope_type: "organization",
+        scope_id: caller.orgId,
+      });
+
+      return json(200, { success: true, message: "User created successfully.", user_id: userId });
     }
 
-    // Handle DELETE request
-    if (req.method === 'DELETE') {
-      let body: DeleteUserRequest
-      try {
-        const rawBody = await req.json()
-        body = validateRequest(DeleteUserRequestSchema, rawBody)
-      } catch (validationError) {
-        await logAuditEvent(supabaseAdmin, {
-          user_id: currentUser.id,
-          action: 'user.delete',
-          resource: 'users',
-          details: { error: validationError instanceof Error ? validationError.message : 'Validation failed' },
-          ip_address: ipAddress,
-          user_agent: userAgent,
-          result: 'failure',
-        })
+    // UPDATE USER
+    if (req.method === "PATCH" || req.method === "PUT") {
+      const body = await req.json().catch(() => ({}));
+      const userId = String(body.id || "").trim();
+      const fullName = body.full_name !== undefined ? String(body.full_name).trim() : undefined;
+      const email = body.email !== undefined ? String(body.email).trim().toLowerCase() : undefined;
+      const roleCode = body.role_code !== undefined ? String(body.role_code).trim() : undefined;
+      const phone = body.phone !== undefined ? (body.phone ? String(body.phone) : null) : undefined;
+      const department = body.department !== undefined ? (body.department ? String(body.department) : null) : undefined;
+      const status = body.status !== undefined ? (String(body.status).toLowerCase() === "active" ? "active" : "inactive") : undefined;
 
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: validationError instanceof Error ? validationError.message : 'Invalid request data',
-            code: 'VALIDATION_ERROR'
-          } as DeleteUserResponse),
-          {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        )
+      if (!userId) return json(400, { success: false, message: "id is required." });
+      if (!caller.orgId) return json(400, { success: false, message: "Organization context is required." });
+
+      const { data: orgMembership } = await supabaseAdmin
+        .from("org_users")
+        .select("id")
+        .eq("org_id", caller.orgId)
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (!orgMembership) return json(404, { success: false, message: "User not found in your organization." });
+
+      if (email) {
+        const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(userId, { email });
+        if (authUpdateError) return json(400, { success: false, message: authUpdateError.message });
       }
 
-      // Prevent self-deletion
-      if (body.id === currentUser.id) {
-        await logAuditEvent(supabaseAdmin, {
-          user_id: currentUser.id,
-          action: 'user.delete',
-          resource: 'users',
-          details: { target_user_id: body.id, reason: 'self_deletion_prevented' },
-          ip_address: ipAddress,
-          user_agent: userAgent,
-          result: 'denied',
-        })
+      const profileUpdate: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      if (email !== undefined) profileUpdate.email = email;
+      if (fullName !== undefined) {
+        const { firstName, lastName } = splitFullName(fullName);
+        profileUpdate.first_name = firstName || null;
+        profileUpdate.last_name = lastName || null;
+      }
+      if (roleCode !== undefined) profileUpdate.role = roleCode;
 
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: 'Cannot delete your own account',
-            code: 'SELF_DELETION_DENIED'
-          } as DeleteUserResponse),
-          {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        )
+      if (Object.keys(profileUpdate).length > 1) {
+        const { error: profileError } = await supabaseAdmin.from("user_profiles").update(profileUpdate).eq("id", userId);
+        if (profileError) return json(400, { success: false, message: profileError.message });
       }
 
-      // Only super_admin can hard delete
-      if (body.hard_delete && userRole !== 'super_admin') {
-        await logAuditEvent(supabaseAdmin, {
-          user_id: currentUser.id,
-          action: 'user.delete',
-          resource: 'users',
-          details: { target_user_id: body.id, attempted_action: 'hard_delete', reason: 'insufficient_permissions' },
-          ip_address: ipAddress,
-          user_agent: userAgent,
-          result: 'denied',
-        })
-
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: 'Only super admin can perform hard delete',
-            code: 'PERMISSION_DENIED'
-          } as DeleteUserResponse),
-          {
-            status: 403,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        )
+      if (phone !== undefined || department !== undefined || status !== undefined) {
+        const upsertPayload: Record<string, unknown> = { user_id: userId, updated_at: new Date().toISOString() };
+        if (phone !== undefined) upsertPayload.phone = phone;
+        if (department !== undefined) upsertPayload.department = department;
+        if (status !== undefined) upsertPayload.status = status;
+        const { error: mgmtError } = await supabaseAdmin
+          .from("user_management_profiles")
+          .upsert(upsertPayload, { onConflict: "user_id" });
+        if (mgmtError) return json(400, { success: false, message: mgmtError.message });
       }
 
-      if (body.hard_delete) {
-        // Hard delete - remove from database
-        const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(body.id)
-
-        if (deleteError) {
-          console.error('Error deleting user:', deleteError)
-
-          await logAuditEvent(supabaseAdmin, {
-            user_id: currentUser.id,
-            action: 'user.delete',
-            resource: 'users',
-            details: { target_user_id: body.id, delete_type: 'hard', error: deleteError.message },
-            ip_address: ipAddress,
-            user_agent: userAgent,
-            result: 'failure',
-          })
-
-          return new Response(
-            JSON.stringify({
-              success: false,
-              message: 'Failed to delete user: ' + deleteError.message,
-              code: 'DELETE_ERROR'
-            } as DeleteUserResponse),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            }
-          )
-        }
-
-        // Log successful hard delete
-        await logAuditEvent(supabaseAdmin, {
-          user_id: currentUser.id,
-          action: 'user.delete',
-          resource: 'users',
-          details: { target_user_id: body.id, delete_type: 'hard' },
-          ip_address: ipAddress,
-          user_agent: userAgent,
-          result: 'success',
-        })
-
-        console.log(`User hard deleted: ${body.id} by ${currentUser.email}`)
-
-        return new Response(
-          JSON.stringify({
-            success: true,
-            message: 'User deleted successfully'
-          } as DeleteUserResponse),
-          {
-            status: 200,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        )
-      } else {
-        // Soft delete - ban user
-        const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(body.id, {
-          ban_duration: '876000h', // Effectively permanent ban
-        })
-
-        if (banError) {
-          console.error('Error banning user:', banError)
-
-          await logAuditEvent(supabaseAdmin, {
-            user_id: currentUser.id,
-            action: 'user.delete',
-            resource: 'users',
-            details: { target_user_id: body.id, delete_type: 'soft', error: banError.message },
-            ip_address: ipAddress,
-            user_agent: userAgent,
-            result: 'failure',
-          })
-
-          return new Response(
-            JSON.stringify({
-              success: false,
-              message: 'Failed to deactivate user: ' + banError.message,
-              code: 'DELETE_ERROR'
-            } as DeleteUserResponse),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            }
-          )
-        }
-
-        // Log successful soft delete
-        await logAuditEvent(supabaseAdmin, {
-          user_id: currentUser.id,
-          action: 'user.delete',
-          resource: 'users',
-          details: { target_user_id: body.id, delete_type: 'soft' },
-          ip_address: ipAddress,
-          user_agent: userAgent,
-          result: 'success',
-        })
-
-        console.log(`User soft deleted (banned): ${body.id} by ${currentUser.email}`)
-
-        return new Response(
-          JSON.stringify({
-            success: true,
-            message: 'User deactivated successfully'
-          } as DeleteUserResponse),
-          {
-            status: 200,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        )
+      if (status !== undefined) {
+        const { error: orgStatusError } = await supabaseAdmin
+          .from("org_users")
+          .update({ status })
+          .eq("org_id", caller.orgId)
+          .eq("user_id", userId);
+        if (orgStatusError) return json(400, { success: false, message: orgStatusError.message });
       }
+
+      if (roleCode !== undefined) {
+        const { data: roleRow, error: roleError } = await supabaseAdmin
+          .from("rbac_roles")
+          .select("code")
+          .eq("org_id", caller.orgId)
+          .eq("code", roleCode)
+          .maybeSingle();
+        if (roleError) return json(500, { success: false, message: roleError.message });
+        if (!roleRow) return json(400, { success: false, message: `Role '${roleCode}' is not available in this organization.` });
+
+        await supabaseAdmin
+          .from("rbac_assignments")
+          .delete()
+          .eq("org_id", caller.orgId)
+          .eq("user_id", userId);
+
+        const { error: assignmentError } = await supabaseAdmin.from("rbac_assignments").insert({
+          user_id: userId,
+          role_code: roleCode,
+          org_id: caller.orgId,
+          scope_type: "organization",
+          scope_id: caller.orgId,
+        });
+        if (assignmentError) return json(400, { success: false, message: assignmentError.message });
+      }
+
+      return json(200, { success: true, message: "User updated successfully." });
     }
 
-    return new Response(
-      JSON.stringify({
-        success: false,
-        message: 'Method not allowed'
-      }),
-      {
-        status: 405,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    )
+    // DELETE / DEACTIVATE USER
+    if (req.method === "DELETE") {
+      const url = new URL(req.url);
+      const body = await req.json().catch(() => ({}));
+      const userId = String(body.id || url.searchParams.get("id") || "").trim();
+      const hardDelete = Boolean(body.hard_delete);
+      if (!userId) return json(400, { success: false, message: "id is required." });
 
+      if (userId === caller.id) return json(400, { success: false, message: "Cannot delete your own account." });
+      if (hardDelete && !caller.isSuperAdmin) {
+        return json(403, { success: false, message: "Only super admins can perform hard delete." });
+      }
+
+      if (hardDelete) {
+        const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+        if (deleteError) return json(400, { success: false, message: deleteError.message });
+        return json(200, { success: true, message: "User deleted successfully." });
+      }
+
+      const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        ban_duration: "876000h",
+      });
+      if (banError) return json(400, { success: false, message: banError.message });
+
+      if (caller.orgId) {
+        await supabaseAdmin.from("org_users").update({ status: "inactive" }).eq("org_id", caller.orgId).eq("user_id", userId);
+      }
+      await supabaseAdmin
+        .from("user_management_profiles")
+        .upsert({ user_id: userId, status: "inactive", updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+
+      return json(200, { success: true, message: "User deactivated successfully." });
+    }
+
+    return json(405, { success: false, message: "Method not allowed" });
   } catch (error) {
-    console.error('Unexpected error in manage-users function:', error)
-
-    // Try to log the error (but don't fail if logging fails)
-    try {
-      const ipAddress = extractIpAddress(req)
-      const userAgent = extractUserAgent(req)
-      const authHeader = req.headers.get('Authorization')
-      const token = authHeader?.replace('Bearer ', '')
-
-      if (token) {
-        const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-        if (serviceRoleKey) {
-          const supabaseAdmin = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            serviceRoleKey,
-            {
-              auth: {
-                autoRefreshToken: false,
-                persistSession: false
-              }
-            }
-          )
-
-          const { data: { user } } = await supabaseAdmin.auth.getUser(token)
-          if (user) {
-            await logAuditEvent(supabaseAdmin, {
-              user_id: user.id,
-              action: 'user.operation',
-              resource: 'users',
-              details: { error: error instanceof Error ? error.message : 'Unknown error', method: req.method },
-              ip_address: ipAddress,
-              user_agent: userAgent,
-              result: 'failure',
-            })
-          }
-        }
-      }
-    } catch (logError) {
-      console.error('Failed to log error:', logError)
-    }
-
-    return new Response(
-      JSON.stringify({
-        success: false,
-        message: 'Internal server error: ' + (error instanceof Error ? error.message : 'Unknown error'),
-        code: 'INTERNAL_ERROR'
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    )
+    const message = error instanceof Error ? error.message : "Unexpected error";
+    return json(500, { success: false, message });
   }
-})
+});
 

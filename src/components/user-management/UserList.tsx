@@ -40,6 +40,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   Search,
   Filter,
   MoreHorizontal,
@@ -59,12 +66,14 @@ import {
 } from 'lucide-react';
 import { User, UserRole } from '@/lib/types/roles';
 import { ROLE_DEFINITIONS } from '@/lib/types/roles';
-import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface UserListProps {
   users: User[];
   isLoading: boolean;
   onEditUser: (user: User) => void;
+  onDeleteUser: (userId: string) => void;
+  onToggleUserStatus: (userId: string) => void;
   searchTerm: string;
   onSearchChange: (term: string) => void;
   selectedRole: string;
@@ -77,6 +86,8 @@ export function UserList({
   users,
   isLoading,
   onEditUser,
+  onDeleteUser,
+  onToggleUserStatus,
   searchTerm,
   onSearchChange,
   selectedRole,
@@ -84,11 +95,13 @@ export function UserList({
   selectedStatus,
   onStatusChange,
 }: UserListProps) {
+  const { toast } = useToast();
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [usersPerPage] = useState(10);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [viewingUser, setViewingUser] = useState<User | null>(null);
 
   const handleSelectUser = (userId: string, checked: boolean) => {
     if (checked) {
@@ -120,27 +133,18 @@ export function UserList({
   const confirmDeleteUser = async () => {
     if (userToDelete) {
       try {
-        console.log('Deleting user:', userToDelete.id);
-        const { data, error } = await supabase.functions.invoke('manage-users', {
-          method: 'DELETE',
-          body: {
-            id: userToDelete.id,
-            hard_delete: true // Super admin request implies hard delete capability
-          }
+        onDeleteUser(userToDelete.id);
+        toast({
+          title: 'User deleted',
+          description: `${userToDelete.firstName} ${userToDelete.lastName} has been removed.`,
         });
-
-        if (error) throw error;
-
-        if (!data.success) {
-          throw new Error(data.message || 'Failed to delete user');
-        }
-
-        // Success - notify and refresh
-        // For now, refreshing the page or calling a refresh handler if provided
-        window.location.reload(); // Simple refresh to ensure list is in sync
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Delete failed:', err);
-        alert(`Failed to delete user: ${err.message}`);
+        toast({
+          title: 'Delete failed',
+          description: err instanceof Error ? err.message : 'Failed to delete user.',
+          variant: 'destructive',
+        });
       } finally {
         setShowDeleteDialog(false);
         setUserToDelete(null);
@@ -149,8 +153,19 @@ export function UserList({
   };
 
   const handleToggleUserStatus = (user: User) => {
-    console.log(`Toggling status for user: ${user.id}`);
-    // Implement status toggle logic here
+    onToggleUserStatus(user.id);
+    toast({
+      title: user.isActive ? 'User deactivated' : 'User activated',
+      description: `${user.firstName} ${user.lastName} is now ${user.isActive ? 'inactive' : 'active'}.`,
+    });
+  };
+
+  const handleSendEmail = (user: User) => {
+    window.location.href = `mailto:${user.email}`;
+    toast({
+      title: 'Opening email client',
+      description: `Composing message to ${user.email}.`,
+    });
   };
 
   const getRoleBadgeColor = (role: string) => {
@@ -424,11 +439,11 @@ export function UserList({
                             <Edit className="h-4 w-4 mr-2" />
                             Edit User
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setViewingUser(user)}>
                             <Eye className="h-4 w-4 mr-2" />
                             View Profile
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleSendEmail(user)}>
                             <Mail className="h-4 w-4 mr-2" />
                             Send Email
                           </DropdownMenuItem>
@@ -535,6 +550,42 @@ export function UserList({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* View Profile Dialog */}
+      <Dialog open={!!viewingUser} onOpenChange={(open) => !open && setViewingUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>User Profile</DialogTitle>
+            <DialogDescription>
+              Basic profile and account details for this user.
+            </DialogDescription>
+          </DialogHeader>
+          {viewingUser && (
+            <div className="space-y-3 text-sm">
+              <div>
+                <Label className="text-muted-foreground">Name</Label>
+                <p className="font-medium">{viewingUser.firstName} {viewingUser.lastName}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Email</Label>
+                <p className="font-medium">{viewingUser.email}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Role</Label>
+                <p className="font-medium">{ROLE_DEFINITIONS[viewingUser.role]?.name || viewingUser.role}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Status</Label>
+                <p className="font-medium">{viewingUser.isActive ? 'Active' : 'Inactive'}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">2FA</Label>
+                <p className="font-medium">{viewingUser.twoFactorEnabled ? 'Enabled' : 'Not Enabled'}</p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
