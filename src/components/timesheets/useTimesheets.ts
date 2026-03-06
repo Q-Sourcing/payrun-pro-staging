@@ -211,6 +211,8 @@ async function fetchMyEmployee() {
           employee_number: employeeNumber,
           country: "UG",
           currency: "UGX",
+          category: "head_office",
+          employee_type: "regular",
           pay_rate: 1,
           pay_type: "hourly",
           status: "active",
@@ -245,6 +247,10 @@ async function fetchMyEmployee() {
     .maybeSingle();
 
   return employee ?? null;
+}
+
+export async function getCurrentTimesheetEmployee() {
+  return fetchMyEmployee();
 }
 
 export function useTimesheetIdentity() {

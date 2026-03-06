@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { getCurrentTimesheetEmployee } from "./useTimesheets";
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
@@ -86,19 +87,6 @@ function calcHours(timeIn: string, timeOut: string): number | null {
   }
 }
 
-async function fetchMyEmployee() {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-  const { data } = await supabase
-    .from("employees")
-    .select("id, organization_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  return data;
-}
-
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -115,10 +103,10 @@ interface Props {
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-
 export function CreateTimesheetDialog({ open, onOpenChange, draftTimesheet }: Props) {
   const qc = useQueryClient();
   const [submitting, setSubmitting] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"draft" | "submitted" | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -156,12 +144,39 @@ export function CreateTimesheetDialog({ open, onOpenChange, draftTimesheet }: Pr
     }
   }
 
+  useEffect(() => {
+    if (!open) return;
+
+    if (draftTimesheet) {
+      const nextRecords =
+        draftTimesheet.timesheet_entries && draftTimesheet.timesheet_entries.length > 0
+          ? draftTimesheet.timesheet_entries.map((e) => ({
+              work_date: e.work_date,
+              department: e.department,
+              time_in: e.time_in || "",
+              time_out: e.time_out || "",
+              hours_worked: e.hours_worked,
+              employee_sign: e.employee_sign || "",
+              task_description: e.task_description,
+            }))
+          : [emptyRecord()];
+
+      form.reset({ records: nextRecords });
+      return;
+    }
+
+    // Fresh create mode
+    form.reset({ records: [emptyRecord()] });
+  }, [open, draftTimesheet, form]);
+
+  // Validate for duplicate dates within the form
   function findDuplicates(records: FormValues["records"]) {
     const dates = records.map((r) => r.work_date).filter(Boolean);
     return dates.filter((d, i) => dates.indexOf(d) !== i);
   }
 
   async function persist(status: "draft" | "submitted") {
+    if (submitting) return;
     const valid = await form.trigger();
     if (!valid) return;
 
@@ -179,9 +194,14 @@ export function CreateTimesheetDialog({ open, onOpenChange, draftTimesheet }: Pr
     }
 
     setSubmitting(true);
+    setPendingAction(status);
     try {
-      const emp = await fetchMyEmployee();
+      const emp = await getCurrentTimesheetEmployee();
       if (!emp) throw new Error("No employee record found for your account.");
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("You must be logged in to submit timesheets.");
 
       const sorted = [...records].sort((a, b) => a.work_date.localeCompare(b.work_date));
       const period_start = sorted[0].work_date;
@@ -196,7 +216,9 @@ export function CreateTimesheetDialog({ open, onOpenChange, draftTimesheet }: Pr
             period_start,
             period_end,
             status,
-            ...(status === "submitted" ? { submitted_at: new Date().toISOString() } : {}),
+            ...(status === "submitted"
+              ? { submitted_at: new Date().toISOString(), submitted_by: user.id }
+              : {}),
           })
           .eq("id", timesheetId);
         await supabase.from("timesheet_entries").delete().eq("timesheet_id", timesheetId);
@@ -209,7 +231,9 @@ export function CreateTimesheetDialog({ open, onOpenChange, draftTimesheet }: Pr
             period_start,
             period_end,
             status,
-            ...(status === "submitted" ? { submitted_at: new Date().toISOString() } : {}),
+            ...(status === "submitted"
+              ? { submitted_at: new Date().toISOString(), submitted_by: user.id }
+              : {}),
           })
           .select()
           .single();
@@ -240,6 +264,7 @@ export function CreateTimesheetDialog({ open, onOpenChange, draftTimesheet }: Pr
       toast.error(err.message || "Failed to save timesheet");
     } finally {
       setSubmitting(false);
+      setPendingAction(null);
     }
   }
 
@@ -305,7 +330,11 @@ export function CreateTimesheetDialog({ open, onOpenChange, draftTimesheet }: Pr
             onClick={() => persist("draft")}
             className="w-full sm:w-auto"
           >
-            {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
+            {submitting && pendingAction === "draft" ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <FileText className="w-4 h-4 mr-2" />
+            )}
             Save as Draft
           </Button>
           <Button
@@ -314,8 +343,12 @@ export function CreateTimesheetDialog({ open, onOpenChange, draftTimesheet }: Pr
             onClick={() => persist("submitted")}
             className="w-full sm:w-auto"
           >
-            {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-            Submit All Records
+            {submitting && pendingAction === "submitted" ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4 mr-2" />
+            )}
+            Submit
           </Button>
         </DialogFooter>
       </DialogContent>
