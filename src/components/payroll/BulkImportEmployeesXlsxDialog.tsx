@@ -163,7 +163,7 @@ const BulkImportEmployeesXlsxDialog = ({ open, onOpenChange, onEmployeesAdded }:
         .eq("organization_id", orgId)
         .order("name");
       if (!projectsError) {
-        setProjects((projectsData || []) as TemplateProject[]);
+        setProjects((projectsData || []) as unknown as TemplateProject[]);
       }
 
       try {

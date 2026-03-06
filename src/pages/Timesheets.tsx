@@ -446,13 +446,17 @@ function TimesheetList({
                     </p>
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
+                    <table className="w-full text-xs">
                         <thead>
                           <tr className="border-b">
-                            <th className="text-left pb-2 pr-4 font-medium text-muted-foreground">Date</th>
-                            <th className="text-left pb-2 pr-4 font-medium text-muted-foreground">Department</th>
-                            <th className="text-left pb-2 pr-4 font-medium text-muted-foreground">Hours</th>
-                            <th className="text-left pb-2 font-medium text-muted-foreground">Description</th>
+                            <th className="text-left pb-2 pr-4 font-medium text-muted-foreground whitespace-nowrap">Date</th>
+                            <th className="text-left pb-2 pr-4 font-medium text-muted-foreground whitespace-nowrap">Time In</th>
+                            <th className="text-left pb-2 pr-4 font-medium text-muted-foreground whitespace-nowrap">Time Out</th>
+                            <th className="text-left pb-2 pr-4 font-medium text-muted-foreground whitespace-nowrap">Hours</th>
+                            <th className="text-left pb-2 pr-4 font-medium text-muted-foreground whitespace-nowrap">Department</th>
+                            <th className="text-left pb-2 pr-4 font-medium text-muted-foreground whitespace-nowrap">Tasks Performed</th>
+                            <th className="text-left pb-2 pr-4 font-medium text-muted-foreground whitespace-nowrap">Sign</th>
+                            <th className="text-left pb-2 font-medium text-muted-foreground whitespace-nowrap">Sup. Comments</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -461,16 +465,22 @@ function TimesheetList({
                               <td className="py-2 pr-4 whitespace-nowrap">
                                 {format(parseISO(e.work_date), "dd MMM yyyy")}
                               </td>
-                              <td className="py-2 pr-4 whitespace-nowrap">{e.department}</td>
+                              <td className="py-2 pr-4 whitespace-nowrap">{e.time_in || "—"}</td>
+                              <td className="py-2 pr-4 whitespace-nowrap">{e.time_out || "—"}</td>
                               <td className="py-2 pr-4 font-medium">{e.hours_worked}h</td>
-                              <td className="py-2 text-muted-foreground">{e.task_description}</td>
+                              <td className="py-2 pr-4 whitespace-nowrap">{e.department}</td>
+                              <td className="py-2 pr-4 text-muted-foreground max-w-[200px]">{e.task_description}</td>
+                              <td className="py-2 pr-4">{e.employee_sign || "—"}</td>
+                              <td className="py-2 text-muted-foreground italic">
+                                {e.supervisor_comments || "Pending approval"}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
                         <tfoot>
                           <tr>
-                            <td colSpan={2} className="pt-3 text-muted-foreground">Total</td>
-                            <td className="pt-3 font-semibold" colSpan={2}>{sheet.total_hours ?? 0}h</td>
+                            <td colSpan={3} className="pt-3 text-muted-foreground">Total</td>
+                            <td className="pt-3 font-semibold" colSpan={5}>{sheet.total_hours ?? 0}h</td>
                           </tr>
                         </tfoot>
                       </table>

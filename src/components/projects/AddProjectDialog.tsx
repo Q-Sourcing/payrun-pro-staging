@@ -445,7 +445,7 @@ const AddProjectDialog = ({ open, onOpenChange, onProjectAdded }: AddProjectDial
 
             // Handle schema-cache drift gracefully: remove unknown columns and retry once per missing field.
             for (let attempt = 0; attempt < 6; attempt += 1) {
-                const { data, error } = await supabase
+                const { data, error } = await (supabase as any)
                     .from("projects")
                     .insert([payload])
                     .select("id")

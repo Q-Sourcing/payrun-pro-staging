@@ -62,20 +62,24 @@ export function ReminderSettings() {
         }
 
         // Load active reminder rules for probation expiry.
-        const { data: rules, error: rulesError } = await supabase
-          .from("reminder_rules")
-          .select("days_before, is_active")
-          .eq("organization_id", organizationId)
-          .eq("rule_type", "probation_expiry");
+        try {
+          const { data: rules, error: rulesError } = await (supabase as any)
+            .from("reminder_rules")
+            .select("days_before, is_active")
+            .eq("organization_id", organizationId)
+            .eq("rule_type", "probation_expiry");
 
-        if (!rulesError && rules && rules.length > 0) {
-          const active = (rules as Array<{ days_before: number; is_active: boolean }> | null || [])
-            .filter((r) => r.is_active)
-            .map((r) => Number(r.days_before))
-            .filter((n) => !Number.isNaN(n));
-          if (active.length > 0) {
-            setEnabledDays(Array.from(new Set(active)));
+          if (!rulesError && rules && rules.length > 0) {
+            const active = (rules as Array<{ days_before: number; is_active: boolean }>)
+              .filter((r) => r.is_active)
+              .map((r) => Number(r.days_before))
+              .filter((n) => !Number.isNaN(n));
+            if (active.length > 0) {
+              setEnabledDays(Array.from(new Set(active)));
+            }
           }
+        } catch {
+          // reminder_rules table may not exist yet — silently skip
         }
       } finally {
         setLoading(false);
@@ -122,7 +126,7 @@ export function ReminderSettings() {
         .maybeSingle();
 
       if (orgSettings?.id) {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from("org_settings")
           .update({ probation_period_days: probationPeriodDays })
           .eq("id", orgSettings.id);
@@ -141,7 +145,7 @@ export function ReminderSettings() {
 
       // Upsert default rule days and toggle active flags according to selection.
       for (const day of DEFAULT_RULE_DAYS) {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from("reminder_rules")
           .upsert({
             organization_id: organizationId,

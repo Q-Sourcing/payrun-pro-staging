@@ -3,6 +3,10 @@ import { Project, PROJECT_TYPE_PAY_TYPES } from '@/lib/types/projects';
 
 type ProjectOnboardingStepRow = { project_id: string; completed: boolean | null };
 
+// Cast helper to avoid repeated `as unknown as` throughout
+function asProject(data: unknown): Project { return data as Project; }
+function asProjects(data: unknown): Project[] { return (data as Project[]) || []; }
+
 export class ProjectsService {
     /**
      * Get all projects
@@ -14,7 +18,7 @@ export class ProjectsService {
             .order('name');
 
         if (error) throw error;
-        return data || [];
+        return asProjects(data);
     }
 
     /**
@@ -33,7 +37,7 @@ export class ProjectsService {
             .order('name');
 
         if (error) throw error;
-        const projects = data || [];
+        const projects = asProjects(data);
         if (!options?.onlyFullyOnboarded || projects.length === 0) {
             return projects;
         }
@@ -94,12 +98,10 @@ export class ProjectsService {
 
         if (error) throw error;
 
-        // If project supports all pay types, return all types for that project type
         if (data.supports_all_pay_types) {
             return [...PROJECT_TYPE_PAY_TYPES[data.project_type as keyof typeof PROJECT_TYPE_PAY_TYPES]];
         }
 
-        // Otherwise return the specific allowed pay types
         return data.allowed_pay_types || [];
     }
 
@@ -114,11 +116,11 @@ export class ProjectsService {
             .single();
 
         if (error) {
-            if (error.code === 'PGRST116') return null; // Not found
+            if (error.code === 'PGRST116') return null;
             throw error;
         }
 
-        return data;
+        return asProject(data);
     }
 
     /**
@@ -127,12 +129,12 @@ export class ProjectsService {
     static async createProject(project: Partial<Project>): Promise<Project> {
         const { data, error } = await supabase
             .from('projects')
-            .insert(project)
+            .insert(project as any)
             .select()
             .single();
 
         if (error) throw error;
-        return data;
+        return asProject(data);
     }
 
     /**
@@ -141,13 +143,13 @@ export class ProjectsService {
     static async updateProject(projectId: string, updates: Partial<Project>): Promise<Project> {
         const { data, error } = await supabase
             .from('projects')
-            .update(updates)
+            .update(updates as any)
             .eq('id', projectId)
             .select()
             .single();
 
         if (error) throw error;
-        return data;
+        return asProject(data);
     }
 
   /**

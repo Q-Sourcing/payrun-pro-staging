@@ -5194,11 +5194,16 @@ export type Database = {
           created_at: string
           department: string
           employee_id: string
+          employee_sign: string | null
           hours_worked: number
           id: string
           is_aggregated: boolean
           linked_pay_run_id: string | null
+          supervisor_comments: string | null
+          supervisor_sign: string | null
           task_description: string
+          time_in: string | null
+          time_out: string | null
           timesheet_id: string
           updated_at: string
           work_date: string
@@ -5207,11 +5212,16 @@ export type Database = {
           created_at?: string
           department: string
           employee_id: string
+          employee_sign?: string | null
           hours_worked: number
           id?: string
           is_aggregated?: boolean
           linked_pay_run_id?: string | null
+          supervisor_comments?: string | null
+          supervisor_sign?: string | null
           task_description: string
+          time_in?: string | null
+          time_out?: string | null
           timesheet_id: string
           updated_at?: string
           work_date: string
@@ -5220,11 +5230,16 @@ export type Database = {
           created_at?: string
           department?: string
           employee_id?: string
+          employee_sign?: string | null
           hours_worked?: number
           id?: string
           is_aggregated?: boolean
           linked_pay_run_id?: string | null
+          supervisor_comments?: string | null
+          supervisor_sign?: string | null
           task_description?: string
+          time_in?: string | null
+          time_out?: string | null
           timesheet_id?: string
           updated_at?: string
           work_date?: string
