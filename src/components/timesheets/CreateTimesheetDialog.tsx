@@ -18,13 +18,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -309,20 +302,13 @@ export function CreateTimesheetDialog({ open, onOpenChange, draftTimesheet }: Pr
                     render={({ field: f }) => (
                       <FormItem>
                         <FormLabel className="text-xs">Department</FormLabel>
-                        <Select onValueChange={f.onChange} value={f.value}>
-                          <FormControl>
-                            <SelectTrigger className="h-9 text-xs">
-                              <SelectValue placeholder="Select department" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {departments.map((d) => (
-                              <SelectItem key={d} value={d} className="text-xs">
-                                {d}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <Input
+                            className="h-9 text-xs"
+                            placeholder="e.g. Engineering, Finance…"
+                            {...f}
+                          />
+                        </FormControl>
                         <FormMessage className="text-xs" />
                       </FormItem>
                     )}
