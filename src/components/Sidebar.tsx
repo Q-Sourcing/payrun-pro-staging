@@ -393,6 +393,19 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
         </>
       )}
 
+      {/* EHS - Environment, Health & Safety */}
+      {permissions.canViewEhs && (
+        <>
+          <SectionHeader title="EHS" />
+          <NavItem to="/ehs" icon={<Shield size={16} />} label="Dashboard" />
+          <NavItem to="/ehs/incidents" icon={<AlertTriangle size={16} />} label="Incidents" />
+          <NavItem to="/ehs/hazards" icon={<ShieldAlert size={16} />} label="Hazards" />
+          <NavItem to="/ehs/inspections" icon={<ClipboardCheck size={16} />} label="Inspections" />
+          <NavItem to="/ehs/training" icon={<GraduationCap size={16} />} label="Training" />
+          <NavItem to="/ehs/reports" icon={<BarChart3 size={16} />} label="Reports" />
+        </>
+      )}
+
       {/* REPORTS */}
       {permissions.canViewReports && (
         <>
