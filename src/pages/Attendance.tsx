@@ -54,6 +54,9 @@ export default function Attendance() {
           <TabsTrigger value="regularization" className="gap-1.5">
             <AlertCircle className="h-4 w-4" /> Regularization
           </TabsTrigger>
+          <TabsTrigger value="timetracking" className="gap-1.5">
+            <Timer className="h-4 w-4" /> Time Tracking
+          </TabsTrigger>
           <TabsTrigger value="projects" className="gap-1.5">
             <Briefcase className="h-4 w-4" /> By Project
           </TabsTrigger>
