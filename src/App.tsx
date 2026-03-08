@@ -86,6 +86,8 @@ import Diagnostics from "./pages/Diagnostics";
 import PayrollAdvancedSettings from "./pages/PayrollAdvancedSettings";
 import MyApprovals from "./pages/MyApprovals";
 import Timesheets from "./pages/Timesheets";
+import MyAttendance from "./pages/MyAttendance";
+import Attendance from "./pages/Attendance";
 // EHS Module pages
 import EhsIndex from "./pages/ehs/Index";
 import EhsIncidents from "./pages/ehs/Incidents";
