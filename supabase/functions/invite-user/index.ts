@@ -195,13 +195,10 @@ serve(async (req) => {
       const inviteToken = crypto.randomUUID() + '-' + crypto.randomUUID()
       const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
 
-      // Always use the preview URL as the base — this MUST be registered in
+      // Always redirect to the canonical preview URL — must be registered in
       // Supabase Auth > URL Configuration > Redirect URLs
       const APP_URL = 'https://id-preview--d4039800-cafc-472d-9b4b-2216eac18925.lovable.app'
-      const origin = req.headers.get('origin') || req.headers.get('referer')?.replace(/\/+$/, '') || APP_URL
-      // Strip any path from origin so we always get just the domain
-      const originBase = (() => { try { return new URL(origin).origin } catch { return APP_URL } })()
-      const redirectTo = `${originBase}/accept-invite-user?token=${inviteToken}`
+      const redirectTo = `${APP_URL}/accept-invite-user?token=${inviteToken}`
       console.log('Invite redirectTo:', redirectTo)
 
 
@@ -327,8 +324,8 @@ serve(async (req) => {
       const newToken = crypto.randomUUID() + '-' + crypto.randomUUID()
       const newExpiry = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
 
-      const origin = req.headers.get('origin') || req.headers.get('referer')?.replace(/\/$/, '') || 'https://id-preview--d4039800-cafc-472d-9b4b-2216eac18925.lovable.app'
-      const redirectTo = `${origin}/accept-invite-user?token=${newToken}`
+      const APP_URL = 'https://id-preview--d4039800-cafc-472d-9b4b-2216eac18925.lovable.app'
+      const redirectTo = `${APP_URL}/accept-invite-user?token=${newToken}`
 
       const nameParts = (inv.full_name || '').trim().split(/\s+/)
       const firstName = nameParts[0] || ''
