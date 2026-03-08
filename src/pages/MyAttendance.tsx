@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { Clock, Calendar, FileText, AlertCircle, ChevronLeft, ChevronRight, AlarmClock, UserX } from "lucide-react";
+import { Clock, Calendar, FileText, AlertCircle, ChevronLeft, ChevronRight, AlarmClock, UserX, Timer } from "lucide-react";
+import { TimeTracker } from "@/components/attendance/TimeTracker";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { Link } from "react-router-dom";
 
