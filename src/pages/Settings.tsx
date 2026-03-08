@@ -219,12 +219,6 @@ const Settings = () => {
             <IntegrationsSection />
           </SettingsSectionGuard>
         );
-      case "admin-obac":
-        return (
-          <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="manage_organization_users">
-            <AdminAccessSection />
-          </SettingsSectionGuard>
-        );
       case "system":
         return (
           <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="manage_organization_users">
