@@ -746,10 +746,6 @@ export default function UsersManagement() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        <TabsContent value="roles">
-          <RolesPermissionsSection roles={roles} />
-        </TabsContent>
       </Tabs>
 
       <UserFormDialog
