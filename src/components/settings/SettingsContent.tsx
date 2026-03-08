@@ -149,6 +149,13 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
             icon: Info,
             requiredRole: 'SELF_USER' as const // Everyone can access about
         },
+        {
+            id: "attendance-settings",
+            label: "Attendance",
+            icon: Timer,
+            requiredRole: 'ORG_ADMIN' as const,
+            requiredPermission: 'organization_configuration'
+        },
     ];
 
     // Filter menu items based on user role
