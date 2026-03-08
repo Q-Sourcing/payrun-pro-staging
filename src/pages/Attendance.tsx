@@ -8,7 +8,8 @@ import { RegularizationPanel } from "@/components/attendance/RegularizationPanel
 import { ProjectAttendanceDashboard } from "@/components/attendance/ProjectAttendanceDashboard";
 import { supabase } from "@/integrations/supabase/client";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { BarChart3, Users, Upload, AlertCircle, Briefcase } from "lucide-react";
+import { AdminTimeTracking } from "@/components/attendance/AdminTimeTracking";
+import { BarChart3, Users, Upload, AlertCircle, Briefcase, Timer } from "lucide-react";
 
 export default function Attendance() {
   const { session } = useSupabaseAuth();
