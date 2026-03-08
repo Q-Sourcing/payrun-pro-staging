@@ -102,13 +102,6 @@ const Settings = () => {
       requiredPermission: 'manage_integrations'
     },
     {
-      id: "admin-obac",
-      label: "Admin (Access Control)",
-      icon: Shield,
-      requiredRole: 'ORG_ADMIN' as const,
-      requiredPermission: 'manage_organization_users'
-    },
-    {
       id: "emails",
       label: "Email & Logic",
       icon: Mail,
@@ -224,12 +217,6 @@ const Settings = () => {
         return (
           <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="manage_integrations">
             <IntegrationsSection />
-          </SettingsSectionGuard>
-        );
-      case "admin-obac":
-        return (
-          <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="manage_organization_users">
-            <AdminAccessSection />
           </SettingsSectionGuard>
         );
       case "system":
