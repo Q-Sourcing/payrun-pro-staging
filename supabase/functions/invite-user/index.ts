@@ -302,6 +302,7 @@ serve(async (req) => {
       const firstName = nameParts[0] || ''
       const lastName = nameParts.slice(1).join(' ') || ''
 
+      // Try invite first; if user already exists in auth, fall back to a recovery/magic link
       const { error: resendError } = await supabaseAdmin.auth.admin.inviteUserByEmail(inv.email, {
         redirectTo,
         data: {
@@ -313,8 +314,22 @@ serve(async (req) => {
         }
       })
 
-      if (resendError && !resendError.message?.includes('already been registered') && !resendError.message?.includes('already exists')) {
+      const alreadyExists = resendError?.message?.includes('already been registered') ||
+        resendError?.message?.includes('already exists') ||
+        resendError?.message?.includes('email_exists')
+
+      if (resendError && !alreadyExists) {
         return json({ success: false, message: resendError.message }, 400)
+      }
+
+      if (alreadyExists) {
+        // User already confirmed — send a recovery/magic-link email so they can sign in
+        console.log(`User ${inv.email} already exists, sending recovery link instead`)
+        await supabaseAdmin.auth.admin.generateLink({
+          type: 'recovery',
+          email: inv.email,
+          options: { redirectTo }
+        })
       }
 
       const { data: updated, error: updateError } = await supabaseAdmin
