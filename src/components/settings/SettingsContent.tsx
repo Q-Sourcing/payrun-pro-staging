@@ -12,6 +12,7 @@ import { PayslipDesignerSection } from "@/components/settings/PayslipDesignerSec
 import { SystemSettingsSection } from "@/components/settings/SystemSettingsSection";
 import { EmailSettingsSection } from "@/components/settings/EmailSettingsSection";
 import { ReminderSettings } from "@/components/settings/ReminderSettings";
+import { AttendanceSettingsSection } from "@/components/settings/AttendanceSettingsSection";
 import { SettingsSectionGuard } from "@/components/settings/SettingsSectionGuard";
 import { ContractTemplateManager } from "@/components/contracts/ContractTemplateManager";
 import { useUserRole } from "@/hooks/use-user-role";
