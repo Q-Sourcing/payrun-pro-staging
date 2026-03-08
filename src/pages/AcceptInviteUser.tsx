@@ -259,8 +259,8 @@ export default function AcceptInviteUser() {
             {/* Success state */}
             {success && (
               <div className="flex flex-col items-center py-6 gap-3 text-center">
-                <div className="h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                  <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
+                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <CheckCircle2 className="h-8 w-8 text-primary" />
                 </div>
                 <p className="text-sm text-muted-foreground">You will be redirected to login shortly…</p>
                 <Button variant="outline" size="sm" onClick={() => navigate('/login')}>
