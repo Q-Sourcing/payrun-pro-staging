@@ -32,6 +32,20 @@ function ValidationItem({ label, isValid }: { label: string; isValid: boolean })
 const INVITE_FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/invite-user`;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+/**
+ * Parse the URL hash that Supabase appends after processing an invite link.
+ * e.g. #access_token=xxx&token_type=bearer&type=invite&...
+ */
+function parseHashParams(): Record<string, string> {
+  const hash = window.location.hash.replace(/^#/, '');
+  const params: Record<string, string> = {};
+  hash.split('&').forEach((part) => {
+    const [key, ...rest] = part.split('=');
+    if (key) params[decodeURIComponent(key)] = decodeURIComponent(rest.join('='));
+  });
+  return params;
+}
+
 export default function AcceptInviteUser() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -50,8 +64,10 @@ export default function AcceptInviteUser() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
+  // The custom invitation token is in the query string
   const inviteToken = searchParams.get('token');
-  const code = searchParams.get('code');  // Supabase PKCE code
+  // PKCE code (if Supabase used code flow)
+  const pkceCode = searchParams.get('code');
 
   // Password rules
   const hasMinLength = password.length >= 8;
@@ -67,93 +83,134 @@ export default function AcceptInviteUser() {
     initialized.current = true;
 
     const init = async () => {
-      // ── Step 1: Verify invite token via edge function ──────────────────────
-      if (!inviteToken) {
+      // ── Step 1: Extract session from hash (Supabase implicit/invite flow) ───
+      const hashParams = parseHashParams();
+      const hashAccessToken = hashParams['access_token'];
+      const hashRefreshToken = hashParams['refresh_token'];
+      const hashType = hashParams['type']; // "invite" or "recovery"
+
+      // Determine the custom token: prefer query param, but also check hash
+      const customToken = inviteToken || hashParams['invitation_token'];
+
+      if (!customToken && !hashAccessToken && !pkceCode) {
         setErrorMessage('No invitation token found. Please use the link from your invitation email.');
         setStage('error');
         return;
       }
 
-      try {
-        const res = await fetch(`${INVITE_FN_URL}?action=verify-token`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${ANON_KEY}`,
-            'apikey': ANON_KEY,
-          },
-          body: JSON.stringify({ token: inviteToken }),
-        });
-        const result = await res.json();
+      // ── Step 2: Establish Supabase session ────────────────────────────────
 
-        if (!result.success) {
-          const msg = result.status === 'accepted'
-            ? 'This invitation has already been accepted. Please log in with your credentials.'
-            : result.status === 'cancelled'
-            ? 'This invitation has been cancelled. Please contact your administrator.'
-            : result.expired || result.status === 'expired'
-            ? 'This invitation link has expired (48-hour limit). Please ask your administrator to resend it.'
-            : result.message || 'Invalid invitation token.';
-          setErrorMessage(msg);
+      // Option A: Hash contains access_token (most common for invite emails)
+      if (hashAccessToken && hashRefreshToken) {
+        const { data, error } = await supabase.auth.setSession({
+          access_token: hashAccessToken,
+          refresh_token: hashRefreshToken,
+        });
+        if (!error && data.session) {
+          setSessionReady(true);
+          // Clean the hash from the URL so it's not visible
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        } else {
+          console.warn('setSession from hash failed:', error?.message);
+        }
+      }
+      // Option B: PKCE code flow
+      else if (pkceCode) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(pkceCode);
+        if (!error && data.session) {
+          setSessionReady(true);
+        } else {
+          console.warn('Code exchange failed:', error?.message);
+        }
+      }
+      // Option C: Already have a session (returning to page)
+      else {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) setSessionReady(true);
+      }
+
+      // ── Step 3: Verify the custom invite token ────────────────────────────
+      if (customToken) {
+        try {
+          const res = await fetch(`${INVITE_FN_URL}?action=verify-token`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${ANON_KEY}`,
+              'apikey': ANON_KEY,
+            },
+            body: JSON.stringify({ token: customToken }),
+          });
+          const result = await res.json();
+
+          if (!result.success) {
+            const msg = result.status === 'accepted'
+              ? 'This invitation has already been accepted. Please log in with your credentials.'
+              : result.status === 'cancelled'
+              ? 'This invitation has been cancelled. Please contact your administrator.'
+              : result.expired || result.status === 'expired'
+              ? 'This invitation link has expired (48-hour limit). Please ask your administrator to resend it.'
+              : result.message || 'Invalid invitation token.';
+            setErrorMessage(msg);
+            setStage('error');
+            return;
+          }
+
+          setInvitationInfo(result.invitation);
+        } catch {
+          setErrorMessage('Could not verify invitation. Please try again or contact your administrator.');
           setStage('error');
           return;
         }
-
-        setInvitationInfo(result.invitation);
-      } catch {
-        setErrorMessage('Could not verify invitation. Please try again or contact your administrator.');
-        setStage('error');
-        return;
+      } else if (hashType === 'invite') {
+        // Session came from Supabase hash but no custom token — still allow password set
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          setInvitationInfo({
+            id: '',
+            email: session.user.email || '',
+            full_name: session.user.user_metadata?.full_name || '',
+            role: session.user.user_metadata?.role || 'employee',
+            department: session.user.user_metadata?.department,
+            status: 'pending',
+            expires_at: '',
+          });
+        }
       }
 
-      // ── Step 2: Exchange Supabase PKCE code for session ────────────────────
-      if (code) {
-        const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-        if (!exchangeError && data.session) {
-          setSessionReady(true);
-          setStage('form');
-          return;
-        }
-        // Code exchange failed — still show the form, user may already have session
-        console.warn('Code exchange failed:', exchangeError?.message);
+      // ── Step 4: If session still not ready, listen for auth state change ──
+      if (!sessionReady) {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+          if (s) {
+            setSessionReady(true);
+            subscription.unsubscribe();
+          }
+        });
+
+        // Fallback: show form after 2s regardless
+        setTimeout(() => {
+          setStage((prev) => prev === 'loading' ? 'form' : prev);
+        }, 2000);
       }
 
-      // ── Step 3: Check for existing session (e.g. hash-based links) ─────────
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setSessionReady(true);
-        setStage('form');
-        return;
-      }
-
-      // ── Step 4: Listen for auth state (hash-based invite links) ───────────
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
-        if (s) {
-          setSessionReady(true);
-          setStage('form');
-          subscription.unsubscribe();
-        }
-      });
-
-      // Show the form anyway after a short delay — session may arrive shortly
-      setTimeout(async () => {
-        const { data: { session: lateSession } } = await supabase.auth.getSession();
-        if (lateSession) {
-          setSessionReady(true);
-        }
-        setStage('form'); // Show form regardless; we'll block submit until session arrives
-      }, 3000);
+      setStage('form');
     };
 
     init();
   }, []);
 
+  // Keep sessionReady in sync if auth state changes after initial load
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session && !sessionReady) setSessionReady(true);
+    });
+    return () => subscription.unsubscribe();
+  }, [sessionReady]);
+
   const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!isPasswordValid) return;
 
-    // Re-check session
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       toast({
@@ -166,12 +223,13 @@ export default function AcceptInviteUser() {
 
     setSubmitting(true);
     try {
-      // 1. Set the password via Supabase
+      // 1. Set the password
       const { error: updateError } = await supabase.auth.updateUser({ password });
       if (updateError) throw updateError;
 
-      // 2. Mark invitation as accepted in our system
-      if (inviteToken) {
+      // 2. Mark invitation as accepted
+      const customToken = inviteToken || parseHashParams()['invitation_token'];
+      if (customToken) {
         await fetch(`${INVITE_FN_URL}?action=accept`, {
           method: 'POST',
           headers: {
@@ -179,11 +237,11 @@ export default function AcceptInviteUser() {
             'Authorization': `Bearer ${session.access_token}`,
             'apikey': ANON_KEY,
           },
-          body: JSON.stringify({ token: inviteToken, user_id: session.user.id }),
+          body: JSON.stringify({ token: customToken, user_id: session.user.id }),
         });
       }
 
-      // 3. Sign out so they log in fresh with their new credentials
+      // 3. Sign out — user should log in fresh
       await supabase.auth.signOut();
 
       setStage('success');
