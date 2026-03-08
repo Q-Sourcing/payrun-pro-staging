@@ -12,8 +12,6 @@ import { PayslipDesignerSection } from "@/components/settings/PayslipDesignerSec
 import { SystemSettingsSection } from "@/components/settings/SystemSettingsSection";
 import { EmailSettingsSection } from "@/components/settings/EmailSettingsSection";
 import { ReminderSettings } from "@/components/settings/ReminderSettings";
-import { UserManagement } from "@/components/user-management/UserManagement";
-
 import { SettingsSectionGuard } from "@/components/settings/SettingsSectionGuard";
 import { ContractTemplateManager } from "@/components/contracts/ContractTemplateManager";
 import { useUserRole } from "@/hooks/use-user-role";
@@ -114,13 +112,6 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
             icon: RefreshCw,
             requiredRole: 'ORG_ADMIN' as const,
             requiredPermission: 'manage_integrations'
-        },
-        {
-            id: "user-management",
-            label: "User Management",
-            icon: Users,
-            requiredRole: 'ORG_ADMIN' as const,
-            requiredPermission: 'manage_organization_users'
         },
         {
             id: "emails",
@@ -245,12 +236,6 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
                 return (
                     <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="manage_integrations">
                         <IntegrationsSection />
-                    </SettingsSectionGuard>
-                );
-            case "user-management":
-                return (
-                    <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="manage_organization_users">
-                        <UserManagement />
                     </SettingsSectionGuard>
                 );
             case "system":
