@@ -180,7 +180,7 @@ export default function MainLayout() {
                 )}
 
                 {/* Theme Toggle */}
-                <ThemeToggleButton />
+                {!sidebarCollapsed && <ThemeToggleButton />}
               </div>
             </div>
           </div>
