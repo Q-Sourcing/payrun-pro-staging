@@ -33,6 +33,7 @@ import {
   Mail,
   FileText,
   ScrollText,
+  Timer,
   ChevronRight
 } from "lucide-react";
 
