@@ -193,25 +193,42 @@ export async function upsertZohoTokens(
 ) {
   const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
 
-  const { error } = await supabaseAdmin
-    .from("integration_tokens")
-    .upsert(
-      {
-        organization_id: organizationId,
-        integration_name: ZOHO_INTEGRATION_NAME,
-        access_token: accessToken,
-        refresh_token: refreshToken,
-        expires_at: expiresAt,
-        token_type: "Bearer",
-        api_domain: apiDomain ?? getZohoConfig().peopleBaseUrl,
-        scope: scope ?? getZohoConfig().scope,
-        connected_by: userId ?? null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "organization_id,integration_name" },
-    );
+  const payload = {
+    organization_id: organizationId,
+    integration_name: ZOHO_INTEGRATION_NAME,
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    expires_at: expiresAt,
+    token_type: "Bearer",
+    api_domain: apiDomain ?? getZohoConfig().peopleBaseUrl,
+    scope: scope ?? getZohoConfig().scope,
+    connected_by: userId ?? null,
+    updated_at: new Date().toISOString(),
+  };
 
-  if (error) throw error;
+  const { data: existingRows, error: existingError } = await supabaseAdmin
+    .from("integration_tokens")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .eq("integration_name", ZOHO_INTEGRATION_NAME)
+    .limit(1);
+
+  if (existingError) throw existingError;
+
+  if ((existingRows?.length ?? 0) > 0) {
+    const { error: updateError } = await supabaseAdmin
+      .from("integration_tokens")
+      .update(payload)
+      .eq("organization_id", organizationId)
+      .eq("integration_name", ZOHO_INTEGRATION_NAME);
+
+    if (updateError) throw updateError;
+    return;
+  }
+
+  const { error: insertError } = await supabaseAdmin.from("integration_tokens").insert(payload);
+
+  if (insertError) throw insertError;
 }
 
 export async function getValidZohoAccessToken(supabaseAdmin: SupabaseClient, organizationId: string) {
