@@ -18,7 +18,7 @@ interface Props {
   projectId?: string;
 }
 
-export function HazardFormDialog({ open, onOpenChange, hazard, orgId }: Props) {
+export function HazardFormDialog({ open, onOpenChange, hazard, orgId, projectId }: Props) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isEdit = !!hazard;
