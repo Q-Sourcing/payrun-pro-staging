@@ -313,6 +313,7 @@ export default function ProjectDetailPage() {
           <TabsTrigger value="paygroups">Pay Groups ({payGroups.length})</TabsTrigger>
           {isIppms && <TabsTrigger value="workboard">IPPMS Workboard</TabsTrigger>}
           {hasVariablePay && <TabsTrigger value="variable-payroll">⚡ Variable Pay</TabsTrigger>}
+          <TabsTrigger value="ehs">🛡️ EHS</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
