@@ -102,13 +102,6 @@ const Settings = () => {
       requiredPermission: 'manage_integrations'
     },
     {
-      id: "admin-obac",
-      label: "Admin (Access Control)",
-      icon: Shield,
-      requiredRole: 'ORG_ADMIN' as const,
-      requiredPermission: 'manage_organization_users'
-    },
-    {
       id: "emails",
       label: "Email & Logic",
       icon: Mail,
