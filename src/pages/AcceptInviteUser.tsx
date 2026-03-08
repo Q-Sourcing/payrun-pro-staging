@@ -407,18 +407,18 @@ export default function AcceptInviteUser() {
 
                 {/* Session loading warning */}
                 {!sessionReady && (
-                  <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 flex items-center gap-2.5">
-                    <Loader2 className="h-4 w-4 animate-spin text-amber-600 dark:text-amber-400 flex-shrink-0" />
-                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                  <div className="bg-muted border rounded-lg p-3 flex items-center gap-2.5">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground flex-shrink-0" />
+                    <p className="text-xs text-muted-foreground">
                       Establishing your session… If this takes too long, please click the email link again.
                     </p>
                   </div>
                 )}
 
                 {sessionReady && (
-                  <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-3 flex items-center gap-2.5">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-                    <p className="text-xs text-green-700 dark:text-green-300 font-medium">
+                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 flex items-center gap-2.5">
+                    <CheckCircle2 className="h-4 w-4 text-primary flex-shrink-0" />
+                    <p className="text-xs text-primary font-medium">
                       Identity verified — create your password below.
                     </p>
                   </div>
