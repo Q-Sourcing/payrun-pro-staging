@@ -53,8 +53,8 @@ export function AdminTimeTracking({ organizationId }: AdminTimeTrackingProps) {
       const data = await TimeTrackingService.getOrgEntries(organizationId, {
         dateFrom: filterFrom + "T00:00:00",
         dateTo: filterTo + "T23:59:59",
-        employeeId: filterEmployee || undefined,
-        projectId: filterProject || undefined,
+        employeeId: filterEmployee === "all" ? undefined : filterEmployee,
+        projectId: filterProject === "all" ? undefined : filterProject,
       });
       setEntries(data || []);
     } catch (err) {
