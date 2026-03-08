@@ -122,8 +122,8 @@ export default function ProjectDetailPage() {
     const requestedTab = searchParams.get("tab");
     if (!requestedTab) return;
     const allowedTabs = isIppms
-      ? ["overview", "employees", "paygroups", "workboard"]
-      : ["overview", "employees", "paygroups"];
+      ? ["overview", "employees", "paygroups", "workboard", "ehs"]
+      : ["overview", "employees", "paygroups", "ehs"];
     if (allowedTabs.includes(requestedTab) && requestedTab !== activeTab) {
       setActiveTab(requestedTab);
     }
