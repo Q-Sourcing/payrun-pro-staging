@@ -25,8 +25,8 @@ export function AdminTimeTracking({ organizationId }: AdminTimeTrackingProps) {
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [filterEmployee, setFilterEmployee] = useState("");
-  const [filterProject, setFilterProject] = useState("");
+  const [filterEmployee, setFilterEmployee] = useState("all");
+  const [filterProject, setFilterProject] = useState("all");
   const [filterFrom, setFilterFrom] = useState(format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd"));
   const [filterTo, setFilterTo] = useState(format(endOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd"));
 
@@ -53,8 +53,8 @@ export function AdminTimeTracking({ organizationId }: AdminTimeTrackingProps) {
       const data = await TimeTrackingService.getOrgEntries(organizationId, {
         dateFrom: filterFrom + "T00:00:00",
         dateTo: filterTo + "T23:59:59",
-        employeeId: filterEmployee || undefined,
-        projectId: filterProject || undefined,
+        employeeId: filterEmployee === "all" ? undefined : filterEmployee,
+        projectId: filterProject === "all" ? undefined : filterProject,
       });
       setEntries(data || []);
     } catch (err) {
@@ -88,7 +88,7 @@ export function AdminTimeTracking({ organizationId }: AdminTimeTrackingProps) {
                   <SelectValue placeholder="All employees" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All employees</SelectItem>
+                  <SelectItem value="all">All employees</SelectItem>
                   {employees.map((e) => (
                     <SelectItem key={e.id} value={e.id} className="text-xs">
                       {e.first_name} {e.last_name}
@@ -104,7 +104,7 @@ export function AdminTimeTracking({ organizationId }: AdminTimeTrackingProps) {
                   <SelectValue placeholder="All projects" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All projects</SelectItem>
+                  <SelectItem value="all">All projects</SelectItem>
                   {projects.map((p) => (
                     <SelectItem key={p.id} value={p.id} className="text-xs">{p.name}</SelectItem>
                   ))}
