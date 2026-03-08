@@ -16,6 +16,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   inspection: EhsInspection | null;
   orgId?: string;
+  projectId?: string;
 }
 
 export function InspectionFormDialog({ open, onOpenChange, inspection, orgId }: Props) {
