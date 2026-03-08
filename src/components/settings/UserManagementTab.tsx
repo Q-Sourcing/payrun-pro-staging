@@ -514,6 +514,7 @@ function InvitationsTable() {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [deleteInviteTarget, setDeleteInviteTarget] = useState<Invitation | null>(null);
 
   const fetchInvitations = useCallback(async () => {
     setLoading(true);
@@ -561,6 +562,24 @@ function InvitationsTable() {
       toast({ title: "Failed to cancel", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
     } finally {
       setActionLoading(null);
+    }
+  }
+
+  async function handleDeleteInvitation(invitation: Invitation) {
+    setActionLoading(invitation.id + "-delete");
+    try {
+      const { error } = await supabase
+        .from("user_management_invitations")
+        .delete()
+        .eq("id", invitation.id);
+      if (error) throw error;
+      toast({ title: "Invitation deleted", description: `Invitation for ${invitation.email} has been permanently deleted.` });
+      fetchInvitations();
+    } catch (err: unknown) {
+      toast({ title: "Failed to delete", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+      setDeleteInviteTarget(null);
     }
   }
 
@@ -684,6 +703,14 @@ function InvitationsTable() {
                                 )}
                                 Cancel Invitation
                               </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => setDeleteInviteTarget(inv)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete Invitation
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         )}
@@ -696,6 +723,34 @@ function InvitationsTable() {
           </CardContent>
         </Card>
       )}
+      {/* Delete Invitation Confirmation Dialog */}
+      <Dialog open={!!deleteInviteTarget} onOpenChange={(open) => !open && setDeleteInviteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Invitation</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to permanently delete the invitation for{" "}
+              <span className="font-semibold">{deleteInviteTarget?.email}</span>? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteInviteTarget(null)} disabled={actionLoading === deleteInviteTarget?.id + "-delete"}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={actionLoading === deleteInviteTarget?.id + "-delete"}
+              onClick={() => deleteInviteTarget && handleDeleteInvitation(deleteInviteTarget)}
+            >
+              {actionLoading === deleteInviteTarget?.id + "-delete" ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Deleting…</>
+              ) : (
+                <><Trash2 className="h-4 w-4 mr-2" /> Delete</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
