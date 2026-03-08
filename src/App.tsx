@@ -13,6 +13,7 @@ import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import SignUp from "./pages/SignUp";
 import AcceptInvite from "./pages/AcceptInvite";
+import AcceptInviteUser from "./pages/AcceptInviteUser";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { SupabaseAuthProvider, useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { AuthProvider as LegacyAuthProvider } from "@/hooks/use-auth-context";
