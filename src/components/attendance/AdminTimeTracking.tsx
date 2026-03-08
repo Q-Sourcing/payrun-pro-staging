@@ -25,8 +25,8 @@ export function AdminTimeTracking({ organizationId }: AdminTimeTrackingProps) {
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [filterEmployee, setFilterEmployee] = useState("");
-  const [filterProject, setFilterProject] = useState("");
+  const [filterEmployee, setFilterEmployee] = useState("all");
+  const [filterProject, setFilterProject] = useState("all");
   const [filterFrom, setFilterFrom] = useState(format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd"));
   const [filterTo, setFilterTo] = useState(format(endOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd"));
 
