@@ -15,6 +15,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   hazard: EhsHazard | null;
   orgId?: string;
+  projectId?: string;
 }
 
 export function HazardFormDialog({ open, onOpenChange, hazard, orgId }: Props) {
