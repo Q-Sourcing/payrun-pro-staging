@@ -1,12 +1,17 @@
 // @ts-nocheck
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, ShieldAlert, ClipboardCheck, Shield } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { AlertTriangle, ShieldAlert, ClipboardCheck, Shield, Plus } from 'lucide-react';
 import { getIncidents, getHazards, getInspections, getCorrectiveActions } from '@/lib/services/ehs.service';
 import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { SEVERITY_COLORS, SEVERITY_LABELS, RISK_LEVEL_COLORS } from '@/lib/types/ehs';
 import { format } from 'date-fns';
+import { IncidentFormDialog } from './incidents/IncidentFormDialog';
+import { HazardFormDialog } from './hazards/HazardFormDialog';
+import { InspectionFormDialog } from './inspections/InspectionFormDialog';
 
 interface Props {
   projectId: string;
@@ -15,6 +20,10 @@ interface Props {
 export function ProjectEhsTab({ projectId }: Props) {
   const { userContext } = useSupabaseAuth();
   const orgId = userContext?.organizationId;
+
+  const [showIncidentForm, setShowIncidentForm] = useState(false);
+  const [showHazardForm, setShowHazardForm] = useState(false);
+  const [showInspectionForm, setShowInspectionForm] = useState(false);
 
   const { data: incidents = [] } = useQuery({
     queryKey: ['ehs-incidents', orgId, projectId],
@@ -46,6 +55,19 @@ export function ProjectEhsTab({ projectId }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* Quick Actions */}
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" onClick={() => setShowIncidentForm(true)}>
+          <Plus className="h-4 w-4 mr-1" /> Report Incident
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setShowHazardForm(true)}>
+          <Plus className="h-4 w-4 mr-1" /> Report Hazard
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setShowInspectionForm(true)}>
+          <Plus className="h-4 w-4 mr-1" /> New Inspection
+        </Button>
+      </div>
+
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
@@ -88,7 +110,14 @@ export function ProjectEhsTab({ projectId }: Props) {
 
       {/* Recent Incidents */}
       <Card>
-        <CardHeader><CardTitle className="text-base">Recent Incidents</CardTitle></CardHeader>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Recent Incidents</CardTitle>
+            <Button size="sm" variant="ghost" onClick={() => setShowIncidentForm(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Add
+            </Button>
+          </div>
+        </CardHeader>
         <CardContent>
           {recentIncidents.length === 0 ? (
             <p className="text-sm text-muted-foreground">No incidents recorded for this project</p>
@@ -110,7 +139,14 @@ export function ProjectEhsTab({ projectId }: Props) {
 
       {/* Open Hazards */}
       <Card>
-        <CardHeader><CardTitle className="text-base">Open Hazards ({openHazards.length})</CardTitle></CardHeader>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Open Hazards ({openHazards.length})</CardTitle>
+            <Button size="sm" variant="ghost" onClick={() => setShowHazardForm(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Add
+            </Button>
+          </div>
+        </CardHeader>
         <CardContent>
           {openHazards.length === 0 ? (
             <p className="text-sm text-muted-foreground">No open hazards</p>
@@ -129,6 +165,29 @@ export function ProjectEhsTab({ projectId }: Props) {
           )}
         </CardContent>
       </Card>
+
+      {/* Form Dialogs */}
+      <IncidentFormDialog
+        open={showIncidentForm}
+        onOpenChange={setShowIncidentForm}
+        incident={null}
+        orgId={orgId}
+        projectId={projectId}
+      />
+      <HazardFormDialog
+        open={showHazardForm}
+        onOpenChange={setShowHazardForm}
+        hazard={null}
+        orgId={orgId}
+        projectId={projectId}
+      />
+      <InspectionFormDialog
+        open={showInspectionForm}
+        onOpenChange={setShowInspectionForm}
+        inspection={null}
+        orgId={orgId}
+        projectId={projectId}
+      />
     </div>
   );
 }
