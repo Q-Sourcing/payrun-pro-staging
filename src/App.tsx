@@ -86,6 +86,13 @@ import Diagnostics from "./pages/Diagnostics";
 import PayrollAdvancedSettings from "./pages/PayrollAdvancedSettings";
 import MyApprovals from "./pages/MyApprovals";
 import Timesheets from "./pages/Timesheets";
+// EHS Module pages
+import EhsIndex from "./pages/ehs/Index";
+import EhsIncidents from "./pages/ehs/Incidents";
+import EhsHazards from "./pages/ehs/Hazards";
+import EhsInspections from "./pages/ehs/Inspections";
+import EhsTraining from "./pages/ehs/Training";
+import EhsReports from "./pages/ehs/Reports";
 // Query client is now imported from optimized configuration
 
 // Protected route wrapper - uses real auth check
