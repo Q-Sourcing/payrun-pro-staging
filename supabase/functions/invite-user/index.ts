@@ -16,7 +16,103 @@ serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false }
     })
 
-    // ── Auth check ─────────────────────────────────────────────────────────────
+    const url = new URL(req.url)
+    const action = url.searchParams.get('action') || (req.method === 'GET' ? 'list' : 'invite')
+
+    // ── Public actions: verify-token and accept do NOT require admin auth ─────
+    if (action === 'verify-token') {
+      if (req.method !== 'POST') return json({ success: false, message: 'Method not allowed' }, 405)
+      const body = await req.json()
+      const { token: invToken } = body
+      if (!invToken) return json({ success: false, message: 'token is required' }, 400)
+
+      const { data: inv, error: fetchError } = await supabaseAdmin
+        .from('user_management_invitations')
+        .select('id, email, full_name, role, department, status, expires_at')
+        .eq('token', invToken)
+        .maybeSingle()
+
+      if (fetchError || !inv) return json({ success: false, message: 'Invalid invitation token' }, 404)
+      if (inv.status === 'cancelled') return json({ success: false, message: 'This invitation has been cancelled', status: 'cancelled' }, 410)
+      if (inv.status === 'accepted') return json({ success: false, message: 'This invitation has already been accepted', status: 'accepted' }, 409)
+
+      if (new Date(inv.expires_at) < new Date()) {
+        await supabaseAdmin.from('user_management_invitations').update({ status: 'expired' }).eq('id', inv.id)
+        return json({ success: false, message: 'This invitation has expired', status: 'expired', expired: true }, 410)
+      }
+
+      return json({ success: true, invitation: inv })
+    }
+
+    if (action === 'accept') {
+      if (req.method !== 'POST') return json({ success: false, message: 'Method not allowed' }, 405)
+      const body = await req.json()
+      const { token: invToken, user_id } = body
+      if (!invToken) return json({ success: false, message: 'token is required' }, 400)
+
+      const { data: inv, error: fetchError } = await supabaseAdmin
+        .from('user_management_invitations')
+        .select('*')
+        .eq('token', invToken)
+        .maybeSingle()
+
+      if (fetchError || !inv) return json({ success: false, message: 'Invalid invitation token' }, 404)
+      if (inv.status === 'accepted') return json({ success: false, message: 'This invitation has already been accepted' }, 409)
+      if (inv.status === 'cancelled') return json({ success: false, message: 'This invitation has been cancelled' }, 410)
+
+      if (new Date(inv.expires_at) < new Date()) {
+        await supabaseAdmin.from('user_management_invitations').update({ status: 'expired' }).eq('id', inv.id)
+        return json({ success: false, message: 'This invitation link has expired. Please ask the admin to resend the invitation.', expired: true }, 410)
+      }
+
+      const { error: acceptError } = await supabaseAdmin
+        .from('user_management_invitations')
+        .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+        .eq('id', inv.id)
+
+      if (acceptError) return json({ success: false, message: acceptError.message }, 500)
+
+      if (user_id) {
+        const nameParts = (inv.full_name || '').trim().split(/\s+/)
+        const firstName = nameParts[0] || ''
+        const lastName = nameParts.slice(1).join(' ') || ''
+
+        await supabaseAdmin.from('user_management_profiles').upsert({
+          id: user_id,
+          username: null,
+          full_name: inv.full_name,
+          email: inv.email,
+          role: inv.role,
+          phone: inv.phone || null,
+          department: inv.department || null,
+          status: 'active',
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'id' })
+
+        await supabaseAdmin.from('user_profiles').upsert({
+          id: user_id,
+          email: inv.email,
+          first_name: firstName,
+          last_name: lastName,
+          role: inv.role || 'user',
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'id' })
+      }
+
+      await supabaseAdmin.from('audit_logs').insert({
+        integration_name: 'user_management',
+        action: 'invitation.accepted',
+        user_id: user_id || null,
+        resource: 'user_management_invitations',
+        details: { email: inv.email, full_name: inv.full_name },
+        timestamp: new Date().toISOString(),
+        result: 'success',
+      }).then(() => {}).catch(() => {})
+
+      return json({ success: true, message: 'Invitation accepted. Account activated.', invitation: inv })
+    }
+
+    // ── Auth check for all other actions ──────────────────────────────────────
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return json({ success: false, message: 'Authorization header required' }, 401)
 
@@ -24,7 +120,6 @@ serve(async (req) => {
     const { data: { user: currentUser }, error: authError } = await supabaseAdmin.auth.getUser(token)
     if (authError || !currentUser) return json({ success: false, message: 'Invalid authentication token' }, 401)
 
-    // Permission check (admin or hr role)
     const { data: callerProfile } = await supabaseAdmin
       .from('user_profiles')
       .select('role')
@@ -40,16 +135,13 @@ serve(async (req) => {
     const SUPER_ADMIN_EMAILS = ['nalungukevin@gmail.com']
     const callerRole = callerProfile?.role || ''
     const isAdmin =
-      ['super_admin', 'admin', 'org_admin', 'organization_admin', 'hr'].includes(callerRole) ||
+      ['super_admin', 'admin', 'org_admin', 'organization_admin', 'hr', 'PLATFORM_SUPER_ADMIN', 'ORG_ADMIN'].includes(callerRole) ||
       !!platformAdmin?.allowed ||
       SUPER_ADMIN_EMAILS.includes(currentUser.email || '')
 
     if (!isAdmin) return json({ success: false, message: 'Insufficient permissions' }, 403)
 
-    const url = new URL(req.url)
-    const action = url.searchParams.get('action') || (req.method === 'GET' ? 'list' : 'invite')
-
-    // ── GET /invite-user?action=list ───────────────────────────────────────────
+    // ── GET /invite-user?action=list ──────────────────────────────────────────
     if (req.method === 'GET' && action === 'list') {
       const { data, error } = await supabaseAdmin
         .from('user_management_invitations')
@@ -64,14 +156,13 @@ serve(async (req) => {
 
     const body = await req.json()
 
-    // ── POST ?action=invite ────────────────────────────────────────────────────
+    // ── POST ?action=invite ───────────────────────────────────────────────────
     if (action === 'invite') {
       const { email, full_name, role, department, phone } = body
 
       if (!email || !full_name) return json({ success: false, message: 'Email and full name are required' }, 400)
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ success: false, message: 'Invalid email address' }, 400)
 
-      // Check for existing pending invitation
       const { data: existing } = await supabaseAdmin
         .from('user_management_invitations')
         .select('id, status')
@@ -83,33 +174,34 @@ serve(async (req) => {
         return json({ success: false, message: 'A pending invitation already exists for this email. Please cancel or resend the existing one.' }, 409)
       }
 
-      // Generate unique token
       const inviteToken = crypto.randomUUID() + '-' + crypto.randomUUID()
       const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
 
-      // Determine redirect URL: use the app origin
       const origin = req.headers.get('origin') || req.headers.get('referer')?.replace(/\/$/, '') || 'https://id-preview--d4039800-cafc-472d-9b4b-2216eac18925.lovable.app'
       const redirectTo = `${origin}/accept-invite-user?token=${inviteToken}`
 
-      // Send Supabase invitation email (creates user in auth.users with invited status)
+      const nameParts = (full_name || '').trim().split(/\s+/)
+      const firstName = nameParts[0] || ''
+      const lastName = nameParts.slice(1).join(' ') || ''
+
       const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
         redirectTo,
         data: {
           full_name,
-          role: role || 'employee',
+          first_name: firstName,
+          last_name: lastName,
+          role: role || 'user',
           invitation_token: inviteToken,
         }
       })
 
       if (inviteError) {
         console.error('Invite error:', inviteError)
-        // If user already exists in auth, that's OK — we still create the invitation record
         if (!inviteError.message?.includes('already been registered') && !inviteError.message?.includes('already exists')) {
           return json({ success: false, message: inviteError.message }, 400)
         }
       }
 
-      // Store invitation record
       const { data: invitation, error: insertError } = await supabaseAdmin
         .from('user_management_invitations')
         .insert({
@@ -131,7 +223,6 @@ serve(async (req) => {
         return json({ success: false, message: 'Failed to store invitation: ' + insertError.message }, 500)
       }
 
-      // Upsert user_management_profiles with pending status
       const authUserId = inviteData?.user?.id
       if (authUserId) {
         await supabaseAdmin.from('user_management_profiles').upsert({
@@ -139,6 +230,7 @@ serve(async (req) => {
           username: null,
           full_name,
           email: email.toLowerCase(),
+          role: role || 'employee',
           phone: phone || null,
           department: department || null,
           status: 'pending',
@@ -149,13 +241,13 @@ serve(async (req) => {
         await supabaseAdmin.from('user_profiles').upsert({
           id: authUserId,
           email: email.toLowerCase(),
-          full_name,
-          role: role || 'employee',
+          first_name: firstName,
+          last_name: lastName,
+          role: role || 'user',
           updated_at: new Date().toISOString(),
         }, { onConflict: 'id' })
       }
 
-      // Audit log
       await supabaseAdmin.from('audit_logs').insert({
         integration_name: 'user_management',
         action: 'invitation.sent',
@@ -170,7 +262,7 @@ serve(async (req) => {
       return json({ success: true, message: 'Invitation sent successfully', invitation })
     }
 
-    // ── POST ?action=resend ────────────────────────────────────────────────────
+    // ── POST ?action=resend ───────────────────────────────────────────────────
     if (action === 'resend') {
       const { invitation_id } = body
       if (!invitation_id) return json({ success: false, message: 'invitation_id is required' }, 400)
@@ -185,18 +277,22 @@ serve(async (req) => {
       if (inv.status === 'accepted') return json({ success: false, message: 'This invitation has already been accepted' }, 409)
       if (inv.status === 'cancelled') return json({ success: false, message: 'This invitation has been cancelled. Please create a new invitation.' }, 409)
 
-      // Generate new token and expiry
       const newToken = crypto.randomUUID() + '-' + crypto.randomUUID()
       const newExpiry = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
 
       const origin = req.headers.get('origin') || req.headers.get('referer')?.replace(/\/$/, '') || 'https://id-preview--d4039800-cafc-472d-9b4b-2216eac18925.lovable.app'
       const redirectTo = `${origin}/accept-invite-user?token=${newToken}`
 
-      // Resend invite email
+      const nameParts = (inv.full_name || '').trim().split(/\s+/)
+      const firstName = nameParts[0] || ''
+      const lastName = nameParts.slice(1).join(' ') || ''
+
       const { error: resendError } = await supabaseAdmin.auth.admin.inviteUserByEmail(inv.email, {
         redirectTo,
         data: {
           full_name: inv.full_name,
+          first_name: firstName,
+          last_name: lastName,
           role: inv.role,
           invitation_token: newToken,
         }
@@ -206,7 +302,6 @@ serve(async (req) => {
         return json({ success: false, message: resendError.message }, 400)
       }
 
-      // Update invitation
       const { data: updated, error: updateError } = await supabaseAdmin
         .from('user_management_invitations')
         .update({ token: newToken, expires_at: newExpiry, status: 'pending' })
@@ -216,7 +311,6 @@ serve(async (req) => {
 
       if (updateError) return json({ success: false, message: updateError.message }, 500)
 
-      // Audit log
       await supabaseAdmin.from('audit_logs').insert({
         integration_name: 'user_management',
         action: 'invitation.resent',
@@ -230,7 +324,7 @@ serve(async (req) => {
       return json({ success: true, message: 'Invitation resent successfully', invitation: updated })
     }
 
-    // ── POST ?action=cancel ────────────────────────────────────────────────────
+    // ── POST ?action=cancel ───────────────────────────────────────────────────
     if (action === 'cancel') {
       const { invitation_id } = body
       if (!invitation_id) return json({ success: false, message: 'invitation_id is required' }, 400)
@@ -251,7 +345,6 @@ serve(async (req) => {
 
       if (updateError) return json({ success: false, message: updateError.message }, 500)
 
-      // Audit log
       await supabaseAdmin.from('audit_logs').insert({
         integration_name: 'user_management',
         action: 'invitation.cancelled',
@@ -263,95 +356,6 @@ serve(async (req) => {
       }).then(() => {}).catch(() => {})
 
       return json({ success: true, message: 'Invitation cancelled' })
-    }
-
-    // ── POST ?action=accept ────────────────────────────────────────────────────
-    if (action === 'accept') {
-      const { token: invToken, user_id } = body
-      if (!invToken) return json({ success: false, message: 'token is required' }, 400)
-
-      const { data: inv, error: fetchError } = await supabaseAdmin
-        .from('user_management_invitations')
-        .select('*')
-        .eq('token', invToken)
-        .maybeSingle()
-
-      if (fetchError || !inv) return json({ success: false, message: 'Invalid invitation token' }, 404)
-      if (inv.status === 'accepted') return json({ success: false, message: 'This invitation has already been accepted' }, 409)
-      if (inv.status === 'cancelled') return json({ success: false, message: 'This invitation has been cancelled' }, 410)
-
-      // Check expiry
-      if (new Date(inv.expires_at) < new Date()) {
-        // Mark as expired
-        await supabaseAdmin.from('user_management_invitations').update({ status: 'expired' }).eq('id', inv.id)
-        return json({ success: false, message: 'This invitation link has expired. Please ask the admin to resend the invitation.', expired: true }, 410)
-      }
-
-      // Mark invitation as accepted
-      const { error: acceptError } = await supabaseAdmin
-        .from('user_management_invitations')
-        .update({ status: 'accepted', accepted_at: new Date().toISOString() })
-        .eq('id', inv.id)
-
-      if (acceptError) return json({ success: false, message: acceptError.message }, 500)
-
-      // Update user_management_profiles status to active
-      if (user_id) {
-        await supabaseAdmin.from('user_management_profiles').upsert({
-          id: user_id,
-          username: null,
-          full_name: inv.full_name,
-          email: inv.email,
-          phone: inv.phone,
-          department: inv.department,
-          status: 'active',
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'id' })
-
-        await supabaseAdmin.from('user_profiles').upsert({
-          id: user_id,
-          email: inv.email,
-          full_name: inv.full_name,
-          role: inv.role,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'id' })
-      }
-
-      // Audit log
-      await supabaseAdmin.from('audit_logs').insert({
-        integration_name: 'user_management',
-        action: 'invitation.accepted',
-        user_id: user_id || null,
-        resource: 'user_management_invitations',
-        details: { email: inv.email, full_name: inv.full_name },
-        timestamp: new Date().toISOString(),
-        result: 'success',
-      }).then(() => {}).catch(() => {})
-
-      return json({ success: true, message: 'Invitation accepted. Account activated.', invitation: inv })
-    }
-
-    // ── POST ?action=verify-token ──────────────────────────────────────────────
-    if (action === 'verify-token') {
-      const { token: invToken } = body
-      if (!invToken) return json({ success: false, message: 'token is required' }, 400)
-
-      const { data: inv, error: fetchError } = await supabaseAdmin
-        .from('user_management_invitations')
-        .select('id, email, full_name, role, department, status, expires_at')
-        .eq('token', invToken)
-        .maybeSingle()
-
-      if (fetchError || !inv) return json({ success: false, message: 'Invalid invitation token' }, 404)
-      if (inv.status === 'cancelled') return json({ success: false, message: 'This invitation has been cancelled', status: 'cancelled' }, 410)
-      if (inv.status === 'accepted') return json({ success: false, message: 'This invitation has already been accepted', status: 'accepted' }, 409)
-
-      if (new Date(inv.expires_at) < new Date()) {
-        await supabaseAdmin.from('user_management_invitations').update({ status: 'expired' }).eq('id', inv.id)
-        return json({ success: false, message: 'This invitation has expired', status: 'expired', expired: true }, 410)
-      }
-
-      return json({ success: true, invitation: inv })
     }
 
     return json({ success: false, message: 'Unknown action' }, 400)
