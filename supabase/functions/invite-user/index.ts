@@ -202,7 +202,7 @@ serve(async (req) => {
       const firstName = nameParts[0] || ''
       const lastName = nameParts.slice(1).join(' ') || ''
 
-      const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+      let { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
         redirectTo,
         data: {
           full_name,
@@ -233,8 +233,7 @@ serve(async (req) => {
             if (retryError) {
               return json({ success: false, message: `Failed to send invitation after cleanup: ${retryError.message}` }, 400)
             }
-            // Continue with the retry data below
-            Object.assign(inviteData || {}, retryData)
+            inviteData = retryData
           } else {
             return json({ success: false, message: `An account already exists for ${email} and could not be cleaned up automatically. Please contact support.`, code: 'email_exists' }, 409)
           }
