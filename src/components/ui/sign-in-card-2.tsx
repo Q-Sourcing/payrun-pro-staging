@@ -349,7 +349,7 @@ export function SignInCard() {
                                     transition={{ type: "spring", duration: 0.8 }}
                                     className="mx-auto w-10 h-10 rounded-full border border-white/10 flex items-center justify-center relative overflow-hidden"
                                 >
-                                    <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70">P</span>
+                                    <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70">Q</span>
 
                                     {/* Inner lighting effect */}
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-50" />
@@ -361,7 +361,7 @@ export function SignInCard() {
                                     transition={{ delay: 0.2 }}
                                     className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-white/80"
                                 >
-                                    Welcome Back
+                                    Q-Payroll
                                 </motion.h1>
 
                                 <motion.p
@@ -370,7 +370,7 @@ export function SignInCard() {
                                     transition={{ delay: 0.3 }}
                                     className="text-white/60 text-xs"
                                 >
-                                    Sign in to continue to PayRun Pro
+                                    Professional Payroll Management System
                                 </motion.p>
                             </div>
 

@@ -272,8 +272,8 @@ export default function AcceptInviteUser() {
 
         {/* Brand */}
         <div className="text-center space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">PayRun Pro</h1>
-          <p className="text-muted-foreground text-sm">Secure Employee Management & Payroll</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Q-Payroll</h1>
+          <p className="text-muted-foreground text-sm">Professional Payroll Management System</p>
         </div>
 
         <Card className="shadow-xl border overflow-hidden">
