@@ -514,6 +514,7 @@ function InvitationsTable() {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [deleteInviteTarget, setDeleteInviteTarget] = useState<Invitation | null>(null);
 
   const fetchInvitations = useCallback(async () => {
     setLoading(true);
