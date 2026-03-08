@@ -113,6 +113,8 @@ const Settings = () => {
         return <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="export_data"><DataManagementSection /></SettingsSectionGuard>;
       case "emails":
         return <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration"><EmailSettingsSection /></SettingsSectionGuard>;
+      case "attendance":
+        return <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration"><AttendanceSettingsSection /></SettingsSectionGuard>;
       default:
         return <ThemeSettings />;
     }
