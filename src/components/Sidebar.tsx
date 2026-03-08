@@ -35,6 +35,22 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
   const [payRunsHeadOfficeOpen, setPayRunsHeadOfficeOpen] = useState(false);
   const [payRunsProjectsOpen, setPayRunsProjectsOpen] = useState(false);
   const [payGroupTypes, setPayGroupTypes] = useState<SidebarPayGroupType[]>([]);
+  
+  // Collapsible section states
+  const [sectionOpen, setSectionOpen] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('sidebar_sections');
+      return saved ? JSON.parse(saved) : { dashboard: true, employees: true, projects: true, paygroups: true, payruns: true, ehs: true, reports: true, settings: true };
+    } catch { return { dashboard: true, employees: true, projects: true, paygroups: true, payruns: true, ehs: true, reports: true, settings: true }; }
+  });
+  
+  const toggleSection = (key: string) => {
+    setSectionOpen(prev => {
+      const next = { ...prev, [key]: !prev[key] };
+      localStorage.setItem('sidebar_sections', JSON.stringify(next));
+      return next;
+    });
+  };
   const location = useLocation();
 
   const { userContext } = useSupabaseAuth();
