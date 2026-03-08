@@ -1,7 +1,8 @@
 import {
   Users, FolderKanban, DollarSign, Globe, Briefcase, Clock3,
   GraduationCap, UserSquare, Timer, FileText, Settings, ChevronRight, BarChart3,
-  Building2, FolderTree, Calendar, Package, CheckSquare, AlarmClock, UserCog
+  Building2, FolderTree, Calendar, Package, CheckSquare, AlarmClock, UserCog,
+  ShieldAlert, AlertTriangle, ClipboardCheck, Shield
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -48,7 +49,8 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
       canViewPayRunsHeadOffice: false,
       canViewPayRunsProjects: false,
       canViewReports: false,
-      canViewSettings: false
+      canViewSettings: false,
+      canViewEhs: false,
     };
 
     return {
@@ -62,6 +64,7 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
       canViewPayRunsProjects: RBACService.hasScopedPermission('payroll.view', 'PROJECT'),
       canViewReports: RBACService.hasPermission('reports.view'),
       canViewSettings: RBACService.isPlatformAdmin() || RBACService.isOrgAdmin(),
+      canViewEhs: RBACService.hasPermission('ehs.view_dashboard') || RBACService.isPlatformAdmin() || RBACService.isOrgAdmin(),
     };
   }, [userContext]);
 
@@ -387,6 +390,19 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
               </>
             )
           )}
+        </>
+      )}
+
+      {/* EHS - Environment, Health & Safety */}
+      {permissions.canViewEhs && (
+        <>
+          <SectionHeader title="EHS" />
+          <NavItem to="/ehs" icon={<Shield size={16} />} label="Dashboard" />
+          <NavItem to="/ehs/incidents" icon={<AlertTriangle size={16} />} label="Incidents" />
+          <NavItem to="/ehs/hazards" icon={<ShieldAlert size={16} />} label="Hazards" />
+          <NavItem to="/ehs/inspections" icon={<ClipboardCheck size={16} />} label="Inspections" />
+          <NavItem to="/ehs/training" icon={<GraduationCap size={16} />} label="Training" />
+          <NavItem to="/ehs/reports" icon={<BarChart3 size={16} />} label="Reports" />
         </>
       )}
 

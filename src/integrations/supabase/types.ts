@@ -1010,6 +1010,702 @@ export type Database = {
         }
         Relationships: []
       }
+      ehs_corrective_actions: {
+        Row: {
+          assigned_to: string | null
+          closed_at: string | null
+          created_at: string
+          description: string
+          due_date: string | null
+          evidence_url: string | null
+          id: string
+          organization_id: string
+          priority: Database["public"]["Enums"]["ehs_ca_priority"]
+          project_id: string | null
+          responsible_person: string | null
+          source_id: string
+          source_type: Database["public"]["Enums"]["ehs_ca_source_type"]
+          status: Database["public"]["Enums"]["ehs_ca_status"]
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          closed_at?: string | null
+          created_at?: string
+          description: string
+          due_date?: string | null
+          evidence_url?: string | null
+          id?: string
+          organization_id: string
+          priority?: Database["public"]["Enums"]["ehs_ca_priority"]
+          project_id?: string | null
+          responsible_person?: string | null
+          source_id: string
+          source_type: Database["public"]["Enums"]["ehs_ca_source_type"]
+          status?: Database["public"]["Enums"]["ehs_ca_status"]
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          closed_at?: string | null
+          created_at?: string
+          description?: string
+          due_date?: string | null
+          evidence_url?: string | null
+          id?: string
+          organization_id?: string
+          priority?: Database["public"]["Enums"]["ehs_ca_priority"]
+          project_id?: string | null
+          responsible_person?: string | null
+          source_id?: string
+          source_type?: Database["public"]["Enums"]["ehs_ca_source_type"]
+          status?: Database["public"]["Enums"]["ehs_ca_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ehs_corrective_actions_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_corrective_actions_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "ehs_corrective_actions_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_corrective_actions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_corrective_actions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_corrective_actions_responsible_person_fkey"
+            columns: ["responsible_person"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_corrective_actions_responsible_person_fkey"
+            columns: ["responsible_person"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "ehs_corrective_actions_responsible_person_fkey"
+            columns: ["responsible_person"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ehs_hazards: {
+        Row: {
+          assigned_to: string | null
+          company_id: string | null
+          created_at: string
+          description: string
+          hazard_number: string
+          id: string
+          observation_type: Database["public"]["Enums"]["ehs_observation_type"]
+          organization_id: string
+          photos: string[] | null
+          project_id: string | null
+          reported_by: string | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          risk_level: Database["public"]["Enums"]["ehs_hazard_risk_level"]
+          site_location: string | null
+          status: Database["public"]["Enums"]["ehs_hazard_status"]
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          company_id?: string | null
+          created_at?: string
+          description: string
+          hazard_number?: string
+          id?: string
+          observation_type?: Database["public"]["Enums"]["ehs_observation_type"]
+          organization_id: string
+          photos?: string[] | null
+          project_id?: string | null
+          reported_by?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          risk_level?: Database["public"]["Enums"]["ehs_hazard_risk_level"]
+          site_location?: string | null
+          status?: Database["public"]["Enums"]["ehs_hazard_status"]
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          company_id?: string | null
+          created_at?: string
+          description?: string
+          hazard_number?: string
+          id?: string
+          observation_type?: Database["public"]["Enums"]["ehs_observation_type"]
+          organization_id?: string
+          photos?: string[] | null
+          project_id?: string | null
+          reported_by?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          risk_level?: Database["public"]["Enums"]["ehs_hazard_risk_level"]
+          site_location?: string | null
+          status?: Database["public"]["Enums"]["ehs_hazard_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ehs_hazards_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_hazards_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "ehs_hazards_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_hazards_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_hazards_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_hazards_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_hazards_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_hazards_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "ehs_hazards_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ehs_incidents: {
+        Row: {
+          body_part_affected: string | null
+          classification: string | null
+          closed_at: string | null
+          company_id: string | null
+          created_at: string
+          description: string | null
+          employees_involved: string[] | null
+          id: string
+          immediate_action_taken: string | null
+          incident_date: string
+          incident_number: string
+          incident_time: string | null
+          incident_type: Database["public"]["Enums"]["ehs_incident_type"]
+          injury_type: string | null
+          investigator_id: string | null
+          lost_days: number | null
+          organization_id: string
+          photos: string[] | null
+          project_id: string | null
+          reported_by: string | null
+          root_cause: string | null
+          root_cause_category: string | null
+          severity: Database["public"]["Enums"]["ehs_incident_severity"]
+          site_location: string | null
+          status: Database["public"]["Enums"]["ehs_incident_status"]
+          supervisor_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body_part_affected?: string | null
+          classification?: string | null
+          closed_at?: string | null
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          employees_involved?: string[] | null
+          id?: string
+          immediate_action_taken?: string | null
+          incident_date?: string
+          incident_number?: string
+          incident_time?: string | null
+          incident_type?: Database["public"]["Enums"]["ehs_incident_type"]
+          injury_type?: string | null
+          investigator_id?: string | null
+          lost_days?: number | null
+          organization_id: string
+          photos?: string[] | null
+          project_id?: string | null
+          reported_by?: string | null
+          root_cause?: string | null
+          root_cause_category?: string | null
+          severity?: Database["public"]["Enums"]["ehs_incident_severity"]
+          site_location?: string | null
+          status?: Database["public"]["Enums"]["ehs_incident_status"]
+          supervisor_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body_part_affected?: string | null
+          classification?: string | null
+          closed_at?: string | null
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          employees_involved?: string[] | null
+          id?: string
+          immediate_action_taken?: string | null
+          incident_date?: string
+          incident_number?: string
+          incident_time?: string | null
+          incident_type?: Database["public"]["Enums"]["ehs_incident_type"]
+          injury_type?: string | null
+          investigator_id?: string | null
+          lost_days?: number | null
+          organization_id?: string
+          photos?: string[] | null
+          project_id?: string | null
+          reported_by?: string | null
+          root_cause?: string | null
+          root_cause_category?: string | null
+          severity?: Database["public"]["Enums"]["ehs_incident_severity"]
+          site_location?: string | null
+          status?: Database["public"]["Enums"]["ehs_incident_status"]
+          supervisor_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ehs_incidents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_incidents_investigator_id_fkey"
+            columns: ["investigator_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_incidents_investigator_id_fkey"
+            columns: ["investigator_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "ehs_incidents_investigator_id_fkey"
+            columns: ["investigator_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_incidents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_incidents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_incidents_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_incidents_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "ehs_incidents_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_incidents_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_incidents_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "ehs_incidents_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ehs_inspection_items: {
+        Row: {
+          auto_hazard_id: string | null
+          category: string | null
+          checklist_item: string
+          created_at: string
+          finding_text: string | null
+          id: string
+          inspection_id: string
+          photo_url: string | null
+          result: Database["public"]["Enums"]["ehs_inspection_result"] | null
+        }
+        Insert: {
+          auto_hazard_id?: string | null
+          category?: string | null
+          checklist_item: string
+          created_at?: string
+          finding_text?: string | null
+          id?: string
+          inspection_id: string
+          photo_url?: string | null
+          result?: Database["public"]["Enums"]["ehs_inspection_result"] | null
+        }
+        Update: {
+          auto_hazard_id?: string | null
+          category?: string | null
+          checklist_item?: string
+          created_at?: string
+          finding_text?: string | null
+          id?: string
+          inspection_id?: string
+          photo_url?: string | null
+          result?: Database["public"]["Enums"]["ehs_inspection_result"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ehs_inspection_items_auto_hazard_id_fkey"
+            columns: ["auto_hazard_id"]
+            isOneToOne: false
+            referencedRelation: "ehs_hazards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_inspection_items_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "ehs_inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ehs_inspection_templates: {
+        Row: {
+          category: string | null
+          checklist_items: Json
+          created_at: string
+          id: string
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          checklist_items?: Json
+          created_at?: string
+          id?: string
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          checklist_items?: Json
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ehs_inspection_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ehs_inspections: {
+        Row: {
+          company_id: string | null
+          completed_date: string | null
+          created_at: string
+          id: string
+          inspection_number: string
+          inspector_id: string | null
+          notes: string | null
+          organization_id: string
+          overall_score: number | null
+          project_id: string | null
+          scheduled_date: string | null
+          status: Database["public"]["Enums"]["ehs_inspection_status"]
+          template_id: string | null
+          type: Database["public"]["Enums"]["ehs_inspection_type"]
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          completed_date?: string | null
+          created_at?: string
+          id?: string
+          inspection_number?: string
+          inspector_id?: string | null
+          notes?: string | null
+          organization_id: string
+          overall_score?: number | null
+          project_id?: string | null
+          scheduled_date?: string | null
+          status?: Database["public"]["Enums"]["ehs_inspection_status"]
+          template_id?: string | null
+          type?: Database["public"]["Enums"]["ehs_inspection_type"]
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          completed_date?: string | null
+          created_at?: string
+          id?: string
+          inspection_number?: string
+          inspector_id?: string | null
+          notes?: string | null
+          organization_id?: string
+          overall_score?: number | null
+          project_id?: string | null
+          scheduled_date?: string | null
+          status?: Database["public"]["Enums"]["ehs_inspection_status"]
+          template_id?: string | null
+          type?: Database["public"]["Enums"]["ehs_inspection_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ehs_inspections_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_inspections_inspector_id_fkey"
+            columns: ["inspector_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_inspections_inspector_id_fkey"
+            columns: ["inspector_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "ehs_inspections_inspector_id_fkey"
+            columns: ["inspector_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_inspections_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_inspections_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_inspections_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "ehs_inspection_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ehs_training_records: {
+        Row: {
+          certificate_number: string | null
+          certificate_url: string | null
+          completed_date: string | null
+          course_name: string
+          created_at: string
+          employee_id: string
+          expiry_date: string | null
+          id: string
+          organization_id: string
+          project_id: string | null
+          provider: string | null
+          status: Database["public"]["Enums"]["ehs_training_status"]
+          trainer: string | null
+          training_type: Database["public"]["Enums"]["ehs_training_type"]
+          updated_at: string
+        }
+        Insert: {
+          certificate_number?: string | null
+          certificate_url?: string | null
+          completed_date?: string | null
+          course_name: string
+          created_at?: string
+          employee_id: string
+          expiry_date?: string | null
+          id?: string
+          organization_id: string
+          project_id?: string | null
+          provider?: string | null
+          status?: Database["public"]["Enums"]["ehs_training_status"]
+          trainer?: string | null
+          training_type?: Database["public"]["Enums"]["ehs_training_type"]
+          updated_at?: string
+        }
+        Update: {
+          certificate_number?: string | null
+          certificate_url?: string | null
+          completed_date?: string | null
+          course_name?: string
+          created_at?: string
+          employee_id?: string
+          expiry_date?: string | null
+          id?: string
+          organization_id?: string
+          project_id?: string | null
+          provider?: string | null
+          status?: Database["public"]["Enums"]["ehs_training_status"]
+          trainer?: string | null
+          training_type?: Database["public"]["Enums"]["ehs_training_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ehs_training_records_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_training_records_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "ehs_training_records_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_training_records_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_training_records_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_events: {
         Row: {
           category: string
@@ -1203,6 +1899,89 @@ export type Database = {
           },
         ]
       }
+      employee_addresses: {
+        Row: {
+          address_type: string
+          city: string | null
+          country: string | null
+          created_at: string
+          district: string | null
+          employee_id: string
+          id: string
+          is_primary: boolean
+          line_1: string
+          line_2: string | null
+          organization_id: string
+          postal_code: string | null
+          source: string
+          state_region: string | null
+          updated_at: string
+        }
+        Insert: {
+          address_type: string
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          district?: string | null
+          employee_id: string
+          id?: string
+          is_primary?: boolean
+          line_1: string
+          line_2?: string | null
+          organization_id: string
+          postal_code?: string | null
+          source?: string
+          state_region?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address_type?: string
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          district?: string | null
+          employee_id?: string
+          id?: string
+          is_primary?: boolean
+          line_1?: string
+          line_2?: string | null
+          organization_id?: string
+          postal_code?: string | null
+          source?: string
+          state_region?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_addresses_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_addresses_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "employee_addresses_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_addresses_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_categories: {
         Row: {
           active: boolean | null
@@ -1343,6 +2122,311 @@ export type Database = {
           },
         ]
       }
+      employee_dependents: {
+        Row: {
+          contact_phone: string | null
+          created_at: string
+          date_of_birth: string | null
+          employee_id: string
+          full_name: string
+          id: string
+          notes: string | null
+          organization_id: string
+          relationship: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          contact_phone?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          employee_id: string
+          full_name: string
+          id?: string
+          notes?: string | null
+          organization_id: string
+          relationship: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          contact_phone?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          employee_id?: string
+          full_name?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          relationship?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_dependents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_dependents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "employee_dependents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_dependents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_documents: {
+        Row: {
+          created_at: string
+          description: string | null
+          document_type: string
+          employee_id: string
+          external_document_id: string | null
+          file_size_bytes: number | null
+          id: string
+          mime_type: string | null
+          organization_id: string
+          source: string
+          storage_bucket: string | null
+          storage_path: string | null
+          title: string
+          updated_at: string
+          uploaded_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          document_type: string
+          employee_id: string
+          external_document_id?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          mime_type?: string | null
+          organization_id: string
+          source?: string
+          storage_bucket?: string | null
+          storage_path?: string | null
+          title: string
+          updated_at?: string
+          uploaded_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          document_type?: string
+          employee_id?: string
+          external_document_id?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          mime_type?: string | null
+          organization_id?: string
+          source?: string
+          storage_bucket?: string | null
+          storage_path?: string | null
+          title?: string
+          updated_at?: string
+          uploaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "employee_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_documents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_education: {
+        Row: {
+          created_at: string
+          date_of_completion: string | null
+          degree_diploma: string | null
+          employee_id: string
+          end_date: string | null
+          id: string
+          institution_name: string
+          organization_id: string
+          source: string
+          specialization: string | null
+          start_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_of_completion?: string | null
+          degree_diploma?: string | null
+          employee_id: string
+          end_date?: string | null
+          id?: string
+          institution_name: string
+          organization_id: string
+          source?: string
+          specialization?: string | null
+          start_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_of_completion?: string | null
+          degree_diploma?: string | null
+          employee_id?: string
+          end_date?: string | null
+          id?: string
+          institution_name?: string
+          organization_id?: string
+          source?: string
+          specialization?: string | null
+          start_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_education_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_education_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "employee_education_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_education_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_external_ids: {
+        Row: {
+          created_at: string
+          employee_id: string
+          external_id: string
+          external_label: string | null
+          external_record_id: string | null
+          id: string
+          last_inbound_synced_at: string | null
+          last_outbound_synced_at: string | null
+          last_seen_at: string | null
+          metadata: Json
+          organization_id: string
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          employee_id: string
+          external_id: string
+          external_label?: string | null
+          external_record_id?: string | null
+          id?: string
+          last_inbound_synced_at?: string | null
+          last_outbound_synced_at?: string | null
+          last_seen_at?: string | null
+          metadata?: Json
+          organization_id: string
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string
+          external_id?: string
+          external_label?: string | null
+          external_record_id?: string | null
+          id?: string
+          last_inbound_synced_at?: string | null
+          last_outbound_synced_at?: string | null
+          last_seen_at?: string | null
+          metadata?: Json
+          organization_id?: string
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_external_ids_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_external_ids_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "employee_external_ids_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_external_ids_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_number_history: {
         Row: {
           changed_at: string
@@ -1464,6 +2548,80 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_work_experience: {
+        Row: {
+          created_at: string
+          employee_id: string
+          employer_name: string
+          from_date: string | null
+          id: string
+          job_description: string | null
+          job_title: string | null
+          organization_id: string
+          relevant: boolean
+          source: string
+          to_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          employee_id: string
+          employer_name: string
+          from_date?: string | null
+          id?: string
+          job_description?: string | null
+          job_title?: string | null
+          organization_id: string
+          relevant?: boolean
+          source?: string
+          to_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string
+          employer_name?: string
+          from_date?: string | null
+          id?: string
+          job_description?: string | null
+          job_title?: string | null
+          organization_id?: string
+          relevant?: boolean
+          source?: string
+          to_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_work_experience_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_work_experience_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "employee_work_experience_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_work_experience_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           account_number: string | null
@@ -1486,8 +2644,8 @@ export type Database = {
           employee_number: string
           employee_type: string
           employee_type_id: string | null
-          engagement_type: string | null
           employment_status: string | null
+          engagement_type: string | null
           first_name: string
           gender: string | null
           id: string
@@ -1503,8 +2661,8 @@ export type Database = {
           pay_group_id: string | null
           pay_rate: number
           pay_type: Database["public"]["Enums"]["pay_type"]
-          phone: string | null
           personal_email: string | null
+          phone: string | null
           probation_end_date: string | null
           probation_notes: string | null
           probation_status: string | null
@@ -1542,8 +2700,8 @@ export type Database = {
           employee_number: string
           employee_type?: string
           employee_type_id?: string | null
-          engagement_type?: string | null
           employment_status?: string | null
+          engagement_type?: string | null
           first_name: string
           gender?: string | null
           id?: string
@@ -1559,8 +2717,8 @@ export type Database = {
           pay_group_id?: string | null
           pay_rate: number
           pay_type?: Database["public"]["Enums"]["pay_type"]
-          phone?: string | null
           personal_email?: string | null
+          phone?: string | null
           probation_end_date?: string | null
           probation_notes?: string | null
           probation_status?: string | null
@@ -1598,8 +2756,8 @@ export type Database = {
           employee_number?: string
           employee_type?: string
           employee_type_id?: string | null
-          engagement_type?: string | null
           employment_status?: string | null
+          engagement_type?: string | null
           first_name?: string
           gender?: string | null
           id?: string
@@ -1615,8 +2773,8 @@ export type Database = {
           pay_group_id?: string | null
           pay_rate?: number
           pay_type?: Database["public"]["Enums"]["pay_type"]
-          phone?: string | null
           personal_email?: string | null
+          phone?: string | null
           probation_end_date?: string | null
           probation_notes?: string | null
           probation_status?: string | null
@@ -1698,6 +2856,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      engagement_types: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       expatriate_pay_groups: {
         Row: {
@@ -2534,35 +3722,58 @@ export type Database = {
       integration_tokens: {
         Row: {
           access_token: string
+          api_domain: string | null
+          connected_by: string | null
           created_at: string | null
           expires_at: string
           id: string
           integration_name: string
+          metadata: Json
+          organization_id: string | null
           refresh_token: string
+          scope: string | null
           token_type: string | null
           updated_at: string | null
         }
         Insert: {
           access_token: string
+          api_domain?: string | null
+          connected_by?: string | null
           created_at?: string | null
           expires_at: string
           id?: string
           integration_name: string
+          metadata?: Json
+          organization_id?: string | null
           refresh_token: string
+          scope?: string | null
           token_type?: string | null
           updated_at?: string | null
         }
         Update: {
           access_token?: string
+          api_domain?: string | null
+          connected_by?: string | null
           created_at?: string | null
           expires_at?: string
           id?: string
           integration_name?: string
+          metadata?: Json
+          organization_id?: string | null
           refresh_token?: string
+          scope?: string | null
           token_type?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "integration_tokens_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       intern_pay_run_items: {
         Row: {
@@ -2967,6 +4178,30 @@ export type Database = {
           months?: number
           percentages?: Json | null
           start_month?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      nationalities: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
           updated_at?: string
         }
         Relationships: []
@@ -5054,6 +6289,8 @@ export type Database = {
       }
       sync_configurations: {
         Row: {
+          company_id: string | null
+          company_unit_id: string | null
           created_at: string | null
           data_mapping: Json | null
           direction: string
@@ -5063,11 +6300,14 @@ export type Database = {
           id: string
           integration_name: string
           name: string
+          organization_id: string | null
           retry_attempts: number | null
           timeout: number | null
           updated_at: string | null
         }
         Insert: {
+          company_id?: string | null
+          company_unit_id?: string | null
           created_at?: string | null
           data_mapping?: Json | null
           direction: string
@@ -5077,11 +6317,14 @@ export type Database = {
           id?: string
           integration_name: string
           name: string
+          organization_id?: string | null
           retry_attempts?: number | null
           timeout?: number | null
           updated_at?: string | null
         }
         Update: {
+          company_id?: string | null
+          company_unit_id?: string | null
           created_at?: string | null
           data_mapping?: Json | null
           direction?: string
@@ -5091,19 +6334,46 @@ export type Database = {
           id?: string
           integration_name?: string
           name?: string
+          organization_id?: string | null
           retry_attempts?: number | null
           timeout?: number | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sync_configurations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sync_configurations_company_unit_id_fkey"
+            columns: ["company_unit_id"]
+            isOneToOne: false
+            referencedRelation: "company_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sync_configurations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sync_logs: {
         Row: {
+          company_id: string | null
+          company_unit_id: string | null
           completed_at: string | null
           created_at: string | null
           direction: string
           error_message: string | null
           id: string
+          metadata: Json
+          organization_id: string | null
           records_failed: number | null
           records_processed: number | null
           retry_count: number | null
@@ -5113,11 +6383,15 @@ export type Database = {
           type: string
         }
         Insert: {
+          company_id?: string | null
+          company_unit_id?: string | null
           completed_at?: string | null
           created_at?: string | null
           direction: string
           error_message?: string | null
           id?: string
+          metadata?: Json
+          organization_id?: string | null
           records_failed?: number | null
           records_processed?: number | null
           retry_count?: number | null
@@ -5127,11 +6401,15 @@ export type Database = {
           type: string
         }
         Update: {
+          company_id?: string | null
+          company_unit_id?: string | null
           completed_at?: string | null
           created_at?: string | null
           direction?: string
           error_message?: string | null
           id?: string
+          metadata?: Json
+          organization_id?: string | null
           records_failed?: number | null
           records_processed?: number | null
           retry_count?: number | null
@@ -5140,7 +6418,29 @@ export type Database = {
           sync_id?: string
           type?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sync_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sync_logs_company_unit_id_fkey"
+            columns: ["company_unit_id"]
+            isOneToOne: false
+            referencedRelation: "company_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sync_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tenant_email_settings: {
         Row: {
@@ -6181,8 +7481,8 @@ export type Database = {
           employee_category: string | null
           employee_number: string | null
           employee_type: string | null
-          engagement_type: string | null
           employment_status: string | null
+          engagement_type: string | null
           first_name: string | null
           id: string | null
           last_name: string | null
@@ -6211,14 +7511,14 @@ export type Database = {
           employee_category?: string | null
           employee_number?: string | null
           employee_type?: string | null
-          engagement_type?: string | null
           employment_status?: string | null
+          engagement_type?: string | null
           first_name?: string | null
           id?: string | null
           last_name?: string | null
-          name?: string | null
+          name?: never
           nationality?: string | null
-          organization_id?: string | null
+          organization_id?: never
           pay_group_id?: string | null
           personal_email?: string | null
           phone?: string | null
@@ -6241,14 +7541,14 @@ export type Database = {
           employee_category?: string | null
           employee_number?: string | null
           employee_type?: string | null
-          engagement_type?: string | null
           employment_status?: string | null
+          engagement_type?: string | null
           first_name?: string | null
           id?: string | null
           last_name?: string | null
-          name?: string | null
+          name?: never
           nationality?: string | null
-          organization_id?: string | null
+          organization_id?: never
           pay_group_id?: string | null
           personal_email?: string | null
           phone?: string | null
@@ -6260,17 +7560,31 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_employees_org"
-            columns: ["organization_id"]
+            foreignKeyName: "employees_company_id_fkey"
+            columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "organizations"
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_employees_organization"
-            columns: ["organization_id"]
+            foreignKeyName: "employees_company_unit_id_fkey"
+            columns: ["company_unit_id"]
             isOneToOne: false
-            referencedRelation: "organizations"
+            referencedRelation: "company_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_pay_group_id_fkey"
+            columns: ["pay_group_id"]
+            isOneToOne: false
+            referencedRelation: "pay_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_employees_company"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -6900,6 +8214,7 @@ export type Database = {
         Returns: Json
       }
       ug_lst_annual_amount: { Args: { gross_pay: number }; Returns: number }
+      user_belongs_to_org: { Args: { target_org_id: string }; Returns: boolean }
       validate_pay_group_id: {
         Args: { pay_group_id: string }
         Returns: boolean
@@ -6918,6 +8233,47 @@ export type Database = {
         | "retirement"
         | "dental"
         | "vision"
+        | "other"
+      ehs_ca_priority: "low" | "medium" | "high" | "critical"
+      ehs_ca_source_type: "incident" | "hazard" | "inspection"
+      ehs_ca_status: "open" | "in_progress" | "closed" | "overdue"
+      ehs_hazard_risk_level: "low" | "medium" | "high" | "critical"
+      ehs_hazard_status:
+        | "reported"
+        | "assigned"
+        | "mitigation_in_progress"
+        | "resolved"
+      ehs_incident_severity:
+        | "near_miss"
+        | "first_aid"
+        | "medical_treatment"
+        | "lost_time_injury"
+        | "fatality"
+      ehs_incident_status:
+        | "reported"
+        | "under_investigation"
+        | "root_cause_identified"
+        | "corrective_action"
+        | "closed"
+      ehs_incident_type:
+        | "injury"
+        | "fatality"
+        | "property_damage"
+        | "environmental_spill"
+        | "near_miss"
+        | "unsafe_condition"
+        | "unsafe_act"
+      ehs_inspection_result: "pass" | "fail" | "needs_attention"
+      ehs_inspection_status: "scheduled" | "in_progress" | "completed"
+      ehs_inspection_type: "daily" | "weekly" | "monthly" | "compliance_audit"
+      ehs_observation_type: "hazard" | "safety_observation"
+      ehs_training_status: "valid" | "expired" | "expiring_soon"
+      ehs_training_type:
+        | "first_aid"
+        | "fire_safety"
+        | "working_at_height"
+        | "equipment_operation"
+        | "hazmat_handling"
         | "other"
       head_office_pay_group_type: "regular" | "intern" | "expatriate"
       head_office_status: "draft" | "active" | "locked"
@@ -7099,6 +8455,52 @@ export const Constants = {
         "retirement",
         "dental",
         "vision",
+        "other",
+      ],
+      ehs_ca_priority: ["low", "medium", "high", "critical"],
+      ehs_ca_source_type: ["incident", "hazard", "inspection"],
+      ehs_ca_status: ["open", "in_progress", "closed", "overdue"],
+      ehs_hazard_risk_level: ["low", "medium", "high", "critical"],
+      ehs_hazard_status: [
+        "reported",
+        "assigned",
+        "mitigation_in_progress",
+        "resolved",
+      ],
+      ehs_incident_severity: [
+        "near_miss",
+        "first_aid",
+        "medical_treatment",
+        "lost_time_injury",
+        "fatality",
+      ],
+      ehs_incident_status: [
+        "reported",
+        "under_investigation",
+        "root_cause_identified",
+        "corrective_action",
+        "closed",
+      ],
+      ehs_incident_type: [
+        "injury",
+        "fatality",
+        "property_damage",
+        "environmental_spill",
+        "near_miss",
+        "unsafe_condition",
+        "unsafe_act",
+      ],
+      ehs_inspection_result: ["pass", "fail", "needs_attention"],
+      ehs_inspection_status: ["scheduled", "in_progress", "completed"],
+      ehs_inspection_type: ["daily", "weekly", "monthly", "compliance_audit"],
+      ehs_observation_type: ["hazard", "safety_observation"],
+      ehs_training_status: ["valid", "expired", "expiring_soon"],
+      ehs_training_type: [
+        "first_aid",
+        "fire_safety",
+        "working_at_height",
+        "equipment_operation",
+        "hazmat_handling",
         "other",
       ],
       head_office_pay_group_type: ["regular", "intern", "expatriate"],
