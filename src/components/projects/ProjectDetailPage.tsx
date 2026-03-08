@@ -15,6 +15,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X, UserPlus, MapPin, Building2, DollarSign, Pencil, Save, AlertTriangle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import AddProjectEmployeesDialog from "./AddProjectEmployeesDialog";
+import { ProjectEhsTab } from "../ehs/ProjectEhsTab";
 import { IppmsWorkTab } from "../ippms/IppmsWorkTab";
 import { IppmsWorkboardEnhanced } from "../ippms/IppmsWorkboardEnhanced";
 import ProjectOnboardingChecklist from "./ProjectOnboardingChecklist";
