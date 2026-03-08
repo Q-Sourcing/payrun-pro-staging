@@ -605,7 +605,6 @@ export default function UsersManagement() {
       <Tabs defaultValue="users" className="space-y-4">
         <TabsList>
           <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="roles">User Roles & Permissions</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users" className="space-y-4">
@@ -746,10 +745,6 @@ export default function UsersManagement() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="roles">
-          <RolesPermissionsSection roles={roles} />
         </TabsContent>
       </Tabs>
 
