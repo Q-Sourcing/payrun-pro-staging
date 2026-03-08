@@ -2,7 +2,8 @@ import {
   Users, FolderKanban, DollarSign, Globe, Briefcase, Clock3,
   GraduationCap, UserSquare, Timer, FileText, Settings, ChevronRight, BarChart3,
   Building2, FolderTree, Calendar, Package, CheckSquare, AlarmClock, UserCog,
-  ShieldAlert, AlertTriangle, ClipboardCheck, Shield
+  ShieldAlert, AlertTriangle, ClipboardCheck, Shield, ListChecks, FileSearch,
+  HardHat, KeyRound, Leaf, Siren, Scale
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -402,6 +403,13 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
           <NavItem to="/ehs/hazards" icon={<ShieldAlert size={16} />} label="Hazards" />
           <NavItem to="/ehs/inspections" icon={<ClipboardCheck size={16} />} label="Inspections" />
           <NavItem to="/ehs/training" icon={<GraduationCap size={16} />} label="Training" />
+          <NavItem to="/ehs/corrective-actions" icon={<ListChecks size={16} />} label="Corrective Actions" />
+          <NavItem to="/ehs/risk-assessments" icon={<FileSearch size={16} />} label="Risk Assessments" />
+          <NavItem to="/ehs/ppe" icon={<HardHat size={16} />} label="PPE Management" />
+          <NavItem to="/ehs/permits" icon={<KeyRound size={16} />} label="Permits to Work" />
+          <NavItem to="/ehs/environmental" icon={<Leaf size={16} />} label="Environmental" />
+          <NavItem to="/ehs/emergency-drills" icon={<Siren size={16} />} label="Emergency Drills" />
+          <NavItem to="/ehs/compliance" icon={<Scale size={16} />} label="Compliance" />
           <NavItem to="/ehs/reports" icon={<BarChart3 size={16} />} label="Reports" />
         </>
       )}

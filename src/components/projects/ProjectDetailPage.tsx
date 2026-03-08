@@ -15,6 +15,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X, UserPlus, MapPin, Building2, DollarSign, Pencil, Save, AlertTriangle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import AddProjectEmployeesDialog from "./AddProjectEmployeesDialog";
+import { ProjectEhsTab } from "../ehs/ProjectEhsTab";
 import { IppmsWorkTab } from "../ippms/IppmsWorkTab";
 import { IppmsWorkboardEnhanced } from "../ippms/IppmsWorkboardEnhanced";
 import ProjectOnboardingChecklist from "./ProjectOnboardingChecklist";
@@ -121,8 +122,8 @@ export default function ProjectDetailPage() {
     const requestedTab = searchParams.get("tab");
     if (!requestedTab) return;
     const allowedTabs = isIppms
-      ? ["overview", "employees", "paygroups", "workboard"]
-      : ["overview", "employees", "paygroups"];
+      ? ["overview", "employees", "paygroups", "workboard", "ehs"]
+      : ["overview", "employees", "paygroups", "ehs"];
     if (allowedTabs.includes(requestedTab) && requestedTab !== activeTab) {
       setActiveTab(requestedTab);
     }
@@ -312,6 +313,7 @@ export default function ProjectDetailPage() {
           <TabsTrigger value="paygroups">Pay Groups ({payGroups.length})</TabsTrigger>
           {isIppms && <TabsTrigger value="workboard">IPPMS Workboard</TabsTrigger>}
           {hasVariablePay && <TabsTrigger value="variable-payroll">⚡ Variable Pay</TabsTrigger>}
+          <TabsTrigger value="ehs">🛡️ EHS</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -595,6 +597,11 @@ export default function ProjectDetailPage() {
             />
           </TabsContent>
         )}
+
+        {/* EHS Tab */}
+        <TabsContent value="ehs" className="mt-4">
+          <ProjectEhsTab projectId={projectId as string} />
+        </TabsContent>
       </Tabs>
 
       <AddProjectEmployeesDialog
