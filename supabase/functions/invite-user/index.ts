@@ -195,8 +195,22 @@ serve(async (req) => {
       const inviteToken = crypto.randomUUID() + '-' + crypto.randomUUID()
       const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
 
-      // Redirect target: /set-password — must be in Supabase Auth > Redirect URLs
-      const APP_URL = 'https://id-preview--d4039800-cafc-472d-9b4b-2216eac18925.lovable.app'
+      // Redirect target: /set-password — dynamically determined from request origin
+      const origin = req.headers.get('origin') || req.headers.get('referer')
+      let APP_URL = 'https://payroll.flipafrica.app' // production fallback
+      if (origin) {
+        try {
+          const originUrl = new URL(origin)
+          if (
+            originUrl.hostname === 'localhost' ||
+            originUrl.hostname === '127.0.0.1' ||
+            originUrl.hostname.endsWith('.flipafrica.app') ||
+            originUrl.hostname.endsWith('.lovable.app')
+          ) {
+            APP_URL = `${originUrl.protocol}//${originUrl.host}`
+          }
+        } catch { /* ignore malformed origin */ }
+      }
       const redirectTo = `${APP_URL}/set-password?token=${inviteToken}`
       console.log('[invite-user] redirectTo:', redirectTo)
 
