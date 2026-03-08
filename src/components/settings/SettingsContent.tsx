@@ -271,6 +271,12 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
                         <ReminderSettings />
                     </SettingsSectionGuard>
                 );
+            case "attendance-settings":
+                return (
+                    <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration">
+                        <AttendanceSettingsSection />
+                    </SettingsSectionGuard>
+                );
             default:
                 return <ThemeSettings />;
         }
