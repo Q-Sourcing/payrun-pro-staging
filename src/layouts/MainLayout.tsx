@@ -161,16 +161,7 @@ export default function MainLayout() {
                 )}
 
                 {/* Theme Toggle */}
-                {!sidebarCollapsed && (
-                  <div className="theme-toggle">
-                    <div className="theme-options">
-                      <button className="theme-option active">
-                        <span className="theme-icon">🌙</span>
-                        <span className="theme-label">Dark</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <ThemeToggleButton />
               </div>
             </div>
           </div>
