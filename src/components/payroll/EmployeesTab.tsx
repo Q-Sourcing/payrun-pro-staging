@@ -39,7 +39,7 @@ interface Employee {
   status: string;
   employment_status?: string | null;
   employee_type: string;
-  engagement_type?: string | null;
+  engagement_type?: "Permanent" | "Contract" | "Temporary" | "Casual" | "Trainee" | "Intern" | null;
   employee_type_id?: string | null;
   employee_type_name?: string; // resolved from employee_types
   pay_groups?: { name: string };
