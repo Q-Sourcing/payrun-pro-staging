@@ -3,3 +3,6 @@
 # Used for development and testing before deploying to production
 
 project_id = "sbphmrjoappwlervnbtm"
+
+[functions.ehs-notifications]
+verify_jwt = false
