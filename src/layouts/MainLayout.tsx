@@ -2,7 +2,7 @@ import { Outlet } from "react-router-dom";
 import { NavigationSidebar } from "@/components/Sidebar";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { LogOut, ChevronLeft, ChevronRight, Pin, PinOff } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronRight, Pin, PinOff, Sun, Moon } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useUserRole } from "@/hooks/use-user-role";
 import { RoleBadge, RoleBadgeSmall } from "@/components/admin/RoleBadge";
@@ -14,9 +14,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { SettingsModal } from "@/components/settings/SettingsModal";
+import { useTheme } from "@/components/ui/theme-provider";
 
 // Universal Features - Available to all authenticated users
 import { UniversalFeatures } from "@/components/layout/UniversalFeatures";
+
+function ThemeToggleButton() {
+  const { theme, setTheme } = useTheme();
+  const isDark = theme === "dark";
+  return (
+    <button
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
+      className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-md text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+    >
+      <div className={`theme-toggle-pill ${isDark ? 'dark' : 'light'}`}>
+        <div className="theme-toggle-thumb">
+          {isDark ? <Moon className="h-3 w-3" /> : <Sun className="h-3 w-3" />}
+        </div>
+      </div>
+      <span className="text-sm">{isDark ? 'Dark' : 'Light'}</span>
+    </button>
+  );
+}
 
 
 export default function MainLayout() {
@@ -160,16 +180,7 @@ export default function MainLayout() {
                 )}
 
                 {/* Theme Toggle */}
-                {!sidebarCollapsed && (
-                  <div className="theme-toggle">
-                    <div className="theme-options">
-                      <button className="theme-option active">
-                        <span className="theme-icon">🌙</span>
-                        <span className="theme-label">Dark</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
+                {!sidebarCollapsed && <ThemeToggleButton />}
               </div>
             </div>
           </div>
