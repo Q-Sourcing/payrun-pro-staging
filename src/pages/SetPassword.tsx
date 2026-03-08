@@ -201,6 +201,12 @@ export default function SetPassword() {
     return () => subscription.unsubscribe();
   }, [sessionReady]);
 
+  // If we only have an invite token (no Supabase hash session), the password
+  // update goes through a server-side call via the accept action after we
+  // exchange the token. Allow form submission regardless of sessionReady when
+  // an inviteToken is present so the user is never blocked.
+  const canSubmit = valid && (sessionReady || !!inviteToken);
+
   // ── submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
