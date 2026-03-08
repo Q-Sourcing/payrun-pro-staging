@@ -64,6 +64,7 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
       canViewPayRunsProjects: RBACService.hasScopedPermission('payroll.view', 'PROJECT'),
       canViewReports: RBACService.hasPermission('reports.view'),
       canViewSettings: RBACService.isPlatformAdmin() || RBACService.isOrgAdmin(),
+      canViewEhs: RBACService.hasPermission('ehs.view_dashboard') || RBACService.isPlatformAdmin() || RBACService.isOrgAdmin(),
     };
   }, [userContext]);
 
