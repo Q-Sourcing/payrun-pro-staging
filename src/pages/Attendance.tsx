@@ -53,6 +53,9 @@ export default function Attendance() {
           <TabsTrigger value="regularization" className="gap-1.5">
             <AlertCircle className="h-4 w-4" /> Regularization
           </TabsTrigger>
+          <TabsTrigger value="projects" className="gap-1.5">
+            <Briefcase className="h-4 w-4" /> By Project
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard">
@@ -69,6 +72,10 @@ export default function Attendance() {
 
         <TabsContent value="regularization">
           <RegularizationPanel organizationId={organizationId} mode="admin" />
+        </TabsContent>
+
+        <TabsContent value="projects">
+          <ProjectAttendanceDashboard organizationId={organizationId} />
         </TabsContent>
       </Tabs>
     </div>
