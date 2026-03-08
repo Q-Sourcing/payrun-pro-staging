@@ -197,8 +197,23 @@ serve(async (req) => {
 
       if (inviteError) {
         console.error('Invite error:', inviteError)
-        if (!inviteError.message?.includes('already been registered') && !inviteError.message?.includes('already exists')) {
+        const alreadyExists = inviteError.message?.includes('already been registered') ||
+          inviteError.message?.includes('already exists') ||
+          inviteError.message?.includes('email_exists')
+
+        if (!alreadyExists) {
           return json({ success: false, message: inviteError.message }, 400)
+        }
+
+        // User already exists in auth — send a password reset link so they can set/reset their password
+        console.log(`User ${email} already exists, sending password reset link instead`)
+        const { error: resetError } = await supabaseAdmin.auth.admin.generateLink({
+          type: 'recovery',
+          email: email.toLowerCase(),
+          options: { redirectTo: `${origin}/accept-invite-user?token=${inviteToken}` }
+        })
+        if (resetError) {
+          console.error('Password reset link error:', resetError)
         }
       }
 
@@ -287,6 +302,7 @@ serve(async (req) => {
       const firstName = nameParts[0] || ''
       const lastName = nameParts.slice(1).join(' ') || ''
 
+      // Try invite first; if user already exists in auth, fall back to a recovery/magic link
       const { error: resendError } = await supabaseAdmin.auth.admin.inviteUserByEmail(inv.email, {
         redirectTo,
         data: {
@@ -298,8 +314,22 @@ serve(async (req) => {
         }
       })
 
-      if (resendError && !resendError.message?.includes('already been registered') && !resendError.message?.includes('already exists')) {
+      const alreadyExists = resendError?.message?.includes('already been registered') ||
+        resendError?.message?.includes('already exists') ||
+        resendError?.message?.includes('email_exists')
+
+      if (resendError && !alreadyExists) {
         return json({ success: false, message: resendError.message }, 400)
+      }
+
+      if (alreadyExists) {
+        // User already confirmed — send a recovery/magic-link email so they can sign in
+        console.log(`User ${inv.email} already exists, sending recovery link instead`)
+        await supabaseAdmin.auth.admin.generateLink({
+          type: 'recovery',
+          email: inv.email,
+          options: { redirectTo }
+        })
       }
 
       const { data: updated, error: updateError } = await supabaseAdmin
