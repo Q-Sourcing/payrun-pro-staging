@@ -331,32 +331,71 @@ serve(async (req) => {
       const firstName = nameParts[0] || ''
       const lastName = nameParts.slice(1).join(' ') || ''
 
-      // Resend via Supabase native inviteUserByEmail (handles email delivery automatically)
-      const { error: resendError } = await supabaseAdmin.auth.admin.inviteUserByEmail(inv.email, {
-        redirectTo,
-        data: {
-          full_name: inv.full_name,
-          first_name: firstName,
-          last_name: lastName,
-          role: inv.role,
-          invitation_token: newToken,
+      // For resend: always delete the existing auth user first, then re-invite.
+      // This handles both ghost accounts (never onboarded) and confirmed accounts where
+      // the admin explicitly wants to resend (e.g. user lost the link).
+      const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
+      const existingAuthUser = listData?.users?.find(
+        (u: { email: string }) => u.email?.toLowerCase() === inv.email.toLowerCase()
+      )
+
+      if (existingAuthUser) {
+        // Only delete if the user has NOT fully onboarded (no password set / never signed in)
+        const hasPassword = !!(existingAuthUser as any).encrypted_password &&
+          (existingAuthUser as any).encrypted_password !== ''
+        const hasSignedIn = !!(existingAuthUser as any).last_sign_in_at
+
+        if (hasPassword && hasSignedIn) {
+          // Fully active user — use generateLink instead to avoid deleting real account
+          const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+            type: 'recovery',
+            email: inv.email,
+            options: {
+              redirectTo,
+              data: {
+                full_name: inv.full_name,
+                first_name: firstName,
+                last_name: lastName,
+                role: inv.role,
+                invitation_token: newToken,
+              }
+            }
+          })
+          if (linkError) return json({ success: false, message: linkError.message }, 400)
+          // Link generated — proceed to update the invitation record below
+        } else {
+          // Ghost / unactivated account — safe to delete and re-invite
+          const { error: delError } = await supabaseAdmin.auth.admin.deleteUser(existingAuthUser.id)
+          if (delError) {
+            console.error('Failed to delete ghost auth user on resend:', delError)
+            return json({ success: false, message: `Could not clean up existing account: ${delError.message}` }, 500)
+          }
+
+          const { error: resendError } = await supabaseAdmin.auth.admin.inviteUserByEmail(inv.email, {
+            redirectTo,
+            data: {
+              full_name: inv.full_name,
+              first_name: firstName,
+              last_name: lastName,
+              role: inv.role,
+              invitation_token: newToken,
+            }
+          })
+          if (resendError) return json({ success: false, message: resendError.message }, 400)
         }
-      })
-
-      if (resendError) {
-        const alreadyExists = resendError.message?.includes('already been registered') ||
-          resendError.message?.includes('already exists') ||
-          resendError.message?.includes('email_exists')
-
-        if (alreadyExists) {
-          return json({
-            success: false,
-            message: `An active account already exists for ${inv.email}. The user may have already accepted a previous invitation. Please delete their Supabase Auth account first if you need to resend.`,
-            code: 'email_exists'
-          }, 409)
-        }
-
-        return json({ success: false, message: resendError.message }, 400)
+      } else {
+        // No existing auth user — send a fresh invite
+        const { error: resendError } = await supabaseAdmin.auth.admin.inviteUserByEmail(inv.email, {
+          redirectTo,
+          data: {
+            full_name: inv.full_name,
+            first_name: firstName,
+            last_name: lastName,
+            role: inv.role,
+            invitation_token: newToken,
+          }
+        })
+        if (resendError) return json({ success: false, message: resendError.message }, 400)
       }
 
       const { data: updated, error: updateError } = await supabaseAdmin
