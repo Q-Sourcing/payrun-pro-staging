@@ -32,7 +32,7 @@ export function AccessControlManager() {
 
     const renderModule = () => {
         switch (activeModule) {
-            case "roles": return <RBACRolesModule />;
+            case "roles": return <RolesPermissionsModule />;
             case "permissions": return <RBACPermissionsModule />;
             case "grants": return <RBACGrantsModule />;
             case "scope": return <RBACDataScopeModule />;
