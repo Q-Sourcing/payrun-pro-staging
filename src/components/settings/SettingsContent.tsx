@@ -116,13 +116,6 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
             requiredPermission: 'manage_integrations'
         },
         {
-            id: "user-management",
-            label: "User Management",
-            icon: Users,
-            requiredRole: 'ORG_ADMIN' as const,
-            requiredPermission: 'manage_organization_users'
-        },
-        {
             id: "emails",
             label: "Email & Logic",
             icon: Mail,
