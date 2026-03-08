@@ -5,9 +5,10 @@ import { AttendanceDashboard } from "@/components/attendance/AttendanceDashboard
 import { AdminAttendanceGrid } from "@/components/attendance/AdminAttendanceGrid";
 import { BulkUploadAttendance } from "@/components/attendance/BulkUploadAttendance";
 import { RegularizationPanel } from "@/components/attendance/RegularizationPanel";
+import { ProjectAttendanceDashboard } from "@/components/attendance/ProjectAttendanceDashboard";
 import { supabase } from "@/integrations/supabase/client";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { BarChart3, Users, Upload, AlertCircle, FileText } from "lucide-react";
+import { BarChart3, Users, Upload, AlertCircle, Briefcase } from "lucide-react";
 
 export default function Attendance() {
   const { session } = useSupabaseAuth();
@@ -52,6 +53,9 @@ export default function Attendance() {
           <TabsTrigger value="regularization" className="gap-1.5">
             <AlertCircle className="h-4 w-4" /> Regularization
           </TabsTrigger>
+          <TabsTrigger value="projects" className="gap-1.5">
+            <Briefcase className="h-4 w-4" /> By Project
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard">
@@ -68,6 +72,10 @@ export default function Attendance() {
 
         <TabsContent value="regularization">
           <RegularizationPanel organizationId={organizationId} mode="admin" />
+        </TabsContent>
+
+        <TabsContent value="projects">
+          <ProjectAttendanceDashboard organizationId={organizationId} />
         </TabsContent>
       </Tabs>
     </div>
