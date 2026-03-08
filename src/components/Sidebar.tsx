@@ -195,6 +195,7 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
             <NavItem to="/dashboard/paygroups" icon={<FolderKanban size={16} />} label="My Pay Groups" />
             <NavItem to="/dashboard/payruns" icon={<DollarSign size={16} />} label="My Pay Runs" />
             <NavItem to="/my/approvals" icon={<CheckSquare size={16} />} label="My Approvals" />
+            <NavItem to="/dashboard/attendance" icon={<Clock3 size={16} />} label="My Time & Attendance" />
             <NavItem to="/timesheets" icon={<AlarmClock size={16} />} label="My Timesheets" />
           </motion.div>
         )}

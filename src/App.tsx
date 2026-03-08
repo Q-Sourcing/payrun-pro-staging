@@ -262,6 +262,8 @@ const App = () => {
                   <Route path="settings/payroll/advanced" element={<PayrollAdvancedSettings />} />
                   <Route path="probation" element={<ProbationDashboard />} />
                   <Route path="timesheets" element={<Timesheets />} />
+                  <Route path="dashboard/attendance" element={<MyAttendance />} />
+                  <Route path="attendance" element={<Attendance />} />
 
                   {/* EHS Module Routes */}
                   <Route path="ehs" element={<EhsIndex />} />
