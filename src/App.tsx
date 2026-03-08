@@ -154,6 +154,7 @@ const App = () => {
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/signup" element={<SignUp />} />
                 <Route path="/accept-invite" element={<AcceptInvite />} />
+                <Route path="/accept-invite-user" element={<AcceptInviteUser />} />
                 <Route path="/choose-company" element={
                   <ProtectedRoute>
                     <CompanyPicker />
