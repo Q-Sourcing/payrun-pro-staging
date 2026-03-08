@@ -238,12 +238,6 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
                         <IntegrationsSection />
                     </SettingsSectionGuard>
                 );
-            case "user-management":
-                return (
-                    <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="manage_organization_users">
-                        <UserManagement />
-                    </SettingsSectionGuard>
-                );
             case "system":
                 return (
                     <SettingsSectionGuard requiredRole="PLATFORM_SUPER_ADMIN" requiredPermission="system_configuration">
