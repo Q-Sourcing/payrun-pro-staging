@@ -220,15 +220,27 @@ serve(async (req) => {
           inviteError.message?.includes('email_exists')
 
         if (alreadyExists) {
-          // User already exists — tell admin to resend after deleting the old account if needed
-          return json({
-            success: false,
-            message: `An account already exists for ${email}. If this user has not yet onboarded, please delete their account from Supabase Auth first, then resend the invitation.`,
-            code: 'email_exists'
-          }, 409)
+          // Ghost auth user exists (never onboarded) — delete it and retry the invite once
+          const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
+          const ghostUser = listData?.users?.find((u: { email: string }) => u.email?.toLowerCase() === email.toLowerCase())
+          if (ghostUser) {
+            await supabaseAdmin.auth.admin.deleteUser(ghostUser.id)
+            // Retry invite after deleting ghost account
+            const { data: retryData, error: retryError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+              redirectTo,
+              data: { full_name, first_name: firstName, last_name: lastName, role: role || 'user', invitation_token: inviteToken }
+            })
+            if (retryError) {
+              return json({ success: false, message: `Failed to send invitation after cleanup: ${retryError.message}` }, 400)
+            }
+            // Continue with the retry data below
+            Object.assign(inviteData || {}, retryData)
+          } else {
+            return json({ success: false, message: `An account already exists for ${email} and could not be cleaned up automatically. Please contact support.`, code: 'email_exists' }, 409)
+          }
+        } else {
+          return json({ success: false, message: inviteError.message }, 400)
         }
-
-        return json({ success: false, message: inviteError.message }, 400)
       }
 
       const { data: invitation, error: insertError } = await supabaseAdmin
