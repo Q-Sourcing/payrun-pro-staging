@@ -865,10 +865,16 @@ export function UserManagementTab() {
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{user.department || "—"}</TableCell>
                         <TableCell>
-                          <Badge variant={
-                            user.status === "active" ? "default" :
-                            user.status === "pending" ? "secondary" : "outline"
-                          }>
+                          <Badge
+                            variant="outline"
+                            className={
+                              user.status === "active"
+                                ? "border-green-500 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30"
+                                : user.status === "pending"
+                                ? "border-yellow-500 text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-950/30"
+                                : "text-muted-foreground"
+                            }
+                          >
                             {user.status === "active" ? "Active" :
                              user.status === "pending" ? "Pending" : "Inactive"}
                           </Badge>
