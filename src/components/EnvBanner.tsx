@@ -8,9 +8,17 @@ import React from "react";
  * - Development: Blue badge with "🔧 DEVELOPMENT" (optional)
  */
 export default function EnvBanner() {
-  // Use Vite environment variables (import.meta.env instead of process.env)
-  const env = import.meta.env.VITE_ENVIRONMENT || import.meta.env.NEXT_PUBLIC_ENVIRONMENT;
+  // Resolve environment from explicit vars first, then Vite mode.
+  const explicitEnv =
+    import.meta.env.VITE_ENVIRONMENT ||
+    import.meta.env.NEXT_PUBLIC_ENVIRONMENT ||
+    import.meta.env.VITE_ENV ||
+    import.meta.env.NEXT_PUBLIC_ENV;
   const mode = import.meta.env.MODE;
+  const normalizedEnv = (explicitEnv || "").toLowerCase();
+  const env =
+    normalizedEnv ||
+    (mode === "development" ? "development" : mode === "production" ? "production" : "");
 
   // Debug logging
   console.log('🎨 EnvBanner Debug:', {
@@ -21,7 +29,7 @@ export default function EnvBanner() {
     allEnv: import.meta.env
   });
 
-  // Don't show banner if no environment is detected
+  // Don't show banner if no environment can be resolved
   if (!env) {
     console.log('❌ No environment detected, hiding banner');
     return null;
@@ -77,29 +85,9 @@ export default function EnvBanner() {
     );
   }
 
-  // Development mode - Blue badge (for local development)
-  if (mode === "development") {
-    return (
-      <div
-        style={{
-          position: "fixed",
-          top: "1rem",
-          right: "1rem",
-          backgroundColor: "#3B82F6",
-          color: "white",
-          fontWeight: "bold",
-          padding: "6px 12px",
-          borderRadius: "6px",
-          fontSize: "0.875rem",
-          zIndex: 9999,
-          boxShadow: "0 0 4px rgba(0,0,0,0.15)",
-          border: "1px solid #2563EB",
-          fontFamily: "system-ui, -apple-system, sans-serif"
-        }}
-      >
-        🔧 DEVELOPMENT
-      </div>
-    );
+  // Hide banner in local development mode.
+  if (mode === "development" || env === "development") {
+    return null;
   }
 
   // Fallback for unknown environments

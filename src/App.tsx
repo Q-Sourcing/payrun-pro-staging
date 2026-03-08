@@ -126,7 +126,19 @@ const App = () => {
     });
 
     // Environment verification logging
-    console.log('🌿 Environment:', import.meta.env.VITE_ENVIRONMENT || import.meta.env.NEXT_PUBLIC_ENVIRONMENT || 'unknown');
+    const explicitEnv =
+      import.meta.env.VITE_ENVIRONMENT ||
+      import.meta.env.NEXT_PUBLIC_ENVIRONMENT ||
+      import.meta.env.VITE_ENV ||
+      import.meta.env.NEXT_PUBLIC_ENV;
+    const resolvedEnv =
+      (explicitEnv || "").toLowerCase() ||
+      (import.meta.env.MODE === "development"
+        ? "development"
+        : import.meta.env.MODE === "production"
+          ? "production"
+          : "unknown");
+    console.log('🌿 Environment:', resolvedEnv);
     console.log('🔗 Supabase URL:', import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL || 'not configured');
     console.log('🔧 Vite Mode:', import.meta.env.MODE);
 

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +16,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -43,6 +43,7 @@ import {
   MoreHorizontal,
   Edit,
   Trash2,
+  Eye,
   UserCheck,
   UserX,
   Users,
@@ -85,12 +86,42 @@ interface RoleWithPermissions extends OrgRole {
   permissions: string[];
 }
 
+const MANAGED_ROLES: ReadonlyArray<{ code: "admin" | "hr" | "manager" | "employee"; name: string; description: string }> = [
+  {
+    code: "admin",
+    name: "Admin",
+    description: "Organization-wide administration and user management.",
+  },
+  {
+    code: "hr",
+    name: "HR",
+    description: "People and assignment management responsibilities.",
+  },
+  {
+    code: "manager",
+    name: "Manager",
+    description: "Team and project-level management access.",
+  },
+  {
+    code: "employee",
+    name: "Employee",
+    description: "Self-service access to own account and payroll records.",
+  },
+];
+
+const ROLE_TO_RBAC_CODE: Record<string, string> = {
+  admin: "ORG_ADMIN",
+  hr: "ORG_HR_ADMIN",
+  manager: "PROJECT_MANAGER",
+  employee: "SELF_USER",
+};
+
 const userSchema = z.object({
   full_name: z.string().min(2, "Full name must be at least 2 characters").max(200).trim(),
   email: z.string().email("Invalid email address"),
   password: z.string().min(8, "Password must be at least 8 characters").optional().or(z.literal("")),
   phone: z.string().max(30).optional().or(z.literal("")),
-  role_code: z.string().min(1, "Role is required"),
+  role: z.enum(["admin", "hr", "manager", "employee"]),
   department: z.string().max(100).optional().or(z.literal("")),
   status: z.enum(["active", "inactive"]),
 });
@@ -143,7 +174,7 @@ function UserFormDialog({
       email: user?.email ?? "",
       password: "",
       phone: user?.phone ?? "",
-      role_code: user?.role ?? "",
+      role: (user?.role as UserFormValues["role"]) ?? "employee",
       department: user?.department ?? "",
       status: user?.status ?? "active",
     },
@@ -156,7 +187,7 @@ function UserFormDialog({
       email: user?.email ?? "",
       password: "",
       phone: user?.phone ?? "",
-      role_code: user?.role ?? roles[0]?.code ?? "",
+      role: (user?.role as UserFormValues["role"]) ?? (roles[0]?.code as UserFormValues["role"] | undefined) ?? "employee",
       department: user?.department ?? "",
       status: user?.status ?? "active",
     });
@@ -177,7 +208,7 @@ function UserFormDialog({
         password: isEdit ? undefined : values.password,
         phone: values.phone || null,
         department: values.department || null,
-        role_code: values.role_code,
+        role: values.role,
         status: values.status,
       };
 
@@ -291,7 +322,7 @@ function UserFormDialog({
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="role_code"
+                name="role"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Role</FormLabel>
@@ -372,7 +403,7 @@ function DeleteConfirmDialog({
     try {
       const result = await callManageUsers("DELETE", { id: user.id });
       if (!result.success) throw new Error(result.message || "Failed to delete user.");
-      toast({ title: "User deactivated", description: `${user.full_name} has been deactivated.` });
+      toast({ title: "User deleted", description: `${user.full_name} has been removed.` });
       onDeleted();
       onClose();
     } catch (err: unknown) {
@@ -390,9 +421,9 @@ function DeleteConfirmDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Deactivate User</DialogTitle>
+          <DialogTitle>Delete User</DialogTitle>
           <DialogDescription>
-            Are you sure you want to deactivate <strong>{user?.full_name}</strong>?
+            Are you sure you want to permanently delete <strong>{user?.full_name}</strong>? This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -401,8 +432,57 @@ function DeleteConfirmDialog({
           </Button>
           <Button variant="destructive" onClick={handleDelete} disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Deactivate
+            Delete User
           </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ViewUserDialog({
+  open,
+  user,
+  onClose,
+}: {
+  open: boolean;
+  user: ManagedUser | null;
+  onClose: () => void;
+}) {
+  if (!user) return null;
+  const roleName = MANAGED_ROLES.find((role) => role.code === user.role)?.name ?? user.role;
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>View Profile</DialogTitle>
+          <DialogDescription>User profile details</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2 text-sm">
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Name</span>
+            <span className="font-medium">{user.full_name}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Email</span>
+            <span className="font-medium">{user.email}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Role</span>
+            <span className="font-medium">{roleName}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Status</span>
+            <span className="font-medium">{user.status}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Department</span>
+            <span className="font-medium">{user.department || "—"}</span>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -447,7 +527,6 @@ function RolesPermissionsSection({ roles }: { roles: RoleWithPermissions[] }) {
 
 export default function UsersManagement() {
   const { toast } = useToast();
-  const { profile } = useSupabaseAuth();
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [roles, setRoles] = useState<RoleWithPermissions[]>([]);
   const [loading, setLoading] = useState(true);
@@ -455,6 +534,7 @@ export default function UsersManagement() {
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [createOpen, setCreateOpen] = useState(false);
+  const [viewUser, setViewUser] = useState<ManagedUser | null>(null);
   const [editUser, setEditUser] = useState<ManagedUser | null>(null);
   const [deleteUser, setDeleteUser] = useState<ManagedUser | null>(null);
 
@@ -476,13 +556,11 @@ export default function UsersManagement() {
   }, [toast]);
 
   const fetchRoles = useCallback(async () => {
-    const orgId = profile?.organization_id;
-    if (!orgId) return;
-
+    const rbacCodes = MANAGED_ROLES.map((role) => ROLE_TO_RBAC_CODE[role.code]);
     const { data: roleRows, error: roleError } = await supabase
       .from("rbac_roles")
       .select("code, name, description")
-      .eq("org_id", orgId)
+      .in("code", rbacCodes)
       .order("name");
 
     if (roleError) {
@@ -498,7 +576,6 @@ export default function UsersManagement() {
     const { data: rolePermissions } = await supabase
       .from("rbac_role_permissions")
       .select("role_code, permission_key")
-      .eq("org_id", orgId)
       .in("role_code", roleCodes.length ? roleCodes : [""]);
 
     const permissionsByRole = new Map<string, string[]>();
@@ -507,13 +584,20 @@ export default function UsersManagement() {
       permissionsByRole.set(row.role_code, [...current, row.permission_key]);
     }
 
+    const roleByCode = new Map((roleRows || []).map((role) => [role.code, role]));
     setRoles(
-      (roleRows || []).map((role) => ({
-        ...role,
-        permissions: permissionsByRole.get(role.code) || [],
-      }))
+      MANAGED_ROLES.map((uiRole) => {
+        const rbacCode = ROLE_TO_RBAC_CODE[uiRole.code];
+        const rbacRole = roleByCode.get(rbacCode);
+        return {
+          code: uiRole.code,
+          name: uiRole.name,
+          description: rbacRole?.description ?? uiRole.description,
+          permissions: permissionsByRole.get(rbacCode) || [],
+        };
+      })
     );
-  }, [profile?.organization_id, toast]);
+  }, [toast]);
 
   useEffect(() => {
     fetchUsers();
@@ -524,8 +608,8 @@ export default function UsersManagement() {
   }, [fetchRoles]);
 
   const roleOptions: OrgRole[] = useMemo(
-    () => roles.map((role) => ({ code: role.code, name: role.name, description: role.description })),
-    [roles]
+    () => MANAGED_ROLES.map((role) => ({ code: role.code, name: role.name, description: role.description })),
+    []
   );
 
   const filteredUsers = users.filter((u) => {
@@ -547,8 +631,8 @@ export default function UsersManagement() {
     roles: roles.length,
   };
 
-  async function toggleStatus(user: ManagedUser) {
-    const nextStatus = user.status === "active" ? "inactive" : "active";
+  async function setUserStatus(user: ManagedUser, nextStatus: UserStatus) {
+    if (user.status === nextStatus) return;
     try {
       const result = await callManageUsers("PATCH", { id: user.id, status: nextStatus });
       if (!result.success) throw new Error(result.message || "Failed to update status");
@@ -572,10 +656,10 @@ export default function UsersManagement() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">User Management</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Manage users with live data, and assign roles from your organization role table.
+            Manage users and keep role permissions aligned across the platform.
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)} className="gap-2" disabled={roleOptions.length === 0}>
+        <Button onClick={() => setCreateOpen(true)} className="gap-2">
           <UserPlus className="h-4 w-4" />
           Create User
         </Button>
@@ -714,26 +798,32 @@ export default function UsersManagement() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                 <DropdownMenuItem onClick={() => setEditUser(user)}>
                                   <Edit className="mr-2 h-4 w-4" /> Edit
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => toggleStatus(user)}>
-                                  {user.status === "active" ? (
-                                    <>
-                                      <UserX className="mr-2 h-4 w-4" /> Deactivate
-                                    </>
-                                  ) : (
-                                    <>
-                                      <UserCheck className="mr-2 h-4 w-4" /> Activate
-                                    </>
-                                  )}
+                          <DropdownMenuItem onClick={() => setViewUser(user)}>
+                            <Eye className="mr-2 h-4 w-4" /> View Profile
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  disabled={user.status === "active"}
+                                  onClick={() => setUserStatus(user, "active")}
+                                >
+                                  <UserCheck className="mr-2 h-4 w-4" /> Activate
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  disabled={user.status === "inactive"}
+                                  onClick={() => setUserStatus(user, "inactive")}
+                                >
+                                  <UserX className="mr-2 h-4 w-4" /> Deactivate
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   className="text-destructive focus:text-destructive"
                                   onClick={() => setDeleteUser(user)}
                                 >
-                                  <Trash2 className="mr-2 h-4 w-4" /> Deactivate
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete User
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -758,6 +848,11 @@ export default function UsersManagement() {
         onClose={() => setCreateOpen(false)}
         onSaved={fetchUsers}
         roles={roleOptions}
+      />
+      <ViewUserDialog
+        open={!!viewUser}
+        user={viewUser}
+        onClose={() => setViewUser(null)}
       />
       <UserFormDialog
         open={!!editUser}

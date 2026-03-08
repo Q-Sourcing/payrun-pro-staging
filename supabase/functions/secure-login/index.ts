@@ -137,6 +137,28 @@ async function getUserOrgId(supabaseAdmin: any, userId: string): Promise<string 
   }
 }
 
+// Helper: check whether user is inactive in user management profile
+async function isUserInactive(supabaseAdmin: any, userId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('user_management_profiles')
+      .select('status')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    // If no row exists, do not block login.
+    if (error) {
+      console.warn('[secure-login] Could not read user_management_profiles status:', error.message);
+      return false;
+    }
+
+    return data?.status === 'inactive';
+  } catch (error) {
+    console.warn('[secure-login] Failed inactive status check:', error);
+    return false;
+  }
+}
+
 // Helper function to get lockout threshold
 async function getLockoutThreshold(supabaseAdmin: any, orgId: string | null): Promise<number> {
   if (!orgId) {
@@ -303,6 +325,34 @@ serve(async (req: Request) => {
     }
 
     const user = { id: profile.id, email: profile.email };
+
+    // Block inactive accounts from logging in.
+    const inactive = await isUserInactive(supabaseAdmin, user.id);
+    if (inactive) {
+      await logAuthEvent(
+        supabaseAdmin,
+        {
+          user_id: user.id,
+          org_id: profile.organization_id || undefined,
+          event_type: 'login_failed',
+          success: false,
+          reason: 'Account is inactive',
+        },
+        ipAddress,
+        userAgent
+      );
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Your account is inactive. Contact your administrator.'
+        } as LoginResponse),
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
     // Check for account lockout (only if column exists)
     const isLocked = profile.locked_at ? true : false;

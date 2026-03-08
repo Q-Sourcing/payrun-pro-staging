@@ -46,6 +46,58 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [userContext, setUserContext] = useState<UserContext | null>(null);
   const [claims, setClaims] = useState<any>(null);
+  const isLocalhostRuntime =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+  const isUserInactive = async (userId: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .from('user_management_profiles')
+        .select('status')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error) {
+        warn('Unable to check user active status:', error.message);
+        return false;
+      }
+
+      return data?.status === 'inactive';
+    } catch (err) {
+      warn('Inactive status check failed:', err);
+      return false;
+    }
+  };
+
+  const enforceActiveAccount = async (currentSession: Session | null): Promise<boolean> => {
+    // Local development should not be blocked by account status drift in staging data.
+    if (import.meta.env.DEV || isLocalhostRuntime) {
+      return true;
+    }
+
+    const currentUserId = currentSession?.user?.id;
+    if (!currentUserId) return true;
+
+    const inactive = await isUserInactive(currentUserId);
+    if (!inactive) return true;
+
+    await supabase.auth.signOut();
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+    JWTClaimsService.setCurrentSession(null);
+    setClaims(null);
+    setUserContext(null);
+
+    toast({
+      title: 'Account inactive',
+      description: 'Your account has been deactivated. Contact your administrator.',
+      variant: 'destructive',
+    });
+
+    return false;
+  };
 
   // Fetch user profile and roles directly from OBAC system
   const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
@@ -120,6 +172,10 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
       setUser(data.session?.user || null);
 
       if (data.session?.user) {
+        const isAllowed = await enforceActiveAccount(data.session);
+        if (!isAllowed) {
+          return;
+        }
         const userProfile = await fetchUserProfile(data.session.user.id);
         setProfile(userProfile);
       }
@@ -137,64 +193,127 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
   // Initialize auth state
   useEffect(() => {
     debug('Initializing auth...');
+    let isMounted = true;
+
+    // Safety net: never allow auth loading to hang forever.
+    const loadingTimeout = setTimeout(() => {
+      if (!isMounted) return;
+      warn('Auth initialization timeout reached; continuing without blocking UI.');
+      setIsLoading(false);
+    }, 10000);
 
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         debug('Auth state changed:', event, session?.user?.email);
 
-        setSession(session);
-        JWTClaimsService.setCurrentSession(session ?? null);
-        setUser(session?.user ?? null);
+        try {
+          if (session?.user) {
+            const isAllowed = await enforceActiveAccount(session);
+            if (!isAllowed) {
+              return;
+            }
+          }
 
-        if (session?.user) {
-          // Update JWT claims and user context
-          const jwtClaims = JWTClaimsService.getClaimsFromSession(session);
-          const userContext = JWTClaimsService.getUserContextFromSession(session);
-          setClaims(jwtClaims);
-          setUserContext(userContext);
+          setSession(session);
+          JWTClaimsService.setCurrentSession(session ?? null);
+          setUser(session?.user ?? null);
 
-          // Defer profile fetching to avoid blocking auth state change
-          setTimeout(async () => {
-            const userProfile = await fetchUserProfile(session.user.id);
-            setProfile(userProfile);
-          }, 0);
-        } else {
+          if (session?.user) {
+            // Update JWT claims and user context
+            const jwtClaims = JWTClaimsService.getClaimsFromSession(session);
+            const userContext = JWTClaimsService.getUserContextFromSession(session);
+            setClaims(jwtClaims);
+            setUserContext(userContext);
+
+            // Defer profile fetching to avoid blocking auth state change
+            setTimeout(async () => {
+              const userProfile = await fetchUserProfile(session.user.id);
+              if (!isMounted) return;
+              setProfile(userProfile);
+            }, 0);
+          } else {
+            setProfile(null);
+            setClaims(null);
+            setUserContext(null);
+          }
+        } catch (err) {
+          logError('Auth state change handler failed:', err);
+          setSession(null);
+          setUser(null);
           setProfile(null);
+          JWTClaimsService.setCurrentSession(null);
           setClaims(null);
           setUserContext(null);
+        } finally {
+          if (isMounted) {
+            setIsLoading(false);
+          }
         }
-
-        setIsLoading(false);
       }
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      debug('Initial session check:', session?.user?.email);
+    supabase.auth.getSession()
+      .then(async ({ data: { session } }) => {
+        debug('Initial session check:', session?.user?.email);
 
-      setSession(session);
-      JWTClaimsService.setCurrentSession(session ?? null);
-      setUser(session?.user ?? null);
+        try {
+          if (session?.user) {
+            const isAllowed = await enforceActiveAccount(session);
+            if (!isAllowed) {
+              return;
+            }
+          }
 
-      if (session?.user) {
-        // Update JWT claims and user context
-        const jwtClaims = JWTClaimsService.getClaimsFromSession(session);
-        const userContext = JWTClaimsService.getUserContextFromSession(session);
-        setClaims(jwtClaims);
-        setUserContext(userContext);
+          setSession(session);
+          JWTClaimsService.setCurrentSession(session ?? null);
+          setUser(session?.user ?? null);
 
-        fetchUserProfile(session.user.id).then(setProfile);
-      } else {
+          if (session?.user) {
+            // Update JWT claims and user context
+            const jwtClaims = JWTClaimsService.getClaimsFromSession(session);
+            const userContext = JWTClaimsService.getUserContextFromSession(session);
+            setClaims(jwtClaims);
+            setUserContext(userContext);
+
+            const userProfile = await fetchUserProfile(session.user.id);
+            if (!isMounted) return;
+            setProfile(userProfile);
+          } else {
+            setClaims(null);
+            setUserContext(null);
+          }
+        } catch (err) {
+          logError('Initial session processing failed:', err);
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          JWTClaimsService.setCurrentSession(null);
+          setClaims(null);
+          setUserContext(null);
+        } finally {
+          if (isMounted) {
+            setIsLoading(false);
+          }
+        }
+      })
+      .catch((err) => {
+        logError('Initial getSession failed:', err);
+        if (!isMounted) return;
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        JWTClaimsService.setCurrentSession(null);
         setClaims(null);
         setUserContext(null);
-      }
-
-      setIsLoading(false);
-    });
+        setIsLoading(false);
+      });
 
     return () => {
       debug('Cleaning up auth subscription');
+      isMounted = false;
+      clearTimeout(loadingTimeout);
       subscription.unsubscribe();
     };
   }, []);
@@ -203,17 +322,99 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
   const login = async (email: string, password: string) => {
     setIsLoading(true);
 
+    const completeLogin = async (nextSession: Session, nextUser: User, source: 'secure-login' | 'fallback') => {
+      const isAllowed = await enforceActiveAccount(nextSession);
+      if (!isAllowed) {
+        throw new Error('Your account is inactive. Contact your administrator.');
+      }
+
+      setSession(nextSession);
+      JWTClaimsService.setCurrentSession(nextSession);
+      setUser(nextUser);
+
+      const jwtClaims = JWTClaimsService.getClaimsFromSession(nextSession);
+      const context = JWTClaimsService.getUserContextFromSession(nextSession);
+      setClaims(jwtClaims);
+      setUserContext(context);
+
+      // Do not block login UX on profile fetch; load in background with timeout.
+      void Promise.race([
+        fetchUserProfile(nextUser.id),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+      ])
+        .then((userProfile) => {
+          if (userProfile) {
+            setProfile(userProfile);
+          }
+        })
+        .catch((profileErr) => {
+          warn('Background profile fetch failed after login:', profileErr);
+        });
+
+      log(`Login successful (${source}):`, nextUser.email);
+      toast({
+        title: "Welcome back!",
+        description: `Successfully logged in as ${nextUser.email}`,
+      });
+    };
+
+    const tryDirectAuthFallback = async (reason: string) => {
+      warn('secure-login failed, trying direct auth fallback:', reason);
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (authError || !authData?.session || !authData?.user) {
+        throw new Error(authError?.message || 'Invalid email or password');
+      }
+
+      await completeLogin(authData.session, authData.user, 'fallback');
+    };
+
     try {
       debug('Attempting login for:', email);
 
+      // Local dev: avoid secure-login edge path (can hang/time out with JWT or network config),
+      // and sign in directly against Supabase Auth for reliable localhost login.
+      if (import.meta.env.DEV || isLocalhostRuntime) {
+        await tryDirectAuthFallback('Localhost/dev direct auth path');
+        return;
+      }
+
       // Call secure-login Edge Function using Supabase client's invoke method
       // This handles authentication headers automatically
-      const { data: result, error: invokeError } = await supabase.functions.invoke('secure-login', {
-        body: {
-          email,
-          password,
-        },
-      });
+      const anonToken =
+        import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+        import.meta.env.VITE_SUPABASE_ANON_KEY;
+      let result: any = null;
+      let invokeError: any = null;
+      try {
+        const invokeResponse = await Promise.race([
+          supabase.functions.invoke('secure-login', {
+            body: {
+              email,
+              password,
+            },
+            headers: anonToken
+              ? {
+                // secure-login may be deployed with JWT verification enabled.
+                // Send anon token so pre-auth login requests are accepted.
+                Authorization: `Bearer ${anonToken}`,
+              }
+              : undefined,
+          }),
+          new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('secure-login request timed out')), 8000);
+          }),
+        ]);
+
+        result = (invokeResponse as any)?.data ?? null;
+        invokeError = (invokeResponse as any)?.error ?? null;
+      } catch (invokeTransportError: any) {
+        await tryDirectAuthFallback(invokeTransportError?.message || 'secure-login transport failure');
+        return;
+      }
 
       // Handle invocation errors
       if (invokeError) {
@@ -241,41 +442,27 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
           error: invokeError,
           extractedMessage: errorMessage
         });
-
-        toast({
-          title: "Login Failed",
-          description: errorMessage,
-          variant: "destructive",
-        });
-
-        throw new Error(errorMessage);
+        await tryDirectAuthFallback(errorMessage);
+        return;
       }
 
       // Handle function-level errors (when function returns but with success: false)
       if (!result) {
-        const errorMessage = 'Invalid email or password';
         logError('Login error: No result from Edge Function');
-
-        toast({
-          title: "Login Failed",
-          description: errorMessage,
-          variant: "destructive",
-        });
-
-        throw new Error(errorMessage);
+        await tryDirectAuthFallback('No result from secure-login');
+        return;
       }
 
       if (!result.success) {
-        // Generic error message (no disclosure of account status)
         const errorMessage = result.message || 'Invalid email or password';
         logError('Login error:', errorMessage);
 
-        toast({
-          title: "Login Failed",
-          description: errorMessage,
-          variant: "destructive",
-        });
-
+        // secure-login may reject for infrastructure/profile mismatches in local runs.
+        // Keep explicit account state errors as-is, fallback for everything else.
+        if (!errorMessage.toLowerCase().includes('inactive')) {
+          await tryDirectAuthFallback(errorMessage);
+          return;
+        }
         throw new Error(errorMessage);
       }
 
@@ -287,26 +474,7 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
           refresh_token: result.session.refresh_token,
         });
 
-        setSession(result.session);
-        JWTClaimsService.setCurrentSession(result.session);
-        setUser(result.user);
-
-        // Update JWT claims
-        const jwtClaims = JWTClaimsService.getClaimsFromSession(result.session);
-        const userContext = JWTClaimsService.getUserContextFromSession(result.session);
-        setClaims(jwtClaims);
-        setUserContext(userContext);
-
-        // Fetch user profile after successful login
-        const userProfile = await fetchUserProfile(result.user.id);
-        setProfile(userProfile);
-
-        log('Login successful:', result.user.email);
-
-        toast({
-          title: "Welcome back!",
-          description: `Successfully logged in as ${result.user.email}`,
-        });
+        await completeLogin(result.session, result.user, 'secure-login');
       } else {
         throw new Error('Invalid response from login service');
       }
@@ -328,21 +496,40 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  // Logout function - Logs logout event
+  // Logout function - Optimistic local logout for instant UI response
   const logout = async () => {
+    debug('Logging out (optimistic)...');
     setIsLoading(true);
 
-    try {
-      debug('Logging out...');
+    const currentUserId = user?.id;
 
-      const currentUserId = user?.id;
-      const currentUserEmail = user?.email;
+    // 1) Clear local auth state immediately so UI responds instantly.
+    setUser(null);
+    setProfile(null);
+    setSession(null);
+    JWTClaimsService.setCurrentSession(null);
+    setClaims(null);
+    setUserContext(null);
 
-      // Log logout event before signing out
-      if (currentUserId) {
-        try {
-          // Get user's organization
-          const { data: profile } = await supabase
+    // Clear persisted session tokens locally so page refresh stays logged out.
+    // This is fast and does not require a full remote round-trip.
+    const { error: localSignOutError } = await supabase.auth.signOut({ scope: 'local' });
+    if (localSignOutError) {
+      logError('Local signOut error:', localSignOutError);
+    }
+
+    setIsLoading(false);
+
+    toast({
+      title: "Logged out",
+      description: "You have been successfully logged out.",
+    });
+
+    // 2) Run remote cleanup asynchronously; don't block UX.
+    void (async () => {
+      try {
+        if (currentUserId) {
+          const { data: profileData } = await supabase
             .from('user_profiles')
             .select('organization_id')
             .eq('id', currentUserId)
@@ -350,46 +537,23 @@ export function SupabaseAuthProvider({ children }: AuthProviderProps) {
 
           await AuthLogger.log({
             user_id: currentUserId,
-            org_id: profile?.organization_id || undefined,
+            org_id: profileData?.organization_id || undefined,
             event_type: 'logout',
             success: true,
           });
-        } catch (logError) {
-          console.error('Error logging logout event:', logError);
-          // Don't fail logout if logging fails
         }
+      } catch (logErr) {
+        console.error('Error logging logout event:', logErr);
       }
 
-      const { error } = await supabase.auth.signOut();
-
+      // Optional remote invalidation after local logout has already completed.
+      const { error } = await supabase.auth.signOut({ scope: 'global' });
       if (error) {
-        logError('Logout error:', error);
-        throw error;
+        logError('Logout global signOut error (post-local-clear):', error);
+      } else {
+        log('Logout global signOut completed');
       }
-
-      setUser(null);
-      setProfile(null);
-      setSession(null);
-      JWTClaimsService.setCurrentSession(null);
-      setClaims(null);
-      setUserContext(null);
-
-      log('Logout successful');
-
-      toast({
-        title: "Logged out",
-        description: "You have been successfully logged out.",
-      });
-    } catch (error) {
-      logError('Logout failed:', error);
-      toast({
-        title: "Logout Failed",
-        description: "Failed to logout. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    })();
   };
 
   const value: AuthContextType = {

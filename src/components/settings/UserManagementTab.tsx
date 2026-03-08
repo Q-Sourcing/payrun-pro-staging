@@ -16,6 +16,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -53,6 +54,7 @@ import {
   Users,
   ShieldCheck,
   UserCheck,
+  UserX,
   Loader2,
   RefreshCw,
   KeyRound,
@@ -101,12 +103,36 @@ type CreateFormValues = z.infer<typeof createSchema>;
 type EditFormValues = z.infer<typeof editSchema>;
 
 // ─── Role badge config ────────────────────────────────────────────────────────
-const ROLE_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  admin:    { label: "Admin",    variant: "destructive" },
-  hr:       { label: "HR",       variant: "default" },
-  manager:  { label: "Manager",  variant: "secondary" },
-  employee: { label: "Employee", variant: "outline" },
+const ROLE_CONFIG: Record<string, {
+  label: string;
+  variant: "default" | "secondary" | "destructive" | "outline";
+  permissionSummary: string;
+}> = {
+  admin: {
+    label: "Admin",
+    variant: "destructive",
+    permissionSummary: "Manage users, payroll workflows, and organization-level settings.",
+  },
+  hr: {
+    label: "HR",
+    variant: "default",
+    permissionSummary: "Manage people records and assignments; no full admin controls.",
+  },
+  manager: {
+    label: "Manager",
+    variant: "secondary",
+    permissionSummary: "Manage team/project operations and payroll preparation tasks.",
+  },
+  employee: {
+    label: "Employee",
+    variant: "outline",
+    permissionSummary: "Self-service access to own profile and payroll information.",
+  },
 };
+const MANAGED_ROLE_OPTIONS = (["admin", "hr", "manager", "employee"] as const).map((key) => ({
+  value: key,
+  ...ROLE_CONFIG[key],
+}));
 
 const EDGE_FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`;
 
@@ -247,12 +273,16 @@ function CreateUserDialog({ open, onClose, onSaved }: { open: boolean; onClose: 
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger></FormControl>
                     <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="hr">HR</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="employee">Employee</SelectItem>
+                      {MANAGED_ROLE_OPTIONS.map((roleOption) => (
+                        <SelectItem key={roleOption.value} value={roleOption.value}>
+                          {roleOption.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {ROLE_CONFIG[field.value]?.permissionSummary}
+                  </p>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -394,12 +424,16 @@ function EditUserDialog({ user, onClose, onSaved }: { user: ManagedUser | null; 
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                     <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="hr">HR</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="employee">Employee</SelectItem>
+                      {MANAGED_ROLE_OPTIONS.map((roleOption) => (
+                        <SelectItem key={roleOption.value} value={roleOption.value}>
+                          {roleOption.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {ROLE_CONFIG[field.value]?.permissionSummary}
+                  </p>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -532,6 +566,25 @@ export function UserManagementTab() {
     hr: users.filter((u) => u.role === "hr").length,
   };
 
+  async function setUserStatus(user: ManagedUser, nextStatus: "active" | "inactive") {
+    if (user.status === nextStatus) return;
+    try {
+      const result = await callManageUsers("PATCH", { id: user.id, status: nextStatus });
+      if (!result.success) throw new Error(result.message || "Failed to update status");
+      toast({
+        title: "User updated",
+        description: `${user.full_name} is now ${nextStatus}.`,
+      });
+      fetchUsers();
+    } catch (err: unknown) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to update status.",
+        variant: "destructive",
+      });
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -651,18 +704,31 @@ export function UserManagementTab() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setViewUser(user)}>
-                            <Eye className="h-4 w-4 mr-2" /> View Details
-                          </DropdownMenuItem>
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
                           <DropdownMenuItem onClick={() => setEditUser(user)}>
-                            <Edit className="h-4 w-4 mr-2" /> Edit
+                            <Edit className="h-4 w-4 mr-2" /> Edit User
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setViewUser(user)}>
+                            <Eye className="h-4 w-4 mr-2" /> View Profile
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            disabled={user.status === "active"}
+                            onClick={() => setUserStatus(user, "active")}
+                          >
+                            <UserCheck className="h-4 w-4 mr-2" /> Activate
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={user.status === "inactive"}
+                            onClick={() => setUserStatus(user, "inactive")}
+                          >
+                            <UserX className="h-4 w-4 mr-2" /> Deactivate
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
                             onClick={() => setDeleteUser(user)}
                           >
-                            <Trash2 className="h-4 w-4 mr-2" /> Delete
+                            <Trash2 className="h-4 w-4 mr-2" /> Delete User
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
