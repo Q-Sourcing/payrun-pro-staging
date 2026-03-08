@@ -16,6 +16,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   incident: EhsIncident | null;
   orgId?: string;
+  projectId?: string;
 }
 
 export function IncidentFormDialog({ open, onOpenChange, incident, orgId }: Props) {
