@@ -5,9 +5,10 @@ import { AttendanceDashboard } from "@/components/attendance/AttendanceDashboard
 import { AdminAttendanceGrid } from "@/components/attendance/AdminAttendanceGrid";
 import { BulkUploadAttendance } from "@/components/attendance/BulkUploadAttendance";
 import { RegularizationPanel } from "@/components/attendance/RegularizationPanel";
+import { ProjectAttendanceDashboard } from "@/components/attendance/ProjectAttendanceDashboard";
 import { supabase } from "@/integrations/supabase/client";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { BarChart3, Users, Upload, AlertCircle, FileText } from "lucide-react";
+import { BarChart3, Users, Upload, AlertCircle, Briefcase } from "lucide-react";
 
 export default function Attendance() {
   const { session } = useSupabaseAuth();
