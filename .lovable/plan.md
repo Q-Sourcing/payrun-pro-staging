@@ -1,24 +1,58 @@
 
+# Add Contract Template Manager to Settings
 
-## Plan: Finalize Zoho Integration
+## What We're Building
+A new "Contract Templates" section in the Settings panel where admins can create, edit, and manage contract templates. These templates are then available when generating contracts for employees.
 
-Two code changes are needed to make the Zoho integration operational now that the secrets are configured.
+## Changes
 
-### 1. Register all Zoho edge functions in `config.toml`
+### 1. New Component: ContractTemplateManager
+- Location: `src/components/settings/ContractTemplateManager.tsx`
+- Features:
+  - List all active templates for the current organization (table with name, country, employment type, version)
+  - "New Template" button opening a dialog/form
+  - Edit existing templates
+  - Delete (soft-delete by setting `is_active = false`)
+- Template form fields:
+  - Name (required)
+  - Description
+  - Country code (optional dropdown)
+  - Employment type (optional dropdown: permanent, contract, intern, expatriate)
+  - Body HTML (rich text area with placeholder variable hints like `{{employee_name}}`, `{{start_date}}`, `{{job_title}}`, `{{salary}}`)
+  - Placeholders editor (add/remove placeholder keys with labels and default values)
+- Preview pane showing rendered HTML
 
-Add `verify_jwt = false` entries for `zoho-auth-start`, `zoho-auth-callback`, `zoho-disconnect`, and `zoho-sync-employees`. These functions validate auth manually via `supabaseAdmin.auth.getUser()` or receive unauthenticated OAuth redirects.
+### 2. Register in SettingsContent
+- Add a new menu item `"contracts"` with icon `FileText` (or `ScrollText`) in the `allMenuItems` array
+- Add the corresponding `case "contracts"` in `renderStandardContent()` rendering `<ContractTemplateManager />`
+- Role guard: `ORG_ADMIN` / `organization_configuration`
 
-### 2. Fix CORS headers in `platform-admin-auth.ts`
+### 3. Service Layer
+- Reuse existing `ContractsService.getTemplates()`, `createTemplate()`, `updateTemplate()` from `src/lib/data/contracts.service.ts` (already built in Phase 2)
 
-Update `Access-Control-Allow-Headers` to include the full set of Supabase client headers:
-`authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version`
+## Technical Details
 
-This prevents preflight request failures when the frontend calls the Zoho edge functions.
+### ContractTemplateManager component structure
+```text
+ContractTemplateManager
+  +-- Templates Table (list view)
+  +-- CreateEditTemplateDialog
+       +-- Name, Description, Country, Employment Type fields
+       +-- Body HTML textarea with placeholder hints
+       +-- Placeholders JSONB editor (dynamic key/label/default rows)
+       +-- Preview tab
+```
 
-### Files to change
+### Placeholder system
+Templates use `{{key}}` syntax. The manager will show a sidebar with available variables:
+- `{{employee_name}}`, `{{employee_number}}`, `{{job_title}}`
+- `{{start_date}}`, `{{end_date}}`, `{{salary}}`
+- `{{company_name}}`, `{{department}}`
+- Plus any custom placeholders defined on the template
 
-- **`supabase/config.toml`** -- Add 4 function registration blocks
-- **`supabase/functions/_shared/platform-admin-auth.ts`** -- Update line 6 CORS headers
+### Files to create
+- `src/components/contracts/ContractTemplateManager.tsx` -- main list + CRUD component
+- `src/components/contracts/ContractTemplateForm.tsx` -- create/edit form dialog
 
-No database changes needed. The shared `zoho.ts` module and all 4 edge functions are already fully implemented.
-
+### Files to modify
+- `src/components/settings/SettingsContent.tsx` -- add menu item + render case
