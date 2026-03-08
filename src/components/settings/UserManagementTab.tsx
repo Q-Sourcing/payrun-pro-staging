@@ -564,6 +564,24 @@ function InvitationsTable() {
     }
   }
 
+  async function handleDeleteInvitation(invitation: Invitation) {
+    setActionLoading(invitation.id + "-delete");
+    try {
+      const { error } = await supabase
+        .from("user_management_invitations")
+        .delete()
+        .eq("id", invitation.id);
+      if (error) throw error;
+      toast({ title: "Invitation deleted", description: `Invitation for ${invitation.email} has been permanently deleted.` });
+      fetchInvitations();
+    } catch (err: unknown) {
+      toast({ title: "Failed to delete", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+      setDeleteInviteTarget(null);
+    }
+  }
+
   const pendingCount = invitations.filter(i => i.status === 'pending').length;
   const expiredCount = invitations.filter(i => i.status === 'expired').length;
 
