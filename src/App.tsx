@@ -253,6 +253,14 @@ const App = () => {
                   <Route path="settings/payroll/advanced" element={<PayrollAdvancedSettings />} />
                   <Route path="probation" element={<ProbationDashboard />} />
                   <Route path="timesheets" element={<Timesheets />} />
+
+                  {/* EHS Module Routes */}
+                  <Route path="ehs" element={<EhsIndex />} />
+                  <Route path="ehs/incidents" element={<EhsIncidents />} />
+                  <Route path="ehs/hazards" element={<EhsHazards />} />
+                  <Route path="ehs/inspections" element={<EhsInspections />} />
+                  <Route path="ehs/training" element={<EhsTraining />} />
+                  <Route path="ehs/reports" element={<EhsReports />} />
                 </Route>
 
                 {/* Catch-all route */}
