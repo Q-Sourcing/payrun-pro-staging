@@ -125,9 +125,9 @@ const ROLE_CONFIG: Record<string, { label: string; variant: "default" | "seconda
   employee: { label: "Employee", variant: "outline" },
 };
 
-const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
+const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive"; className?: string }> = {
   pending:   { label: "Pending",   variant: "secondary" },
-  accepted:  { label: "Accepted",  variant: "default" },
+  accepted:  { label: "Accepted",  variant: "outline", className: "border-green-500 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30" },
   cancelled: { label: "Cancelled", variant: "outline" },
   expired:   { label: "Expired",   variant: "destructive" },
 };
@@ -633,7 +633,9 @@ function InvitationsTable() {
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{inv.department || "—"}</TableCell>
                       <TableCell>
-                        <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                        <Badge variant={cfg.variant} className={cfg.className}>
+                          {cfg.label}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {formatDistanceToNow(new Date(inv.created_at), { addSuffix: true })}
@@ -705,6 +707,7 @@ export function UserManagementTab() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [activeTab, setActiveTab] = useState("users");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [viewUser, setViewUser] = useState<ManagedUser | null>(null);
   const [editUser, setEditUser] = useState<ManagedUser | null>(null);
@@ -723,7 +726,10 @@ export function UserManagementTab() {
     }
   }, [toast]);
 
-  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+  // Refresh users list whenever switching to the Users tab (picks up newly accepted invites)
+  useEffect(() => {
+    if (activeTab === "users") fetchUsers();
+  }, [activeTab, fetchUsers]);
 
   const filtered = users.filter((u) => {
     const q = search.toLowerCase();
@@ -780,7 +786,7 @@ export function UserManagementTab() {
       </div>
 
       {/* Tabs: Users / Invitations */}
-      <Tabs defaultValue="users" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="users" className="gap-2">
             <Users className="h-4 w-4" /> Users
@@ -861,10 +867,16 @@ export function UserManagementTab() {
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{user.department || "—"}</TableCell>
                         <TableCell>
-                          <Badge variant={
-                            user.status === "active" ? "default" :
-                            user.status === "pending" ? "secondary" : "outline"
-                          }>
+                          <Badge
+                            variant="outline"
+                            className={
+                              user.status === "active"
+                                ? "border-green-500 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30"
+                                : user.status === "pending"
+                                ? "border-yellow-500 text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-950/30"
+                                : "text-muted-foreground"
+                            }
+                          >
                             {user.status === "active" ? "Active" :
                              user.status === "pending" ? "Pending" : "Inactive"}
                           </Badge>
