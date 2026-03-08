@@ -703,6 +703,14 @@ function InvitationsTable() {
                                 )}
                                 Cancel Invitation
                               </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => setDeleteInviteTarget(inv)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete Invitation
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         )}
