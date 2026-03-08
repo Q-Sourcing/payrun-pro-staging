@@ -31,6 +31,7 @@ import {
     FileText,
     ScrollText,
     AlarmClock,
+    Timer,
     Settings as SettingsIcon,
     Building2 as BuildingIcon
 } from "lucide-react";
