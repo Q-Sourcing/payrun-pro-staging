@@ -13,7 +13,7 @@ import { SystemSettingsSection } from "@/components/settings/SystemSettingsSecti
 import { EmailSettingsSection } from "@/components/settings/EmailSettingsSection";
 import { ReminderSettings } from "@/components/settings/ReminderSettings";
 import { UserManagement } from "@/components/user-management/UserManagement";
-import { AdminAccessSection } from "@/components/settings/AdminAccessSection";
+
 import { SettingsSectionGuard } from "@/components/settings/SettingsSectionGuard";
 import { ContractTemplateManager } from "@/components/contracts/ContractTemplateManager";
 import { useUserRole } from "@/hooks/use-user-role";
@@ -119,13 +119,6 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
             id: "user-management",
             label: "User Management",
             icon: Users,
-            requiredRole: 'ORG_ADMIN' as const,
-            requiredPermission: 'manage_organization_users'
-        },
-        {
-            id: "admin-obac",
-            label: "Admin (Access Control)",
-            icon: Shield,
             requiredRole: 'ORG_ADMIN' as const,
             requiredPermission: 'manage_organization_users'
         },
@@ -258,12 +251,6 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
                 return (
                     <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="manage_organization_users">
                         <UserManagement />
-                    </SettingsSectionGuard>
-                );
-            case "admin-obac":
-                return (
-                    <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="manage_organization_users">
-                        <AdminAccessSection />
                     </SettingsSectionGuard>
                 );
             case "system":
