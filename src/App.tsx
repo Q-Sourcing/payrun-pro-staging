@@ -14,6 +14,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import SignUp from "./pages/SignUp";
 import AcceptInvite from "./pages/AcceptInvite";
 import AcceptInviteUser from "./pages/AcceptInviteUser";
+import SetPassword from "./pages/SetPassword";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { SupabaseAuthProvider, useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { AuthProvider as LegacyAuthProvider } from "@/hooks/use-auth-context";
@@ -155,6 +156,7 @@ const App = () => {
                 <Route path="/signup" element={<SignUp />} />
                 <Route path="/accept-invite" element={<AcceptInvite />} />
                 <Route path="/accept-invite-user" element={<AcceptInviteUser />} />
+                <Route path="/set-password" element={<SetPassword />} />
                 <Route path="/choose-company" element={
                   <ProtectedRoute>
                     <CompanyPicker />

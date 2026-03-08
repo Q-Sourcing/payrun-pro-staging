@@ -195,11 +195,10 @@ serve(async (req) => {
       const inviteToken = crypto.randomUUID() + '-' + crypto.randomUUID()
       const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
 
-      // Always redirect to the canonical preview URL — must be registered in
-      // Supabase Auth > URL Configuration > Redirect URLs
+      // Redirect target: /set-password — must be in Supabase Auth > Redirect URLs
       const APP_URL = 'https://id-preview--d4039800-cafc-472d-9b4b-2216eac18925.lovable.app'
-      const redirectTo = `${APP_URL}/accept-invite-user?token=${inviteToken}`
-      console.log('Invite redirectTo:', redirectTo)
+      const redirectTo = `${APP_URL}/set-password?token=${inviteToken}`
+      console.log('[invite-user] redirectTo:', redirectTo)
 
 
       const nameParts = (full_name || '').trim().split(/\s+/)
@@ -325,7 +324,7 @@ serve(async (req) => {
       const newExpiry = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
 
       const APP_URL = 'https://id-preview--d4039800-cafc-472d-9b4b-2216eac18925.lovable.app'
-      const redirectTo = `${APP_URL}/accept-invite-user?token=${newToken}`
+      const redirectTo = `${APP_URL}/set-password?token=${newToken}`
 
       const nameParts = (inv.full_name || '').trim().split(/\s+/)
       const firstName = nameParts[0] || ''
