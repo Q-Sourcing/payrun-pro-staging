@@ -47,6 +47,7 @@ export function HazardFormDialog({ open, onOpenChange, hazard, orgId, projectId 
         risk_level: riskLevel,
         observation_type: observationType,
         organization_id: orgId!,
+        ...(projectId ? { project_id: projectId } : {}),
       };
       if (isEdit) {
         payload.status = status;
