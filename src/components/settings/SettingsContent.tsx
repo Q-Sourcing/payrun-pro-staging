@@ -123,13 +123,6 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
             requiredPermission: 'manage_organization_users'
         },
         {
-            id: "admin-obac",
-            label: "Admin (Access Control)",
-            icon: Shield,
-            requiredRole: 'ORG_ADMIN' as const,
-            requiredPermission: 'manage_organization_users'
-        },
-        {
             id: "emails",
             label: "Email & Logic",
             icon: Mail,
