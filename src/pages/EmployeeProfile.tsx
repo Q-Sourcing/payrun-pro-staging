@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, User, Mail, Phone, Briefcase, MapPin, DollarSign, Clock, ToggleLeft } from "lucide-react";
 import { EmployeeContractsPanel } from "@/components/contracts/EmployeeContractsPanel";
 import { ProbationSection } from "@/components/employees/ProbationSection";
+import { EmployeeHrRecordsTab } from "@/components/employees/EmployeeHrRecordsTab";
+import { EmployeeDocumentsTab } from "@/components/employees/EmployeeDocumentsTab";
 import LoadingSkeleton from "@/components/LoadingSkeleton";
 import { useToast } from "@/hooks/use-toast";
 
@@ -102,6 +104,8 @@ export default function EmployeeProfile() {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="hr-records">HR Records</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="probation">Probation</TabsTrigger>
           <TabsTrigger value="contracts">Contracts</TabsTrigger>
         </TabsList>
@@ -115,9 +119,13 @@ export default function EmployeeProfile() {
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <InfoRow icon={User} label="Full Name" value={fullName} />
-                <InfoRow icon={Mail} label="Email" value={employee.email} />
-                <InfoRow icon={Phone} label="Phone" value={employee.phone || "—"} />
+                <InfoRow icon={Mail} label="Work Email" value={employee.email} />
+                <InfoRow icon={Mail} label="Personal Email" value={employee.personal_email || "—"} />
+                <InfoRow icon={Phone} label="Mobile" value={employee.phone || "—"} />
+                <InfoRow icon={Phone} label="Work Phone" value={employee.work_phone || "—"} />
                 <InfoRow icon={MapPin} label="Country" value={employee.country} />
+                <InfoRow icon={MapPin} label="Nationality" value={employee.nationality || "—"} />
+                <InfoRow icon={MapPin} label="Citizenship" value={employee.citizenship || "—"} />
               </CardContent>
             </Card>
             <Card>
@@ -126,6 +134,10 @@ export default function EmployeeProfile() {
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <InfoRow icon={Briefcase} label="Type" value={employee.employee_type} />
+                <InfoRow icon={Briefcase} label="Engagement" value={employee.engagement_type || "—"} />
+                <InfoRow icon={Briefcase} label="Status" value={employee.employment_status || "—"} />
+                <InfoRow icon={Briefcase} label="Designation" value={employee.designation || "—"} />
+                <InfoRow icon={MapPin} label="Work Location" value={employee.work_location || "—"} />
                 <InfoRow icon={Briefcase} label="Pay Group" value={employee.pay_groups?.name || "Unassigned"} />
                 <InfoRow icon={DollarSign} label="Pay Rate" value={`${employee.currency || ""} ${employee.pay_rate?.toLocaleString()}`} />
                 <InfoRow icon={Briefcase} label="Pay Type" value={employee.pay_type} />
@@ -175,6 +187,14 @@ export default function EmployeeProfile() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="hr-records">
+          <EmployeeHrRecordsTab employeeId={employee.id} />
+        </TabsContent>
+
+        <TabsContent value="documents">
+          <EmployeeDocumentsTab employeeId={employee.id} />
         </TabsContent>
 
         {/* Probation Tab */}

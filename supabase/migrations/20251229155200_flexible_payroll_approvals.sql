@@ -31,20 +31,17 @@ ALTER TABLE public.payroll_approval_configs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payroll_approval_categories ENABLE ROW LEVEL SECURITY;
 
 -- 4. RLS Policies for payroll_approval_configs
-DROP POLICY IF EXISTS "Configs are viewable by org members" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Configs are viewable by org members" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Configs are viewable by org members" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Configs are viewable by org members" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Configs are viewable by org members" ON public.payroll_approval_configs; CREATE POLICY "Configs are viewable by org members" ON public.payroll_approval_configs
     FOR SELECT USING (
         organization_id IN (
             SELECT organization_id FROM public.user_profiles WHERE id = auth.uid()
         )
     );
 
-DROP POLICY IF EXISTS "Configs are manageable by admins" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Configs are manageable by admins" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Configs are manageable by admins" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Configs are manageable by admins" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Configs are manageable by admins" ON public.payroll_approval_configs; CREATE POLICY "Configs are manageable by admins" ON public.payroll_approval_configs
     FOR ALL USING (
         public.check_is_super_admin(auth.uid()) OR public.check_is_org_super_admin(auth.uid())
     );
 
 -- 5. RLS Policies for payroll_approval_categories
-DROP POLICY IF EXISTS "Categories mapping viewable by org members" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Categories mapping viewable by org members" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Categories mapping viewable by org members" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Categories mapping viewable by org members" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Categories mapping viewable by org members" ON public.payroll_approval_categories; CREATE POLICY "Categories mapping viewable by org members" ON public.payroll_approval_categories
     FOR SELECT USING (
         config_id IN (
             SELECT id FROM public.payroll_approval_configs WHERE organization_id IN (
@@ -53,7 +50,6 @@ DROP POLICY IF EXISTS "Categories mapping viewable by org members" ON public.hea
         )
     );
 
-DROP POLICY IF EXISTS "Categories mapping manageable by admins" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Categories mapping manageable by admins" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Categories mapping manageable by admins" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Categories mapping manageable by admins" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Categories mapping manageable by admins" ON public.payroll_approval_categories; CREATE POLICY "Categories mapping manageable by admins" ON public.payroll_approval_categories
     FOR ALL USING (
         config_id IN (
             SELECT id FROM public.payroll_approval_configs WHERE organization_id IN (

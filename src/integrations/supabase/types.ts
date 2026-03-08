@@ -1471,6 +1471,7 @@ export type Database = {
           bank_branch: string | null
           bank_name: string | null
           category: string | null
+          citizenship: string | null
           company_id: string | null
           company_unit_id: string | null
           contract_type: string | null
@@ -1479,11 +1480,13 @@ export type Database = {
           currency: string | null
           date_joined: string | null
           date_of_birth: string | null
+          designation: string | null
           email: string
           employee_category: string | null
           employee_number: string
           employee_type: string
           employee_type_id: string | null
+          engagement_type: string | null
           employment_status: string | null
           first_name: string
           gender: string | null
@@ -1491,6 +1494,7 @@ export type Database = {
           last_name: string | null
           middle_name: string | null
           national_id: string | null
+          nationality: string | null
           nssf_number: string | null
           number_prefix_override: string | null
           organization_id: string
@@ -1500,6 +1504,7 @@ export type Database = {
           pay_rate: number
           pay_type: Database["public"]["Enums"]["pay_type"]
           phone: string | null
+          personal_email: string | null
           probation_end_date: string | null
           probation_notes: string | null
           probation_status: string | null
@@ -1513,6 +1518,8 @@ export type Database = {
           tin: string | null
           updated_at: string
           user_id: string | null
+          work_location: string | null
+          work_phone: string | null
         }
         Insert: {
           account_number?: string | null
@@ -1520,6 +1527,7 @@ export type Database = {
           bank_branch?: string | null
           bank_name?: string | null
           category?: string | null
+          citizenship?: string | null
           company_id?: string | null
           company_unit_id?: string | null
           contract_type?: string | null
@@ -1528,11 +1536,13 @@ export type Database = {
           currency?: string | null
           date_joined?: string | null
           date_of_birth?: string | null
+          designation?: string | null
           email: string
           employee_category?: string | null
           employee_number: string
           employee_type?: string
           employee_type_id?: string | null
+          engagement_type?: string | null
           employment_status?: string | null
           first_name: string
           gender?: string | null
@@ -1540,6 +1550,7 @@ export type Database = {
           last_name?: string | null
           middle_name?: string | null
           national_id?: string | null
+          nationality?: string | null
           nssf_number?: string | null
           number_prefix_override?: string | null
           organization_id: string
@@ -1549,6 +1560,7 @@ export type Database = {
           pay_rate: number
           pay_type?: Database["public"]["Enums"]["pay_type"]
           phone?: string | null
+          personal_email?: string | null
           probation_end_date?: string | null
           probation_notes?: string | null
           probation_status?: string | null
@@ -1562,6 +1574,8 @@ export type Database = {
           tin?: string | null
           updated_at?: string
           user_id?: string | null
+          work_location?: string | null
+          work_phone?: string | null
         }
         Update: {
           account_number?: string | null
@@ -1569,6 +1583,7 @@ export type Database = {
           bank_branch?: string | null
           bank_name?: string | null
           category?: string | null
+          citizenship?: string | null
           company_id?: string | null
           company_unit_id?: string | null
           contract_type?: string | null
@@ -1577,11 +1592,13 @@ export type Database = {
           currency?: string | null
           date_joined?: string | null
           date_of_birth?: string | null
+          designation?: string | null
           email?: string
           employee_category?: string | null
           employee_number?: string
           employee_type?: string
           employee_type_id?: string | null
+          engagement_type?: string | null
           employment_status?: string | null
           first_name?: string
           gender?: string | null
@@ -1589,6 +1606,7 @@ export type Database = {
           last_name?: string | null
           middle_name?: string | null
           national_id?: string | null
+          nationality?: string | null
           nssf_number?: string | null
           number_prefix_override?: string | null
           organization_id?: string
@@ -1598,6 +1616,7 @@ export type Database = {
           pay_rate?: number
           pay_type?: Database["public"]["Enums"]["pay_type"]
           phone?: string | null
+          personal_email?: string | null
           probation_end_date?: string | null
           probation_notes?: string | null
           probation_status?: string | null
@@ -1611,6 +1630,8 @@ export type Database = {
           tin?: string | null
           updated_at?: string
           user_id?: string | null
+          work_location?: string | null
+          work_phone?: string | null
         }
         Relationships: [
           {
@@ -6148,16 +6169,94 @@ export type Database = {
     Views: {
       employee_master: {
         Row: {
+          citizenship: string | null
+          company_id: string | null
+          company_unit_id: string | null
+          country: string | null
+          created_at: string | null
+          currency: string | null
+          date_joined: string | null
+          designation: string | null
+          email: string | null
+          employee_category: string | null
+          employee_number: string | null
+          employee_type: string | null
+          engagement_type: string | null
+          employment_status: string | null
+          first_name: string | null
           id: string | null
+          last_name: string | null
+          name: string | null
+          nationality: string | null
           organization_id: string | null
+          pay_group_id: string | null
+          personal_email: string | null
+          phone: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+          work_location: string | null
+          work_phone: string | null
         }
         Insert: {
+          citizenship?: string | null
+          company_id?: string | null
+          company_unit_id?: string | null
+          country?: string | null
+          created_at?: string | null
+          currency?: string | null
+          date_joined?: string | null
+          designation?: string | null
+          email?: string | null
+          employee_category?: string | null
+          employee_number?: string | null
+          employee_type?: string | null
+          engagement_type?: string | null
+          employment_status?: string | null
+          first_name?: string | null
           id?: string | null
+          last_name?: string | null
+          name?: string | null
+          nationality?: string | null
           organization_id?: string | null
+          pay_group_id?: string | null
+          personal_email?: string | null
+          phone?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          work_location?: string | null
+          work_phone?: string | null
         }
         Update: {
+          citizenship?: string | null
+          company_id?: string | null
+          company_unit_id?: string | null
+          country?: string | null
+          created_at?: string | null
+          currency?: string | null
+          date_joined?: string | null
+          designation?: string | null
+          email?: string | null
+          employee_category?: string | null
+          employee_number?: string | null
+          employee_type?: string | null
+          engagement_type?: string | null
+          employment_status?: string | null
+          first_name?: string | null
           id?: string | null
+          last_name?: string | null
+          name?: string | null
+          nationality?: string | null
           organization_id?: string | null
+          pay_group_id?: string | null
+          personal_email?: string | null
+          phone?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          work_location?: string | null
+          work_phone?: string | null
         }
         Relationships: [
           {

@@ -147,10 +147,8 @@ ALTER TABLE public.permission_cache ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_preferences ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for users table
-DROP POLICY IF EXISTS "Users can view their own data" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can view their own data" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can view their own data" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can view their own data" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Users can view their own data" ON public.users; CREATE POLICY "Users can view their own data" ON public.users
     FOR SELECT USING (auth.uid() = id);
 
-DROP POLICY IF EXISTS "Super admins can view all users" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Super admins can view all users" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Super admins can view all users" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Super admins can view all users" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Super admins can view all users" ON public.users; CREATE POLICY "Super admins can view all users" ON public.users
     FOR ALL USING (
         EXISTS (
             SELECT 1 FROM public.users 
@@ -158,7 +156,6 @@ DROP POLICY IF EXISTS "Super admins can view all users" ON public.head_office_pa
         )
     );
 
-DROP POLICY IF EXISTS "Organization admins can view organization users" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Organization admins can view organization users" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Organization admins can view organization users" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Organization admins can view organization users" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Organization admins can view organization users" ON public.users; CREATE POLICY "Organization admins can view organization users" ON public.users
     FOR SELECT USING (
         EXISTS (
             SELECT 1 FROM public.users u1, public.users u2
@@ -169,7 +166,6 @@ DROP POLICY IF EXISTS "Organization admins can view organization users" ON publi
         )
     );
 
-DROP POLICY IF EXISTS "Department managers can view department users" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Department managers can view department users" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Department managers can view department users" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Department managers can view department users" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Department managers can view department users" ON public.users; CREATE POLICY "Department managers can view department users" ON public.users
     FOR SELECT USING (
         EXISTS (
             SELECT 1 FROM public.users u1, public.users u2
@@ -181,10 +177,8 @@ DROP POLICY IF EXISTS "Department managers can view department users" ON public.
     );
 
 -- RLS Policies for role assignments
-DROP POLICY IF EXISTS "Users can view their own role assignments" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can view their own role assignments" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can view their own role assignments" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can view their own role assignments" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Users can view their own role assignments" ON public.role_assignments; CREATE POLICY "Users can view their own role assignments" ON public.role_assignments
     FOR SELECT USING (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "Admins can view all role assignments" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Admins can view all role assignments" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Admins can view all role assignments" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Admins can view all role assignments" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Admins can view all role assignments" ON public.role_assignments; CREATE POLICY "Admins can view all role assignments" ON public.role_assignments
     FOR ALL USING (
         EXISTS (
             SELECT 1 FROM public.users 
@@ -194,10 +188,8 @@ DROP POLICY IF EXISTS "Admins can view all role assignments" ON public.head_offi
     );
 
 -- RLS Policies for user sessions
-DROP POLICY IF EXISTS "Users can view their own sessions" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can view their own sessions" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can view their own sessions" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can view their own sessions" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Users can view their own sessions" ON public.user_sessions; CREATE POLICY "Users can view their own sessions" ON public.user_sessions
     FOR SELECT USING (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "Admins can view all sessions" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Admins can view all sessions" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Admins can view all sessions" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Admins can view all sessions" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Admins can view all sessions" ON public.user_sessions; CREATE POLICY "Admins can view all sessions" ON public.user_sessions
     FOR ALL USING (
         EXISTS (
             SELECT 1 FROM public.users 
@@ -207,10 +199,8 @@ DROP POLICY IF EXISTS "Admins can view all sessions" ON public.head_office_pay_g
     );
 
 -- RLS Policies for audit logs (handle data type compatibility)
-DROP POLICY IF EXISTS "Users can view their own audit logs" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can view their own audit logs" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can view their own audit logs" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can view their own audit logs" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Users can view their own audit logs" ON public.audit_logs; CREATE POLICY "Users can view their own audit logs" ON public.audit_logs 
     FOR SELECT USING (auth.uid()::text = user_id);
 
-DROP POLICY IF EXISTS "Admins can view all audit logs" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Admins can view all audit logs" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Admins can view all audit logs" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Admins can view all audit logs" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Admins can view all audit logs" ON public.audit_logs; CREATE POLICY "Admins can view all audit logs" ON public.audit_logs
     FOR ALL USING (
         EXISTS (
             SELECT 1 FROM public.users 
@@ -220,14 +210,11 @@ DROP POLICY IF EXISTS "Admins can view all audit logs" ON public.head_office_pay
     );
 
 -- RLS Policies for permission cache
-DROP POLICY IF EXISTS "Users can view their own permission cache" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can view their own permission cache" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can view their own permission cache" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can view their own permission cache" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Users can view their own permission cache" ON public.permission_cache; CREATE POLICY "Users can view their own permission cache" ON public.permission_cache
     FOR SELECT USING (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "System can manage permission cache" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "System can manage permission cache" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "System can manage permission cache" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "System can manage permission cache" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "System can manage permission cache" ON public.permission_cache; CREATE POLICY "System can manage permission cache" ON public.permission_cache
     FOR ALL USING (true); -- Allow system operations
 
 -- RLS Policies for user preferences
-DROP POLICY IF EXISTS "Users can manage their own preferences" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can manage their own preferences" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can manage their own preferences" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can manage their own preferences" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Users can manage their own preferences" ON public.user_preferences; CREATE POLICY "Users can manage their own preferences" ON public.user_preferences
     FOR ALL USING (auth.uid() = user_id);
 
 -- Functions for role-based access control

@@ -21,6 +21,7 @@ import { CompanyUnitsService, CompanyUnit } from '@/lib/services/company-units.s
 import { EmployeeCategoriesService, EmployeeCategory } from '@/lib/services/employee-categories.service';
 import { SubDepartmentsService, SubDepartment } from '@/lib/services/sub-departments.service';
 import { BanksService, Bank } from "@/lib/services/banks.service";
+import { HrCatalogsService, type EngagementTypeOption, type NationalityOption } from "@/lib/services/hr-catalogs.service";
 import { useOrg } from "@/lib/tenant/OrgContext";
 import { supabase } from "@/integrations/supabase/client";
 import { RBACService } from "@/lib/services/auth/rbac";
@@ -44,11 +45,15 @@ export type EmployeeFormValues = {
   middle_name?: string | null;
   last_name?: string | null;
   email: string;
+  personal_email?: string | null;
   phone?: string | null;
+  work_phone?: string | null;
   phone_country_code?: string;
   gender?: string | null;
   date_of_birth?: string | null;
   national_id?: string | null;
+  nationality?: string | null;
+  citizenship?: string | null;
   tin?: string | null;
   nssf_number?: string | null;
   passport_number?: string | null;
@@ -61,6 +66,7 @@ export type EmployeeFormValues = {
   status?: "active" | "inactive";
   piece_type?: string;
   employment_status?: "Active" | "Terminated" | "Deceased" | "Resigned" | "Probation" | "Notice Period";
+  engagement_type?: "Permanent" | "Contract" | "Temporary" | "Casual" | "Trainee" | "Intern" | "";
   bank_name?: string | null;
   bank_branch?: string | null;
   account_number?: string | null;
@@ -70,6 +76,8 @@ export type EmployeeFormValues = {
   company_unit_id?: string | null;
   sub_department_id?: string | null;
   date_joined?: string | null;
+  designation?: string | null;
+  work_location?: string | null;
   employee_number?: string | null;
   employee_prefix?: string | null;
   reporting_manager_id?: string | "" | null;
@@ -86,11 +94,15 @@ const employeeFormSchema = z.object({
   middle_name: z.string().optional().nullable(),
   last_name: z.string().optional().nullable(),
   email: z.string().email("Invalid email"),
+  personal_email: z.string().email("Invalid personal email").optional().nullable().or(z.literal("")),
   phone: z.string().optional().nullable(),
+  work_phone: z.string().optional().nullable(),
   phone_country_code: z.string().optional(),
   gender: z.string().optional().nullable(),
   date_of_birth: z.string().optional().nullable(),
   national_id: z.string().optional().nullable(),
+  nationality: z.string().optional().nullable(),
+  citizenship: z.string().optional().nullable(),
   tin: z.string().optional().nullable(),
   nssf_number: z.string().optional().nullable(),
   passport_number: z.string().optional().nullable(),
@@ -103,6 +115,7 @@ const employeeFormSchema = z.object({
   status: z.enum(["active", "inactive"]).optional(),
   piece_type: z.string().optional(),
   employment_status: z.enum(["Active", "Terminated", "Deceased", "Resigned", "Probation", "Notice Period"]).optional(),
+  engagement_type: z.enum(["Permanent", "Contract", "Temporary", "Casual", "Trainee", "Intern"]).optional().or(z.literal("")),
   bank_name: z.string().optional().nullable(),
   bank_branch: z.string().optional().nullable(),
   account_number: z.string().optional().nullable(),
@@ -112,6 +125,8 @@ const employeeFormSchema = z.object({
   company_unit_id: z.string().optional().nullable(),
   sub_department_id: z.string().optional().nullable(),
   date_joined: z.string().optional().nullable(),
+  designation: z.string().optional().nullable(),
+  work_location: z.string().optional().nullable(),
   employee_number: z.string().optional().nullable(),
   employee_prefix: z.string().optional().nullable(),
   reporting_manager_id: z.string().optional().or(z.literal("")).or(z.null()),
@@ -188,11 +203,15 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
       middle_name: "",
       last_name: "",
       email: "",
+      personal_email: "",
       phone: "",
+      work_phone: "",
       phone_country_code: "+256",
       gender: "",
       date_of_birth: "",
       national_id: "",
+      nationality: "",
+      citizenship: "",
       tin: "",
       nssf_number: "",
       passport_number: "",
@@ -204,6 +223,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
       status: "active",
       piece_type: "units",
       employment_status: "Active",
+      engagement_type: "",
       bank_name: "",
       bank_branch: "",
       account_number: "",
@@ -213,6 +233,8 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
       company_unit_id: "",
       sub_department_id: "",
       date_joined: "",
+      designation: "",
+      work_location: "",
       employee_number: "",
       employee_prefix: "",
       reporting_manager_id: "",
@@ -240,6 +262,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
   const watchGender = form.watch("gender");
   const watchMaritalStatus = form.watch("marital_status");
   const watchEmploymentStatus = form.watch("employment_status");
+  const watchEngagementType = form.watch("engagement_type");
   const watchBankName = form.watch("bank_name");
   const watchAccountType = form.watch("account_type");
   const watchReportingManagerId = form.watch("reporting_manager_id");
@@ -256,12 +279,19 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
   const [categories, setCategories] = useState<EmployeeCategory[]>([]);
   const [subDepartments, setSubDepartments] = useState<SubDepartment[]>([]);
   const [banks, setBanks] = useState<Bank[]>([]);
+  const [engagementTypes, setEngagementTypes] = useState<EngagementTypeOption[]>([]);
+  const [nationalities, setNationalities] = useState<NationalityOption[]>([]);
   const [allowedPayTypes, setAllowedPayTypes] = useState<string[]>(["hourly", "salary", "piece_rate", "daily_rate"]);
   const [payGroups, setPayGroups] = useState<PayGroupOption[]>([]);
   const [reportingManagers, setReportingManagers] = useState<Array<{ value: string; label: string }>>([]);
   const [probationPeriodDays, setProbationPeriodDays] = useState(90);
   const [addingSubDept, setAddingSubDept] = useState(false);
   const [newSubDeptName, setNewSubDeptName] = useState("");
+
+  const selectedEngagementType = useMemo(
+    () => engagementTypes.find((item) => item.name === watchEngagementType) || null,
+    [engagementTypes, watchEngagementType],
+  );
 
   // Enforce Category Defaulting & Locking based on Permissions (Create Mode)
   useEffect(() => {
@@ -415,6 +445,25 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
     };
     void loadCategories();
   }, [organizationId]);
+
+  useEffect(() => {
+    const loadHrCatalogs = async () => {
+      try {
+        const [engagementList, nationalityList] = await Promise.all([
+          HrCatalogsService.listEngagementTypes(),
+          HrCatalogsService.listNationalities(),
+        ]);
+        setEngagementTypes(engagementList);
+        setNationalities(nationalityList);
+      } catch (error) {
+        console.error("Error loading HR catalogs:", error);
+        setEngagementTypes([]);
+        setNationalities([]);
+      }
+    };
+
+    void loadHrCatalogs();
+  }, []);
 
   // Load company units when company or category changes
   useEffect(() => {
@@ -727,21 +776,32 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                   <Input id="last_name" {...form.register("last_name")} />
                 </div>
               </div>
-              {/* Row 2: Middle Name, Email */}
+              {/* Row 2: Middle Name, Work Email */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
                 <div className="space-y-2 min-w-0">
                   <Label htmlFor="middle_name">Middle Name</Label>
                   <Input id="middle_name" {...form.register("middle_name")} />
                 </div>
                 <div className="space-y-2 min-w-0">
-                  <Label htmlFor="email">Email *</Label>
+                  <Label htmlFor="email">Work Email *</Label>
                   <Input id="email" type="email" {...form.register("email")} />
                 </div>
               </div>
-              {/* Row 3: Phone, Country */}
+              {/* Row 3: Personal Email, Work Phone */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
                 <div className="space-y-2 min-w-0">
-                  <Label htmlFor="phone">Phone *</Label>
+                  <Label htmlFor="personal_email">Personal Email</Label>
+                  <Input id="personal_email" type="email" {...form.register("personal_email")} />
+                </div>
+                <div className="space-y-2 min-w-0">
+                  <Label htmlFor="work_phone">Work Phone</Label>
+                  <Input id="work_phone" {...form.register("work_phone")} />
+                </div>
+              </div>
+              {/* Row 4: Mobile, Country */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
+                <div className="space-y-2 min-w-0">
+                  <Label htmlFor="phone">Mobile</Label>
                   <div className="flex gap-2 min-w-0">
                     <Select
                       value={form.getValues("phone_country_code") || "+256"}
@@ -780,7 +840,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                   />
                 </div>
               </div>
-              {/* Row 4: Gender, Date of Birth */}
+              {/* Row 5: Gender, Date of Birth */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
                 <div className="space-y-2 min-w-0">
                   <Label htmlFor="gender">Gender</Label>
@@ -800,7 +860,32 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                   <Input id="date_of_birth" type="date" {...form.register("date_of_birth")} />
                 </div>
               </div>
-              {/* Row 5: National ID, Passport Number */}
+              {/* Row 6: Nationality, Citizenship */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
+                <div className="space-y-2 min-w-0">
+                  <Label htmlFor="nationality">Nationality</Label>
+                  <SearchableSelect
+                    options={nationalities.map((item) => ({ value: item.name, label: item.name }))}
+                    value={String(form.getValues("nationality") || "")}
+                    onValueChange={(value) => form.setValue("nationality", value)}
+                    placeholder={nationalities.length ? "Select nationality" : "No nationalities available"}
+                    searchPlaceholder="Search nationality..."
+                    emptyMessage="No nationalities found"
+                  />
+                </div>
+                <div className="space-y-2 min-w-0">
+                  <Label htmlFor="citizenship">Citizenship</Label>
+                  <SearchableSelect
+                    options={nationalities.map((item) => ({ value: item.name, label: item.name }))}
+                    value={String(form.getValues("citizenship") || "")}
+                    onValueChange={(value) => form.setValue("citizenship", value)}
+                    placeholder={nationalities.length ? "Select citizenship" : "No nationalities available"}
+                    searchPlaceholder="Search citizenship..."
+                    emptyMessage="No citizenship values found"
+                  />
+                </div>
+              </div>
+              {/* Row 7: National ID, Passport Number */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
                 <div className="space-y-2 min-w-0">
                   <Label htmlFor="national_id">National ID</Label>
@@ -811,7 +896,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                   <Input id="passport_number" {...form.register("passport_number")} />
                 </div>
               </div>
-              {/* Row 6: NSSF Number, TIN */}
+              {/* Row 8: NSSF Number, TIN */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
                 <div className="space-y-2 min-w-0">
                   <Label htmlFor="nssf_number">NSSF Number</Label>
@@ -822,7 +907,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                   <Input id="tin" {...form.register("tin")} />
                 </div>
               </div>
-              {/* Row 7: Marital Status */}
+              {/* Row 9: Marital Status */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
                 <div className="space-y-2 min-w-0">
                   <Label htmlFor="marital_status">Marital Status</Label>
@@ -877,8 +962,8 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
               </div>
             </div>
 
-            {/* Row 2: Category, Employment Status */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            {/* Row 2: Category, Employment Status, Engagement Type */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <Select
@@ -917,6 +1002,27 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                     <SelectItem value="Notice Period">Notice Period</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="engagement_type">Engagement Type</Label>
+                <Select
+                  value={String(watchEngagementType || "")}
+                  onValueChange={(value) => form.setValue("engagement_type", value as any)}
+                >
+                  <SelectTrigger title={selectedEngagementType?.description || undefined}>
+                    <SelectValue placeholder="Select engagement type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {engagementTypes.map((item) => (
+                      <SelectItem key={item.id} value={item.name}>
+                        {item.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedEngagementType?.description && (
+                  <p className="text-xs text-muted-foreground">{selectedEngagementType.description}</p>
+                )}
               </div>
             </div>
 
@@ -1001,6 +1107,18 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
               <div className="space-y-2">
                 <Label htmlFor="current_experience">Current Experience</Label>
                 <Input id="current_experience" value={experienceText} disabled className="bg-gray-100 cursor-not-allowed" />
+              </div>
+            </div>
+
+            {/* Row 3a: Designation, Work Location */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="designation">Designation</Label>
+                <Input id="designation" {...form.register("designation")} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="work_location">Work Location</Label>
+                <Input id="work_location" {...form.register("work_location")} />
               </div>
             </div>
 

@@ -29,7 +29,9 @@ interface Employee {
   middle_name?: string | null;
   last_name?: string | null;
   email: string;
+  personal_email?: string | null;
   phone?: string | null;
+  work_phone?: string | null;
   pay_type: string;
   pay_rate: number;
   country: string;
@@ -37,11 +39,16 @@ interface Employee {
   status: string;
   employment_status?: string | null;
   employee_type: string;
+  engagement_type?: string | null;
   employee_type_id?: string | null;
   employee_type_name?: string; // resolved from employee_types
   pay_groups?: { name: string };
   created_at?: string; // Date added timestamp
   sub_department?: string | null;
+  nationality?: string | null;
+  citizenship?: string | null;
+  designation?: string | null;
+  work_location?: string | null;
   probation_status?: "on_probation" | "confirmed" | "extended" | null;
   probation_end_date?: string | null;
 }

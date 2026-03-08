@@ -56,12 +56,10 @@ $$;
 -- We drop and recreate them to use the safe helpers.
 
 DROP POLICY IF EXISTS "Super admins can view all users" ON public.users;
-DROP POLICY IF EXISTS "Super admins can view all users" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Super admins can view all users" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Super admins can view all users" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Super admins can view all users" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Super admins can view all users" ON public.users; CREATE POLICY "Super admins can view all users" ON public.users
     FOR ALL TO authenticated
     USING (public.check_is_super_admin(auth.uid()));
 
 DROP POLICY IF EXISTS "Organization admins can view organization users" ON public.users;
-DROP POLICY IF EXISTS "Organization admins can view organization users" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Organization admins can view organization users" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Organization admins can view organization users" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Organization admins can view organization users" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Organization admins can view organization users" ON public.users; CREATE POLICY "Organization admins can view organization users" ON public.users
     FOR SELECT TO authenticated
     USING (
         EXISTS (
@@ -87,14 +85,12 @@ END;
 $$;
 
 DROP POLICY IF EXISTS "Organization admins can view organization users" ON public.users;
-DROP POLICY IF EXISTS "Organization admins can view organization users" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Organization admins can view organization users" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Organization admins can view organization users" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Organization admins can view organization users" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Organization admins can view organization users" ON public.users; CREATE POLICY "Organization admins can view organization users" ON public.users
     FOR SELECT TO authenticated
     USING (
         (public.check_is_org_super_admin(auth.uid()) AND organization_id = public.get_user_organization_id(auth.uid()))
     );
 
 DROP POLICY IF EXISTS "Department managers can view department users" ON public.users;
-DROP POLICY IF EXISTS "Department managers can view department users" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Department managers can view department users" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Department managers can view department users" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Department managers can view department users" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Department managers can view department users" ON public.users; CREATE POLICY "Department managers can view department users" ON public.users
     FOR SELECT TO authenticated
     USING (
         EXISTS (
@@ -119,7 +115,6 @@ END;
 $$;
 
 DROP POLICY IF EXISTS "Department managers can view department users" ON public.users;
-DROP POLICY IF EXISTS "Department managers can view department users" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Department managers can view department users" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Department managers can view department users" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Department managers can view department users" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Department managers can view department users" ON public.users; CREATE POLICY "Department managers can view department users" ON public.users
     FOR SELECT TO authenticated
     USING (
         (public.check_is_org_admin(auth.uid()) AND department_id = public.get_user_department_id(auth.uid()))
