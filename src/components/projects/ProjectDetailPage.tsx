@@ -597,6 +597,11 @@ export default function ProjectDetailPage() {
             />
           </TabsContent>
         )}
+
+        {/* EHS Tab */}
+        <TabsContent value="ehs" className="mt-4">
+          <ProjectEhsTab projectId={projectId as string} />
+        </TabsContent>
       </Tabs>
 
       <AddProjectEmployeesDialog
