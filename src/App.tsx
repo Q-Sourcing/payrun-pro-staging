@@ -267,7 +267,14 @@ const App = () => {
                   <Route path="ehs/hazards" element={<EhsHazards />} />
                   <Route path="ehs/inspections" element={<EhsInspections />} />
                   <Route path="ehs/training" element={<EhsTraining />} />
+                  <Route path="ehs/corrective-actions" element={<EhsCorrectiveActions />} />
                   <Route path="ehs/reports" element={<EhsReports />} />
+                  <Route path="ehs/risk-assessments" element={<EhsRiskAssessments />} />
+                  <Route path="ehs/ppe" element={<EhsPPE />} />
+                  <Route path="ehs/permits" element={<EhsPermits />} />
+                  <Route path="ehs/environmental" element={<EhsEnvironmental />} />
+                  <Route path="ehs/emergency-drills" element={<EhsEmergencyDrills />} />
+                  <Route path="ehs/compliance" element={<EhsCompliance />} />
                 </Route>
 
                 {/* Catch-all route */}
