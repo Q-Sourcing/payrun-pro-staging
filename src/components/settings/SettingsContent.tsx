@@ -253,12 +253,6 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
                         <UserManagement />
                     </SettingsSectionGuard>
                 );
-            case "admin-obac":
-                return (
-                    <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="manage_organization_users">
-                        <AdminAccessSection />
-                    </SettingsSectionGuard>
-                );
             case "system":
                 return (
                     <SettingsSectionGuard requiredRole="PLATFORM_SUPER_ADMIN" requiredPermission="system_configuration">
