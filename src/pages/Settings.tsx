@@ -55,6 +55,7 @@ const Settings = () => {
     { id: "system", label: "System", icon: SettingsIcon, requiredRole: 'ORG_ADMIN' as const, requiredPermission: 'manage_organization_users' },
     { id: "data", label: "Data Management", icon: Database, requiredRole: 'ORG_ADMIN' as const, requiredPermission: 'export_data' },
     { id: "about", label: "About & Help", icon: Info, requiredRole: 'SELF_USER' as const },
+    { id: "attendance", label: "Attendance", icon: Timer, requiredRole: 'ORG_ADMIN' as const, requiredPermission: 'organization_configuration' },
   ];
 
   const menuItems = allMenuItems.filter(item => {
