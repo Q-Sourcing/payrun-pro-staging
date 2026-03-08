@@ -104,7 +104,7 @@ export function AdminTimeTracking({ organizationId }: AdminTimeTrackingProps) {
                   <SelectValue placeholder="All projects" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All projects</SelectItem>
+                  <SelectItem value="all">All projects</SelectItem>
                   {projects.map((p) => (
                     <SelectItem key={p.id} value={p.id} className="text-xs">{p.name}</SelectItem>
                   ))}
