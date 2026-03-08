@@ -201,20 +201,16 @@ serve(async (req) => {
           inviteError.message?.includes('already exists') ||
           inviteError.message?.includes('email_exists')
 
-        if (!alreadyExists) {
-          return json({ success: false, message: inviteError.message }, 400)
+        if (alreadyExists) {
+          // User already exists — tell admin to resend after deleting the old account if needed
+          return json({
+            success: false,
+            message: `An account already exists for ${email}. If this user has not yet onboarded, please delete their account from Supabase Auth first, then resend the invitation.`,
+            code: 'email_exists'
+          }, 409)
         }
 
-        // User already exists in auth — send a password reset link so they can set/reset their password
-        console.log(`User ${email} already exists, sending password reset link instead`)
-        const { error: resetError } = await supabaseAdmin.auth.admin.generateLink({
-          type: 'recovery',
-          email: email.toLowerCase(),
-          options: { redirectTo: `${origin}/accept-invite-user?token=${inviteToken}` }
-        })
-        if (resetError) {
-          console.error('Password reset link error:', resetError)
-        }
+        return json({ success: false, message: inviteError.message }, 400)
       }
 
       const { data: invitation, error: insertError } = await supabaseAdmin
