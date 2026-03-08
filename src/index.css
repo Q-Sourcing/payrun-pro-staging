@@ -2904,3 +2904,139 @@ All colors MUST be HSL.
   box-shadow: 0 4px 12px rgba(14, 114, 136, 0.3) !important;
   border-left: 3px solid #0e7288 !important;
 }
+
+/* ========================
+   SIDEBAR FOOTER & THEME TOGGLE
+   ======================== */
+.sidebar-footer {
+  margin-top: auto;
+  padding: 16px;
+  border-top: 1px solid hsl(214 32% 91%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+[data-theme="dark"] .sidebar-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-footer-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: hsl(215 16% 47%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  text-align: left;
+}
+
+.sidebar-footer-btn:hover {
+  background: hsl(210 40% 96%);
+  color: hsl(186 84% 30%);
+}
+
+[data-theme="dark"] .sidebar-footer-btn {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .sidebar-footer-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+/* Theme Toggle Pill */
+.theme-toggle-pill {
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.theme-toggle-pill.light {
+  background: hsl(45 91% 85%);
+}
+
+.theme-toggle-pill.dark {
+  background: hsl(222 47% 25%);
+}
+
+.theme-toggle-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.theme-toggle-pill.light .theme-toggle-thumb {
+  left: 2px;
+  background: hsl(45 91% 52%);
+  color: white;
+}
+
+.theme-toggle-pill.dark .theme-toggle-thumb {
+  left: 20px;
+  background: hsl(215 20% 65%);
+  color: hsl(222 47% 11%);
+}
+
+/* ========================
+   DARK MODE - APP CONTAINER
+   ======================== */
+[data-theme="dark"] .app-container {
+  background: hsl(222 84% 5%);
+}
+
+[data-theme="dark"] .main-content {
+  background: hsl(222 84% 5%);
+}
+
+/* Fix dark mode for Sidebar nav text in Sidebar.tsx component */
+[data-theme="dark"] .flex.flex-col.text-sm a,
+[data-theme="dark"] .flex.flex-col.text-sm button {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="dark"] .flex.flex-col.text-sm a:hover,
+[data-theme="dark"] .flex.flex-col.text-sm button:hover {
+  color: white;
+}
+
+[data-theme="dark"] .bg-blue-50 {
+  background: rgba(14, 114, 136, 0.2) !important;
+}
+
+[data-theme="dark"] .text-blue-700 {
+  color: hsl(186 84% 65%) !important;
+}
+
+[data-theme="dark"] .text-slate-700 {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+[data-theme="dark"] .text-slate-500 {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+[data-theme="dark"] .hover\:bg-slate-50:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] .hover\:text-blue-700:hover {
+  color: hsl(186 84% 70%) !important;
+}
