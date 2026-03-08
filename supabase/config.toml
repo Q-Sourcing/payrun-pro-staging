@@ -6,3 +6,15 @@ project_id = "sbphmrjoappwlervnbtm"
 
 [functions.ehs-notifications]
 verify_jwt = false
+
+[functions.zoho-auth-start]
+verify_jwt = false
+
+[functions.zoho-auth-callback]
+verify_jwt = false
+
+[functions.zoho-disconnect]
+verify_jwt = false
+
+[functions.zoho-sync-employees]
+verify_jwt = false
