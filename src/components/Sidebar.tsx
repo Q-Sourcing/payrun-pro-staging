@@ -1,7 +1,8 @@
 import {
   Users, FolderKanban, DollarSign, Globe, Briefcase, Clock3,
   GraduationCap, UserSquare, Timer, FileText, Settings, ChevronRight, BarChart3,
-  Building2, FolderTree, Calendar, Package, CheckSquare, AlarmClock, UserCog
+  Building2, FolderTree, Calendar, Package, CheckSquare, AlarmClock, UserCog,
+  ShieldAlert, AlertTriangle, ClipboardCheck, Shield
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
