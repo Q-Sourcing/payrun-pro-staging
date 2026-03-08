@@ -1203,6 +1203,89 @@ export type Database = {
           },
         ]
       }
+      employee_addresses: {
+        Row: {
+          address_type: string
+          city: string | null
+          country: string | null
+          created_at: string
+          district: string | null
+          employee_id: string
+          id: string
+          is_primary: boolean
+          line_1: string
+          line_2: string | null
+          organization_id: string
+          postal_code: string | null
+          source: string
+          state_region: string | null
+          updated_at: string
+        }
+        Insert: {
+          address_type: string
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          district?: string | null
+          employee_id: string
+          id?: string
+          is_primary?: boolean
+          line_1: string
+          line_2?: string | null
+          organization_id: string
+          postal_code?: string | null
+          source?: string
+          state_region?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address_type?: string
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          district?: string | null
+          employee_id?: string
+          id?: string
+          is_primary?: boolean
+          line_1?: string
+          line_2?: string | null
+          organization_id?: string
+          postal_code?: string | null
+          source?: string
+          state_region?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_addresses_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_addresses_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "employee_addresses_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_addresses_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_categories: {
         Row: {
           active: boolean | null
@@ -1343,6 +1426,311 @@ export type Database = {
           },
         ]
       }
+      employee_dependents: {
+        Row: {
+          contact_phone: string | null
+          created_at: string
+          date_of_birth: string | null
+          employee_id: string
+          full_name: string
+          id: string
+          notes: string | null
+          organization_id: string
+          relationship: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          contact_phone?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          employee_id: string
+          full_name: string
+          id?: string
+          notes?: string | null
+          organization_id: string
+          relationship: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          contact_phone?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          employee_id?: string
+          full_name?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          relationship?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_dependents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_dependents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "employee_dependents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_dependents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_documents: {
+        Row: {
+          created_at: string
+          description: string | null
+          document_type: string
+          employee_id: string
+          external_document_id: string | null
+          file_size_bytes: number | null
+          id: string
+          mime_type: string | null
+          organization_id: string
+          source: string
+          storage_bucket: string | null
+          storage_path: string | null
+          title: string
+          updated_at: string
+          uploaded_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          document_type: string
+          employee_id: string
+          external_document_id?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          mime_type?: string | null
+          organization_id: string
+          source?: string
+          storage_bucket?: string | null
+          storage_path?: string | null
+          title: string
+          updated_at?: string
+          uploaded_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          document_type?: string
+          employee_id?: string
+          external_document_id?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          mime_type?: string | null
+          organization_id?: string
+          source?: string
+          storage_bucket?: string | null
+          storage_path?: string | null
+          title?: string
+          updated_at?: string
+          uploaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "employee_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_documents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_education: {
+        Row: {
+          created_at: string
+          date_of_completion: string | null
+          degree_diploma: string | null
+          employee_id: string
+          end_date: string | null
+          id: string
+          institution_name: string
+          organization_id: string
+          source: string
+          specialization: string | null
+          start_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_of_completion?: string | null
+          degree_diploma?: string | null
+          employee_id: string
+          end_date?: string | null
+          id?: string
+          institution_name: string
+          organization_id: string
+          source?: string
+          specialization?: string | null
+          start_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_of_completion?: string | null
+          degree_diploma?: string | null
+          employee_id?: string
+          end_date?: string | null
+          id?: string
+          institution_name?: string
+          organization_id?: string
+          source?: string
+          specialization?: string | null
+          start_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_education_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_education_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "employee_education_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_education_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_external_ids: {
+        Row: {
+          created_at: string
+          employee_id: string
+          external_id: string
+          external_label: string | null
+          external_record_id: string | null
+          id: string
+          last_inbound_synced_at: string | null
+          last_outbound_synced_at: string | null
+          last_seen_at: string | null
+          metadata: Json
+          organization_id: string
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          employee_id: string
+          external_id: string
+          external_label?: string | null
+          external_record_id?: string | null
+          id?: string
+          last_inbound_synced_at?: string | null
+          last_outbound_synced_at?: string | null
+          last_seen_at?: string | null
+          metadata?: Json
+          organization_id: string
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string
+          external_id?: string
+          external_label?: string | null
+          external_record_id?: string | null
+          id?: string
+          last_inbound_synced_at?: string | null
+          last_outbound_synced_at?: string | null
+          last_seen_at?: string | null
+          metadata?: Json
+          organization_id?: string
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_external_ids_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_external_ids_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "employee_external_ids_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_external_ids_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_number_history: {
         Row: {
           changed_at: string
@@ -1464,6 +1852,80 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_work_experience: {
+        Row: {
+          created_at: string
+          employee_id: string
+          employer_name: string
+          from_date: string | null
+          id: string
+          job_description: string | null
+          job_title: string | null
+          organization_id: string
+          relevant: boolean
+          source: string
+          to_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          employee_id: string
+          employer_name: string
+          from_date?: string | null
+          id?: string
+          job_description?: string | null
+          job_title?: string | null
+          organization_id: string
+          relevant?: boolean
+          source?: string
+          to_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string
+          employer_name?: string
+          from_date?: string | null
+          id?: string
+          job_description?: string | null
+          job_title?: string | null
+          organization_id?: string
+          relevant?: boolean
+          source?: string
+          to_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_work_experience_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_work_experience_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "employee_work_experience_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_work_experience_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           account_number: string | null
@@ -1486,8 +1948,8 @@ export type Database = {
           employee_number: string
           employee_type: string
           employee_type_id: string | null
-          engagement_type: string | null
           employment_status: string | null
+          engagement_type: string | null
           first_name: string
           gender: string | null
           id: string
@@ -1503,8 +1965,8 @@ export type Database = {
           pay_group_id: string | null
           pay_rate: number
           pay_type: Database["public"]["Enums"]["pay_type"]
-          phone: string | null
           personal_email: string | null
+          phone: string | null
           probation_end_date: string | null
           probation_notes: string | null
           probation_status: string | null
@@ -1542,8 +2004,8 @@ export type Database = {
           employee_number: string
           employee_type?: string
           employee_type_id?: string | null
-          engagement_type?: string | null
           employment_status?: string | null
+          engagement_type?: string | null
           first_name: string
           gender?: string | null
           id?: string
@@ -1559,8 +2021,8 @@ export type Database = {
           pay_group_id?: string | null
           pay_rate: number
           pay_type?: Database["public"]["Enums"]["pay_type"]
-          phone?: string | null
           personal_email?: string | null
+          phone?: string | null
           probation_end_date?: string | null
           probation_notes?: string | null
           probation_status?: string | null
@@ -1598,8 +2060,8 @@ export type Database = {
           employee_number?: string
           employee_type?: string
           employee_type_id?: string | null
-          engagement_type?: string | null
           employment_status?: string | null
+          engagement_type?: string | null
           first_name?: string
           gender?: string | null
           id?: string
@@ -1615,8 +2077,8 @@ export type Database = {
           pay_group_id?: string | null
           pay_rate?: number
           pay_type?: Database["public"]["Enums"]["pay_type"]
-          phone?: string | null
           personal_email?: string | null
+          phone?: string | null
           probation_end_date?: string | null
           probation_notes?: string | null
           probation_status?: string | null
@@ -1698,6 +2160,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      engagement_types: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       expatriate_pay_groups: {
         Row: {
@@ -2534,35 +3026,58 @@ export type Database = {
       integration_tokens: {
         Row: {
           access_token: string
+          api_domain: string | null
+          connected_by: string | null
           created_at: string | null
           expires_at: string
           id: string
           integration_name: string
+          metadata: Json
+          organization_id: string | null
           refresh_token: string
+          scope: string | null
           token_type: string | null
           updated_at: string | null
         }
         Insert: {
           access_token: string
+          api_domain?: string | null
+          connected_by?: string | null
           created_at?: string | null
           expires_at: string
           id?: string
           integration_name: string
+          metadata?: Json
+          organization_id?: string | null
           refresh_token: string
+          scope?: string | null
           token_type?: string | null
           updated_at?: string | null
         }
         Update: {
           access_token?: string
+          api_domain?: string | null
+          connected_by?: string | null
           created_at?: string | null
           expires_at?: string
           id?: string
           integration_name?: string
+          metadata?: Json
+          organization_id?: string | null
           refresh_token?: string
+          scope?: string | null
           token_type?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "integration_tokens_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       intern_pay_run_items: {
         Row: {
@@ -2967,6 +3482,30 @@ export type Database = {
           months?: number
           percentages?: Json | null
           start_month?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      nationalities: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
           updated_at?: string
         }
         Relationships: []
@@ -5054,6 +5593,8 @@ export type Database = {
       }
       sync_configurations: {
         Row: {
+          company_id: string | null
+          company_unit_id: string | null
           created_at: string | null
           data_mapping: Json | null
           direction: string
@@ -5063,11 +5604,14 @@ export type Database = {
           id: string
           integration_name: string
           name: string
+          organization_id: string | null
           retry_attempts: number | null
           timeout: number | null
           updated_at: string | null
         }
         Insert: {
+          company_id?: string | null
+          company_unit_id?: string | null
           created_at?: string | null
           data_mapping?: Json | null
           direction: string
@@ -5077,11 +5621,14 @@ export type Database = {
           id?: string
           integration_name: string
           name: string
+          organization_id?: string | null
           retry_attempts?: number | null
           timeout?: number | null
           updated_at?: string | null
         }
         Update: {
+          company_id?: string | null
+          company_unit_id?: string | null
           created_at?: string | null
           data_mapping?: Json | null
           direction?: string
@@ -5091,19 +5638,46 @@ export type Database = {
           id?: string
           integration_name?: string
           name?: string
+          organization_id?: string | null
           retry_attempts?: number | null
           timeout?: number | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sync_configurations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sync_configurations_company_unit_id_fkey"
+            columns: ["company_unit_id"]
+            isOneToOne: false
+            referencedRelation: "company_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sync_configurations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sync_logs: {
         Row: {
+          company_id: string | null
+          company_unit_id: string | null
           completed_at: string | null
           created_at: string | null
           direction: string
           error_message: string | null
           id: string
+          metadata: Json
+          organization_id: string | null
           records_failed: number | null
           records_processed: number | null
           retry_count: number | null
@@ -5113,11 +5687,15 @@ export type Database = {
           type: string
         }
         Insert: {
+          company_id?: string | null
+          company_unit_id?: string | null
           completed_at?: string | null
           created_at?: string | null
           direction: string
           error_message?: string | null
           id?: string
+          metadata?: Json
+          organization_id?: string | null
           records_failed?: number | null
           records_processed?: number | null
           retry_count?: number | null
@@ -5127,11 +5705,15 @@ export type Database = {
           type: string
         }
         Update: {
+          company_id?: string | null
+          company_unit_id?: string | null
           completed_at?: string | null
           created_at?: string | null
           direction?: string
           error_message?: string | null
           id?: string
+          metadata?: Json
+          organization_id?: string | null
           records_failed?: number | null
           records_processed?: number | null
           retry_count?: number | null
@@ -5140,7 +5722,29 @@ export type Database = {
           sync_id?: string
           type?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sync_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sync_logs_company_unit_id_fkey"
+            columns: ["company_unit_id"]
+            isOneToOne: false
+            referencedRelation: "company_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sync_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tenant_email_settings: {
         Row: {
@@ -6181,8 +6785,8 @@ export type Database = {
           employee_category: string | null
           employee_number: string | null
           employee_type: string | null
-          engagement_type: string | null
           employment_status: string | null
+          engagement_type: string | null
           first_name: string | null
           id: string | null
           last_name: string | null
@@ -6211,14 +6815,14 @@ export type Database = {
           employee_category?: string | null
           employee_number?: string | null
           employee_type?: string | null
-          engagement_type?: string | null
           employment_status?: string | null
+          engagement_type?: string | null
           first_name?: string | null
           id?: string | null
           last_name?: string | null
-          name?: string | null
+          name?: never
           nationality?: string | null
-          organization_id?: string | null
+          organization_id?: never
           pay_group_id?: string | null
           personal_email?: string | null
           phone?: string | null
@@ -6241,14 +6845,14 @@ export type Database = {
           employee_category?: string | null
           employee_number?: string | null
           employee_type?: string | null
-          engagement_type?: string | null
           employment_status?: string | null
+          engagement_type?: string | null
           first_name?: string | null
           id?: string | null
           last_name?: string | null
-          name?: string | null
+          name?: never
           nationality?: string | null
-          organization_id?: string | null
+          organization_id?: never
           pay_group_id?: string | null
           personal_email?: string | null
           phone?: string | null
@@ -6260,17 +6864,31 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_employees_org"
-            columns: ["organization_id"]
+            foreignKeyName: "employees_company_id_fkey"
+            columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "organizations"
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_employees_organization"
-            columns: ["organization_id"]
+            foreignKeyName: "employees_company_unit_id_fkey"
+            columns: ["company_unit_id"]
             isOneToOne: false
-            referencedRelation: "organizations"
+            referencedRelation: "company_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_pay_group_id_fkey"
+            columns: ["pay_group_id"]
+            isOneToOne: false
+            referencedRelation: "pay_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_employees_company"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -6900,6 +7518,7 @@ export type Database = {
         Returns: Json
       }
       ug_lst_annual_amount: { Args: { gross_pay: number }; Returns: number }
+      user_belongs_to_org: { Args: { target_org_id: string }; Returns: boolean }
       validate_pay_group_id: {
         Args: { pay_group_id: string }
         Returns: boolean
