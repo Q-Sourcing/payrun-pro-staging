@@ -90,12 +90,19 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
       ? "bg-blue-50 text-blue-700 font-semibold"
       : "text-slate-700 hover:bg-slate-50 hover:text-blue-700";
 
-  const SectionHeader = ({ title }: { title: string }) => {
+  const SectionHeader = ({ title, sectionKey }: { title: string; sectionKey: string }) => {
     if (collapsed) return null;
+    const isOpen = sectionOpen[sectionKey] !== false;
     return (
-      <div className="tracking-wider text-xs font-semibold text-slate-500 uppercase px-4 mt-6 mb-1">
-        {title}
-      </div>
+      <button
+        onClick={() => toggleSection(sectionKey)}
+        className="flex items-center justify-between w-full tracking-wider text-xs font-semibold text-slate-500 uppercase px-4 mt-6 mb-1 hover:text-slate-700 transition-colors"
+      >
+        <span>{title}</span>
+        <motion.div animate={{ rotate: isOpen ? 90 : 0 }} transition={{ duration: 0.2 }}>
+          <ChevronRight size={12} />
+        </motion.div>
+      </button>
     );
   };
 
