@@ -201,38 +201,52 @@ export default function SetPassword() {
     return () => subscription.unsubscribe();
   }, [sessionReady]);
 
+  // If we only have an invite token (no Supabase hash session), the password
+  // update goes through a server-side call via the accept action after we
+  // exchange the token. Allow form submission regardless of sessionReady when
+  // an inviteToken is present so the user is never blocked.
+  const canSubmit = valid && (sessionReady || !!inviteToken);
+
   // ── submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!valid || !sessionReady) return;
-
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast({ variant: 'destructive', title: 'Session expired', description: 'Please click the invitation link again.' });
-      return;
-    }
+    if (!canSubmit) return;
 
     setSubmitting(true);
     try {
-      // 1. Set the password
-      const { error: pwErr } = await supabase.auth.updateUser({ password });
-      if (pwErr) throw pwErr;
+      const { data: { session } } = await supabase.auth.getSession();
 
-      // 2. Mark invite as accepted (best-effort, non-fatal)
-      if (inviteToken) {
-        try {
-          await fetch(`${INVITE_FN_URL}?action=accept`, {
-            method : 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}`, apikey: ANON_KEY },
-            body   : JSON.stringify({ token: inviteToken, user_id: session.user.id }),
-          });
-        } catch (e) {
-          console.warn('[SetPassword] accept call failed (non-fatal):', e);
+      if (session) {
+        // ── Path A: Supabase session available → update password directly ──
+        const { error: pwErr } = await supabase.auth.updateUser({ password });
+        if (pwErr) throw pwErr;
+
+        // Mark invite accepted (best-effort)
+        if (inviteToken) {
+          try {
+            await fetch(`${INVITE_FN_URL}?action=accept`, {
+              method : 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}`, apikey: ANON_KEY },
+              body   : JSON.stringify({ token: inviteToken, user_id: session.user.id }),
+            });
+          } catch (e) {
+            console.warn('[SetPassword] accept call failed (non-fatal):', e);
+          }
         }
-      }
 
-      // 3. Sign out so the user does a clean login with their new password
-      await supabase.auth.signOut();
+        await supabase.auth.signOut();
+      } else if (inviteToken) {
+        // ── Path B: Token-only flow → call accept which sets status to active ─
+        const res = await fetch(`${INVITE_FN_URL}?action=accept`, {
+          method : 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: ANON_KEY },
+          body   : JSON.stringify({ token: inviteToken, password }),
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.message || 'Failed to activate account');
+      } else {
+        throw new Error('No active session or invite token. Please click the invitation link again.');
+      }
 
       setStage('success');
       toast({ title: 'Password set!', description: 'Redirecting you to the login page…' });
@@ -343,11 +357,16 @@ export default function SetPassword() {
                   </div>
                 )}
 
-                {/* Session status */}
+                {/* Session status — only shown when no invite token or session not ready */}
                 {sessionReady ? (
                   <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5">
                     <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
                     <p className="text-xs font-medium text-primary">Identity verified — set your password below.</p>
+                  </div>
+                ) : inviteToken ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+                    <p className="text-xs font-medium text-primary">Invitation verified — set your password below.</p>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 rounded-lg border bg-muted px-3 py-2.5">
@@ -424,7 +443,7 @@ export default function SetPassword() {
                   <Button
                     type="submit"
                     className="w-full"
-                    disabled={submitting || !sessionReady || !valid}
+                    disabled={submitting || !canSubmit}
                   >
                     {submitting
                       ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Activating Account…</>
