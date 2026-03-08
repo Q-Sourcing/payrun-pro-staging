@@ -72,12 +72,15 @@ serve(async (req) => {
 
       if (acceptError) return json({ success: false, message: acceptError.message }, 500)
 
+      // Always upsert the user profile as active — handles both cases:
+      // 1. Profile was pre-created at invite time (update status to active)
+      // 2. Profile was never created (insert it now)
       if (user_id) {
         const nameParts = (inv.full_name || '').trim().split(/\s+/)
         const firstName = nameParts[0] || ''
         const lastName = nameParts.slice(1).join(' ') || ''
 
-        await supabaseAdmin.from('user_management_profiles').upsert({
+        const { error: profileErr } = await supabaseAdmin.from('user_management_profiles').upsert({
           id: user_id,
           username: null,
           full_name: inv.full_name,
@@ -86,10 +89,15 @@ serve(async (req) => {
           phone: inv.phone || null,
           department: inv.department || null,
           status: 'active',
+          created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }, { onConflict: 'id' })
 
-        await supabaseAdmin.from('user_profiles').upsert({
+        if (profileErr) {
+          console.error('Profile upsert error on accept:', profileErr)
+        }
+
+        const { error: upErr } = await supabaseAdmin.from('user_profiles').upsert({
           id: user_id,
           email: inv.email,
           first_name: firstName,
@@ -97,6 +105,10 @@ serve(async (req) => {
           role: inv.role || 'user',
           updated_at: new Date().toISOString(),
         }, { onConflict: 'id' })
+
+        if (upErr) {
+          console.error('user_profiles upsert error on accept:', upErr)
+        }
       }
 
       await supabaseAdmin.from('audit_logs').insert({
@@ -104,12 +116,12 @@ serve(async (req) => {
         action: 'invitation.accepted',
         user_id: user_id || null,
         resource: 'user_management_invitations',
-        details: { email: inv.email, full_name: inv.full_name },
+        details: { email: inv.email, full_name: inv.full_name, role: inv.role },
         timestamp: new Date().toISOString(),
         result: 'success',
       }).then(() => {}).catch(() => {})
 
-      return json({ success: true, message: 'Invitation accepted. Account activated.', invitation: inv })
+      return json({ success: true, message: 'Invitation accepted. Account activated.', invitation: { ...inv, status: 'accepted' } })
     }
 
     // ── Auth check for all other actions ──────────────────────────────────────
