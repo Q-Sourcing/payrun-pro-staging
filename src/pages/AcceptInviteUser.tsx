@@ -349,8 +349,8 @@ export default function AcceptInviteUser() {
             {/* ── Success ─────────────────────────────────────────── */}
             {stage === 'success' && (
               <div className="flex flex-col items-center py-6 gap-4 text-center">
-                <div className="h-16 w-16 rounded-full bg-green-500/10 flex items-center justify-center">
-                  <CheckCircle2 className="h-8 w-8 text-green-500" />
+                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <CheckCircle2 className="h-8 w-8 text-primary" />
                 </div>
                 <div className="space-y-1">
                   <p className="font-semibold text-foreground">Password created successfully!</p>
