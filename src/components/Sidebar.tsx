@@ -49,7 +49,8 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
       canViewPayRunsHeadOffice: false,
       canViewPayRunsProjects: false,
       canViewReports: false,
-      canViewSettings: false
+      canViewSettings: false,
+      canViewEhs: false,
     };
 
     return {
