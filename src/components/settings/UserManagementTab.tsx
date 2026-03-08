@@ -705,6 +705,7 @@ export function UserManagementTab() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [activeTab, setActiveTab] = useState("users");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [viewUser, setViewUser] = useState<ManagedUser | null>(null);
   const [editUser, setEditUser] = useState<ManagedUser | null>(null);
@@ -723,7 +724,10 @@ export function UserManagementTab() {
     }
   }, [toast]);
 
-  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+  // Refresh users list whenever switching to the Users tab (picks up newly accepted invites)
+  useEffect(() => {
+    if (activeTab === "users") fetchUsers();
+  }, [activeTab, fetchUsers]);
 
   const filtered = users.filter((u) => {
     const q = search.toLowerCase();
