@@ -125,9 +125,9 @@ const ROLE_CONFIG: Record<string, { label: string; variant: "default" | "seconda
   employee: { label: "Employee", variant: "outline" },
 };
 
-const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
+const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive"; className?: string }> = {
   pending:   { label: "Pending",   variant: "secondary" },
-  accepted:  { label: "Accepted",  variant: "default" },
+  accepted:  { label: "Accepted",  variant: "outline", className: "border-green-500 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30" },
   cancelled: { label: "Cancelled", variant: "outline" },
   expired:   { label: "Expired",   variant: "destructive" },
 };
