@@ -19,7 +19,7 @@ interface Props {
   projectId?: string;
 }
 
-export function InspectionFormDialog({ open, onOpenChange, inspection, orgId }: Props) {
+export function InspectionFormDialog({ open, onOpenChange, inspection, orgId, projectId }: Props) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isEdit = !!inspection;
