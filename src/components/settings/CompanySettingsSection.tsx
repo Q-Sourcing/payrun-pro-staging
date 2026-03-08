@@ -1,16 +1,17 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ALL_COUNTRIES } from "@/lib/constants/countries";
 import { useOrg } from "@/lib/tenant/OrgContext";
 import { useOrgNames } from "@/lib/tenant/useOrgNames";
 import { useUserRole } from "@/hooks/use-user-role";
-import { Pencil, Settings as GearIcon } from "lucide-react";
+import { Pencil, Settings as GearIcon, Building2, MapPin, Globe2, Phone, Mail, CalendarDays } from "lucide-react";
 import { OrganizationSetupModal } from "../organization-setup/OrganizationSetupModal";
 
 export const CompanySettingsSection = ({ onOpenAdvanced }: { onOpenAdvanced?: () => void }) => {
@@ -109,14 +110,12 @@ export const CompanySettingsSection = ({ onOpenAdvanced }: { onOpenAdvanced?: ()
 
     setLoading(true);
     try {
-      // Update canonical organization name
       const { error: orgError } = await supabase
         .from('organizations')
         .update({ name: formData.companyName })
         .eq('id', effectiveOrgId);
       if (orgError) throw orgError;
 
-      // Mirror name to companies table (selected company)
       if (effectiveCompanyId) {
         await supabase
           .from('companies')
@@ -156,104 +155,143 @@ export const CompanySettingsSection = ({ onOpenAdvanced }: { onOpenAdvanced?: ()
   };
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-xl">Company Settings</CardTitle>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onOpenAdvanced?.()}
-            title="Organization Setup"
-            className="hover:bg-slate-100"
-          >
-            <GearIcon className="h-5 w-5 text-slate-500" />
-          </Button>
-          {!readOnly && (
-            <Button variant="outline" size="sm" onClick={() => setEditingName(!editingName)}>
-              <Pencil className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <OrganizationSetupModal open={showOrgSetup} onClose={() => setShowOrgSetup(false)} />
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-muted-foreground">BASIC INFORMATION</h3>
-          <div className="grid grid-cols-2 gap-4">
+    <div className="space-y-6">
+      <OrganizationSetupModal open={showOrgSetup} onClose={() => setShowOrgSetup(false)} />
+
+      {/* Basic Information */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Building2 className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Basic Information</CardTitle>
+                <CardDescription>Your company identity and legal details</CardDescription>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onOpenAdvanced?.()}
+                title="Organization Setup"
+              >
+                <GearIcon className="h-4 w-4 text-muted-foreground" />
+              </Button>
+              {!readOnly && (
+                <Button variant="outline" size="sm" onClick={() => setEditingName(!editingName)}>
+                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                  Edit
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Company Name *</Label>
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Company Name *</Label>
               <Input
                 value={formData.companyName}
                 onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
                 disabled={!isSuperAdmin || !editingName}
+                className="h-10"
               />
             </div>
             <div className="space-y-2">
-              <Label>Legal Name</Label>
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Legal Name</Label>
               <Input
                 value={formData.legalName}
                 onChange={(e) => setFormData(prev => ({ ...prev, legalName: e.target.value }))}
                 disabled={readOnly}
+                className="h-10"
+                placeholder="Full legal entity name"
               />
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Tax ID / Business Number</Label>
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tax ID / Business Number</Label>
             <Input
               value={formData.taxId}
               onChange={(e) => setFormData(prev => ({ ...prev, taxId: e.target.value }))}
               disabled={readOnly}
+              className="h-10 max-w-md"
+              placeholder="e.g. UG-1234567890"
             />
           </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-muted-foreground">CONTACT INFORMATION</h3>
+      {/* Contact Information */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <MapPin className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Contact & Address</CardTitle>
+              <CardDescription>Company location and contact details</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Address</Label>
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Street Address</Label>
             <Input
               value={formData.address}
               onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
               disabled={readOnly}
+              className="h-10"
+              placeholder="123 Main Street"
             />
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label>City</Label>
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">City</Label>
               <Input
                 value={formData.city}
                 onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
                 disabled={readOnly}
+                className="h-10"
+                placeholder="Kampala"
               />
             </div>
             <div className="space-y-2">
-              <Label>State/Region</Label>
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">State / Region</Label>
               <Input
                 value={formData.state}
                 onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value }))}
                 disabled={readOnly}
+                className="h-10"
               />
             </div>
             <div className="space-y-2">
-              <Label>Postal Code</Label>
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Postal Code</Label>
               <Input
                 value={formData.postalCode}
                 onChange={(e) => setFormData(prev => ({ ...prev, postalCode: e.target.value }))}
                 disabled={readOnly}
+                className="h-10"
               />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4">
+
+          <Separator className="my-2" />
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label>Country</Label>
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                <Globe2 className="h-3 w-3" /> Country
+              </Label>
               <Select
                 value={formData.country}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, country: value }))}
                 disabled={readOnly}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -266,44 +304,67 @@ export const CompanySettingsSection = ({ onOpenAdvanced }: { onOpenAdvanced?: ()
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Phone</Label>
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                <Phone className="h-3 w-3" /> Phone
+              </Label>
               <Input
                 value={formData.phone}
                 onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                 disabled={readOnly}
+                className="h-10"
+                placeholder="+256 700 000 000"
               />
             </div>
             <div className="space-y-2">
-              <Label>Email</Label>
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                <Mail className="h-3 w-3" /> Email
+              </Label>
               <Input
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                 disabled={readOnly}
+                className="h-10"
+                placeholder="info@company.com"
               />
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Website</Label>
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Website</Label>
             <Input
               value={formData.website}
               onChange={(e) => setFormData(prev => ({ ...prev, website: e.target.value }))}
               disabled={readOnly}
+              className="h-10 max-w-md"
+              placeholder="https://www.company.com"
             />
           </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-muted-foreground">CURRENCY & LOCALIZATION</h3>
-          <div className="grid grid-cols-2 gap-4">
+      {/* Currency & Localization */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <CalendarDays className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Currency & Localization</CardTitle>
+              <CardDescription>Date formats and financial year configuration</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Date Format</Label>
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Date Format</Label>
               <Select
                 value={formData.dateFormat}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, dateFormat: value }))}
                 disabled={readOnly}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -314,13 +375,13 @@ export const CompanySettingsSection = ({ onOpenAdvanced }: { onOpenAdvanced?: ()
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Financial Year Start</Label>
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Financial Year Start</Label>
               <Select
                 value={formData.financialYearStart}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, financialYearStart: value }))}
                 disabled={readOnly}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -331,15 +392,16 @@ export const CompanySettingsSection = ({ onOpenAdvanced }: { onOpenAdvanced?: ()
               </Select>
             </div>
           </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        <div className="flex gap-2 pt-4">
-          <Button onClick={handleSave} disabled={loading || readOnly}>
-            {loading ? "Saving..." : "Save Company Settings"}
-          </Button>
-          <Button variant="outline" onClick={loadSettings}>Reset</Button>
-        </div>
-      </CardContent>
-    </Card>
+      {/* Save Actions */}
+      <div className="flex items-center gap-3 pt-2">
+        <Button onClick={handleSave} disabled={loading || readOnly} size="lg">
+          {loading ? "Saving..." : "Save Company Settings"}
+        </Button>
+        <Button variant="outline" size="lg" onClick={loadSettings}>Reset Changes</Button>
+      </div>
+    </div>
   );
 };
