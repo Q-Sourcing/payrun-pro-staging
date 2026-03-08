@@ -784,7 +784,7 @@ export function UserManagementTab() {
       </div>
 
       {/* Tabs: Users / Invitations */}
-      <Tabs defaultValue="users" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="users" className="gap-2">
             <Users className="h-4 w-4" /> Users
