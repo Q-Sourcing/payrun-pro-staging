@@ -303,7 +303,7 @@ export default function AcceptInviteUser() {
                 </div>
 
                 {!sessionReady && (
-                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-xs text-amber-800 dark:text-amber-200 flex items-center gap-2">
+                  <div className="bg-muted border rounded-lg p-3 text-xs text-muted-foreground flex items-center gap-2">
                     <Loader2 className="h-3.5 w-3.5 animate-spin flex-shrink-0" />
                     Waiting for your authentication session. If this takes too long, try refreshing the page or clicking the email link again.
                   </div>
