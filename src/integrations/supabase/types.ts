@@ -1010,6 +1010,89 @@ export type Database = {
         }
         Relationships: []
       }
+      ehs_compliance_requirements: {
+        Row: {
+          category: string | null
+          compliance_status: Database["public"]["Enums"]["ehs_compliance_status"]
+          created_at: string
+          due_date: string | null
+          evidence_url: string | null
+          id: string
+          last_audit_date: string | null
+          next_audit_date: string | null
+          notes: string | null
+          organization_id: string
+          regulation_body: string | null
+          regulation_name: string
+          requirement_description: string
+          responsible_person: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          compliance_status?: Database["public"]["Enums"]["ehs_compliance_status"]
+          created_at?: string
+          due_date?: string | null
+          evidence_url?: string | null
+          id?: string
+          last_audit_date?: string | null
+          next_audit_date?: string | null
+          notes?: string | null
+          organization_id: string
+          regulation_body?: string | null
+          regulation_name: string
+          requirement_description: string
+          responsible_person?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          compliance_status?: Database["public"]["Enums"]["ehs_compliance_status"]
+          created_at?: string
+          due_date?: string | null
+          evidence_url?: string | null
+          id?: string
+          last_audit_date?: string | null
+          next_audit_date?: string | null
+          notes?: string | null
+          organization_id?: string
+          regulation_body?: string | null
+          regulation_name?: string
+          requirement_description?: string
+          responsible_person?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ehs_compliance_requirements_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_compliance_requirements_responsible_person_fkey"
+            columns: ["responsible_person"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_compliance_requirements_responsible_person_fkey"
+            columns: ["responsible_person"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "ehs_compliance_requirements_responsible_person_fkey"
+            columns: ["responsible_person"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ehs_corrective_actions: {
         Row: {
           assigned_to: string | null
@@ -1115,6 +1198,201 @@ export type Database = {
           {
             foreignKeyName: "ehs_corrective_actions_responsible_person_fkey"
             columns: ["responsible_person"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ehs_emergency_drills: {
+        Row: {
+          actual_date: string | null
+          conducted_by: string | null
+          created_at: string
+          description: string | null
+          drill_type: Database["public"]["Enums"]["ehs_drill_type"]
+          duration_minutes: number | null
+          evacuation_time_seconds: number | null
+          id: string
+          improvements: string | null
+          observations: string | null
+          organization_id: string
+          participants_count: number | null
+          project_id: string | null
+          scheduled_date: string
+          status: Database["public"]["Enums"]["ehs_drill_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          actual_date?: string | null
+          conducted_by?: string | null
+          created_at?: string
+          description?: string | null
+          drill_type?: Database["public"]["Enums"]["ehs_drill_type"]
+          duration_minutes?: number | null
+          evacuation_time_seconds?: number | null
+          id?: string
+          improvements?: string | null
+          observations?: string | null
+          organization_id: string
+          participants_count?: number | null
+          project_id?: string | null
+          scheduled_date: string
+          status?: Database["public"]["Enums"]["ehs_drill_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          actual_date?: string | null
+          conducted_by?: string | null
+          created_at?: string
+          description?: string | null
+          drill_type?: Database["public"]["Enums"]["ehs_drill_type"]
+          duration_minutes?: number | null
+          evacuation_time_seconds?: number | null
+          id?: string
+          improvements?: string | null
+          observations?: string | null
+          organization_id?: string
+          participants_count?: number | null
+          project_id?: string | null
+          scheduled_date?: string
+          status?: Database["public"]["Enums"]["ehs_drill_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ehs_emergency_drills_conducted_by_fkey"
+            columns: ["conducted_by"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_emergency_drills_conducted_by_fkey"
+            columns: ["conducted_by"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "ehs_emergency_drills_conducted_by_fkey"
+            columns: ["conducted_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_emergency_drills_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_emergency_drills_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ehs_environmental_incidents: {
+        Row: {
+          cleanup_actions: string | null
+          closed_at: string | null
+          containment_actions: string | null
+          created_at: string
+          description: string | null
+          id: string
+          incident_date: string
+          incident_number: string
+          location: string | null
+          organization_id: string
+          project_id: string | null
+          regulatory_notification: boolean | null
+          reported_by: string | null
+          severity: Database["public"]["Enums"]["ehs_environmental_severity"]
+          status: string
+          title: string
+          type: Database["public"]["Enums"]["ehs_environmental_type"]
+          updated_at: string
+        }
+        Insert: {
+          cleanup_actions?: string | null
+          closed_at?: string | null
+          containment_actions?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          incident_date?: string
+          incident_number?: string
+          location?: string | null
+          organization_id: string
+          project_id?: string | null
+          regulatory_notification?: boolean | null
+          reported_by?: string | null
+          severity?: Database["public"]["Enums"]["ehs_environmental_severity"]
+          status?: string
+          title: string
+          type?: Database["public"]["Enums"]["ehs_environmental_type"]
+          updated_at?: string
+        }
+        Update: {
+          cleanup_actions?: string | null
+          closed_at?: string | null
+          containment_actions?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          incident_date?: string
+          incident_number?: string
+          location?: string | null
+          organization_id?: string
+          project_id?: string | null
+          regulatory_notification?: boolean | null
+          reported_by?: string | null
+          severity?: Database["public"]["Enums"]["ehs_environmental_severity"]
+          status?: string
+          title?: string
+          type?: Database["public"]["Enums"]["ehs_environmental_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ehs_environmental_incidents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_environmental_incidents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_environmental_incidents_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_environmental_incidents_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "ehs_environmental_incidents_reported_by_fkey"
+            columns: ["reported_by"]
             isOneToOne: false
             referencedRelation: "employees"
             referencedColumns: ["id"]
@@ -1612,6 +1890,480 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "ehs_inspection_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ehs_permits: {
+        Row: {
+          approved_by: string | null
+          closed_at: string | null
+          created_at: string
+          description: string | null
+          emergency_procedures: string | null
+          id: string
+          location: string | null
+          organization_id: string
+          permit_number: string
+          permit_type: Database["public"]["Enums"]["ehs_permit_type"]
+          precautions: string | null
+          project_id: string | null
+          requested_by: string | null
+          status: Database["public"]["Enums"]["ehs_permit_status"]
+          title: string
+          updated_at: string
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          approved_by?: string | null
+          closed_at?: string | null
+          created_at?: string
+          description?: string | null
+          emergency_procedures?: string | null
+          id?: string
+          location?: string | null
+          organization_id: string
+          permit_number?: string
+          permit_type?: Database["public"]["Enums"]["ehs_permit_type"]
+          precautions?: string | null
+          project_id?: string | null
+          requested_by?: string | null
+          status?: Database["public"]["Enums"]["ehs_permit_status"]
+          title: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          approved_by?: string | null
+          closed_at?: string | null
+          created_at?: string
+          description?: string | null
+          emergency_procedures?: string | null
+          id?: string
+          location?: string | null
+          organization_id?: string
+          permit_number?: string
+          permit_type?: Database["public"]["Enums"]["ehs_permit_type"]
+          precautions?: string | null
+          project_id?: string | null
+          requested_by?: string | null
+          status?: Database["public"]["Enums"]["ehs_permit_status"]
+          title?: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ehs_permits_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_permits_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "ehs_permits_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_permits_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_permits_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_permits_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_permits_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "ehs_permits_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ehs_ppe_records: {
+        Row: {
+          condition: Database["public"]["Enums"]["ehs_ppe_condition"]
+          created_at: string
+          employee_id: string
+          id: string
+          issued_date: string
+          last_inspection_date: string | null
+          next_inspection_date: string | null
+          notes: string | null
+          organization_id: string
+          ppe_type_id: string
+          project_id: string | null
+          returned_date: string | null
+          serial_number: string | null
+          status: Database["public"]["Enums"]["ehs_ppe_status"]
+          updated_at: string
+        }
+        Insert: {
+          condition?: Database["public"]["Enums"]["ehs_ppe_condition"]
+          created_at?: string
+          employee_id: string
+          id?: string
+          issued_date?: string
+          last_inspection_date?: string | null
+          next_inspection_date?: string | null
+          notes?: string | null
+          organization_id: string
+          ppe_type_id: string
+          project_id?: string | null
+          returned_date?: string | null
+          serial_number?: string | null
+          status?: Database["public"]["Enums"]["ehs_ppe_status"]
+          updated_at?: string
+        }
+        Update: {
+          condition?: Database["public"]["Enums"]["ehs_ppe_condition"]
+          created_at?: string
+          employee_id?: string
+          id?: string
+          issued_date?: string
+          last_inspection_date?: string | null
+          next_inspection_date?: string | null
+          notes?: string | null
+          organization_id?: string
+          ppe_type_id?: string
+          project_id?: string | null
+          returned_date?: string | null
+          serial_number?: string | null
+          status?: Database["public"]["Enums"]["ehs_ppe_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ehs_ppe_records_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_ppe_records_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "ehs_ppe_records_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_ppe_records_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_ppe_records_ppe_type_id_fkey"
+            columns: ["ppe_type_id"]
+            isOneToOne: false
+            referencedRelation: "ehs_ppe_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_ppe_records_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ehs_ppe_types: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          inspection_interval_days: number | null
+          lifespan_months: number | null
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          inspection_interval_days?: number | null
+          lifespan_months?: number | null
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          inspection_interval_days?: number | null
+          lifespan_months?: number | null
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ehs_ppe_types_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ehs_risk_assessment_items: {
+        Row: {
+          additional_controls: string | null
+          assessment_id: string
+          consequence: string | null
+          consequence_after:
+            | Database["public"]["Enums"]["ehs_risk_consequence"]
+            | null
+          consequence_before: Database["public"]["Enums"]["ehs_risk_consequence"]
+          created_at: string
+          existing_controls: string | null
+          hazard_description: string
+          id: string
+          likelihood_after:
+            | Database["public"]["Enums"]["ehs_risk_likelihood"]
+            | null
+          likelihood_before: Database["public"]["Enums"]["ehs_risk_likelihood"]
+          responsible_person: string | null
+          risk_score_after: number | null
+          risk_score_before: number | null
+          sort_order: number
+        }
+        Insert: {
+          additional_controls?: string | null
+          assessment_id: string
+          consequence?: string | null
+          consequence_after?:
+            | Database["public"]["Enums"]["ehs_risk_consequence"]
+            | null
+          consequence_before?: Database["public"]["Enums"]["ehs_risk_consequence"]
+          created_at?: string
+          existing_controls?: string | null
+          hazard_description: string
+          id?: string
+          likelihood_after?:
+            | Database["public"]["Enums"]["ehs_risk_likelihood"]
+            | null
+          likelihood_before?: Database["public"]["Enums"]["ehs_risk_likelihood"]
+          responsible_person?: string | null
+          risk_score_after?: number | null
+          risk_score_before?: number | null
+          sort_order?: number
+        }
+        Update: {
+          additional_controls?: string | null
+          assessment_id?: string
+          consequence?: string | null
+          consequence_after?:
+            | Database["public"]["Enums"]["ehs_risk_consequence"]
+            | null
+          consequence_before?: Database["public"]["Enums"]["ehs_risk_consequence"]
+          created_at?: string
+          existing_controls?: string | null
+          hazard_description?: string
+          id?: string
+          likelihood_after?:
+            | Database["public"]["Enums"]["ehs_risk_likelihood"]
+            | null
+          likelihood_before?: Database["public"]["Enums"]["ehs_risk_likelihood"]
+          responsible_person?: string | null
+          risk_score_after?: number | null
+          risk_score_before?: number | null
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ehs_risk_assessment_items_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "ehs_risk_assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_risk_assessment_items_responsible_person_fkey"
+            columns: ["responsible_person"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_risk_assessment_items_responsible_person_fkey"
+            columns: ["responsible_person"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "ehs_risk_assessment_items_responsible_person_fkey"
+            columns: ["responsible_person"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ehs_risk_assessments: {
+        Row: {
+          approved_by: string | null
+          assessed_by: string | null
+          assessment_date: string
+          assessment_number: string
+          company_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          job_activity: string | null
+          location: string | null
+          organization_id: string
+          project_id: string | null
+          review_date: string | null
+          status: Database["public"]["Enums"]["ehs_risk_assessment_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          approved_by?: string | null
+          assessed_by?: string | null
+          assessment_date?: string
+          assessment_number?: string
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          job_activity?: string | null
+          location?: string | null
+          organization_id: string
+          project_id?: string | null
+          review_date?: string | null
+          status?: Database["public"]["Enums"]["ehs_risk_assessment_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          approved_by?: string | null
+          assessed_by?: string | null
+          assessment_date?: string
+          assessment_number?: string
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          job_activity?: string | null
+          location?: string | null
+          organization_id?: string
+          project_id?: string | null
+          review_date?: string | null
+          status?: Database["public"]["Enums"]["ehs_risk_assessment_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ehs_risk_assessments_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_risk_assessments_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "ehs_risk_assessments_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_risk_assessments_assessed_by_fkey"
+            columns: ["assessed_by"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_risk_assessments_assessed_by_fkey"
+            columns: ["assessed_by"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "ehs_risk_assessments_assessed_by_fkey"
+            columns: ["assessed_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_risk_assessments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_risk_assessments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ehs_risk_assessments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -8237,6 +8989,27 @@ export type Database = {
       ehs_ca_priority: "low" | "medium" | "high" | "critical"
       ehs_ca_source_type: "incident" | "hazard" | "inspection"
       ehs_ca_status: "open" | "in_progress" | "closed" | "overdue"
+      ehs_compliance_status:
+        | "compliant"
+        | "non_compliant"
+        | "partially_compliant"
+        | "under_review"
+      ehs_drill_status: "planned" | "completed" | "cancelled"
+      ehs_drill_type:
+        | "fire"
+        | "evacuation"
+        | "earthquake"
+        | "chemical_spill"
+        | "medical"
+        | "other"
+      ehs_environmental_severity: "minor" | "moderate" | "major" | "critical"
+      ehs_environmental_type:
+        | "spill"
+        | "emission"
+        | "waste_violation"
+        | "noise"
+        | "water_contamination"
+        | "other"
       ehs_hazard_risk_level: "low" | "medium" | "high" | "critical"
       ehs_hazard_status:
         | "reported"
@@ -8267,6 +9040,34 @@ export type Database = {
       ehs_inspection_status: "scheduled" | "in_progress" | "completed"
       ehs_inspection_type: "daily" | "weekly" | "monthly" | "compliance_audit"
       ehs_observation_type: "hazard" | "safety_observation"
+      ehs_permit_status:
+        | "requested"
+        | "approved"
+        | "active"
+        | "expired"
+        | "cancelled"
+      ehs_permit_type:
+        | "hot_work"
+        | "confined_space"
+        | "excavation"
+        | "working_at_height"
+        | "electrical"
+        | "other"
+      ehs_ppe_condition: "new" | "good" | "fair" | "poor" | "condemned"
+      ehs_ppe_status: "issued" | "returned" | "lost" | "condemned"
+      ehs_risk_assessment_status: "draft" | "active" | "archived"
+      ehs_risk_consequence:
+        | "insignificant"
+        | "minor"
+        | "moderate"
+        | "major"
+        | "catastrophic"
+      ehs_risk_likelihood:
+        | "rare"
+        | "unlikely"
+        | "possible"
+        | "likely"
+        | "almost_certain"
       ehs_training_status: "valid" | "expired" | "expiring_soon"
       ehs_training_type:
         | "first_aid"
@@ -8460,6 +9261,30 @@ export const Constants = {
       ehs_ca_priority: ["low", "medium", "high", "critical"],
       ehs_ca_source_type: ["incident", "hazard", "inspection"],
       ehs_ca_status: ["open", "in_progress", "closed", "overdue"],
+      ehs_compliance_status: [
+        "compliant",
+        "non_compliant",
+        "partially_compliant",
+        "under_review",
+      ],
+      ehs_drill_status: ["planned", "completed", "cancelled"],
+      ehs_drill_type: [
+        "fire",
+        "evacuation",
+        "earthquake",
+        "chemical_spill",
+        "medical",
+        "other",
+      ],
+      ehs_environmental_severity: ["minor", "moderate", "major", "critical"],
+      ehs_environmental_type: [
+        "spill",
+        "emission",
+        "waste_violation",
+        "noise",
+        "water_contamination",
+        "other",
+      ],
       ehs_hazard_risk_level: ["low", "medium", "high", "critical"],
       ehs_hazard_status: [
         "reported",
@@ -8494,6 +9319,38 @@ export const Constants = {
       ehs_inspection_status: ["scheduled", "in_progress", "completed"],
       ehs_inspection_type: ["daily", "weekly", "monthly", "compliance_audit"],
       ehs_observation_type: ["hazard", "safety_observation"],
+      ehs_permit_status: [
+        "requested",
+        "approved",
+        "active",
+        "expired",
+        "cancelled",
+      ],
+      ehs_permit_type: [
+        "hot_work",
+        "confined_space",
+        "excavation",
+        "working_at_height",
+        "electrical",
+        "other",
+      ],
+      ehs_ppe_condition: ["new", "good", "fair", "poor", "condemned"],
+      ehs_ppe_status: ["issued", "returned", "lost", "condemned"],
+      ehs_risk_assessment_status: ["draft", "active", "archived"],
+      ehs_risk_consequence: [
+        "insignificant",
+        "minor",
+        "moderate",
+        "major",
+        "catastrophic",
+      ],
+      ehs_risk_likelihood: [
+        "rare",
+        "unlikely",
+        "possible",
+        "likely",
+        "almost_certain",
+      ],
       ehs_training_status: ["valid", "expired", "expiring_soon"],
       ehs_training_type: [
         "first_aid",
