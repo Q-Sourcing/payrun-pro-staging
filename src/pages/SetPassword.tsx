@@ -210,35 +210,43 @@ export default function SetPassword() {
   // ── submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!valid || !sessionReady) return;
-
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast({ variant: 'destructive', title: 'Session expired', description: 'Please click the invitation link again.' });
-      return;
-    }
+    if (!canSubmit) return;
 
     setSubmitting(true);
     try {
-      // 1. Set the password
-      const { error: pwErr } = await supabase.auth.updateUser({ password });
-      if (pwErr) throw pwErr;
+      const { data: { session } } = await supabase.auth.getSession();
 
-      // 2. Mark invite as accepted (best-effort, non-fatal)
-      if (inviteToken) {
-        try {
-          await fetch(`${INVITE_FN_URL}?action=accept`, {
-            method : 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}`, apikey: ANON_KEY },
-            body   : JSON.stringify({ token: inviteToken, user_id: session.user.id }),
-          });
-        } catch (e) {
-          console.warn('[SetPassword] accept call failed (non-fatal):', e);
+      if (session) {
+        // ── Path A: Supabase session available → update password directly ──
+        const { error: pwErr } = await supabase.auth.updateUser({ password });
+        if (pwErr) throw pwErr;
+
+        // Mark invite accepted (best-effort)
+        if (inviteToken) {
+          try {
+            await fetch(`${INVITE_FN_URL}?action=accept`, {
+              method : 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}`, apikey: ANON_KEY },
+              body   : JSON.stringify({ token: inviteToken, user_id: session.user.id }),
+            });
+          } catch (e) {
+            console.warn('[SetPassword] accept call failed (non-fatal):', e);
+          }
         }
-      }
 
-      // 3. Sign out so the user does a clean login with their new password
-      await supabase.auth.signOut();
+        await supabase.auth.signOut();
+      } else if (inviteToken) {
+        // ── Path B: Token-only flow → call accept which sets status to active ─
+        const res = await fetch(`${INVITE_FN_URL}?action=accept`, {
+          method : 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: ANON_KEY },
+          body   : JSON.stringify({ token: inviteToken, password }),
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.message || 'Failed to activate account');
+      } else {
+        throw new Error('No active session or invite token. Please click the invitation link again.');
+      }
 
       setStage('success');
       toast({ title: 'Password set!', description: 'Redirecting you to the login page…' });
