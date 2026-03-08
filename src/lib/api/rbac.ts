@@ -1,5 +1,4 @@
 import { supabase } from "@/integrations/supabase/client";
-import { UserRole } from "@/lib/types/roles";
 
 export type Role = {
     code: string;
@@ -49,6 +48,8 @@ export type RBACUser = {
     organization_id: string | null;
 };
 
+// ─── Roles ────────────────────────────────────────────────────────────────────
+
 export async function listRoles() {
     const { data, error } = await supabase
         .from("rbac_roles")
@@ -57,6 +58,58 @@ export async function listRoles() {
     if (error) throw error;
     return data as Role[];
 }
+
+export async function createRole(payload: {
+    code: string;
+    name: string;
+    description: string;
+    tier: string;
+    org_id: string;
+}) {
+    const { error } = await supabase
+        .from("rbac_roles")
+        .insert(payload as any);
+    if (error) throw error;
+}
+
+export async function deleteRole(code: string) {
+    const { error } = await supabase
+        .from("rbac_roles")
+        .delete()
+        .eq("code", code);
+    if (error) throw error;
+}
+
+// ─── Role Permissions ─────────────────────────────────────────────────────────
+
+export async function listRolePermissions(roleCode: string, orgId: string): Promise<string[]> {
+    const { data, error } = await supabase
+        .from("rbac_role_permissions")
+        .select("permission_key")
+        .eq("role_code", roleCode)
+        .eq("org_id", orgId);
+    if (error) throw error;
+    return (data ?? []).map((r: any) => r.permission_key);
+}
+
+export async function setRolePermissions(roleCode: string, orgId: string, permissionKeys: string[]) {
+    const { error: delErr } = await supabase
+        .from("rbac_role_permissions")
+        .delete()
+        .eq("role_code", roleCode)
+        .eq("org_id", orgId);
+    if (delErr) throw delErr;
+
+    if (permissionKeys.length > 0) {
+        const rows = permissionKeys.map(k => ({ role_code: roleCode, permission_key: k, org_id: orgId }));
+        const { error: insErr } = await supabase
+            .from("rbac_role_permissions")
+            .insert(rows as any[]);
+        if (insErr) throw insErr;
+    }
+}
+
+// ─── Permissions ──────────────────────────────────────────────────────────────
 
 export async function listPermissions() {
     const { data, error } = await supabase
@@ -67,13 +120,13 @@ export async function listPermissions() {
     return data as Permission[];
 }
 
+// ─── Grants ───────────────────────────────────────────────────────────────────
+
 export async function listGrants(orgId: string) {
-    // Grants are scoped to objects within the org
     const { data, error } = await supabase
         .from("rbac_grants")
         .select("*")
-        .eq("scope_id", orgId); // This might need refinement based on how scope_id is used for COMPANY/PROJECT
-
+        .eq("scope_id", orgId);
     if (error) throw error;
     return data as unknown as Grant[];
 }
@@ -93,6 +146,8 @@ export async function deleteGrant(id: string) {
     if (error) throw error;
 }
 
+// ─── Audit ────────────────────────────────────────────────────────────────────
+
 export async function listAuditLogs(orgId: string) {
     const { data, error } = await supabase
         .from("security_audit_logs")
@@ -104,9 +159,6 @@ export async function listAuditLogs(orgId: string) {
 }
 
 export async function getEffectivePermissions(userId: string, orgId: string) {
-    // This is a complex query that mirrors the has_permission logic but returns the list
-    // For the UI, we might just query the auth metadata if it's for the current user,
-    // or a custom RPC if we want it for any user.
     const { data, error } = await supabase.rpc('get_user_effective_permissions' as any, { p_user_id: userId, p_org_id: orgId });
     if (error) throw error;
     return data;
