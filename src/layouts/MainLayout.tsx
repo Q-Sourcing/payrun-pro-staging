@@ -19,6 +19,25 @@ import { useTheme } from "@/components/ui/theme-provider";
 // Universal Features - Available to all authenticated users
 import { UniversalFeatures } from "@/components/layout/UniversalFeatures";
 
+function ThemeToggleButton() {
+  const { theme, setTheme } = useTheme();
+  const isDark = theme === "dark";
+  return (
+    <button
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
+      className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-md text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+    >
+      <div className={`theme-toggle-pill ${isDark ? 'dark' : 'light'}`}>
+        <div className="theme-toggle-thumb">
+          {isDark ? <Moon className="h-3 w-3" /> : <Sun className="h-3 w-3" />}
+        </div>
+      </div>
+      <span className="text-sm">{isDark ? 'Dark' : 'Light'}</span>
+    </button>
+  );
+}
+
 
 export default function MainLayout() {
   const { user, profile, logout } = useSupabaseAuth();
