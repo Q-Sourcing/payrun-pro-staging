@@ -723,36 +723,35 @@ function InvitationsTable() {
           </CardContent>
         </Card>
       )}
+      {/* Delete Invitation Confirmation Dialog */}
+      <Dialog open={!!deleteInviteTarget} onOpenChange={(open) => !open && setDeleteInviteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Invitation</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to permanently delete the invitation for{" "}
+              <span className="font-semibold">{deleteInviteTarget?.email}</span>? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteInviteTarget(null)} disabled={actionLoading === deleteInviteTarget?.id + "-delete"}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={actionLoading === deleteInviteTarget?.id + "-delete"}
+              onClick={() => deleteInviteTarget && handleDeleteInvitation(deleteInviteTarget)}
+            >
+              {actionLoading === deleteInviteTarget?.id + "-delete" ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Deleting…</>
+              ) : (
+                <><Trash2 className="h-4 w-4 mr-2" /> Delete</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
-
-    {/* Delete Invitation Confirmation Dialog */}
-    <Dialog open={!!deleteInviteTarget} onOpenChange={(open) => !open && setDeleteInviteTarget(null)}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete Invitation</DialogTitle>
-          <DialogDescription>
-            Are you sure you want to permanently delete the invitation for{" "}
-            <span className="font-semibold">{deleteInviteTarget?.email}</span>? This action cannot be undone.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setDeleteInviteTarget(null)} disabled={actionLoading === deleteInviteTarget?.id + "-delete"}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={actionLoading === deleteInviteTarget?.id + "-delete"}
-            onClick={() => deleteInviteTarget && handleDeleteInvitation(deleteInviteTarget)}
-          >
-            {actionLoading === deleteInviteTarget?.id + "-delete" ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Deleting…</>
-            ) : (
-              <><Trash2 className="h-4 w-4 mr-2" /> Delete</>
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 
