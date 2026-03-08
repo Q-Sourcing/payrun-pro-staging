@@ -15,9 +15,10 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   hazard: EhsHazard | null;
   orgId?: string;
+  projectId?: string;
 }
 
-export function HazardFormDialog({ open, onOpenChange, hazard, orgId }: Props) {
+export function HazardFormDialog({ open, onOpenChange, hazard, orgId, projectId }: Props) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isEdit = !!hazard;
@@ -46,6 +47,7 @@ export function HazardFormDialog({ open, onOpenChange, hazard, orgId }: Props) {
         risk_level: riskLevel,
         observation_type: observationType,
         organization_id: orgId!,
+        ...(projectId ? { project_id: projectId } : {}),
       };
       if (isEdit) {
         payload.status = status;

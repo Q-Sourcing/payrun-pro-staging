@@ -16,9 +16,10 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   inspection: EhsInspection | null;
   orgId?: string;
+  projectId?: string;
 }
 
-export function InspectionFormDialog({ open, onOpenChange, inspection, orgId }: Props) {
+export function InspectionFormDialog({ open, onOpenChange, inspection, orgId, projectId }: Props) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isEdit = !!inspection;
@@ -49,6 +50,7 @@ export function InspectionFormDialog({ open, onOpenChange, inspection, orgId }: 
         overall_score: overallScore ? parseFloat(overallScore) : null,
         notes: notes || null,
         organization_id: orgId!,
+        ...(projectId ? { project_id: projectId } : {}),
       };
       if (isEdit) return updateInspection(inspection.id, payload);
       return createInspection(payload);

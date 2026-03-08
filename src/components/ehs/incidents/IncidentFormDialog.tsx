@@ -16,9 +16,10 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   incident: EhsIncident | null;
   orgId?: string;
+  projectId?: string;
 }
 
-export function IncidentFormDialog({ open, onOpenChange, incident, orgId }: Props) {
+export function IncidentFormDialog({ open, onOpenChange, incident, orgId, projectId }: Props) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isEdit = !!incident;
@@ -62,6 +63,7 @@ export function IncidentFormDialog({ open, onOpenChange, incident, orgId }: Prop
         injury_type: injuryType || null,
         body_part_affected: bodyPart || null,
         organization_id: orgId!,
+        ...(projectId ? { project_id: projectId } : {}),
       };
       if (isEdit) {
         return updateIncident(incident.id, payload);
