@@ -357,11 +357,16 @@ export default function SetPassword() {
                   </div>
                 )}
 
-                {/* Session status */}
+                {/* Session status — only shown when no invite token or session not ready */}
                 {sessionReady ? (
                   <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5">
                     <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
                     <p className="text-xs font-medium text-primary">Identity verified — set your password below.</p>
+                  </div>
+                ) : inviteToken ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+                    <p className="text-xs font-medium text-primary">Invitation verified — set your password below.</p>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 rounded-lg border bg-muted px-3 py-2.5">
