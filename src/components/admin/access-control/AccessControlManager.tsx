@@ -22,7 +22,7 @@ export function AccessControlManager() {
     const [activeModule, setActiveModule] = useState<ModuleId>("grants");
 
     const modules = [
-        { id: "roles", label: "Roles", icon: Users, description: "Manage system and organization roles" },
+        { id: "roles", label: "Roles & Permissions", icon: Users, description: "Manage roles and their permissions" },
         { id: "permissions", label: "Permissions", icon: Lock, description: "Explore available system permissions" },
         { id: "grants", label: "Grants", icon: Shield, description: "Manage explicit ALLOW/DENY overrides" },
         { id: "scope", label: "Data Scope", icon: Eye, description: "Visualize effective access per user" },
