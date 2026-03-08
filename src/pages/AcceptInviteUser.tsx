@@ -306,7 +306,7 @@ export default function AcceptInviteUser() {
 
                 {/* Session status warning */}
                 {!sessionReady && (
-                  <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-xs text-amber-700 dark:text-amber-300 flex items-center gap-2">
+                  <div className="bg-muted border rounded-lg p-3 text-xs text-muted-foreground flex items-center gap-2">
                     <Loader2 className="h-3.5 w-3.5 animate-spin flex-shrink-0" />
                     Establishing your session… If this persists, please click the email link again.
                   </div>
