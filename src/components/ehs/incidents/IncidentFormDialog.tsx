@@ -19,7 +19,7 @@ interface Props {
   projectId?: string;
 }
 
-export function IncidentFormDialog({ open, onOpenChange, incident, orgId }: Props) {
+export function IncidentFormDialog({ open, onOpenChange, incident, orgId, projectId }: Props) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isEdit = !!incident;
