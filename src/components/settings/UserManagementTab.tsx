@@ -633,7 +633,9 @@ function InvitationsTable() {
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{inv.department || "—"}</TableCell>
                       <TableCell>
-                        <Badge variant={cfg.variant}>{cfg.label}</Badge>
+                        <Badge variant={cfg.variant} className={cfg.className}>
+                          {cfg.label}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {formatDistanceToNow(new Date(inv.created_at), { addSuffix: true })}
