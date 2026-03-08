@@ -148,7 +148,7 @@ export const IntegrationsSection = () => {
     try {
       setZohoBusy(true);
       const { authUrl } = await ZohoIntegrationService.startAuth(organizationId);
-      window.location.assign(authUrl);
+      window.open(authUrl, "_blank", "noopener,noreferrer");
     } catch (error: any) {
       toast({
         title: "Connection Failed",
