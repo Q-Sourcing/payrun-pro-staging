@@ -8,7 +8,8 @@ import { RegularizationPanel } from "@/components/attendance/RegularizationPanel
 import { ProjectAttendanceDashboard } from "@/components/attendance/ProjectAttendanceDashboard";
 import { supabase } from "@/integrations/supabase/client";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { BarChart3, Users, Upload, AlertCircle, Briefcase } from "lucide-react";
+import { AdminTimeTracking } from "@/components/attendance/AdminTimeTracking";
+import { BarChart3, Users, Upload, AlertCircle, Briefcase, Timer } from "lucide-react";
 
 export default function Attendance() {
   const { session } = useSupabaseAuth();
@@ -53,6 +54,9 @@ export default function Attendance() {
           <TabsTrigger value="regularization" className="gap-1.5">
             <AlertCircle className="h-4 w-4" /> Regularization
           </TabsTrigger>
+          <TabsTrigger value="timetracking" className="gap-1.5">
+            <Timer className="h-4 w-4" /> Time Tracking
+          </TabsTrigger>
           <TabsTrigger value="projects" className="gap-1.5">
             <Briefcase className="h-4 w-4" /> By Project
           </TabsTrigger>
@@ -72,6 +76,10 @@ export default function Attendance() {
 
         <TabsContent value="regularization">
           <RegularizationPanel organizationId={organizationId} mode="admin" />
+        </TabsContent>
+
+        <TabsContent value="timetracking">
+          <AdminTimeTracking organizationId={organizationId} />
         </TabsContent>
 
         <TabsContent value="projects">

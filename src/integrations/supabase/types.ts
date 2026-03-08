@@ -7931,6 +7931,93 @@ export type Database = {
         }
         Relationships: []
       }
+      time_tracking_entries: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_minutes: number | null
+          employee_id: string
+          end_time: string | null
+          id: string
+          is_billable: boolean
+          is_running: boolean
+          organization_id: string
+          project_id: string | null
+          start_time: string
+          tags: string[] | null
+          task_title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          employee_id: string
+          end_time?: string | null
+          id?: string
+          is_billable?: boolean
+          is_running?: boolean
+          organization_id: string
+          project_id?: string | null
+          start_time?: string
+          tags?: string[] | null
+          task_title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          employee_id?: string
+          end_time?: string | null
+          id?: string
+          is_billable?: boolean
+          is_running?: boolean
+          organization_id?: string
+          project_id?: string | null
+          start_time?: string
+          tags?: string[] | null
+          task_title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_tracking_entries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_tracking_entries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "time_tracking_entries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_tracking_entries_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_tracking_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       timesheet_departments: {
         Row: {
           code: string | null

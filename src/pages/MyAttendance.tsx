@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { Clock, Calendar, FileText, AlertCircle, ChevronLeft, ChevronRight, AlarmClock, UserX } from "lucide-react";
+import { Clock, Calendar, FileText, AlertCircle, ChevronLeft, ChevronRight, AlarmClock, UserX, Timer } from "lucide-react";
+import { TimeTracker } from "@/components/attendance/TimeTracker";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { Link } from "react-router-dom";
 
@@ -193,6 +194,9 @@ export default function MyAttendance() {
           <TabsTrigger value="regularization" className="gap-1.5">
             <AlertCircle className="h-4 w-4" /> Corrections
           </TabsTrigger>
+          <TabsTrigger value="timetracking" className="gap-1.5">
+            <Timer className="h-4 w-4" /> Time Tracking
+          </TabsTrigger>
           <TabsTrigger value="timesheets" className="gap-1.5">
             <AlarmClock className="h-4 w-4" /> Timesheets
           </TabsTrigger>
@@ -299,6 +303,10 @@ export default function MyAttendance() {
             mode="employee"
             employeeId={employeeId}
           />
+        </TabsContent>
+
+        <TabsContent value="timetracking">
+          <TimeTracker employeeId={employeeId} organizationId={organizationId!} />
         </TabsContent>
 
         <TabsContent value="timesheets">
