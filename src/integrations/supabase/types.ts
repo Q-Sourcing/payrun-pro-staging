@@ -5455,6 +5455,51 @@ export type Database = {
           },
         ]
       }
+      user_management_invitations: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          department: string | null
+          email: string
+          expires_at: string
+          full_name: string
+          id: string
+          invited_by: string | null
+          phone: string | null
+          role: string
+          status: string
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          department?: string | null
+          email: string
+          expires_at: string
+          full_name: string
+          id?: string
+          invited_by?: string | null
+          phone?: string | null
+          role?: string
+          status?: string
+          token: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          department?: string | null
+          email?: string
+          expires_at?: string
+          full_name?: string
+          id?: string
+          invited_by?: string | null
+          phone?: string | null
+          role?: string
+          status?: string
+          token?: string
+        }
+        Relationships: []
+      }
       user_management_profiles: {
         Row: {
           created_at: string
