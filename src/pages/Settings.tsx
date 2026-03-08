@@ -12,6 +12,7 @@ import { IntegrationsSection } from "@/components/settings/IntegrationsSection";
 import { DataManagementSection } from "@/components/settings/DataManagementSection";
 import { PayslipDesignerSection } from "@/components/settings/PayslipDesignerSection";
 import { EmailSettingsSection } from "@/components/settings/EmailSettingsSection";
+import { AttendanceSettingsSection } from "@/components/settings/AttendanceSettingsSection";
 import UsersManagement from "@/pages/UsersManagement";
 import { AdminAccessSection } from "@/components/settings/AdminAccessSection";
 import { SettingsSectionGuard } from "@/components/settings/SettingsSectionGuard";
@@ -32,6 +33,7 @@ import {
   Mail,
   FileText,
   ScrollText,
+  Timer,
   ChevronRight
 } from "lucide-react";
 
@@ -53,6 +55,7 @@ const Settings = () => {
     { id: "system", label: "System", icon: SettingsIcon, requiredRole: 'ORG_ADMIN' as const, requiredPermission: 'manage_organization_users' },
     { id: "data", label: "Data Management", icon: Database, requiredRole: 'ORG_ADMIN' as const, requiredPermission: 'export_data' },
     { id: "about", label: "About & Help", icon: Info, requiredRole: 'SELF_USER' as const },
+    { id: "attendance", label: "Attendance", icon: Timer, requiredRole: 'ORG_ADMIN' as const, requiredPermission: 'organization_configuration' },
   ];
 
   const menuItems = allMenuItems.filter(item => {
@@ -110,6 +113,8 @@ const Settings = () => {
         return <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="export_data"><DataManagementSection /></SettingsSectionGuard>;
       case "emails":
         return <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration"><EmailSettingsSection /></SettingsSectionGuard>;
+      case "attendance":
+        return <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration"><AttendanceSettingsSection /></SettingsSectionGuard>;
       default:
         return <ThemeSettings />;
     }

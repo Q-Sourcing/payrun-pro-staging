@@ -332,6 +332,239 @@ export type Database = {
         }
         Relationships: []
       }
+      attendance_daily_summary: {
+        Row: {
+          attendance_date: string
+          created_at: string
+          employee_id: string
+          first_clock_in: string | null
+          id: string
+          is_late: boolean | null
+          is_locked: boolean
+          last_clock_out: string | null
+          late_minutes: number | null
+          organization_id: string
+          overtime_hours: number | null
+          payrun_id: string | null
+          project_id: string | null
+          shift_id: string | null
+          status: Database["public"]["Enums"]["attendance_status_enum"]
+          total_hours: number | null
+          updated_at: string
+        }
+        Insert: {
+          attendance_date: string
+          created_at?: string
+          employee_id: string
+          first_clock_in?: string | null
+          id?: string
+          is_late?: boolean | null
+          is_locked?: boolean
+          last_clock_out?: string | null
+          late_minutes?: number | null
+          organization_id: string
+          overtime_hours?: number | null
+          payrun_id?: string | null
+          project_id?: string | null
+          shift_id?: string | null
+          status?: Database["public"]["Enums"]["attendance_status_enum"]
+          total_hours?: number | null
+          updated_at?: string
+        }
+        Update: {
+          attendance_date?: string
+          created_at?: string
+          employee_id?: string
+          first_clock_in?: string | null
+          id?: string
+          is_late?: boolean | null
+          is_locked?: boolean
+          last_clock_out?: string | null
+          late_minutes?: number | null
+          organization_id?: string
+          overtime_hours?: number | null
+          payrun_id?: string | null
+          project_id?: string | null
+          shift_id?: string | null
+          status?: Database["public"]["Enums"]["attendance_status_enum"]
+          total_hours?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_daily_summary_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_daily_summary_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "attendance_daily_summary_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_daily_summary_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_daily_summary_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_daily_summary_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_devices: {
+        Row: {
+          device_id: string
+          device_name: string | null
+          employee_id: string
+          id: string
+          is_trusted: boolean
+          registered_at: string
+        }
+        Insert: {
+          device_id: string
+          device_name?: string | null
+          employee_id: string
+          id?: string
+          is_trusted?: boolean
+          registered_at?: string
+        }
+        Update: {
+          device_id?: string
+          device_name?: string | null
+          employee_id?: string
+          id?: string
+          is_trusted?: boolean
+          registered_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_devices_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_devices_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "attendance_devices_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_policies: {
+        Row: {
+          allow_self_checkin: boolean
+          company_id: string | null
+          created_at: string
+          default_timezone: string
+          geofence_radius_meters: number
+          grace_period_minutes: number
+          half_day_hours: number
+          id: string
+          late_threshold_minutes: number
+          max_late_per_month: number | null
+          organization_id: string
+          overtime_enabled: boolean
+          overtime_threshold_hours: number
+          regularization_auto_approve: boolean
+          regularization_enabled: boolean
+          require_geolocation: boolean
+          updated_at: string
+          work_end_time: string
+          work_start_time: string
+        }
+        Insert: {
+          allow_self_checkin?: boolean
+          company_id?: string | null
+          created_at?: string
+          default_timezone?: string
+          geofence_radius_meters?: number
+          grace_period_minutes?: number
+          half_day_hours?: number
+          id?: string
+          late_threshold_minutes?: number
+          max_late_per_month?: number | null
+          organization_id: string
+          overtime_enabled?: boolean
+          overtime_threshold_hours?: number
+          regularization_auto_approve?: boolean
+          regularization_enabled?: boolean
+          require_geolocation?: boolean
+          updated_at?: string
+          work_end_time?: string
+          work_start_time?: string
+        }
+        Update: {
+          allow_self_checkin?: boolean
+          company_id?: string | null
+          created_at?: string
+          default_timezone?: string
+          geofence_radius_meters?: number
+          grace_period_minutes?: number
+          half_day_hours?: number
+          id?: string
+          late_threshold_minutes?: number
+          max_late_per_month?: number | null
+          organization_id?: string
+          overtime_enabled?: boolean
+          overtime_threshold_hours?: number
+          regularization_auto_approve?: boolean
+          regularization_enabled?: boolean
+          require_geolocation?: boolean
+          updated_at?: string
+          work_end_time?: string
+          work_start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_policies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_policies_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendance_records: {
         Row: {
           check_in: string | null
@@ -401,6 +634,316 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_regularization_requests: {
+        Row: {
+          approval_date: string | null
+          approval_notes: string | null
+          approved_by: string | null
+          attendance_date: string
+          created_at: string
+          employee_id: string
+          id: string
+          organization_id: string
+          reason: string
+          requested_clock_in: string
+          requested_clock_out: string
+          status: Database["public"]["Enums"]["regularization_status_enum"]
+          updated_at: string
+        }
+        Insert: {
+          approval_date?: string | null
+          approval_notes?: string | null
+          approved_by?: string | null
+          attendance_date: string
+          created_at?: string
+          employee_id: string
+          id?: string
+          organization_id: string
+          reason: string
+          requested_clock_in: string
+          requested_clock_out: string
+          status?: Database["public"]["Enums"]["regularization_status_enum"]
+          updated_at?: string
+        }
+        Update: {
+          approval_date?: string | null
+          approval_notes?: string | null
+          approved_by?: string | null
+          attendance_date?: string
+          created_at?: string
+          employee_id?: string
+          id?: string
+          organization_id?: string
+          reason?: string
+          requested_clock_in?: string
+          requested_clock_out?: string
+          status?: Database["public"]["Enums"]["regularization_status_enum"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_regularization_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_regularization_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "attendance_regularization_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_regularization_requests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_shift_assignments: {
+        Row: {
+          created_at: string
+          employee_id: string
+          end_date: string | null
+          id: string
+          is_active: boolean
+          shift_id: string
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          employee_id: string
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          shift_id: string
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string
+          end_date?: string | null
+          id?: string
+          is_active?: boolean
+          shift_id?: string
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_shift_assignments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_shift_assignments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "attendance_shift_assignments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_shift_assignments_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_shifts: {
+        Row: {
+          break_minutes: number
+          created_at: string
+          end_time: string
+          grace_period_minutes: number
+          id: string
+          is_active: boolean
+          is_default: boolean
+          name: string
+          organization_id: string
+          overtime_threshold: number
+          start_time: string
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          break_minutes?: number
+          created_at?: string
+          end_time?: string
+          grace_period_minutes?: number
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name: string
+          organization_id: string
+          overtime_threshold?: number
+          start_time?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          break_minutes?: number
+          created_at?: string
+          end_time?: string
+          grace_period_minutes?: number
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name?: string
+          organization_id?: string
+          overtime_threshold?: number
+          start_time?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_shifts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_time_logs: {
+        Row: {
+          attendance_mode: Database["public"]["Enums"]["attendance_mode_enum"]
+          clock_in_utc: string
+          clock_out_utc: string | null
+          created_at: string
+          device_id: string | null
+          employee_id: string
+          geofence_id: string | null
+          id: string
+          is_valid: boolean
+          latitude: number | null
+          local_clock_in: string
+          local_clock_out: string | null
+          longitude: number | null
+          organization_id: string
+          photo_url: string | null
+          project_id: string | null
+          recorded_by: string | null
+          recorded_source: Database["public"]["Enums"]["recorded_source_enum"]
+          remarks: string | null
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          attendance_mode?: Database["public"]["Enums"]["attendance_mode_enum"]
+          clock_in_utc?: string
+          clock_out_utc?: string | null
+          created_at?: string
+          device_id?: string | null
+          employee_id: string
+          geofence_id?: string | null
+          id?: string
+          is_valid?: boolean
+          latitude?: number | null
+          local_clock_in?: string
+          local_clock_out?: string | null
+          longitude?: number | null
+          organization_id: string
+          photo_url?: string | null
+          project_id?: string | null
+          recorded_by?: string | null
+          recorded_source?: Database["public"]["Enums"]["recorded_source_enum"]
+          remarks?: string | null
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          attendance_mode?: Database["public"]["Enums"]["attendance_mode_enum"]
+          clock_in_utc?: string
+          clock_out_utc?: string | null
+          created_at?: string
+          device_id?: string | null
+          employee_id?: string
+          geofence_id?: string | null
+          id?: string
+          is_valid?: boolean
+          latitude?: number | null
+          local_clock_in?: string
+          local_clock_out?: string | null
+          longitude?: number | null
+          organization_id?: string
+          photo_url?: string | null
+          project_id?: string | null
+          recorded_by?: string | null
+          recorded_source?: Database["public"]["Enums"]["recorded_source_enum"]
+          remarks?: string | null
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_time_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_time_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "attendance_time_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_time_logs_geofence_id_fkey"
+            columns: ["geofence_id"]
+            isOneToOne: false
+            referencedRelation: "geofences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_time_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_time_logs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -3179,6 +3722,62 @@ export type Database = {
           },
         ]
       }
+      employee_geofences: {
+        Row: {
+          allowed: boolean
+          created_at: string
+          employee_id: string
+          geofence_id: string
+          id: string
+          priority: number
+        }
+        Insert: {
+          allowed?: boolean
+          created_at?: string
+          employee_id: string
+          geofence_id: string
+          id?: string
+          priority?: number
+        }
+        Update: {
+          allowed?: boolean
+          created_at?: string
+          employee_id?: string
+          geofence_id?: string
+          id?: string
+          priority?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_geofences_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_geofences_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "employee_geofences_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_geofences_geofence_id_fkey"
+            columns: ["geofence_id"]
+            isOneToOne: false
+            referencedRelation: "geofences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_number_history: {
         Row: {
           changed_at: string
@@ -3281,6 +3880,61 @@ export type Database = {
           use_sub_department_prefix?: boolean
         }
         Relationships: []
+      }
+      employee_time_policies: {
+        Row: {
+          attendance_mode: Database["public"]["Enums"]["attendance_mode_enum"]
+          attendance_required: boolean
+          created_at: string
+          employee_id: string
+          id: string
+          timesheet_required: boolean
+          tracking_type: Database["public"]["Enums"]["tracking_type_enum"]
+          updated_at: string
+        }
+        Insert: {
+          attendance_mode?: Database["public"]["Enums"]["attendance_mode_enum"]
+          attendance_required?: boolean
+          created_at?: string
+          employee_id: string
+          id?: string
+          timesheet_required?: boolean
+          tracking_type?: Database["public"]["Enums"]["tracking_type_enum"]
+          updated_at?: string
+        }
+        Update: {
+          attendance_mode?: Database["public"]["Enums"]["attendance_mode_enum"]
+          attendance_required?: boolean
+          created_at?: string
+          employee_id?: string
+          id?: string
+          timesheet_required?: boolean
+          tracking_type?: Database["public"]["Enums"]["tracking_type_enum"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_time_policies_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_time_policies_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "employee_time_policies_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: true
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       employee_types: {
         Row: {
@@ -3930,6 +4584,56 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      geofences: {
+        Row: {
+          country: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          latitude: number
+          longitude: number
+          name: string
+          organization_id: string
+          radius_meters: number
+          type: Database["public"]["Enums"]["geofence_type_enum"]
+          updated_at: string
+        }
+        Insert: {
+          country?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          latitude: number
+          longitude: number
+          name: string
+          organization_id: string
+          radius_meters?: number
+          type?: Database["public"]["Enums"]["geofence_type_enum"]
+          updated_at?: string
+        }
+        Update: {
+          country?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          latitude?: number
+          longitude?: number
+          name?: string
+          organization_id?: string
+          radius_meters?: number
+          type?: Database["public"]["Enums"]["geofence_type_enum"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "geofences_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       head_office_pay_group_company_units: {
         Row: {
@@ -7264,6 +7968,7 @@ export type Database = {
       }
       timesheet_entries: {
         Row: {
+          attendance_daily_summary_id: string | null
           created_at: string
           department: string
           employee_id: string
@@ -7282,6 +7987,7 @@ export type Database = {
           work_date: string
         }
         Insert: {
+          attendance_daily_summary_id?: string | null
           created_at?: string
           department: string
           employee_id: string
@@ -7300,6 +8006,7 @@ export type Database = {
           work_date: string
         }
         Update: {
+          attendance_daily_summary_id?: string | null
           created_at?: string
           department?: string
           employee_id?: string
@@ -7318,6 +8025,13 @@ export type Database = {
           work_date?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "timesheet_entries_attendance_daily_summary_id_fkey"
+            columns: ["attendance_daily_summary_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_daily_summary"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "timesheet_entries_employee_id_fkey"
             columns: ["employee_id"]
@@ -8980,6 +9694,23 @@ export type Database = {
         | "employee"
         | "platform_admin"
         | "org_super_admin"
+      attendance_mode_enum:
+        | "MOBILE_GPS"
+        | "QR_CODE"
+        | "BIOMETRIC"
+        | "SUPERVISOR"
+        | "API"
+        | "TIMESHEET_ONLY"
+      attendance_status_enum:
+        | "PRESENT"
+        | "ABSENT"
+        | "LATE"
+        | "HALF_DAY"
+        | "LEAVE"
+        | "SICK"
+        | "OFF"
+        | "PUBLIC_HOLIDAY"
+        | "REMOTE"
       benefit_type:
         | "health_insurance"
         | "retirement"
@@ -9076,6 +9807,7 @@ export type Database = {
         | "equipment_operation"
         | "hazmat_handling"
         | "other"
+      geofence_type_enum: "office" | "site" | "client"
       head_office_pay_group_type: "regular" | "intern" | "expatriate"
       head_office_status: "draft" | "active" | "locked"
       pay_frequency: "weekly" | "biweekly" | "monthly" | "daily_rate"
@@ -9116,6 +9848,20 @@ export type Database = {
         | "support_admin"
         | "compliance"
         | "billing"
+      recorded_source_enum:
+        | "ADMIN"
+        | "SELF_CHECKIN"
+        | "BULK_UPLOAD"
+        | "SYSTEM"
+        | "QR"
+        | "BIOMETRIC"
+        | "API"
+      regularization_status_enum:
+        | "PENDING"
+        | "APPROVED"
+        | "REJECTED"
+        | "AUTO_APPROVED"
+      tracking_type_enum: "MANDATORY" | "OPTIONAL" | "EXEMPT"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -9251,6 +9997,25 @@ export const Constants = {
         "platform_admin",
         "org_super_admin",
       ],
+      attendance_mode_enum: [
+        "MOBILE_GPS",
+        "QR_CODE",
+        "BIOMETRIC",
+        "SUPERVISOR",
+        "API",
+        "TIMESHEET_ONLY",
+      ],
+      attendance_status_enum: [
+        "PRESENT",
+        "ABSENT",
+        "LATE",
+        "HALF_DAY",
+        "LEAVE",
+        "SICK",
+        "OFF",
+        "PUBLIC_HOLIDAY",
+        "REMOTE",
+      ],
       benefit_type: [
         "health_insurance",
         "retirement",
@@ -9360,6 +10125,7 @@ export const Constants = {
         "hazmat_handling",
         "other",
       ],
+      geofence_type_enum: ["office", "site", "client"],
       head_office_pay_group_type: ["regular", "intern", "expatriate"],
       head_office_status: ["draft", "active", "locked"],
       pay_frequency: ["weekly", "biweekly", "monthly", "daily_rate"],
@@ -9405,6 +10171,22 @@ export const Constants = {
         "compliance",
         "billing",
       ],
+      recorded_source_enum: [
+        "ADMIN",
+        "SELF_CHECKIN",
+        "BULK_UPLOAD",
+        "SYSTEM",
+        "QR",
+        "BIOMETRIC",
+        "API",
+      ],
+      regularization_status_enum: [
+        "PENDING",
+        "APPROVED",
+        "REJECTED",
+        "AUTO_APPROVED",
+      ],
+      tracking_type_enum: ["MANDATORY", "OPTIONAL", "EXEMPT"],
     },
   },
 } as const

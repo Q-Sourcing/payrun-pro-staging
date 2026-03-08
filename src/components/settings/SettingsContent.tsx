@@ -12,6 +12,7 @@ import { PayslipDesignerSection } from "@/components/settings/PayslipDesignerSec
 import { SystemSettingsSection } from "@/components/settings/SystemSettingsSection";
 import { EmailSettingsSection } from "@/components/settings/EmailSettingsSection";
 import { ReminderSettings } from "@/components/settings/ReminderSettings";
+import { AttendanceSettingsSection } from "@/components/settings/AttendanceSettingsSection";
 import { SettingsSectionGuard } from "@/components/settings/SettingsSectionGuard";
 import { ContractTemplateManager } from "@/components/contracts/ContractTemplateManager";
 import { useUserRole } from "@/hooks/use-user-role";
@@ -30,6 +31,7 @@ import {
     FileText,
     ScrollText,
     AlarmClock,
+    Timer,
     Settings as SettingsIcon,
     Building2 as BuildingIcon
 } from "lucide-react";
@@ -147,6 +149,13 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
             icon: Info,
             requiredRole: 'SELF_USER' as const // Everyone can access about
         },
+        {
+            id: "attendance-settings",
+            label: "Attendance",
+            icon: Timer,
+            requiredRole: 'ORG_ADMIN' as const,
+            requiredPermission: 'organization_configuration'
+        },
     ];
 
     // Filter menu items based on user role
@@ -260,6 +269,12 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
                 return (
                     <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration">
                         <ReminderSettings />
+                    </SettingsSectionGuard>
+                );
+            case "attendance-settings":
+                return (
+                    <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration">
+                        <AttendanceSettingsSection />
                     </SettingsSectionGuard>
                 );
             default:
