@@ -12,6 +12,7 @@ import { IntegrationsSection } from "@/components/settings/IntegrationsSection";
 import { DataManagementSection } from "@/components/settings/DataManagementSection";
 import { PayslipDesignerSection } from "@/components/settings/PayslipDesignerSection";
 import { EmailSettingsSection } from "@/components/settings/EmailSettingsSection";
+import { AttendanceSettingsSection } from "@/components/settings/AttendanceSettingsSection";
 import UsersManagement from "@/pages/UsersManagement";
 import { AdminAccessSection } from "@/components/settings/AdminAccessSection";
 import { SettingsSectionGuard } from "@/components/settings/SettingsSectionGuard";
