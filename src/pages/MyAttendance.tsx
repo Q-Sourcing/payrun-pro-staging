@@ -194,6 +194,9 @@ export default function MyAttendance() {
           <TabsTrigger value="regularization" className="gap-1.5">
             <AlertCircle className="h-4 w-4" /> Corrections
           </TabsTrigger>
+          <TabsTrigger value="timetracking" className="gap-1.5">
+            <Timer className="h-4 w-4" /> Time Tracking
+          </TabsTrigger>
           <TabsTrigger value="timesheets" className="gap-1.5">
             <AlarmClock className="h-4 w-4" /> Timesheets
           </TabsTrigger>
