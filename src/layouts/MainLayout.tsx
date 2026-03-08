@@ -2,7 +2,7 @@ import { Outlet } from "react-router-dom";
 import { NavigationSidebar } from "@/components/Sidebar";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { LogOut, ChevronLeft, ChevronRight, Pin, PinOff } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronRight, Pin, PinOff, Sun, Moon } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useUserRole } from "@/hooks/use-user-role";
 import { RoleBadge, RoleBadgeSmall } from "@/components/admin/RoleBadge";
@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { SettingsModal } from "@/components/settings/SettingsModal";
+import { useTheme } from "@/components/ui/theme-provider";
 
 // Universal Features - Available to all authenticated users
 import { UniversalFeatures } from "@/components/layout/UniversalFeatures";
