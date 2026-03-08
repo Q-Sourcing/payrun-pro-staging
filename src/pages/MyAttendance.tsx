@@ -305,6 +305,10 @@ export default function MyAttendance() {
           />
         </TabsContent>
 
+        <TabsContent value="timetracking">
+          <TimeTracker employeeId={employeeId} organizationId={organizationId!} />
+        </TabsContent>
+
         <TabsContent value="timesheets">
           <Card>
             <CardContent className="py-8 text-center space-y-4">

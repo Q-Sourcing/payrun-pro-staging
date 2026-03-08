@@ -78,6 +78,10 @@ export default function Attendance() {
           <RegularizationPanel organizationId={organizationId} mode="admin" />
         </TabsContent>
 
+        <TabsContent value="timetracking">
+          <AdminTimeTracking organizationId={organizationId} />
+        </TabsContent>
+
         <TabsContent value="projects">
           <ProjectAttendanceDashboard organizationId={organizationId} />
         </TabsContent>
