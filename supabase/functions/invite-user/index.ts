@@ -175,15 +175,21 @@ serve(async (req) => {
       if (!email || !full_name) return json({ success: false, message: 'Email and full name are required' }, 400)
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ success: false, message: 'Invalid email address' }, 400)
 
+      // Cancel any existing pending invitation for this email before creating a new one
       const { data: existing } = await supabaseAdmin
         .from('user_management_invitations')
         .select('id, status')
         .eq('email', email.toLowerCase())
-        .eq('status', 'pending')
+        .in('status', ['pending', 'expired', 'cancelled'])
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle()
 
       if (existing) {
-        return json({ success: false, message: 'A pending invitation already exists for this email. Please cancel or resend the existing one.' }, 409)
+        await supabaseAdmin
+          .from('user_management_invitations')
+          .update({ status: 'cancelled' })
+          .eq('id', existing.id)
       }
 
       const inviteToken = crypto.randomUUID() + '-' + crypto.randomUUID()
