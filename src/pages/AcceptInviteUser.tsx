@@ -26,8 +26,8 @@ type Stage = 'loading' | 'form' | 'success' | 'error';
 
 function ValidationItem({ label, isValid }: { label: string; isValid: boolean }) {
   return (
-    <div className={`flex items-center gap-1.5 text-xs ${isValid ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
-      <CheckCircle2 className={`h-3.5 w-3.5 flex-shrink-0 ${isValid ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground/30'}`} />
+    <div className={`flex items-center gap-1.5 text-xs ${isValid ? 'text-primary' : 'text-muted-foreground'}`}>
+      <CheckCircle2 className={`h-3.5 w-3.5 flex-shrink-0 ${isValid ? 'text-primary' : 'text-muted-foreground/30'}`} />
       {label}
     </div>
   );
