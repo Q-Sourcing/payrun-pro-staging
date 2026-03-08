@@ -9,7 +9,7 @@ import {
     History,
     Lock
 } from "lucide-react";
-import { RBACRolesModule } from "./rbac/RBACRolesModule";
+import { RolesPermissionsModule } from "./rbac/RolesPermissionsModule";
 import { RBACPermissionsModule } from "./rbac/RBACPermissionsModule";
 import { RBACGrantsModule } from "./rbac/RBACGrantsModule";
 import { RBACDataScopeModule } from "./rbac/RBACDataScopeModule";
