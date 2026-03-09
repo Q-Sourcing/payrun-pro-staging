@@ -176,7 +176,7 @@ serve(async (req) => {
       const { data: profile, error: profileError } = await supabaseAdmin
         .from('user_management_profiles')
         .upsert({
-          id: userId,
+          user_id: userId,
           username: username || null,
           full_name: full_name || username || '',
           email,
@@ -186,7 +186,7 @@ serve(async (req) => {
           status: status || 'active',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'id' })
+        }, { onConflict: 'user_id' })
         .select()
         .single()
 
