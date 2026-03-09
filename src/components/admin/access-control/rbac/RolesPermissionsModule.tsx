@@ -255,7 +255,7 @@ function RoleCard({
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-sm">{role.name}</span>
             {isProtected && (
-              <Badge variant="outline" className="text-[9px] gap-1 px-1.5 py-0 border-amber-300 text-amber-600 bg-amber-50">
+              <Badge variant="outline" className="text-[9px] gap-1 px-1.5 py-0 border-warning/40 text-warning bg-warning/5">
                 <Lock className="h-2.5 w-2.5" /> Protected
               </Badge>
             )}
