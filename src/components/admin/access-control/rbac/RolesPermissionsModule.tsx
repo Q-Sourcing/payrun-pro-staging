@@ -67,7 +67,7 @@ export function RolesPermissionsModule() {
 
   const [search, setSearch] = useState("");
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
-  const [activeTab, setActiveTab] = useState<"roles" | "permissions" | "catalog">("roles");
+  const [activeTab, setActiveTab] = useState<"roles" | "permissions">("roles");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Role | null>(null);
 
