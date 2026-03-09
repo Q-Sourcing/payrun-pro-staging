@@ -943,14 +943,14 @@ export function UserManagementTab() {
                                 <DropdownMenuSeparator />
                                 {user.status === "active" ? (
                                   <DropdownMenuItem
-                                    className="text-orange-600 focus:text-orange-600"
+                                    className="text-destructive/80 focus:text-destructive"
                                     onClick={() => handleToggleStatus(user, "inactive")}
                                   >
                                     <PowerOff className="mr-2 h-4 w-4" /> Deactivate
                                   </DropdownMenuItem>
                                 ) : (
                                   <DropdownMenuItem
-                                    className="text-green-600 focus:text-green-600"
+                                    className="text-primary focus:text-primary"
                                     onClick={() => handleToggleStatus(user, "active")}
                                   >
                                     <Power className="mr-2 h-4 w-4" /> Activate
