@@ -242,7 +242,7 @@ serve(async (req) => {
       const { data: updated, error: updateError } = await supabaseAdmin
         .from('user_management_profiles')
         .update(updates)
-        .eq('id', id)
+        .eq('user_id', id)
         .select()
         .single()
 
