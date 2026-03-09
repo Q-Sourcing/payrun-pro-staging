@@ -14,11 +14,10 @@ import { PayslipDesignerSection } from "@/components/settings/PayslipDesignerSec
 import { EmailSettingsSection } from "@/components/settings/EmailSettingsSection";
 import { AttendanceSettingsSection } from "@/components/settings/AttendanceSettingsSection";
 import UsersManagement from "@/pages/UsersManagement";
-import { AdminAccessSection } from "@/components/settings/AdminAccessSection";
 import { SettingsSectionGuard } from "@/components/settings/SettingsSectionGuard";
 import { ContractTemplateManager } from "@/components/contracts/ContractTemplateManager";
-import { useUserRole } from "@/hooks/use-user-role";
-import { ROLE_DEFINITIONS } from "@/lib/types/roles";
+import { AccessControlManager } from "@/components/admin/access-control/AccessControlManager";
+import { useRbacPermissions } from "@/hooks/use-rbac-permissions";
 import {
   Building2,
   Users,
@@ -34,38 +33,37 @@ import {
   FileText,
   ScrollText,
   Timer,
-  ChevronRight
+  ChevronRight,
+  KeyRound,
 } from "lucide-react";
 
 const Settings = () => {
   const [activeSection, setActiveSection] = useState("theme");
-  const { role, isSuperAdmin } = useUserRole();
+  const { can, isAdmin, isLoading } = useRbacPermissions();
 
   const allMenuItems = [
-    { id: "company", label: "Company", icon: Building2, requiredRole: 'ORG_ADMIN' as const, requiredPermission: 'organization_configuration' },
-    { id: "employee", label: "Employees", icon: Users, requiredRole: 'ORG_HR_ADMIN' as const, requiredPermission: 'view_organization_employees' },
-    { id: "payroll", label: "Payroll", icon: DollarSign, requiredRole: 'COMPANY_PAYROLL_ADMIN' as const, requiredPermission: 'process_payroll' },
-    { id: "contracts", label: "Contracts", icon: ScrollText, requiredRole: 'ORG_ADMIN' as const, requiredPermission: 'organization_configuration' },
-    { id: "payslip-designer", label: "Payslip Designer", icon: FileText, requiredRole: 'COMPANY_PAYROLL_ADMIN' as const, requiredPermission: 'process_payroll' },
-    { id: "theme", label: "Display & Theme", icon: Palette, requiredRole: 'SELF_USER' as const },
-    { id: "security", label: "Security", icon: Shield, requiredRole: 'ORG_ADMIN' as const, requiredPermission: 'organization_configuration' },
-    { id: "notifications", label: "Notifications", icon: Bell, requiredRole: 'SELF_USER' as const },
-    { id: "integrations", label: "Integrations", icon: RefreshCw, requiredRole: 'ORG_ADMIN' as const, requiredPermission: 'manage_integrations' },
-    { id: "emails", label: "Email & Logic", icon: Mail, requiredRole: 'ORG_ADMIN' as const, requiredPermission: 'organization_configuration' },
-    { id: "system", label: "System", icon: SettingsIcon, requiredRole: 'ORG_ADMIN' as const, requiredPermission: 'manage_organization_users' },
-    { id: "data", label: "Data Management", icon: Database, requiredRole: 'ORG_ADMIN' as const, requiredPermission: 'export_data' },
-    { id: "about", label: "About & Help", icon: Info, requiredRole: 'SELF_USER' as const },
-    { id: "attendance", label: "Attendance", icon: Timer, requiredRole: 'ORG_ADMIN' as const, requiredPermission: 'organization_configuration' },
+    { id: "company",         label: "Company",           icon: Building2,    permission: "settings.manage" },
+    { id: "employee",        label: "Employees",         icon: Users,        permission: "employees.view" },
+    { id: "payroll",         label: "Payroll",           icon: DollarSign,   permission: "payroll.run" },
+    { id: "contracts",       label: "Contracts",         icon: ScrollText,   permission: "contracts.manage" },
+    { id: "payslip-designer",label: "Payslip Designer",  icon: FileText,     permission: "payroll.run" },
+    { id: "theme",           label: "Display & Theme",   icon: Palette,      permission: null },
+    { id: "security",        label: "Security",          icon: Shield,       permission: "settings.manage" },
+    { id: "notifications",   label: "Notifications",     icon: Bell,         permission: null },
+    { id: "integrations",    label: "Integrations",      icon: RefreshCw,    permission: "settings.manage" },
+    { id: "emails",          label: "Email & Logic",     icon: Mail,         permission: "settings.manage" },
+    { id: "system",          label: "User Management",   icon: SettingsIcon, permission: "users.view" },
+    { id: "access-control",  label: "Roles & Permissions", icon: KeyRound,   permission: "roles.manage" },
+    { id: "data",            label: "Data Management",   icon: Database,     permission: "settings.manage" },
+    { id: "about",           label: "About & Help",      icon: Info,         permission: null },
+    { id: "attendance",      label: "Attendance",        icon: Timer,        permission: "attendance.view" },
   ];
 
   const menuItems = allMenuItems.filter(item => {
-    if (isSuperAdmin) return true;
-    if (!role) return false;
-    const roleDef = ROLE_DEFINITIONS[role];
-    const requiredRoleDef = ROLE_DEFINITIONS[item.requiredRole];
-    if (roleDef.level < requiredRoleDef.level) return false;
-    if (item.requiredPermission && !roleDef.permissions.includes(item.requiredPermission as any)) return false;
-    return true;
+    if (isLoading) return item.permission === null; // show unguarded items while loading
+    if (isAdmin) return true;
+    if (item.permission === null) return true;
+    return can(item.permission);
   });
 
   const renderSection = () => {
