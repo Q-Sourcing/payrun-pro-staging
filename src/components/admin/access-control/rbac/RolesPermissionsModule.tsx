@@ -30,18 +30,18 @@ import { toast } from "sonner";
 // System roles that cannot be deleted
 const PROTECTED_ROLES = ["PLATFORM_SUPER_ADMIN", "PLATFORM_AUDITOR", "ADMIN"];
 
-// ─── Category badge colours ────────────────────────────────────────────────────
+// ─── Category badge colours (using semantic opacity variants for theme compatibility)
 const CATEGORY_COLORS: Record<string, string> = {
-  "User Management":       "bg-blue-500/10 text-blue-700 border-blue-200",
-  "Roles & Permissions":   "bg-purple-500/10 text-purple-700 border-purple-200",
-  "Employees":             "bg-emerald-500/10 text-emerald-700 border-emerald-200",
-  "Pay Groups":            "bg-amber-500/10 text-amber-700 border-amber-200",
-  "Earnings & Deductions": "bg-orange-500/10 text-orange-700 border-orange-200",
-  "Payroll Processing":    "bg-red-500/10 text-red-700 border-red-200",
-  "Contracts":             "bg-cyan-500/10 text-cyan-700 border-cyan-200",
-  "Reports":               "bg-indigo-500/10 text-indigo-700 border-indigo-200",
-  "System Settings":       "bg-slate-500/10 text-slate-700 border-slate-200",
-  "Attendance":            "bg-teal-500/10 text-teal-700 border-teal-200",
+  "User Management":       "bg-primary/10 text-primary border-primary/20",
+  "Roles & Permissions":   "bg-secondary/60 text-secondary-foreground border-secondary",
+  "Employees":             "bg-primary/5 text-primary border-primary/10",
+  "Pay Groups":            "bg-muted text-muted-foreground border-border",
+  "Earnings & Deductions": "bg-accent/30 text-accent-foreground border-accent/30",
+  "Payroll Processing":    "bg-destructive/10 text-destructive border-destructive/20",
+  "Contracts":             "bg-primary/10 text-primary border-primary/20",
+  "Reports":               "bg-secondary/50 text-secondary-foreground border-secondary/50",
+  "System Settings":       "bg-muted/80 text-muted-foreground border-border",
+  "Attendance":            "bg-primary/5 text-primary border-primary/10",
 };
 
 // ─── Main Component ────────────────────────────────────────────────────────────
