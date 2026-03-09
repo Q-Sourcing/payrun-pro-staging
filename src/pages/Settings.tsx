@@ -14,7 +14,6 @@ import { PayslipDesignerSection } from "@/components/settings/PayslipDesignerSec
 import { EmailSettingsSection } from "@/components/settings/EmailSettingsSection";
 import { AttendanceSettingsSection } from "@/components/settings/AttendanceSettingsSection";
 import UsersManagement from "@/pages/UsersManagement";
-import { SettingsSectionGuard } from "@/components/settings/SettingsSectionGuard";
 import { ContractTemplateManager } from "@/components/contracts/ContractTemplateManager";
 import { AccessControlManager } from "@/components/admin/access-control/AccessControlManager";
 import { useRbacPermissions } from "@/hooks/use-rbac-permissions";
