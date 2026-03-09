@@ -117,7 +117,7 @@ serve(async (req) => {
         if (toUpsert.length > 0) {
           const { error: syncErr } = await supabaseAdmin
             .from('user_management_profiles')
-            .upsert(toUpsert, { onConflict: 'id', ignoreDuplicates: true })
+            .upsert(toUpsert, { onConflict: 'user_id', ignoreDuplicates: true })
           if (syncErr) console.error('Sync upsert error:', syncErr)
         }
       } catch (syncError) {
