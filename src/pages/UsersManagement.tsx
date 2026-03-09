@@ -476,13 +476,15 @@ export default function UsersManagement() {
   }, [toast]);
 
   const fetchRoles = useCallback(async () => {
-    const orgId = profile?.organization_id;
-    if (!orgId) return;
+    // Use the default org_id fallback used by the system (00000000-…-0001) for org-tier roles
+    const orgId = profile?.organization_id ?? "00000000-0000-0000-0000-000000000001";
 
+    // Only fetch ORGANIZATION tier (business) roles, exclude PLATFORM roles
     const { data: roleRows, error: roleError } = await supabase
       .from("rbac_roles")
       .select("code, name, description")
-      .eq("org_id", orgId)
+      .eq("tier", "ORGANIZATION")
+      .not("code", "in", '("PLATFORM_SUPER_ADMIN","PLATFORM_AUDITOR")')
       .order("name");
 
     if (roleError) {
@@ -498,7 +500,6 @@ export default function UsersManagement() {
     const { data: rolePermissions } = await supabase
       .from("rbac_role_permissions")
       .select("role_code, permission_key")
-      .eq("org_id", orgId)
       .in("role_code", roleCodes.length ? roleCodes : [""]);
 
     const permissionsByRole = new Map<string, string[]>();
