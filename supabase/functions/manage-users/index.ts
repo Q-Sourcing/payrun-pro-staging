@@ -46,7 +46,7 @@ serve(async (req) => {
     const SUPER_ADMIN_EMAILS = ['nalungukevin@gmail.com']
     const callerRole = callerProfile?.role || ''
     const isAdmin =
-      ['super_admin', 'admin', 'org_admin', 'organization_admin', 'ADMIN'].includes(callerRole) ||
+      ['super_admin', 'admin', 'org_admin', 'organization_admin', 'ADMIN', 'HR', 'PLATFORM_SUPER_ADMIN', 'ORG_ADMIN'].includes(callerRole) ||
       !!platformAdmin?.allowed ||
       SUPER_ADMIN_EMAILS.includes(currentUser.email || '')
 
