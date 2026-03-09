@@ -5,63 +5,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
+  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
 import {
-  UserPlus,
-  Search,
-  MoreHorizontal,
-  Edit,
-  Trash2,
-  Eye,
-  Users,
-  ShieldCheck,
-  UserCheck,
-  Loader2,
-  RefreshCw,
-  Mail,
-  Send,
-  Ban,
-  Clock,
-  CheckCircle2,
-  XCircle,
+  UserPlus, Search, MoreHorizontal, Edit, Trash2, Eye, Users, ShieldCheck,
+  UserCheck, Loader2, RefreshCw, Mail, Send, Ban, Clock, CheckCircle2, XCircle,
 } from "lucide-react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -69,7 +32,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { formatDistanceToNow } from "date-fns";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type UserRole = "admin" | "hr" | "manager" | "employee";
+interface OrgRole { code: string; name: string; description: string | null; }
 
 interface ManagedUser {
   id: string;
@@ -96,11 +59,11 @@ interface Invitation {
   accepted_at: string | null;
 }
 
-// ─── Validation schemas ───────────────────────────────────────────────────────
+// ─── Validation schemas — role is now a free string (pulled from DB) ──────────
 const inviteSchema = z.object({
   full_name: z.string().min(2, "Full name must be at least 2 characters").max(200).trim(),
   email: z.string().email("Invalid email address").max(255),
-  role: z.enum(["admin", "hr", "manager", "employee"]),
+  role: z.string().min(1, "Role is required"),
   phone: z.string().max(30).optional().or(z.literal("")),
   department: z.string().max(100).optional().or(z.literal("")),
 });
@@ -108,7 +71,7 @@ const inviteSchema = z.object({
 const editSchema = z.object({
   username: z.string().min(2, "Username must be at least 2 characters").max(50).trim(),
   full_name: z.string().min(2, "Full name must be at least 2 characters").max(200).trim(),
-  role: z.enum(["admin", "hr", "manager", "employee"]),
+  role: z.string().min(1, "Role is required"),
   phone: z.string().max(30).optional().or(z.literal("")),
   department: z.string().max(100).optional().or(z.literal("")),
   status: z.enum(["active", "inactive"]),
@@ -117,15 +80,12 @@ const editSchema = z.object({
 type InviteFormValues = z.infer<typeof inviteSchema>;
 type EditFormValues = z.infer<typeof editSchema>;
 
-// ─── Role badge config ────────────────────────────────────────────────────────
-const ROLE_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  admin:    { label: "Admin",    variant: "destructive" },
-  hr:       { label: "HR",       variant: "default" },
-  manager:  { label: "Manager",  variant: "secondary" },
-  employee: { label: "Employee", variant: "outline" },
-};
-
-const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive"; className?: string }> = {
+// ─── Status badge config ──────────────────────────────────────────────────────
+const STATUS_CONFIG: Record<string, {
+  label: string;
+  variant: "default" | "secondary" | "outline" | "destructive";
+  className?: string
+}> = {
   pending:   { label: "Pending",   variant: "secondary" },
   accepted:  { label: "Accepted",  variant: "outline", className: "border-green-500 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30" },
   cancelled: { label: "Cancelled", variant: "outline" },
@@ -167,17 +127,69 @@ async function callInviteUser(action: string, body?: unknown) {
   return res.json();
 }
 
+// ─── Hook: fetch org roles live from rbac_roles ───────────────────────────────
+function useOrgRoles() {
+  const [roles, setRoles] = useState<OrgRole[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase
+      .from("rbac_roles")
+      .select("code, name, description")
+      .eq("tier", "ORGANIZATION")
+      .not("code", "in", '("PLATFORM_SUPER_ADMIN","PLATFORM_AUDITOR")')
+      .order("name")
+      .then(({ data }) => {
+        setRoles(data ?? []);
+        setLoading(false);
+      });
+  }, []);
+
+  return { roles, loading };
+}
+
+// ─── Role select component ────────────────────────────────────────────────────
+function RoleSelect({
+  value, onChange, roles, placeholder = "Select role",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  roles: OrgRole[];
+  placeholder?: string;
+}) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger>
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {roles.map((r) => (
+          <SelectItem key={r.code} value={r.code}>
+            {r.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 // ─── Invite User Dialog ───────────────────────────────────────────────────────
-function InviteUserDialog({ open, onClose, onSent }: { open: boolean; onClose: () => void; onSent: () => void }) {
+function InviteUserDialog({
+  open, onClose, onSent, roles,
+}: {
+  open: boolean; onClose: () => void; onSent: () => void; roles: OrgRole[];
+}) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
   const form = useForm<InviteFormValues>({
     resolver: zodResolver(inviteSchema),
-    defaultValues: { full_name: "", email: "", role: "employee", phone: "", department: "" },
+    defaultValues: { full_name: "", email: "", role: "", phone: "", department: "" },
   });
 
-  useEffect(() => { if (open) form.reset(); }, [open]);
+  useEffect(() => {
+    if (open) form.reset({ full_name: "", email: "", role: roles[0]?.code ?? "", phone: "", department: "" });
+  }, [open, roles]);
 
   async function onSubmit(values: InviteFormValues) {
     setLoading(true);
@@ -188,18 +200,11 @@ function InviteUserDialog({ open, onClose, onSent }: { open: boolean; onClose: (
         department: values.department || null,
       });
       if (!result.success) throw new Error(result.message);
-      toast({
-        title: "Invitation sent!",
-        description: `An invitation email has been sent to ${values.email}.`,
-      });
+      toast({ title: "Invitation sent!", description: `An invitation email has been sent to ${values.email}.` });
       onSent();
       onClose();
     } catch (err: unknown) {
-      toast({
-        title: "Failed to send invitation",
-        description: err instanceof Error ? err.message : "Unknown error occurred.",
-        variant: "destructive",
-      });
+      toast({ title: "Failed to send invitation", description: err instanceof Error ? err.message : "Unknown error occurred.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -213,22 +218,21 @@ function InviteUserDialog({ open, onClose, onSent }: { open: boolean; onClose: (
             <Send className="h-5 w-5" /> Invite New User
           </DialogTitle>
           <DialogDescription>
-            An invitation email will be sent. The user will create their own password via the link.
-            Invitations expire after 48 hours.
+            An invitation email will be sent. The user creates their own password via the link.
+            Invitations expire after 48 hours. The role you choose here maps directly to the
+            permissions configured in <strong>Roles &amp; Permissions</strong>.
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control} name="full_name" render={({ field }) => (
-                <FormItem className="col-span-2">
-                  <FormLabel>Full Name <span className="text-destructive">*</span></FormLabel>
-                  <FormControl><Input placeholder="Jane Doe" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-            </div>
+            <FormField control={form.control} name="full_name" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Full Name <span className="text-destructive">*</span></FormLabel>
+                <FormControl><Input placeholder="Jane Doe" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
 
             <FormField control={form.control} name="email" render={({ field }) => (
               <FormItem>
@@ -242,15 +246,9 @@ function InviteUserDialog({ open, onClose, onSent }: { open: boolean; onClose: (
               <FormField control={form.control} name="role" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Role <span className="text-destructive">*</span></FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="hr">HR</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="employee">Employee</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <RoleSelect value={field.value} onChange={field.onChange} roles={roles} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -273,7 +271,7 @@ function InviteUserDialog({ open, onClose, onSent }: { open: boolean; onClose: (
 
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
-              <Button type="submit" disabled={loading} className="gap-2">
+              <Button type="submit" disabled={loading || roles.length === 0} className="gap-2">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 Send Invitation
               </Button>
@@ -286,20 +284,19 @@ function InviteUserDialog({ open, onClose, onSent }: { open: boolean; onClose: (
 }
 
 // ─── View User Dialog ─────────────────────────────────────────────────────────
-function ViewUserDialog({ user, onClose }: { user: ManagedUser | null; onClose: () => void }) {
+function ViewUserDialog({ user, roles, onClose }: { user: ManagedUser | null; roles: OrgRole[]; onClose: () => void }) {
   if (!user) return null;
+  const roleName = roles.find(r => r.code === user.role)?.name ?? user.role;
   return (
     <Dialog open={!!user} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>User Details</DialogTitle>
-        </DialogHeader>
+        <DialogHeader><DialogTitle>User Details</DialogTitle></DialogHeader>
         <div className="space-y-3 py-2">
           {[
             { label: "Username",   value: user.username || "—" },
             { label: "Full Name",  value: user.full_name },
             { label: "Email",      value: user.email },
-            { label: "Role",       value: ROLE_CONFIG[user.role]?.label ?? user.role },
+            { label: "Role",       value: roleName },
             { label: "Department", value: user.department || "—" },
             { label: "Phone",      value: user.phone || "—" },
             { label: "Status",     value: user.status },
@@ -320,7 +317,12 @@ function ViewUserDialog({ user, onClose }: { user: ManagedUser | null; onClose: 
 }
 
 // ─── Edit User Dialog ─────────────────────────────────────────────────────────
-function EditUserDialog({ user, onClose, onSaved }: { user: ManagedUser | null; onClose: () => void; onSaved: () => void }) {
+function EditUserDialog({
+  user, roles, onClose, onSaved,
+}: {
+  user: ManagedUser | null; roles: OrgRole[];
+  onClose: () => void; onSaved: () => void;
+}) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -329,7 +331,7 @@ function EditUserDialog({ user, onClose, onSaved }: { user: ManagedUser | null; 
     defaultValues: {
       username: user?.username ?? "",
       full_name: user?.full_name ?? "",
-      role: (user?.role as UserRole) ?? "employee",
+      role: user?.role ?? roles[0]?.code ?? "",
       phone: user?.phone ?? "",
       department: user?.department ?? "",
       status: (user?.status === "active" || user?.status === "inactive") ? user.status : "active",
@@ -341,7 +343,7 @@ function EditUserDialog({ user, onClose, onSaved }: { user: ManagedUser | null; 
       form.reset({
         username: user.username ?? "",
         full_name: user.full_name,
-        role: user.role as UserRole,
+        role: user.role,
         phone: user.phone ?? "",
         department: user.department ?? "",
         status: (user.status === "active" || user.status === "inactive") ? user.status : "active",
@@ -374,9 +376,7 @@ function EditUserDialog({ user, onClose, onSaved }: { user: ManagedUser | null; 
     <Dialog open={!!user} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Edit className="h-5 w-5" /> Edit User
-          </DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><Edit className="h-5 w-5" /> Edit User</DialogTitle>
           <DialogDescription>Update the user's details and role.</DialogDescription>
         </DialogHeader>
 
@@ -408,15 +408,9 @@ function EditUserDialog({ user, onClose, onSaved }: { user: ManagedUser | null; 
               <FormField control={form.control} name="role" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Role <span className="text-destructive">*</span></FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="hr">HR</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="employee">Employee</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <RoleSelect value={field.value} onChange={field.onChange} roles={roles} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -509,7 +503,7 @@ function DeleteConfirmDialog({ user, onClose, onDeleted }: { user: ManagedUser |
 }
 
 // ─── Invitations Table ────────────────────────────────────────────────────────
-function InvitationsTable() {
+function InvitationsTable({ roles }: { roles: OrgRole[] }) {
   const { toast } = useToast();
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -521,11 +515,10 @@ function InvitationsTable() {
     try {
       const result = await callInviteUser("list");
       if (!result.success) throw new Error(result.message);
-      // Auto-mark expired ones locally
       const now = new Date();
       const withExpiry = (result.invitations ?? []).map((inv: Invitation) => ({
         ...inv,
-        status: inv.status === 'pending' && new Date(inv.expires_at) < now ? 'expired' : inv.status,
+        status: inv.status === "pending" && new Date(inv.expires_at) < now ? "expired" : inv.status,
       }));
       setInvitations(withExpiry);
     } catch (err: unknown) {
@@ -568,10 +561,7 @@ function InvitationsTable() {
   async function handleDeleteInvitation(invitation: Invitation) {
     setActionLoading(invitation.id + "-delete");
     try {
-      const { error } = await supabase
-        .from("user_management_invitations")
-        .delete()
-        .eq("id", invitation.id);
+      const { error } = await supabase.from("user_management_invitations").delete().eq("id", invitation.id);
       if (error) throw error;
       toast({ title: "Invitation deleted", description: `Invitation for ${invitation.email} has been permanently deleted.` });
       fetchInvitations();
@@ -583,8 +573,8 @@ function InvitationsTable() {
     }
   }
 
-  const pendingCount = invitations.filter(i => i.status === 'pending').length;
-  const expiredCount = invitations.filter(i => i.status === 'expired').length;
+  const pendingCount = invitations.filter(i => i.status === "pending").length;
+  const expiredCount = invitations.filter(i => i.status === "expired").length;
 
   if (loading) {
     return (
@@ -597,7 +587,6 @@ function InvitationsTable() {
 
   return (
     <div className="space-y-4">
-      {/* Summary chips */}
       <div className="flex flex-wrap gap-2 text-sm">
         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted text-muted-foreground">
           <Clock className="h-3.5 w-3.5" /> {pendingCount} Pending
@@ -636,25 +625,22 @@ function InvitationsTable() {
               </TableHeader>
               <TableBody>
                 {invitations.map((inv) => {
-                  const isExpired = inv.status === 'expired' || (inv.status === 'pending' && new Date(inv.expires_at) < new Date());
-                  const statusKey = isExpired ? 'expired' : inv.status;
+                  const isExpired = inv.status === "expired" || (inv.status === "pending" && new Date(inv.expires_at) < new Date());
+                  const statusKey = isExpired ? "expired" : inv.status;
                   const cfg = STATUS_CONFIG[statusKey] ?? STATUS_CONFIG.pending;
-                  const canAct = inv.status === 'pending' || inv.status === 'expired';
+                  const canAct = inv.status === "pending" || inv.status === "expired";
+                  const roleName = roles.find(r => r.code === inv.role)?.name ?? inv.role;
 
                   return (
                     <TableRow key={inv.id}>
                       <TableCell className="font-medium">{inv.full_name}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">{inv.email}</TableCell>
                       <TableCell>
-                        <Badge variant={ROLE_CONFIG[inv.role]?.variant ?? "outline"}>
-                          {ROLE_CONFIG[inv.role]?.label ?? inv.role}
-                        </Badge>
+                        <Badge variant="outline" className="text-xs">{roleName}</Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{inv.department || "—"}</TableCell>
                       <TableCell>
-                        <Badge variant={cfg.variant} className={cfg.className}>
-                          {cfg.label}
-                        </Badge>
+                        <Badge variant={cfg.variant} className={cfg.className}>{cfg.label}</Badge>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {formatDistanceToNow(new Date(inv.created_at), { addSuffix: true })}
@@ -662,7 +648,7 @@ function InvitationsTable() {
                       <TableCell className="text-xs text-muted-foreground">
                         {isExpired ? (
                           <span className="text-destructive">Expired</span>
-                        ) : inv.status === 'accepted' ? (
+                        ) : inv.status === "accepted" ? (
                           <span className="text-primary flex items-center gap-1">
                             <CheckCircle2 className="h-3 w-3" /> Accepted
                           </span>
@@ -679,15 +665,10 @@ function InvitationsTable() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => handleResend(inv)}
-                                disabled={actionLoading === inv.id}
-                              >
-                                {actionLoading === inv.id ? (
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                ) : (
-                                  <Send className="h-4 w-4 mr-2" />
-                                )}
+                              <DropdownMenuItem onClick={() => handleResend(inv)} disabled={actionLoading === inv.id}>
+                                {actionLoading === inv.id
+                                  ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  : <Send className="h-4 w-4 mr-2" />}
                                 Resend Invitation
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
@@ -696,11 +677,9 @@ function InvitationsTable() {
                                 onClick={() => handleCancel(inv)}
                                 disabled={actionLoading === inv.id + "-cancel"}
                               >
-                                {actionLoading === inv.id + "-cancel" ? (
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                ) : (
-                                  <Ban className="h-4 w-4 mr-2" />
-                                )}
+                                {actionLoading === inv.id + "-cancel"
+                                  ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  : <Ban className="h-4 w-4 mr-2" />}
                                 Cancel Invitation
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
@@ -723,7 +702,8 @@ function InvitationsTable() {
           </CardContent>
         </Card>
       )}
-      {/* Delete Invitation Confirmation Dialog */}
+
+      {/* Delete Invitation Confirmation */}
       <Dialog open={!!deleteInviteTarget} onOpenChange={(open) => !open && setDeleteInviteTarget(null)}>
         <DialogContent>
           <DialogHeader>
@@ -742,11 +722,9 @@ function InvitationsTable() {
               disabled={actionLoading === deleteInviteTarget?.id + "-delete"}
               onClick={() => deleteInviteTarget && handleDeleteInvitation(deleteInviteTarget)}
             >
-              {actionLoading === deleteInviteTarget?.id + "-delete" ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Deleting…</>
-              ) : (
-                <><Trash2 className="h-4 w-4 mr-2" /> Delete</>
-              )}
+              {actionLoading === deleteInviteTarget?.id + "-delete"
+                ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Deleting…</>
+                : <><Trash2 className="h-4 w-4 mr-2" /> Delete</>}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -758,6 +736,7 @@ function InvitationsTable() {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function UserManagementTab() {
   const { toast } = useToast();
+  const { roles, loading: rolesLoading } = useOrgRoles();
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -781,7 +760,6 @@ export function UserManagementTab() {
     }
   }, [toast]);
 
-  // Refresh users list whenever switching to the Users tab (picks up newly accepted invites)
   useEffect(() => {
     if (activeTab === "users") fetchUsers();
   }, [activeTab, fetchUsers]);
@@ -796,8 +774,8 @@ export function UserManagementTab() {
   const stats = {
     total: users.length,
     active: users.filter((u) => u.status === "active").length,
-    admins: users.filter((u) => u.role === "admin").length,
-    hr: users.filter((u) => u.role === "hr").length,
+    roles: roles.length,
+    pending: users.filter((u) => u.status === "pending").length,
   };
 
   return (
@@ -806,13 +784,16 @@ export function UserManagementTab() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-foreground">User Management</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Invite and manage system users and their access roles.</p>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Invite and manage system users. Roles are pulled live from{" "}
+            <strong>Roles &amp; Permissions</strong> and carry their assigned permissions automatically.
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={fetchUsers} disabled={loading}>
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
-          <Button size="sm" onClick={() => setInviteOpen(true)} className="gap-2">
+          <Button size="sm" onClick={() => setInviteOpen(true)} className="gap-2" disabled={rolesLoading}>
             <UserPlus className="h-4 w-4" /> Invite User
           </Button>
         </div>
@@ -821,10 +802,10 @@ export function UserManagementTab() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: "Total",   value: stats.total,  icon: Users },
-          { label: "Active",  value: stats.active, icon: UserCheck },
-          { label: "Admins",  value: stats.admins, icon: ShieldCheck },
-          { label: "HR",      value: stats.hr,     icon: Users },
+          { label: "Total",   value: stats.total,   icon: Users },
+          { label: "Active",  value: stats.active,  icon: UserCheck },
+          { label: "Pending", value: stats.pending, icon: Clock },
+          { label: "Roles",   value: stats.roles,   icon: ShieldCheck },
         ].map(({ label, value, icon: Icon }) => (
           <Card key={label}>
             <CardContent className="p-4 flex items-center gap-3">
@@ -833,135 +814,126 @@ export function UserManagementTab() {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">{label}</p>
-                <p className="text-lg font-bold text-foreground">{value}</p>
+                <p className="text-xl font-bold text-foreground">{value}</p>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Tabs: Users / Invitations */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
-          <TabsTrigger value="users" className="gap-2">
-            <Users className="h-4 w-4" /> Users
-          </TabsTrigger>
-          <TabsTrigger value="invitations" className="gap-2">
-            <Mail className="h-4 w-4" /> Invitations
-          </TabsTrigger>
+          <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="invitations">Invitations</TabsTrigger>
         </TabsList>
 
-        {/* ── Users tab ── */}
+        {/* ── Users Tab ── */}
         <TabsContent value="users" className="space-y-4">
-          {/* Filters */}
-          <div className="flex flex-wrap gap-3">
-            <div className="relative flex-1 min-w-[180px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by name, email or username…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-36">
-                <SelectValue placeholder="All roles" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Roles</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="hr">HR</SelectItem>
-                <SelectItem value="manager">Manager</SelectItem>
-                <SelectItem value="employee">Employee</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-wrap gap-3 items-center">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name, email or username…"
+                    className="pl-9"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                  <SelectTrigger className="w-52">
+                    <SelectValue placeholder="All roles" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Roles</SelectItem>
+                    {roles.map((r) => (
+                      <SelectItem key={r.code} value={r.code}>{r.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="icon" onClick={fetchUsers} title="Refresh">
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
-          {/* Table */}
           <Card>
             <CardContent className="p-0">
               {loading ? (
-                <div className="flex items-center justify-center py-16">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
-                  <span className="text-muted-foreground">Loading users…</span>
+                <div className="flex items-center justify-center py-20 text-muted-foreground gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" /> Loading users…
                 </div>
               ) : filtered.length === 0 ? (
-                <div className="text-center py-16 text-muted-foreground">
-                  <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                  <p className="font-medium">No users found</p>
-                  <p className="text-sm mt-1">
-                    {search || roleFilter !== "all"
-                      ? "Try adjusting your filters."
-                      : "Invite your first user to get started."}
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
+                  <Users className="h-10 w-10 opacity-30" />
+                  <p className="text-sm">
+                    {search || roleFilter !== "all" ? "No users match your filters." : "No users yet. Use \"Invite User\" to add one."}
                   </p>
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Username</TableHead>
-                      <TableHead>Full Name</TableHead>
+                      <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Department</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead className="w-10" />
+                      <TableHead>Joined</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filtered.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell className="font-mono text-sm">{user.username || "—"}</TableCell>
-                        <TableCell className="font-medium">{user.full_name}</TableCell>
-                        <TableCell className="text-muted-foreground text-sm">{user.email}</TableCell>
-                        <TableCell>
-                          <Badge variant={ROLE_CONFIG[user.role]?.variant ?? "outline"}>
-                            {ROLE_CONFIG[user.role]?.label ?? user.role}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{user.department || "—"}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={
-                              user.status === "active"
-                                ? "border-green-500 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/30"
-                                : user.status === "pending"
-                                ? "border-yellow-500 text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-950/30"
-                                : "text-muted-foreground"
-                            }
-                          >
-                            {user.status === "active" ? "Active" :
-                             user.status === "pending" ? "Pending" : "Inactive"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => setViewUser(user)}>
-                                <Eye className="h-4 w-4 mr-2" /> View Details
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => setEditUser(user)}>
-                                <Edit className="h-4 w-4 mr-2" /> Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-destructive focus:text-destructive"
-                                onClick={() => setDeleteUser(user)}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" /> Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {filtered.map((user) => {
+                      const roleName = roles.find(r => r.code === user.role)?.name ?? user.role;
+                      return (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium">{user.full_name}</TableCell>
+                          <TableCell className="text-muted-foreground text-sm">{user.email}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">{roleName}</Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{user.department ?? "—"}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={user.status === "active" ? "outline" : "secondary"}
+                              className={user.status === "active" ? "border-green-500 text-green-600 bg-green-50 dark:bg-green-950/30" : ""}
+                            >
+                              {user.status === "active" ? "Active" : user.status === "pending" ? "Pending" : "Inactive"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {new Date(user.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => setViewUser(user)}>
+                                  <Eye className="mr-2 h-4 w-4" /> View
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setEditUser(user)}>
+                                  <Edit className="mr-2 h-4 w-4" /> Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => setDeleteUser(user)}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}
@@ -969,17 +941,31 @@ export function UserManagementTab() {
           </Card>
         </TabsContent>
 
-        {/* ── Invitations tab ── */}
+        {/* ── Invitations Tab ── */}
         <TabsContent value="invitations">
-          <InvitationsTable />
+          <InvitationsTable roles={roles} />
         </TabsContent>
       </Tabs>
 
       {/* Dialogs */}
-      <InviteUserDialog open={inviteOpen} onClose={() => setInviteOpen(false)} onSent={() => { fetchUsers(); }} />
-      <ViewUserDialog user={viewUser} onClose={() => setViewUser(null)} />
-      <EditUserDialog user={editUser} onClose={() => setEditUser(null)} onSaved={fetchUsers} />
-      <DeleteConfirmDialog user={deleteUser} onClose={() => setDeleteUser(null)} onDeleted={fetchUsers} />
+      <InviteUserDialog
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        onSent={fetchUsers}
+        roles={roles}
+      />
+      <ViewUserDialog user={viewUser} roles={roles} onClose={() => setViewUser(null)} />
+      <EditUserDialog
+        user={editUser}
+        roles={roles}
+        onClose={() => setEditUser(null)}
+        onSaved={fetchUsers}
+      />
+      <DeleteConfirmDialog
+        user={deleteUser}
+        onClose={() => setDeleteUser(null)}
+        onDeleted={fetchUsers}
+      />
     </div>
   );
 }
