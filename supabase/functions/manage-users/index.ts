@@ -46,7 +46,7 @@ serve(async (req) => {
     const SUPER_ADMIN_EMAILS = ['nalungukevin@gmail.com']
     const callerRole = callerProfile?.role || ''
     const isAdmin =
-      ['super_admin', 'admin', 'org_admin', 'organization_admin', 'ADMIN'].includes(callerRole) ||
+      ['super_admin', 'admin', 'org_admin', 'organization_admin', 'ADMIN', 'HR', 'PLATFORM_SUPER_ADMIN', 'ORG_ADMIN'].includes(callerRole) ||
       !!platformAdmin?.allowed ||
       SUPER_ADMIN_EMAILS.includes(currentUser.email || '')
 
@@ -59,6 +59,71 @@ serve(async (req) => {
 
     // ── GET: list all users ────────────────────────────────────────────────────
     if (req.method === 'GET') {
+      // Sync: pull all auth users and merge into user_management_profiles
+      // so that existing users always appear in the list
+      try {
+        const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
+        const authUsers = listData?.users ?? []
+
+        // Get existing user_profiles for role/org data
+        const { data: existingProfiles } = await supabaseAdmin
+          .from('user_profiles')
+          .select('id, email, first_name, last_name, role, organization_id')
+
+        const profileMap = new Map((existingProfiles ?? []).map(p => [p.id, p]))
+
+        // Get existing management profiles to avoid overwriting admin-edited data
+        const { data: existingMgmt } = await supabaseAdmin
+          .from('user_management_profiles')
+          .select('id')
+
+        const existingMgmtIds = new Set((existingMgmt ?? []).map(p => p.id))
+
+        // Get rbac assignments for role codes
+        const { data: rbacAssignments } = await supabaseAdmin
+          .from('rbac_assignments')
+          .select('user_id, role_code')
+
+        const rbacMap = new Map((rbacAssignments ?? []).map(a => [a.user_id, a.role_code]))
+
+        // Upsert any auth users missing from user_management_profiles
+        const toUpsert = []
+        for (const authUser of authUsers) {
+          if (existingMgmtIds.has(authUser.id)) continue // already managed
+          const up = profileMap.get(authUser.id)
+          const rbacRole = rbacMap.get(authUser.id)
+          const fullName = authUser.user_metadata?.full_name ||
+            (up ? `${up.first_name || ''} ${up.last_name || ''}`.trim() : '') ||
+            authUser.email?.split('@')[0] || 'User'
+
+          // Determine status: if user has confirmed email and signed in, they're active
+          const hasSignedIn = !!(authUser as any).last_sign_in_at
+          const status = hasSignedIn ? 'active' : 'pending'
+
+          toUpsert.push({
+            id: authUser.id,
+            username: authUser.user_metadata?.username || null,
+            full_name: fullName,
+            email: authUser.email || '',
+            role: rbacRole || up?.role || authUser.user_metadata?.role || 'STAFF',
+            phone: authUser.user_metadata?.phone || null,
+            department: authUser.user_metadata?.department || null,
+            status,
+            created_at: authUser.created_at,
+            updated_at: new Date().toISOString(),
+          })
+        }
+
+        if (toUpsert.length > 0) {
+          const { error: syncErr } = await supabaseAdmin
+            .from('user_management_profiles')
+            .upsert(toUpsert, { onConflict: 'id', ignoreDuplicates: true })
+          if (syncErr) console.error('Sync upsert error:', syncErr)
+        }
+      } catch (syncError) {
+        console.error('User sync error (non-fatal):', syncError)
+      }
+
       const { data: profiles, error } = await supabaseAdmin
         .from('user_management_profiles')
         .select('*')

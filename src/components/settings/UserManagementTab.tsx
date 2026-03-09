@@ -25,6 +25,7 @@ import {
 import {
   UserPlus, Search, MoreHorizontal, Edit, Trash2, Eye, Users, ShieldCheck,
   UserCheck, Loader2, RefreshCw, Mail, Send, Ban, Clock, CheckCircle2, XCircle,
+  Power, PowerOff,
 } from "lucide-react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -764,6 +765,24 @@ export function UserManagementTab() {
     if (activeTab === "users") fetchUsers();
   }, [activeTab, fetchUsers]);
 
+  const handleToggleStatus = async (user: ManagedUser, newStatus: "active" | "inactive") => {
+    try {
+      const result = await callManageUsers("PATCH", { id: user.id, status: newStatus });
+      if (!result.success) throw new Error(result.message);
+      toast({
+        title: newStatus === "active" ? "User activated" : "User deactivated",
+        description: `${user.full_name} is now ${newStatus}.`,
+      });
+      fetchUsers();
+    } catch (err: unknown) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to update user status.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const filtered = users.filter((u) => {
     const q = search.toLowerCase();
     const matchSearch = !q || u.full_name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || (u.username ?? "").toLowerCase().includes(q);
@@ -921,6 +940,22 @@ export function UserManagementTab() {
                                 <DropdownMenuItem onClick={() => setEditUser(user)}>
                                   <Edit className="mr-2 h-4 w-4" /> Edit
                                 </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                {user.status === "active" ? (
+                                  <DropdownMenuItem
+                                    className="text-destructive/80 focus:text-destructive"
+                                    onClick={() => handleToggleStatus(user, "inactive")}
+                                  >
+                                    <PowerOff className="mr-2 h-4 w-4" /> Deactivate
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem
+                                    className="text-primary focus:text-primary"
+                                    onClick={() => handleToggleStatus(user, "active")}
+                                  >
+                                    <Power className="mr-2 h-4 w-4" /> Activate
+                                  </DropdownMenuItem>
+                                )}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   className="text-destructive focus:text-destructive"
