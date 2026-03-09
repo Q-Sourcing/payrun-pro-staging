@@ -101,7 +101,7 @@ serve(async (req) => {
           const status = hasSignedIn ? 'active' : 'pending'
 
           toUpsert.push({
-            id: authUser.id,
+            user_id: authUser.id,
             username: authUser.user_metadata?.username || null,
             full_name: fullName,
             email: authUser.email || '',
