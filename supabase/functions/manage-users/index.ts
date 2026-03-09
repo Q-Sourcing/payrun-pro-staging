@@ -313,7 +313,7 @@ serve(async (req) => {
         return json({ success: false, message: deleteError.message }, 400)
       }
 
-      await supabaseAdmin.from('user_management_profiles').delete().eq('id', userId)
+      await supabaseAdmin.from('user_management_profiles').delete().eq('user_id', userId)
 
       console.log(`User deleted: ${userId} by ${currentUser.email}`)
       return json({ success: true, message: 'User deleted successfully' })
