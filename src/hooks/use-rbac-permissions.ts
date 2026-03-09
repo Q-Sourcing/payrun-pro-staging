@@ -16,19 +16,6 @@ interface RbacPermissionsState {
   can: (permissionKey: string) => boolean;
 }
 
-// Business roles available for selection in user forms
-export const BUSINESS_ROLES = [
-  { code: "ADMIN",   name: "Admin" },
-  { code: "HR",      name: "HR" },
-  { code: "KAE",     name: "Key Accounts Executive" },
-  { code: "CRM",     name: "CRM" },
-  { code: "GM",      name: "General Manager" },
-  { code: "FINANCE", name: "Finance" },
-  { code: "STAFF",   name: "Staff" },
-] as const;
-
-export type BusinessRoleCode = typeof BUSINESS_ROLES[number]["code"];
-
 export function useRbacPermissions(): RbacPermissionsState {
   const [permissions, setPermissions] = useState<Set<string>>(new Set());
   const [roleCode, setRoleCode] = useState<string | null>(null);
@@ -44,7 +31,7 @@ export function useRbacPermissions(): RbacPermissionsState {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user || cancelled) { setIsLoading(false); return; }
 
-        // Fetch user's role assignment
+        // Fetch user's role assignment (most recent active assignment)
         const { data: assignments } = await supabase
           .from("rbac_assignments")
           .select("role_code")
@@ -73,7 +60,7 @@ export function useRbacPermissions(): RbacPermissionsState {
           .maybeSingle();
         if (!cancelled && roleRow) setRoleName(roleRow.name);
 
-        // Fetch permissions for this role
+        // Fetch permissions for this role (no org_id filter — global role perms)
         const { data: rolePerms } = await supabase
           .from("rbac_role_permissions")
           .select("permission_key")
