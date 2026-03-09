@@ -25,6 +25,7 @@ import {
 import {
   UserPlus, Search, MoreHorizontal, Edit, Trash2, Eye, Users, ShieldCheck,
   UserCheck, Loader2, RefreshCw, Mail, Send, Ban, Clock, CheckCircle2, XCircle,
+  Power, PowerOff,
 } from "lucide-react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
