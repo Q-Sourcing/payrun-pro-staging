@@ -765,6 +765,24 @@ export function UserManagementTab() {
     if (activeTab === "users") fetchUsers();
   }, [activeTab, fetchUsers]);
 
+  const handleToggleStatus = async (user: ManagedUser, newStatus: "active" | "inactive") => {
+    try {
+      const result = await callManageUsers("PATCH", { id: user.id, status: newStatus });
+      if (!result.success) throw new Error(result.message);
+      toast({
+        title: newStatus === "active" ? "User activated" : "User deactivated",
+        description: `${user.full_name} is now ${newStatus}.`,
+      });
+      fetchUsers();
+    } catch (err: unknown) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to update user status.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const filtered = users.filter((u) => {
     const q = search.toLowerCase();
     const matchSearch = !q || u.full_name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || (u.username ?? "").toLowerCase().includes(q);
