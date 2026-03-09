@@ -120,6 +120,36 @@ export async function listPermissions() {
     return data as Permission[];
 }
 
+export async function createPermission(payload: {
+    key: string;
+    category: string;
+    description: string;
+}) {
+    const { error } = await supabase
+        .from("rbac_permissions")
+        .insert(payload as any);
+    if (error) throw error;
+}
+
+export async function updatePermission(
+    key: string,
+    payload: { category: string; description: string }
+) {
+    const { error } = await supabase
+        .from("rbac_permissions")
+        .update(payload as any)
+        .eq("key", key);
+    if (error) throw error;
+}
+
+export async function deletePermission(key: string) {
+    const { error } = await supabase
+        .from("rbac_permissions")
+        .delete()
+        .eq("key", key);
+    if (error) throw error;
+}
+
 // ─── Grants ───────────────────────────────────────────────────────────────────
 
 export async function listGrants(orgId: string) {
