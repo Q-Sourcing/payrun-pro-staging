@@ -134,7 +134,9 @@ serve(async (req) => {
         return json({ success: false, message: error.message }, 500)
       }
 
-      return json({ success: true, users: profiles ?? [] })
+      // Map user_id as id for frontend compatibility
+      const mapped = (profiles ?? []).map(p => ({ ...p, id: p.user_id }))
+      return json({ success: true, users: mapped })
     }
 
     // ── POST: create user ──────────────────────────────────────────────────────
