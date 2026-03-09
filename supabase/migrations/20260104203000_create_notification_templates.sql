@@ -27,7 +27,6 @@ ALTER TABLE public.notification_templates ENABLE ROW LEVEL SECURITY;
 
 -- READ: Authenticated users can read templates for their org OR global templates
 DROP POLICY IF EXISTS "Templates readable by Org Members" ON public.notification_templates;
-DROP POLICY IF EXISTS "Templates readable by Org Members" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Templates readable by Org Members" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Templates readable by Org Members" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Templates readable by Org Members" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Templates readable by Org Members"
 ON public.notification_templates FOR SELECT TO authenticated
 USING (
     org_id IS NULL OR
@@ -40,7 +39,6 @@ USING (
 
 -- WRITE: Admins can manage their org's templates
 DROP POLICY IF EXISTS "Templates managed by Org Admins" ON public.notification_templates;
-DROP POLICY IF EXISTS "Templates managed by Org Admins" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Templates managed by Org Admins" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Templates managed by Org Admins" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Templates managed by Org Admins" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Templates managed by Org Admins"
 ON public.notification_templates FOR ALL TO authenticated
 USING (
     public.check_is_super_admin(auth.uid()) OR 

@@ -58,16 +58,12 @@ DROP POLICY IF EXISTS "Enable insert access for authenticated users" ON public.s
 DROP POLICY IF EXISTS "Enable update access for authenticated users" ON public.sub_departments;
 DROP POLICY IF EXISTS "Enable delete access for authenticated users" ON public.sub_departments;
 
-DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Enable read access for authenticated users" ON public.sub_departments; CREATE POLICY "Enable read access for authenticated users" ON public.sub_departments
     FOR SELECT TO authenticated USING (true);
 
-DROP POLICY IF EXISTS "Enable insert access for authenticated users" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Enable insert access for authenticated users" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Enable insert access for authenticated users" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Enable insert access for authenticated users" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Enable insert access for authenticated users" ON public.sub_departments; CREATE POLICY "Enable insert access for authenticated users" ON public.sub_departments
     FOR INSERT TO authenticated WITH CHECK (true);
 
-DROP POLICY IF EXISTS "Enable update access for authenticated users" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Enable update access for authenticated users" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Enable update access for authenticated users" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Enable update access for authenticated users" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Enable update access for authenticated users" ON public.sub_departments; CREATE POLICY "Enable update access for authenticated users" ON public.sub_departments
     FOR UPDATE TO authenticated USING (true);
 
-DROP POLICY IF EXISTS "Enable delete access for authenticated users" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Enable delete access for authenticated users" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Enable delete access for authenticated users" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Enable delete access for authenticated users" ON public.head_office_pay_groups_expatriates; DROP POLICY IF EXISTS "Enable delete access for authenticated users" ON public.sub_departments; CREATE POLICY "Enable delete access for authenticated users" ON public.sub_departments
     FOR DELETE TO authenticated USING (true);
 
 -- 5. Update Functions to use new terminology

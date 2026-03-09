@@ -14,6 +14,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import SignUp from "./pages/SignUp";
 import AcceptInvite from "./pages/AcceptInvite";
 import AcceptInviteUser from "./pages/AcceptInviteUser";
+import SetPassword from "./pages/SetPassword";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { SupabaseAuthProvider, useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { AuthProvider as LegacyAuthProvider } from "@/hooks/use-auth-context";
@@ -85,6 +86,22 @@ import Diagnostics from "./pages/Diagnostics";
 import PayrollAdvancedSettings from "./pages/PayrollAdvancedSettings";
 import MyApprovals from "./pages/MyApprovals";
 import Timesheets from "./pages/Timesheets";
+import MyAttendance from "./pages/MyAttendance";
+import Attendance from "./pages/Attendance";
+// EHS Module pages
+import EhsIndex from "./pages/ehs/Index";
+import EhsIncidents from "./pages/ehs/Incidents";
+import EhsHazards from "./pages/ehs/Hazards";
+import EhsInspections from "./pages/ehs/Inspections";
+import EhsTraining from "./pages/ehs/Training";
+import EhsReports from "./pages/ehs/Reports";
+import EhsCorrectiveActions from "./pages/ehs/CorrectiveActions";
+import EhsRiskAssessments from "./pages/ehs/RiskAssessments";
+import EhsPPE from "./pages/ehs/PPE";
+import EhsPermits from "./pages/ehs/Permits";
+import EhsEnvironmental from "./pages/ehs/Environmental";
+import EhsEmergencyDrills from "./pages/ehs/EmergencyDrills";
+import EhsCompliance from "./pages/ehs/Compliance";
 // Query client is now imported from optimized configuration
 
 // Protected route wrapper - uses real auth check
@@ -167,6 +184,7 @@ const App = () => {
                 <Route path="/signup" element={<SignUp />} />
                 <Route path="/accept-invite" element={<AcceptInvite />} />
                 <Route path="/accept-invite-user" element={<AcceptInviteUser />} />
+                <Route path="/set-password" element={<SetPassword />} />
                 <Route path="/choose-company" element={
                   <ProtectedRoute>
                     <CompanyPicker />
@@ -256,6 +274,23 @@ const App = () => {
                   <Route path="settings/payroll/advanced" element={<PayrollAdvancedSettings />} />
                   <Route path="probation" element={<ProbationDashboard />} />
                   <Route path="timesheets" element={<Timesheets />} />
+                  <Route path="dashboard/attendance" element={<MyAttendance />} />
+                  <Route path="attendance" element={<Attendance />} />
+
+                  {/* EHS Module Routes */}
+                  <Route path="ehs" element={<EhsIndex />} />
+                  <Route path="ehs/incidents" element={<EhsIncidents />} />
+                  <Route path="ehs/hazards" element={<EhsHazards />} />
+                  <Route path="ehs/inspections" element={<EhsInspections />} />
+                  <Route path="ehs/training" element={<EhsTraining />} />
+                  <Route path="ehs/corrective-actions" element={<EhsCorrectiveActions />} />
+                  <Route path="ehs/reports" element={<EhsReports />} />
+                  <Route path="ehs/risk-assessments" element={<EhsRiskAssessments />} />
+                  <Route path="ehs/ppe" element={<EhsPPE />} />
+                  <Route path="ehs/permits" element={<EhsPermits />} />
+                  <Route path="ehs/environmental" element={<EhsEnvironmental />} />
+                  <Route path="ehs/emergency-drills" element={<EhsEmergencyDrills />} />
+                  <Route path="ehs/compliance" element={<EhsCompliance />} />
                 </Route>
 
                 {/* Catch-all route */}

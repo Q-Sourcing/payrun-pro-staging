@@ -17,7 +17,9 @@ interface Employee {
   middle_name?: string | null;
   last_name?: string | null;
   email: string;
+  personal_email?: string | null;
   phone?: string | null;
+  work_phone?: string | null;
   pay_type: string;
   pay_rate: number;
   country: string;
@@ -32,7 +34,12 @@ interface Employee {
   company_id?: string | null;
   company_unit_id?: string | null;
   date_joined?: string | null;
+  designation?: string | null;
+  work_location?: string | null;
   employee_number?: string | null;
+  engagement_type?: "Permanent" | "Contract" | "Temporary" | "Casual" | "Trainee" | "Intern" | null;
+  nationality?: string | null;
+  citizenship?: string | null;
   bank_name?: string | null;
   bank_branch?: string | null;
   account_number?: string | null;
@@ -58,7 +65,9 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
     middle_name: employee.middle_name || "",
     last_name: employee.last_name || "",
     email: employee.email,
+    personal_email: employee.personal_email || "",
     phone: (employee as any).phone || "",
+    work_phone: (employee as any).work_phone || "",
     phone_country_code: "+256",
     pay_type: employee.pay_type as any,
     pay_rate: employee.pay_rate || null,
@@ -72,7 +81,12 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
     company_unit_id: (employee as any).company_unit_id || "",
     sub_department_id: employee.sub_department_id || "",
     date_joined: (employee as any).date_joined || "",
+    designation: (employee as any).designation || "",
+    work_location: (employee as any).work_location || "",
     employee_number: (employee as any).employee_number || "",
+    engagement_type: (employee as any).engagement_type || "",
+    nationality: (employee as any).nationality || "",
+    citizenship: (employee as any).citizenship || "",
     category: (employee.category as any) || "",
     project_id: (employee as any).project_id || "",
     pay_frequency: (employee as any).pay_frequency || "",
@@ -88,10 +102,14 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
         middle_name: values.middle_name || null,
         last_name: values.last_name || null,
         email: values.email,
+        personal_email: values.personal_email || null,
         phone: values.phone ? `${values.phone_country_code || '+256'}${values.phone}` : null,
+        work_phone: values.work_phone || null,
         gender: values.gender || null,
         date_of_birth: values.date_of_birth || null,
         national_id: values.national_id || null,
+        nationality: values.nationality || null,
+        citizenship: values.citizenship || null,
         tin: values.tin || null,
         nssf_number: values.nssf_number || null,
         passport_number: values.passport_number || null,
@@ -101,11 +119,14 @@ const EditEmployeeDialog = ({ open, onOpenChange, onEmployeeUpdated, employee }:
         currency: values.currency,
         pay_group_id: values.pay_group_id || null,
         status: values.status || "active",
+        engagement_type: values.engagement_type || null,
         sub_department: values.sub_department || null,
         company_id: values.company_id || null,
         company_unit_id: values.company_unit_id || null,
         sub_department_id: values.sub_department_id || null,
         date_joined: values.date_joined || null,
+        designation: values.designation || null,
+        work_location: values.work_location || null,
         category: values.category || undefined,
         pay_frequency: values.pay_frequency || null,
         probation_end_date: values.probation_end_date || null,

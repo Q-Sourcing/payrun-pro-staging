@@ -11,7 +11,6 @@ DROP POLICY IF EXISTS "Users can update pay group members for their organization
 DROP POLICY IF EXISTS "Users can delete pay group members for their organization" ON head_office_pay_group_members;
 
 -- SELECT policy: Users can view pay group members for their organization
-DROP POLICY IF EXISTS "Users can view pay group members for their organization" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can view pay group members for their organization" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can view pay group members for their organization" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can view pay group members for their organization" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Users can view pay group members for their organization"
 ON head_office_pay_group_members
 FOR SELECT
 TO authenticated
@@ -25,7 +24,6 @@ USING (
 );
 
 -- INSERT policy: Users can insert pay group members for their organization
-DROP POLICY IF EXISTS "Users can insert pay group members for their organization" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can insert pay group members for their organization" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can insert pay group members for their organization" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can insert pay group members for their organization" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Users can insert pay group members for their organization"
 ON head_office_pay_group_members
 FOR INSERT
 TO authenticated
@@ -39,7 +37,6 @@ WITH CHECK (
 );
 
 -- UPDATE policy: Users can update pay group members for their organization
-DROP POLICY IF EXISTS "Users can update pay group members for their organization" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can update pay group members for their organization" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can update pay group members for their organization" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can update pay group members for their organization" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Users can update pay group members for their organization"
 ON head_office_pay_group_members
 FOR UPDATE
 TO authenticated
@@ -61,7 +58,6 @@ WITH CHECK (
 );
 
 -- DELETE policy: Users can delete pay group members for their organization
-DROP POLICY IF EXISTS "Users can delete pay group members for their organization" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can delete pay group members for their organization" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can delete pay group members for their organization" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can delete pay group members for their organization" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Users can delete pay group members for their organization"
 ON head_office_pay_group_members
 FOR DELETE
 TO authenticated

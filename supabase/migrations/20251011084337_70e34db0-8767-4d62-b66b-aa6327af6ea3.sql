@@ -41,38 +41,32 @@ AS $$
 $$;
 
 -- RLS Policies for profiles
-DROP POLICY IF EXISTS "Users can view all profiles" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can view all profiles" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can view all profiles" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can view all profiles" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Users can view all profiles"
 ON public.profiles
 FOR SELECT
 TO authenticated
 USING (true);
 
-DROP POLICY IF EXISTS "Users can update own profile" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can update own profile" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can update own profile" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can update own profile" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Users can update own profile"
 ON public.profiles
 FOR UPDATE
 TO authenticated
 USING (auth.uid() = id);
 
-DROP POLICY IF EXISTS "Users can insert own profile" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can insert own profile" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can insert own profile" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can insert own profile" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Users can insert own profile"
 ON public.profiles
 FOR INSERT
 TO authenticated
 WITH CHECK (auth.uid() = id);
 
 -- RLS Policies for user_roles
-DROP POLICY IF EXISTS "Super admins can view all roles" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Super admins can view all roles" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Super admins can view all roles" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Super admins can view all roles" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Super admins can view all roles"
 ON public.user_roles
 FOR SELECT
 TO authenticated
 USING (public.has_role(auth.uid(), 'super_admin'));
 
-DROP POLICY IF EXISTS "Users can view own roles" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Users can view own roles" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Users can view own roles" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Users can view own roles" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Users can view own roles"
 ON public.user_roles
 FOR SELECT
 TO authenticated
 USING (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "Super admins can manage all roles" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Super admins can manage all roles" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Super admins can manage all roles" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Super admins can manage all roles" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Super admins can manage all roles"
 ON public.user_roles
 FOR ALL
 TO authenticated

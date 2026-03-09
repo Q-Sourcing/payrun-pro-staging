@@ -12,8 +12,7 @@ import { PayslipDesignerSection } from "@/components/settings/PayslipDesignerSec
 import { SystemSettingsSection } from "@/components/settings/SystemSettingsSection";
 import { EmailSettingsSection } from "@/components/settings/EmailSettingsSection";
 import { ReminderSettings } from "@/components/settings/ReminderSettings";
-import { UserManagement } from "@/components/user-management/UserManagement";
-import { AdminAccessSection } from "@/components/settings/AdminAccessSection";
+import { AttendanceSettingsSection } from "@/components/settings/AttendanceSettingsSection";
 import { SettingsSectionGuard } from "@/components/settings/SettingsSectionGuard";
 import { ContractTemplateManager } from "@/components/contracts/ContractTemplateManager";
 import { useUserRole } from "@/hooks/use-user-role";
@@ -32,6 +31,7 @@ import {
     FileText,
     ScrollText,
     AlarmClock,
+    Timer,
     Settings as SettingsIcon,
     Building2 as BuildingIcon
 } from "lucide-react";
@@ -116,20 +116,6 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
             requiredPermission: 'manage_integrations'
         },
         {
-            id: "user-management",
-            label: "User Management",
-            icon: Users,
-            requiredRole: 'ORG_ADMIN' as const,
-            requiredPermission: 'manage_organization_users'
-        },
-        {
-            id: "admin-obac",
-            label: "Admin (Access Control)",
-            icon: Shield,
-            requiredRole: 'ORG_ADMIN' as const,
-            requiredPermission: 'manage_organization_users'
-        },
-        {
             id: "emails",
             label: "Email & Logic",
             icon: Mail,
@@ -162,6 +148,13 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
             label: "About & Help",
             icon: Info,
             requiredRole: 'SELF_USER' as const // Everyone can access about
+        },
+        {
+            id: "attendance-settings",
+            label: "Attendance",
+            icon: Timer,
+            requiredRole: 'ORG_ADMIN' as const,
+            requiredPermission: 'organization_configuration'
         },
     ];
 
@@ -254,18 +247,6 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
                         <IntegrationsSection />
                     </SettingsSectionGuard>
                 );
-            case "user-management":
-                return (
-                    <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="manage_organization_users">
-                        <UserManagement />
-                    </SettingsSectionGuard>
-                );
-            case "admin-obac":
-                return (
-                    <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="manage_organization_users">
-                        <AdminAccessSection />
-                    </SettingsSectionGuard>
-                );
             case "system":
                 return (
                     <SettingsSectionGuard requiredRole="PLATFORM_SUPER_ADMIN" requiredPermission="system_configuration">
@@ -288,6 +269,12 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
                 return (
                     <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration">
                         <ReminderSettings />
+                    </SettingsSectionGuard>
+                );
+            case "attendance-settings":
+                return (
+                    <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration">
+                        <AttendanceSettingsSection />
                     </SettingsSectionGuard>
                 );
             default:

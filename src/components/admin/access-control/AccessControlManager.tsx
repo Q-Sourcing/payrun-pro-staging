@@ -9,7 +9,7 @@ import {
     History,
     Lock
 } from "lucide-react";
-import { RBACRolesModule } from "./rbac/RBACRolesModule";
+import { RolesPermissionsModule } from "./rbac/RolesPermissionsModule";
 import { RBACPermissionsModule } from "./rbac/RBACPermissionsModule";
 import { RBACGrantsModule } from "./rbac/RBACGrantsModule";
 import { RBACDataScopeModule } from "./rbac/RBACDataScopeModule";
@@ -22,7 +22,7 @@ export function AccessControlManager() {
     const [activeModule, setActiveModule] = useState<ModuleId>("grants");
 
     const modules = [
-        { id: "roles", label: "Roles", icon: Users, description: "Manage system and organization roles" },
+        { id: "roles", label: "Roles & Permissions", icon: Users, description: "Manage roles and their permissions" },
         { id: "permissions", label: "Permissions", icon: Lock, description: "Explore available system permissions" },
         { id: "grants", label: "Grants", icon: Shield, description: "Manage explicit ALLOW/DENY overrides" },
         { id: "scope", label: "Data Scope", icon: Eye, description: "Visualize effective access per user" },
@@ -32,7 +32,7 @@ export function AccessControlManager() {
 
     const renderModule = () => {
         switch (activeModule) {
-            case "roles": return <RBACRolesModule />;
+            case "roles": return <RolesPermissionsModule />;
             case "permissions": return <RBACPermissionsModule />;
             case "grants": return <RBACGrantsModule />;
             case "scope": return <RBACDataScopeModule />;

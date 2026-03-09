@@ -1,9 +1,15 @@
 import { NavigationSidebar } from "@/components/Sidebar";
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
+import { useTheme } from "@/components/ui/theme-provider";
+import { Sun, Moon, Pin, PinOff } from "lucide-react";
 
 const Layout = () => {
   const [activeTab, setActiveTab] = useState("employees");
+  const { theme, setTheme } = useTheme();
+  const [pinned, setPinned] = useState(true);
+
+  const isDark = theme === "dark";
 
   return (
     <div className="app-container">
@@ -27,19 +33,31 @@ const Layout = () => {
           />
         </div>
 
-        {/* Settings Section */}
-        <div className="nav-section">
-          <div className="nav-items">
-            {/* Theme Toggle */}
-            <div className="theme-toggle">
-              <div className="theme-options">
-                <button className="theme-option active">
-                  <span className="theme-icon">🌙</span>
-                  <span className="theme-label">Dark</span>
-                </button>
+        {/* Footer Controls */}
+        <div className="sidebar-footer">
+          {/* Pin Sidebar */}
+          <button
+            onClick={() => setPinned(!pinned)}
+            className="sidebar-footer-btn"
+            title={pinned ? "Unpin sidebar" : "Pin sidebar"}
+          >
+            {pinned ? <Pin className="h-4 w-4" /> : <PinOff className="h-4 w-4" />}
+            <span>Pin Sidebar</span>
+          </button>
+
+          {/* Theme Toggle */}
+          <button
+            onClick={() => setTheme(isDark ? 'light' : 'dark')}
+            className="sidebar-footer-btn"
+            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            <div className={`theme-toggle-pill ${isDark ? 'dark' : 'light'}`}>
+              <div className="theme-toggle-thumb">
+                {isDark ? <Moon className="h-3 w-3" /> : <Sun className="h-3 w-3" />}
               </div>
             </div>
-          </div>
+            <span>{isDark ? 'Dark' : 'Light'}</span>
+          </button>
         </div>
       </div>
 

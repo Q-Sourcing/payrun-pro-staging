@@ -166,7 +166,6 @@ ALTER TABLE public.approval_workflow_versions ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policy: Read by org members
 DROP POLICY IF EXISTS "Workflow Versions Readable by Org Members" ON public.approval_workflow_versions;
-DROP POLICY IF EXISTS "Workflow Versions Readable by Org Members" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Workflow Versions Readable by Org Members" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Workflow Versions Readable by Org Members" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Workflow Versions Readable by Org Members" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Workflow Versions Readable by Org Members"
 ON public.approval_workflow_versions FOR SELECT TO authenticated
 USING (
     workflow_id IN (
@@ -179,7 +178,6 @@ USING (
 
 -- RLS Policy: Insert by admins (created via trigger)
 DROP POLICY IF EXISTS "Workflow Versions Managed by Admins" ON public.approval_workflow_versions;
-DROP POLICY IF EXISTS "Workflow Versions Managed by Admins" ON public.head_office_pay_group_members; DROP POLICY IF EXISTS "Workflow Versions Managed by Admins" ON public.head_office_pay_groups_regular; DROP POLICY IF EXISTS "Workflow Versions Managed by Admins" ON public.head_office_pay_groups_interns; DROP POLICY IF EXISTS "Workflow Versions Managed by Admins" ON public.head_office_pay_groups_expatriates; CREATE POLICY "Workflow Versions Managed by Admins"
 ON public.approval_workflow_versions FOR INSERT TO authenticated
 WITH CHECK (
     public.check_is_super_admin(auth.uid()) OR public.check_is_org_super_admin(auth.uid())

@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Hash, UserPlus, ClipboardList } from "lucide-react";
 
 export const EmployeeSettingsSection = () => {
   const { toast } = useToast();
@@ -56,125 +58,142 @@ export const EmployeeSettingsSection = () => {
     }
   };
 
+  const mandatoryFieldItems = [
+    { key: 'nationalId' as const, label: 'National ID Number' },
+    { key: 'socialSecurity' as const, label: 'Social Security Number (NSSF)' },
+    { key: 'tin' as const, label: 'TIN (Tax Identification Number)' },
+    { key: 'bankAccount' as const, label: 'Bank Account Details' },
+    { key: 'dob' as const, label: 'Date of Birth' },
+    { key: 'gender' as const, label: 'Gender' },
+  ];
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Employee Settings</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-muted-foreground">EMPLOYEE NUMBERING</h3>
+    <div className="space-y-6">
+      {/* Employee Numbering */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Hash className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Employee Numbering</CardTitle>
+              <CardDescription>Configure automatic employee ID generation</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5">
           <div className="space-y-3">
-            <Label>Auto-generate Employee IDs</Label>
-            <RadioGroup value={autoGenerate ? "yes" : "no"} onValueChange={(v) => setAutoGenerate(v === "yes")}>
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Auto-generate Employee IDs</Label>
+            <RadioGroup value={autoGenerate ? "yes" : "no"} onValueChange={(v) => setAutoGenerate(v === "yes")} className="flex gap-6">
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="yes" id="auto-yes" />
-                <Label htmlFor="auto-yes" className="font-normal cursor-pointer">Yes</Label>
+                <Label htmlFor="auto-yes" className="font-normal cursor-pointer">Yes — system assigns IDs</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="no" id="auto-no" />
-                <Label htmlFor="auto-no" className="font-normal cursor-pointer">No</Label>
+                <Label htmlFor="auto-no" className="font-normal cursor-pointer">No — manual entry</Label>
               </div>
             </RadioGroup>
           </div>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <Label>Format</Label>
-              <Select value={idFormat} onValueChange={setIdFormat}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="EMP-001">EMP-001</SelectItem>
-                  <SelectItem value="DEP-001">DEP-001</SelectItem>
-                  <SelectItem value="COUNTRY-EMP-001">COUNTRY-EMP-001</SelectItem>
-                </SelectContent>
-              </Select>
+          
+          {autoGenerate && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-lg bg-muted/50 border border-border">
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Format</Label>
+                <Select value={idFormat} onValueChange={setIdFormat}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="EMP-001">EMP-001</SelectItem>
+                    <SelectItem value="DEP-001">DEP-001</SelectItem>
+                    <SelectItem value="COUNTRY-EMP-001">COUNTRY-EMP-001</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Next Number</Label>
+                <Input value={nextNumber} onChange={(e) => setNextNumber(e.target.value)} className="h-10 font-mono" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Prefix</Label>
+                <Input value={prefix} onChange={(e) => setPrefix(e.target.value)} className="h-10 font-mono" />
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Onboarding */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <UserPlus className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <Label>Next Number</Label>
-              <Input value={nextNumber} onChange={(e) => setNextNumber(e.target.value)} />
-            </div>
-            <div>
-              <Label>Prefix</Label>
-              <Input value={prefix} onChange={(e) => setPrefix(e.target.value)} />
+              <CardTitle className="text-lg">Onboarding</CardTitle>
+              <CardDescription>New employee onboarding workflow settings</CardDescription>
             </div>
           </div>
-        </div>
-
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-muted-foreground">ONBOARDING</h3>
-          <div className="flex items-center space-x-2">
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-start space-x-3 p-4 rounded-lg bg-muted/50 border border-border">
             <Checkbox
               id="require-approval"
               checked={requireApproval}
               onCheckedChange={(checked) => setRequireApproval(checked as boolean)}
+              className="mt-0.5"
             />
-            <Label htmlFor="require-approval" className="font-normal cursor-pointer">
-              Require Manager Approval
-            </Label>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-muted-foreground">DATA COLLECTION</h3>
-          <Label>Mandatory Fields</Label>
-          <div className="space-y-3">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="national-id"
-                checked={mandatoryFields.nationalId}
-                onCheckedChange={(checked) => setMandatoryFields(prev => ({ ...prev, nationalId: checked as boolean }))}
-              />
-              <Label htmlFor="national-id" className="font-normal cursor-pointer">National ID Number</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="social-security"
-                checked={mandatoryFields.socialSecurity}
-                onCheckedChange={(checked) => setMandatoryFields(prev => ({ ...prev, socialSecurity: checked as boolean }))}
-              />
-              <Label htmlFor="social-security" className="font-normal cursor-pointer">Social Security Number</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="tin"
-                checked={mandatoryFields.tin}
-                onCheckedChange={(checked) => setMandatoryFields(prev => ({ ...prev, tin: checked as boolean }))}
-              />
-              <Label htmlFor="tin" className="font-normal cursor-pointer">TIN (Tax ID)</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="bank-account"
-                checked={mandatoryFields.bankAccount}
-                onCheckedChange={(checked) => setMandatoryFields(prev => ({ ...prev, bankAccount: checked as boolean }))}
-              />
-              <Label htmlFor="bank-account" className="font-normal cursor-pointer">Bank Account Details</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="dob"
-                checked={mandatoryFields.dob}
-                onCheckedChange={(checked) => setMandatoryFields(prev => ({ ...prev, dob: checked as boolean }))}
-              />
-              <Label htmlFor="dob" className="font-normal cursor-pointer">Date of Birth</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="gender"
-                checked={mandatoryFields.gender}
-                onCheckedChange={(checked) => setMandatoryFields(prev => ({ ...prev, gender: checked as boolean }))}
-              />
-              <Label htmlFor="gender" className="font-normal cursor-pointer">Gender</Label>
+            <div>
+              <Label htmlFor="require-approval" className="font-medium cursor-pointer">
+                Require Manager Approval
+              </Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                New employees must be approved by their reporting manager before being fully activated
+              </p>
             </div>
           </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        <div className="flex gap-2 pt-4">
-          <Button onClick={handleSave}>Save Employee Settings</Button>
-        </div>
-      </CardContent>
-    </Card>
+      {/* Data Collection */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <ClipboardList className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Data Collection</CardTitle>
+              <CardDescription>Define which fields are mandatory during employee registration</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3 block">Mandatory Fields</Label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {mandatoryFieldItems.map(item => (
+              <div key={item.key} className="flex items-center space-x-3 p-3 rounded-lg border border-border bg-card hover:bg-muted/30 transition-colors">
+                <Checkbox
+                  id={item.key}
+                  checked={mandatoryFields[item.key]}
+                  onCheckedChange={(checked) => setMandatoryFields(prev => ({ ...prev, [item.key]: checked as boolean }))}
+                />
+                <Label htmlFor={item.key} className="font-normal cursor-pointer text-sm flex-1">
+                  {item.label}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Save Actions */}
+      <div className="flex items-center gap-3 pt-2">
+        <Button onClick={handleSave} size="lg">Save Employee Settings</Button>
+      </div>
+    </div>
   );
 };

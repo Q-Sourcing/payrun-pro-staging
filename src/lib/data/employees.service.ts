@@ -441,8 +441,11 @@ export class EmployeesService {
         last_name: validatedData.last_name,
         email: validatedData.email,
         phone: validatedData.phone,
+        personal_email: validatedData.personal_email,
+        work_phone: validatedData.work_phone,
         employee_type: validatedData.employee_type,
         employee_category: validatedData.employee_category,
+        engagement_type: validatedData.engagement_type,
         employment_status: validatedData.employment_status || 'Active',
         sub_department: validatedData.sub_department,
         project: validatedData.project,
@@ -454,10 +457,14 @@ export class EmployeesService {
         gender: validatedData.gender,
         date_of_birth: validatedData.date_of_birth,
         national_id: validatedData.national_id,
+        nationality: validatedData.nationality,
+        citizenship: validatedData.citizenship,
         tin: validatedData.tin,
         nssf_number: validatedData.nssf_number,
         social_security_number: validatedData.social_security_number,
         passport_number: validatedData.passport_number,
+        designation: validatedData.designation,
+        work_location: validatedData.work_location,
         bank_name: validatedData.bank_name,
         bank_branch: validatedData.bank_branch,
         account_number: validatedData.account_number,
@@ -547,8 +554,11 @@ export class EmployeesService {
       if (validatedData.last_name !== undefined) updateData.last_name = validatedData.last_name;
       if (validatedData.email !== undefined) updateData.email = validatedData.email;
       if (validatedData.phone !== undefined) updateData.phone = validatedData.phone;
+      if (validatedData.personal_email !== undefined) updateData.personal_email = validatedData.personal_email;
+      if (validatedData.work_phone !== undefined) updateData.work_phone = validatedData.work_phone;
       if (validatedData.employee_type !== undefined) updateData.employee_type = validatedData.employee_type;
       if (validatedData.employee_category !== undefined) updateData.employee_category = validatedData.employee_category;
+      if (validatedData.engagement_type !== undefined) updateData.engagement_type = validatedData.engagement_type;
       if (validatedData.employment_status !== undefined) {
         updateData.employment_status = validatedData.employment_status;
         updateData.status = validatedData.employment_status === 'Active' ? 'active' : 'inactive';
@@ -563,10 +573,14 @@ export class EmployeesService {
       if (validatedData.gender !== undefined) updateData.gender = validatedData.gender;
       if (validatedData.date_of_birth !== undefined) updateData.date_of_birth = validatedData.date_of_birth;
       if (validatedData.national_id !== undefined) updateData.national_id = validatedData.national_id;
+      if (validatedData.nationality !== undefined) updateData.nationality = validatedData.nationality;
+      if (validatedData.citizenship !== undefined) updateData.citizenship = validatedData.citizenship;
       if (validatedData.tin !== undefined) updateData.tin = validatedData.tin;
       if (validatedData.nssf_number !== undefined) updateData.nssf_number = validatedData.nssf_number;
       if (validatedData.social_security_number !== undefined) updateData.social_security_number = validatedData.social_security_number;
       if (validatedData.passport_number !== undefined) updateData.passport_number = validatedData.passport_number;
+      if (validatedData.designation !== undefined) updateData.designation = validatedData.designation;
+      if (validatedData.work_location !== undefined) updateData.work_location = validatedData.work_location;
       if (validatedData.bank_name !== undefined) updateData.bank_name = validatedData.bank_name;
       if (validatedData.bank_branch !== undefined) updateData.bank_branch = validatedData.bank_branch;
       if (validatedData.account_number !== undefined) updateData.account_number = validatedData.account_number;
