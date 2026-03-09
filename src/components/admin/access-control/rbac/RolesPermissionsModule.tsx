@@ -129,8 +129,7 @@ export function RolesPermissionsModule() {
           <span className="inline-flex items-center gap-1">
             <Settings2 className="h-3 w-3" />Assign Permissions
           </span>{" "}
-          → switch to the <strong>Permissions</strong> tab. Use{" "}
-          <strong>Permission Catalog</strong> to add, edit or remove individual permissions.
+          → switch to the <strong>Permissions</strong> tab to assign or manage permissions.
         </p>
       </div>
 
@@ -140,12 +139,8 @@ export function RolesPermissionsModule() {
             <Users className="h-4 w-4" /> Roles
             <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">{businessRoles.length}</Badge>
           </TabsTrigger>
-          <TabsTrigger value="permissions" className="flex-1 gap-2" disabled={!selectedRole}>
-            <CheckSquare className="h-4 w-4" />
-            {selectedRole ? `Permissions — ${selectedRole.name}` : "Permissions"}
-          </TabsTrigger>
-          <TabsTrigger value="catalog" className="flex-1 gap-2">
-            <KeyRound className="h-4 w-4" /> Permission Catalog
+          <TabsTrigger value="permissions" className="flex-1 gap-2">
+            <KeyRound className="h-4 w-4" /> Permissions
             <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">{permissions.length}</Badge>
           </TabsTrigger>
         </TabsList>
@@ -188,32 +183,63 @@ export function RolesPermissionsModule() {
           )}
         </TabsContent>
 
-        {/* ── PERMISSIONS ASSIGNMENT TAB ── */}
-        <TabsContent value="permissions" className="mt-4">
-          {selectedRole ? (
-            <PermissionsEditor
-              role={selectedRole}
-              orgId={orgId}
-              permsByCategory={permsByCategory}
-              onSaved={() => {
-                qc.invalidateQueries({ queryKey: ["role-permissions", selectedRole.code] });
-                toast.success(`Permissions saved for ${selectedRole.name}`);
-              }}
-            />
-          ) : (
-            <div className="text-center py-16 text-sm text-muted-foreground">
-              Select a role from the Roles tab to assign permissions.
+        {/* ── UNIFIED PERMISSIONS TAB ── */}
+        <TabsContent value="permissions" className="mt-4 space-y-6">
+          {/* Role Permission Assignment Section */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <CheckSquare className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold">Assign Permissions to Role</h3>
             </div>
-          )}
-        </TabsContent>
+            <Select
+              value={selectedRole?.code ?? ""}
+              onValueChange={(code) => {
+                const role = roles.find(r => r.code === code);
+                setSelectedRole(role ?? null);
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-[300px]">
+                <SelectValue placeholder="Select a role to configure…" />
+              </SelectTrigger>
+              <SelectContent>
+                {businessRoles.map(r => (
+                  <SelectItem key={r.code} value={r.code}>{r.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedRole ? (
+              <PermissionsEditor
+                role={selectedRole}
+                orgId={orgId}
+                permsByCategory={permsByCategory}
+                onSaved={() => {
+                  qc.invalidateQueries({ queryKey: ["role-permissions", selectedRole.code] });
+                  toast.success(`Permissions saved for ${selectedRole.name}`);
+                }}
+              />
+            ) : (
+              <div className="text-center py-8 text-sm text-muted-foreground border rounded-lg bg-muted/10">
+                Select a role above to assign permissions.
+              </div>
+            )}
+          </div>
 
-        {/* ── PERMISSION CATALOG TAB ── */}
-        <TabsContent value="catalog" className="mt-4">
-          <PermissionCatalog
-            permissions={permissions}
-            permsByCategory={permsByCategory}
-            onRefresh={() => qc.invalidateQueries({ queryKey: ["rbac-permissions"] })}
-          />
+          {/* Separator */}
+          <div className="border-t" />
+
+          {/* Permission Catalog Section */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <KeyRound className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold">Permission Catalog</h3>
+              <span className="text-xs text-muted-foreground">— Add, edit or remove permissions</span>
+            </div>
+            <PermissionCatalog
+              permissions={permissions}
+              permsByCategory={permsByCategory}
+              onRefresh={() => qc.invalidateQueries({ queryKey: ["rbac-permissions"] })}
+            />
+          </div>
         </TabsContent>
       </Tabs>
 
