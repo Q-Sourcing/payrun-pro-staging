@@ -75,9 +75,9 @@ serve(async (req) => {
         // Get existing management profiles to avoid overwriting admin-edited data
         const { data: existingMgmt } = await supabaseAdmin
           .from('user_management_profiles')
-          .select('id')
+          .select('user_id')
 
-        const existingMgmtIds = new Set((existingMgmt ?? []).map(p => p.id))
+        const existingMgmtIds = new Set((existingMgmt ?? []).map(p => p.user_id))
 
         // Get rbac assignments for role codes
         const { data: rbacAssignments } = await supabaseAdmin
