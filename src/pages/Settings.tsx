@@ -69,50 +69,54 @@ const Settings = () => {
   const renderSection = () => {
     switch (activeSection) {
       case "company":
-        return <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration"><CompanySettingsSection /></SettingsSectionGuard>;
+        return <CompanySettingsSection />;
       case "employee":
-        return <SettingsSectionGuard requiredRole="ORG_HR_ADMIN" requiredPermission="view_organization_employees"><EmployeeSettingsSection /></SettingsSectionGuard>;
+        return <EmployeeSettingsSection />;
       case "contracts":
-        return <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration"><ContractTemplateManager /></SettingsSectionGuard>;
+        return <ContractTemplateManager />;
       case "payslip-designer":
-        return <SettingsSectionGuard requiredRole="COMPANY_PAYROLL_ADMIN" requiredPermission="process_payroll"><PayslipDesignerSection /></SettingsSectionGuard>;
+        return <PayslipDesignerSection />;
       case "theme":
         return <ThemeSettings />;
       case "about":
         return <AboutSection />;
       case "payroll":
-        return <SettingsSectionGuard requiredRole="COMPANY_PAYROLL_ADMIN" requiredPermission="process_payroll"><PayrollSettingsSection /></SettingsSectionGuard>;
+        return <PayrollSettingsSection />;
       case "security":
         return (
-          <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration">
-            <div className="space-y-6">
-              <SecuritySettingsSection />
-              <Card>
-                <CardHeader>
-                  <CardTitle>Account Security & Lockout</CardTitle>
-                  <CardDescription>Manage account lockout settings and view security events</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <a href="/settings/security">
-                    <Button variant="outline" className="w-full">Open Security Dashboard</Button>
-                  </a>
-                </CardContent>
-              </Card>
-            </div>
-          </SettingsSectionGuard>
+          <div className="space-y-6">
+            <SecuritySettingsSection />
+            <Card>
+              <CardHeader>
+                <CardTitle>Account Security & Lockout</CardTitle>
+                <CardDescription>Manage account lockout settings and view security events</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <a href="/settings/security">
+                  <Button variant="outline" className="w-full">Open Security Dashboard</Button>
+                </a>
+              </CardContent>
+            </Card>
+          </div>
         );
       case "notifications":
         return <NotificationsSection />;
       case "integrations":
-        return <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="manage_integrations"><IntegrationsSection /></SettingsSectionGuard>;
+        return <IntegrationsSection />;
       case "system":
-        return <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="manage_organization_users"><UsersManagement /></SettingsSectionGuard>;
+        return <UsersManagement />;
+      case "access-control":
+        return (
+          <div className="h-[calc(100vh-200px)]">
+            <AccessControlManager />
+          </div>
+        );
       case "data":
-        return <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="export_data"><DataManagementSection /></SettingsSectionGuard>;
+        return <DataManagementSection />;
       case "emails":
-        return <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration"><EmailSettingsSection /></SettingsSectionGuard>;
+        return <EmailSettingsSection />;
       case "attendance":
-        return <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration"><AttendanceSettingsSection /></SettingsSectionGuard>;
+        return <AttendanceSettingsSection />;
       default:
         return <ThemeSettings />;
     }
