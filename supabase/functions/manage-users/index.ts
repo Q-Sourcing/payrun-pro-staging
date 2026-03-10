@@ -75,9 +75,9 @@ serve(async (req) => {
         // Get existing management profiles to avoid overwriting admin-edited data
         const { data: existingMgmt } = await supabaseAdmin
           .from('user_management_profiles')
-          .select('user_id')
+          .select('id')
 
-        const existingMgmtIds = new Set((existingMgmt ?? []).map(p => p.user_id))
+        const existingMgmtIds = new Set((existingMgmt ?? []).map(p => p.id))
 
         // Get rbac assignments for role codes
         const { data: rbacAssignments } = await supabaseAdmin
@@ -101,7 +101,7 @@ serve(async (req) => {
           const status = hasSignedIn ? 'active' : 'pending'
 
           toUpsert.push({
-            user_id: authUser.id,
+            id: authUser.id,
             username: authUser.user_metadata?.username || null,
             full_name: fullName,
             email: authUser.email || '',
@@ -117,7 +117,7 @@ serve(async (req) => {
         if (toUpsert.length > 0) {
           const { error: syncErr } = await supabaseAdmin
             .from('user_management_profiles')
-            .upsert(toUpsert, { onConflict: 'user_id', ignoreDuplicates: true })
+            .upsert(toUpsert, { onConflict: 'id', ignoreDuplicates: true })
           if (syncErr) console.error('Sync upsert error:', syncErr)
         }
       } catch (syncError) {
@@ -134,9 +134,7 @@ serve(async (req) => {
         return json({ success: false, message: error.message }, 500)
       }
 
-      // Map user_id as id for frontend compatibility
-      const mapped = (profiles ?? []).map(p => ({ ...p, id: p.user_id }))
-      return json({ success: true, users: mapped })
+      return json({ success: true, users: profiles ?? [] })
     }
 
     // ── POST: create user ──────────────────────────────────────────────────────
@@ -178,7 +176,7 @@ serve(async (req) => {
       const { data: profile, error: profileError } = await supabaseAdmin
         .from('user_management_profiles')
         .upsert({
-          user_id: userId,
+          id: userId,
           username: username || null,
           full_name: full_name || username || '',
           email,
@@ -188,7 +186,7 @@ serve(async (req) => {
           status: status || 'active',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id' })
+        }, { onConflict: 'id' })
         .select()
         .single()
 
@@ -244,7 +242,7 @@ serve(async (req) => {
       const { data: updated, error: updateError } = await supabaseAdmin
         .from('user_management_profiles')
         .update(updates)
-        .eq('user_id', id)
+        .eq('id', id)
         .select()
         .single()
 
@@ -315,7 +313,7 @@ serve(async (req) => {
         return json({ success: false, message: deleteError.message }, 400)
       }
 
-      await supabaseAdmin.from('user_management_profiles').delete().eq('user_id', userId)
+      await supabaseAdmin.from('user_management_profiles').delete().eq('id', userId)
 
       console.log(`User deleted: ${userId} by ${currentUser.email}`)
       return json({ success: true, message: 'User deleted successfully' })
