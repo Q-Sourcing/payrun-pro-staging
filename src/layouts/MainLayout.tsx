@@ -224,10 +224,7 @@ export default function MainLayout() {
                     <div className="w-40 min-w-0">
                       <Select
                         value={companyId || ''}
-                        onValueChange={(val) => {
-                          setCompanyId(val);
-                          if (typeof window !== 'undefined') localStorage.setItem('active_company_id', val);
-                        }}
+                        onValueChange={(val) => setCompanyId(val)}
                       >
                         <SelectTrigger className="h-7 py-0 px-2 text-xs">
                           <SelectValue placeholder={companyName || 'Select company'} />
@@ -239,6 +236,13 @@ export default function MainLayout() {
                         </SelectContent>
                       </Select>
                     </div>
+                    <button
+                      onClick={() => setShowCreateCompany(true)}
+                      className="p-1 rounded hover:bg-muted transition-colors"
+                      title="Add Company"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-muted-foreground" />
+                    </button>
                   </div>
                 </div>
 
