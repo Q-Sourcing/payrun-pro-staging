@@ -16,7 +16,7 @@ interface CreateCompanyDialogProps {
 }
 
 export function CreateCompanyDialog({ open, onOpenChange, onCreated }: CreateCompanyDialogProps) {
-  const { organizationId } = useOrg();
+  const { organizationId, setCompanyId } = useOrg();
   const { user } = useSupabaseAuth();
   const [name, setName] = useState('');
   const [countryId, setCountryId] = useState('');
@@ -49,12 +49,13 @@ export function CreateCompanyDialog({ open, onOpenChange, onCreated }: CreateCom
 
       if (error) throw error;
 
-      // Auto-add creating user as member
+      // Auto-add creating user as member via SECURITY DEFINER RPC
       if (user?.id && company?.id) {
-        await supabase.from('user_company_memberships').insert({
-          user_id: user.id,
-          company_id: company.id,
+        const { error: rpcError } = await supabase.rpc('assign_company_membership', {
+          p_user_id: user.id,
+          p_company_id: company.id,
         });
+        if (rpcError) console.error('Membership assign error:', rpcError.message);
       }
 
       toast.success('Company created successfully');
@@ -62,6 +63,8 @@ export function CreateCompanyDialog({ open, onOpenChange, onCreated }: CreateCom
       setCountryId('');
       setCurrency('');
       onOpenChange(false);
+      // Auto-switch to the new company
+      if (company?.id) setCompanyId(company.id);
       onCreated?.();
     } catch (err: any) {
       toast.error(err.message || 'Failed to create company');
