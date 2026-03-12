@@ -165,7 +165,7 @@ export default function EmployeesOverview() {
     } finally {
       setLoading(false);
     }
-  }, [organizationId, pagination.page, pagination.pageSize, searchTerm, statusFilter, companyFilter]);
+  }, [organizationId, companyId, pagination.page, pagination.pageSize, searchTerm, statusFilter, companyFilter]);
 
   useEffect(() => {
     fetchEmployees();
