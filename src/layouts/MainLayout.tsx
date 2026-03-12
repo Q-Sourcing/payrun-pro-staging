@@ -69,23 +69,23 @@ export default function MainLayout() {
     }
   }, [needsCompanySelection, navigate]);
 
+  const fetchCompanies = async () => {
+    try {
+      if (!user?.id) return;
+      const { data, error } = await supabase
+        .from('user_company_memberships')
+        .select('company:companies(id, name)')
+        .eq('user_id', user.id);
+      if (error) throw error;
+      const mapped = (data || []).map((r: any) => r.company).filter(Boolean);
+      setAssignedCompanies(mapped);
+    } catch {
+      setAssignedCompanies([]);
+    }
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        if (!user?.id) return;
-        const { data, error } = await supabase
-          .from('user_company_memberships')
-          .select('company:companies(id, name)')
-          .eq('user_id', user.id);
-        if (error) throw error;
-        const mapped = (data || []).map((r: any) => r.company).filter(Boolean);
-        if (!cancelled) setAssignedCompanies(mapped);
-      } catch {
-        if (!cancelled) setAssignedCompanies([]);
-      }
-    })();
-    return () => { cancelled = true; };
+    fetchCompanies();
   }, [user?.id]);
 
   // Effect to sync sidebarCollapsed with isPinned changes
