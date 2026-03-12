@@ -42,7 +42,7 @@ interface Employee {
 }
 
 export default function EmployeesOverview() {
-  const { organizationId } = useOrg();
+  const { organizationId, companyId } = useOrg();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
