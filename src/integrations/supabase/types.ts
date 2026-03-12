@@ -9398,6 +9398,10 @@ export type Database = {
         Args: { comments_input?: string; payrun_id_input: string }
         Returns: Json
       }
+      assign_company_membership: {
+        Args: { p_company_id: string; p_user_id: string }
+        Returns: undefined
+      }
       can_perform_action: {
         Args: { p_action: string; p_company_id: string; p_org_id: string }
         Returns: boolean
