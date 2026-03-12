@@ -23,17 +23,12 @@ export function CreateCompanyDialog({ open, onOpenChange, onCreated }: CreateCom
   const [currency, setCurrency] = useState('');
   const [saving, setSaving] = useState(false);
   const [countries, setCountries] = useState<Array<{ id: string; name: string; code: string }>>([]);
-  const [currencies, setCurrencies] = useState<Array<{ code: string; name: string }>>([]);
 
   useEffect(() => {
     if (!open) return;
     (async () => {
-      const [countriesRes, currenciesRes] = await Promise.all([
-        supabase.from('countries').select('id, name, code').order('name'),
-        supabase.from('currencies').select('code, name').order('name'),
-      ]);
-      setCountries(countriesRes.data || []);
-      setCurrencies(currenciesRes.data || []);
+      const { data } = await supabase.from('countries').select('id, name, code').order('name');
+      setCountries(data || []);
     })();
   }, [open]);
 
