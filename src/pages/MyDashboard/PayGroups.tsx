@@ -12,12 +12,12 @@ export default function PayGroupsOverview() {
     async function load() {
       if (!organizationId) return
       setLoading(true)
-      const { data } = await getOrgPayGroups(organizationId)
+      const { data } = await getOrgPayGroups(organizationId, { companyId: companyId || undefined })
       setRows(data || [])
       setLoading(false)
     }
     load()
-  }, [organizationId])
+  }, [organizationId, companyId])
 
   return (
     <div className="px-6 py-6">
