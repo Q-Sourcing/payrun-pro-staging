@@ -1,58 +1,44 @@
 
-# Add Contract Template Manager to Settings
 
-## What We're Building
-A new "Contract Templates" section in the Settings panel where admins can create, edit, and manage contract templates. These templates are then available when generating contracts for employees.
+## Diagnosis
 
-## Changes
+I found several root causes for why nothing appears to work:
 
-### 1. New Component: ContractTemplateManager
-- Location: `src/components/settings/ContractTemplateManager.tsx`
-- Features:
-  - List all active templates for the current organization (table with name, country, employment type, version)
-  - "New Template" button opening a dialog/form
-  - Edit existing templates
-  - Delete (soft-delete by setting `is_active = false`)
-- Template form fields:
-  - Name (required)
-  - Description
-  - Country code (optional dropdown)
-  - Employment type (optional dropdown: permanent, contract, intern, expatriate)
-  - Body HTML (rich text area with placeholder variable hints like `{{employee_name}}`, `{{start_date}}`, `{{job_title}}`, `{{salary}}`)
-  - Placeholders editor (add/remove placeholder keys with labels and default values)
-- Preview pane showing rendered HTML
+### Problem 1: CompanyPicker doesn't update OrgContext
+`CompanyPicker.tsx` only sets `localStorage` and navigates to `/dashboard`. It never calls `setCompanyId()` from `OrgContext`, so the context state (`companyId`, `organizationId`) is stale after selection. Pages that depend on `useOrg()` don't see the change.
 
-### 2. Register in SettingsContent
-- Add a new menu item `"contracts"` with icon `FileText` (or `ScrollText`) in the `allMenuItems` array
-- Add the corresponding `case "contracts"` in `renderStandardContent()` rendering `<ContractTemplateManager />`
-- Role guard: `ORG_ADMIN` / `organization_configuration`
+### Problem 2: RLS blocks membership insert after company creation
+The `CreateCompanyDialog` creates a company, then tries to insert into `user_company_memberships` to auto-assign the creator. But the INSERT RLS policies on that table require the JWT to contain `role = 'super_admin' | 'organization_admin'` AND `organization_id` in the JWT claims. Most users' JWTs don't have these claims set, so the insert **silently fails**. The company gets created but the user never gets linked to it, so it doesn't appear in their dropdown.
 
-### 3. Service Layer
-- Reuse existing `ContractsService.getTemplates()`, `createTemplate()`, `updateTemplate()` from `src/lib/data/contracts.service.ts` (already built in Phase 2)
+### Problem 3: PayGroups page ignores companyId
+`PayGroups.tsx` only filters by `organizationId`, never by `companyId`. Switching companies has no effect on that page.
 
-## Technical Details
+---
 
-### ContractTemplateManager component structure
-```text
-ContractTemplateManager
-  +-- Templates Table (list view)
-  +-- CreateEditTemplateDialog
-       +-- Name, Description, Country, Employment Type fields
-       +-- Body HTML textarea with placeholder hints
-       +-- Placeholders JSONB editor (dynamic key/label/default rows)
-       +-- Preview tab
-```
+## Fix Plan
 
-### Placeholder system
-Templates use `{{key}}` syntax. The manager will show a sidebar with available variables:
-- `{{employee_name}}`, `{{employee_number}}`, `{{job_title}}`
-- `{{start_date}}`, `{{end_date}}`, `{{salary}}`
-- `{{company_name}}`, `{{department}}`
-- Plus any custom placeholders defined on the template
+### A. Fix CompanyPicker to update OrgContext
+- Import `useOrg` in `CompanyPicker.tsx`
+- Call `setCompanyId(id)` when a company is selected (instead of just setting localStorage)
+- This ensures OrgContext state updates, triggering re-renders across all pages
 
-### Files to create
-- `src/components/contracts/ContractTemplateManager.tsx` -- main list + CRUD component
-- `src/components/contracts/ContractTemplateForm.tsx` -- create/edit form dialog
+### B. Fix RLS for user_company_memberships
+Create a **database function** `assign_company_membership(p_user_id uuid, p_company_id uuid)` with `SECURITY DEFINER` that:
+- Validates the company exists and belongs to the caller's org
+- Inserts the membership row bypassing RLS
+- Update `CreateCompanyDialog` to call this RPC instead of a direct insert
 
-### Files to modify
-- `src/components/settings/SettingsContent.tsx` -- add menu item + render case
+### C. Fix PayGroups to filter by companyId
+- Add `companyId` to the query filter in `PayGroups.tsx`
+- Add `companyId` to the `useEffect` dependency array
+
+### D. Refresh company dropdown after creation
+- After `CreateCompanyDialog` succeeds, call `setCompanyId(newCompanyId)` so the user immediately switches to the new company
+- Ensure `fetchCompanies()` is called to refresh the dropdown list
+
+### Files to change
+- `src/components/auth/CompanyPicker.tsx` — use `setCompanyId` from OrgContext
+- `src/components/admin/CreateCompanyDialog.tsx` — use RPC, auto-switch to new company
+- `src/pages/MyDashboard/PayGroups.tsx` — add company filter
+- **New migration** — create `assign_company_membership` SECURITY DEFINER function
+
