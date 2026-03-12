@@ -43,6 +43,7 @@ function ThemeToggleButton() {
 export default function MainLayout() {
   const { user, profile, logout } = useSupabaseAuth();
   const { role, isSuperAdmin } = useUserRole();
+  const navigate = useNavigate();
 
   // Initialize pinned state from localStorage
   const [isPinned, setIsPinned] = useState(() => {
@@ -52,15 +53,21 @@ export default function MainLayout() {
     return false;
   });
 
-  // Sidebar is collapsed if NOT pinned AND NOT hovered (we start expanded if pinned)
-  // Actually, we use a state for 'collapsed' but drive it via mouse events and pin state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(!isPinned);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAdvancedSettingsOpen, setIsAdvancedSettingsOpen] = useState(false);
+  const [showCreateCompany, setShowCreateCompany] = useState(false);
 
-  const { organizationId, companyId, setCompanyId } = useOrg();
+  const { organizationId, companyId, setCompanyId, needsCompanySelection } = useOrg();
   const { organizationName, companyName } = useOrgNames();
   const [assignedCompanies, setAssignedCompanies] = useState<Array<{ id: string; name: string }>>([]);
+
+  // Redirect to company picker if needed
+  useEffect(() => {
+    if (needsCompanySelection) {
+      navigate('/choose-company', { replace: true });
+    }
+  }, [needsCompanySelection, navigate]);
 
   useEffect(() => {
     let cancelled = false;
