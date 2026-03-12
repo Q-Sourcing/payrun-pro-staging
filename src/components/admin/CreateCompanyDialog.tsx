@@ -100,17 +100,14 @@ export function CreateCompanyDialog({ open, onOpenChange, onCreated }: CreateCom
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Currency</Label>
-            <Select value={currency} onValueChange={setCurrency}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select currency" />
-              </SelectTrigger>
-              <SelectContent>
-                {currencies.map((c) => (
-                  <SelectItem key={c.code} value={c.code}>{c.code} — {c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="company-currency">Currency Code</Label>
+            <Input
+              id="company-currency"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+              placeholder="e.g. USD, UGX, EUR"
+              maxLength={3}
+            />
           </div>
         </div>
         <DialogFooter>
