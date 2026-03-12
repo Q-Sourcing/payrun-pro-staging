@@ -1,8 +1,8 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { NavigationSidebar } from "@/components/Sidebar";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { LogOut, ChevronLeft, ChevronRight, Pin, PinOff, Sun, Moon } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronRight, Pin, PinOff, Sun, Moon, Plus } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useUserRole } from "@/hooks/use-user-role";
 import { RoleBadge, RoleBadgeSmall } from "@/components/admin/RoleBadge";
@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { useTheme } from "@/components/ui/theme-provider";
+import { CreateCompanyDialog } from "@/components/admin/CreateCompanyDialog";
 
 // Universal Features - Available to all authenticated users
 import { UniversalFeatures } from "@/components/layout/UniversalFeatures";
