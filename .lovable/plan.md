@@ -1,58 +1,55 @@
 
-# Add Contract Template Manager to Settings
 
-## What We're Building
-A new "Contract Templates" section in the Settings panel where admins can create, edit, and manage contract templates. These templates are then available when generating contracts for employees.
+## Problems Identified
 
-## Changes
+There are three distinct issues:
 
-### 1. New Component: ContractTemplateManager
-- Location: `src/components/settings/ContractTemplateManager.tsx`
-- Features:
-  - List all active templates for the current organization (table with name, country, employment type, version)
-  - "New Template" button opening a dialog/form
-  - Edit existing templates
-  - Delete (soft-delete by setting `is_active = false`)
-- Template form fields:
-  - Name (required)
-  - Description
-  - Country code (optional dropdown)
-  - Employment type (optional dropdown: permanent, contract, intern, expatriate)
-  - Body HTML (rich text area with placeholder variable hints like `{{employee_name}}`, `{{start_date}}`, `{{job_title}}`, `{{salary}}`)
-  - Placeholders editor (add/remove placeholder keys with labels and default values)
-- Preview pane showing rendered HTML
+### 1. No company selection after login
+After login, users land on `/dashboard` directly. The `CompanyPicker` component exists at `/choose-company` but is never triggered. The `OrgContext` silently auto-picks the first company if there's only one membership, and does nothing visible if there are multiple — users are never redirected to choose.
 
-### 2. Register in SettingsContent
-- Add a new menu item `"contracts"` with icon `FileText` (or `ScrollText`) in the `allMenuItems` array
-- Add the corresponding `case "contracts"` in `renderStandardContent()` rendering `<ContractTemplateManager />`
-- Role guard: `ORG_ADMIN` / `organization_configuration`
+### 2. Company switching in the header dropdown does nothing to data
+The header dropdown in `MainLayout` calls `setCompanyId(val)` on the OrgContext and updates `localStorage`, but **most pages only use `organizationId` from `useOrg()`** — not `companyId`. The Dashboard, Employees, PayGroups, and PayRuns pages all filter by `organizationId` only, so switching company has zero effect on displayed data.
 
-### 3. Service Layer
-- Reuse existing `ContractsService.getTemplates()`, `createTemplate()`, `updateTemplate()` from `src/lib/data/contracts.service.ts` (already built in Phase 2)
+### 3. No UI to add a new company
+There is a `CompanyService.createCompany()` in `src/lib/services/admin/companies.ts`, but no user-facing dialog or form to create a company under an organization.
 
-## Technical Details
+---
 
-### ContractTemplateManager component structure
-```text
-ContractTemplateManager
-  +-- Templates Table (list view)
-  +-- CreateEditTemplateDialog
-       +-- Name, Description, Country, Employment Type fields
-       +-- Body HTML textarea with placeholder hints
-       +-- Placeholders JSONB editor (dynamic key/label/default rows)
-       +-- Preview tab
-```
+## Plan
 
-### Placeholder system
-Templates use `{{key}}` syntax. The manager will show a sidebar with available variables:
-- `{{employee_name}}`, `{{employee_number}}`, `{{job_title}}`
-- `{{start_date}}`, `{{end_date}}`, `{{salary}}`
-- `{{company_name}}`, `{{department}}`
-- Plus any custom placeholders defined on the template
+### A. Redirect to company picker after login (when user has multiple companies)
 
-### Files to create
-- `src/components/contracts/ContractTemplateManager.tsx` -- main list + CRUD component
-- `src/components/contracts/ContractTemplateForm.tsx` -- create/edit form dialog
+- Modify `OrgContext.tsx`: when `user_company_memberships` returns multiple companies and no `active_company_id` is stored, set a flag (e.g. `needsCompanySelection: true`) on the context.
+- Modify `ProtectedRoute.tsx`: if `needsCompanySelection` is true, redirect to `/choose-company` instead of rendering children.
+- After selecting a company in `CompanyPicker`, it already sets `localStorage` and navigates to `/dashboard` — this flow will work.
 
-### Files to modify
-- `src/components/settings/SettingsContent.tsx` -- add menu item + render case
+### B. Make company switching actually re-scope data
+
+- In `MainLayout.tsx` company dropdown `onValueChange`: after setting `companyId`, also update `organizationId` from the selected company (derive via the already-loaded `assignedCompanies` data or a quick lookup). Force a re-render by updating OrgContext state.
+- Add `companyId` as a filter in key data-fetching pages (Dashboard, Employees, PayGroups, PayRuns) so they respect the selected company. Where queries already filter by `organization_id`, add an additional `.eq('company_id', companyId)` when `companyId` is present.
+- Alternatively, make `OrgContext` re-derive `organizationId` when `companyId` changes (it partially does this already but the effect dependency array doesn't include `companyId`).
+
+### C. Add "Create Company" dialog
+
+- Create `src/components/admin/CreateCompanyDialog.tsx` — a simple form dialog with fields: name, country (dropdown from `countries` table), currency (dropdown from `currencies` table).
+- Wire it into the company settings or organization admin area, gated behind admin role check.
+- On submit, call `CompanyService.createCompany()` and auto-create a `user_company_memberships` row for the creating user.
+
+### Technical details
+
+**OrgContext changes:**
+- Add `needsCompanySelection` boolean to context value
+- Fix `useEffect` dependency: add `companyId` to the dep array so org re-derives when company changes
+- When `companyId` changes via `setCompanyId`, clear and re-derive `organizationId`
+
+**ProtectedRoute changes:**
+- Wrap with `OrgProvider` awareness or check `localStorage('active_company_id')` + membership count to decide redirect
+
+**Dashboard/page changes:**
+- Pages that currently filter only by `organizationId` will additionally filter by `companyId` when available, so company switching actually changes the visible data
+
+**CreateCompanyDialog:**
+- Standard shadcn dialog with name, country selector, currency selector
+- Uses existing `CompanyService.createCompany()`
+- Accessible from the Settings area or header company dropdown (as an "Add Company" option)
+
