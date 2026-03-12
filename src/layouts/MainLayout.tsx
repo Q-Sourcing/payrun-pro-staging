@@ -1,8 +1,8 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { NavigationSidebar } from "@/components/Sidebar";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { LogOut, ChevronLeft, ChevronRight, Pin, PinOff, Sun, Moon } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronRight, Pin, PinOff, Sun, Moon, Plus } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useUserRole } from "@/hooks/use-user-role";
 import { RoleBadge, RoleBadgeSmall } from "@/components/admin/RoleBadge";
@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { useTheme } from "@/components/ui/theme-provider";
+import { CreateCompanyDialog } from "@/components/admin/CreateCompanyDialog";
 
 // Universal Features - Available to all authenticated users
 import { UniversalFeatures } from "@/components/layout/UniversalFeatures";
@@ -42,6 +43,7 @@ function ThemeToggleButton() {
 export default function MainLayout() {
   const { user, profile, logout } = useSupabaseAuth();
   const { role, isSuperAdmin } = useUserRole();
+  const navigate = useNavigate();
 
   // Initialize pinned state from localStorage
   const [isPinned, setIsPinned] = useState(() => {
@@ -51,33 +53,39 @@ export default function MainLayout() {
     return false;
   });
 
-  // Sidebar is collapsed if NOT pinned AND NOT hovered (we start expanded if pinned)
-  // Actually, we use a state for 'collapsed' but drive it via mouse events and pin state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(!isPinned);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAdvancedSettingsOpen, setIsAdvancedSettingsOpen] = useState(false);
+  const [showCreateCompany, setShowCreateCompany] = useState(false);
 
-  const { organizationId, companyId, setCompanyId } = useOrg();
+  const { organizationId, companyId, setCompanyId, needsCompanySelection } = useOrg();
   const { organizationName, companyName } = useOrgNames();
   const [assignedCompanies, setAssignedCompanies] = useState<Array<{ id: string; name: string }>>([]);
 
+  // Redirect to company picker if needed
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        if (!user?.id) return;
-        const { data, error } = await supabase
-          .from('user_company_memberships')
-          .select('company:companies(id, name)')
-          .eq('user_id', user.id);
-        if (error) throw error;
-        const mapped = (data || []).map((r: any) => r.company).filter(Boolean);
-        if (!cancelled) setAssignedCompanies(mapped);
-      } catch {
-        if (!cancelled) setAssignedCompanies([]);
-      }
-    })();
-    return () => { cancelled = true; };
+    if (needsCompanySelection) {
+      navigate('/choose-company', { replace: true });
+    }
+  }, [needsCompanySelection, navigate]);
+
+  const fetchCompanies = async () => {
+    try {
+      if (!user?.id) return;
+      const { data, error } = await supabase
+        .from('user_company_memberships')
+        .select('company:companies(id, name)')
+        .eq('user_id', user.id);
+      if (error) throw error;
+      const mapped = (data || []).map((r: any) => r.company).filter(Boolean);
+      setAssignedCompanies(mapped);
+    } catch {
+      setAssignedCompanies([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchCompanies();
   }, [user?.id]);
 
   // Effect to sync sidebarCollapsed with isPinned changes
@@ -216,10 +224,7 @@ export default function MainLayout() {
                     <div className="w-40 min-w-0">
                       <Select
                         value={companyId || ''}
-                        onValueChange={(val) => {
-                          setCompanyId(val);
-                          if (typeof window !== 'undefined') localStorage.setItem('active_company_id', val);
-                        }}
+                        onValueChange={(val) => setCompanyId(val)}
                       >
                         <SelectTrigger className="h-7 py-0 px-2 text-xs">
                           <SelectValue placeholder={companyName || 'Select company'} />
@@ -231,6 +236,13 @@ export default function MainLayout() {
                         </SelectContent>
                       </Select>
                     </div>
+                    <button
+                      onClick={() => setShowCreateCompany(true)}
+                      className="p-1 rounded hover:bg-muted transition-colors"
+                      title="Add Company"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-muted-foreground" />
+                    </button>
                   </div>
                 </div>
 
@@ -308,6 +320,12 @@ export default function MainLayout() {
         open={isSettingsOpen}
         onOpenChange={setIsSettingsOpen}
         onAdvancedModeChange={(isAdvanced) => setIsAdvancedSettingsOpen(isAdvanced)}
+      />
+
+      <CreateCompanyDialog
+        open={showCreateCompany}
+        onOpenChange={setShowCreateCompany}
+        onCreated={() => fetchCompanies()}
       />
     </div>
   );

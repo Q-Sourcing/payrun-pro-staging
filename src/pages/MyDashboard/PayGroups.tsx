@@ -4,7 +4,7 @@ import { getOrgPayGroups } from '@/lib/services/OrgDataService'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function PayGroupsOverview() {
-  const { organizationId } = useOrg()
+  const { organizationId, companyId } = useOrg()
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 

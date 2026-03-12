@@ -42,7 +42,7 @@ interface Employee {
 }
 
 export default function EmployeesOverview() {
-  const { organizationId } = useOrg();
+  const { organizationId, companyId } = useOrg();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +93,11 @@ export default function EmployeesOverview() {
         .from('employees')
         .select('*', { count: 'exact' })
         .eq('organization_id', organizationId);
+
+      // Scope to active company
+      if (companyId) {
+        query = query.eq('company_id', companyId);
+      }
 
       // Apply filters
       if (statusFilter !== 'all') {
@@ -160,7 +165,7 @@ export default function EmployeesOverview() {
     } finally {
       setLoading(false);
     }
-  }, [organizationId, pagination.page, pagination.pageSize, searchTerm, statusFilter, companyFilter]);
+  }, [organizationId, companyId, pagination.page, pagination.pageSize, searchTerm, statusFilter, companyFilter]);
 
   useEffect(() => {
     fetchEmployees();
