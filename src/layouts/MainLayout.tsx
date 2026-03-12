@@ -321,6 +321,12 @@ export default function MainLayout() {
         onOpenChange={setIsSettingsOpen}
         onAdvancedModeChange={(isAdvanced) => setIsAdvancedSettingsOpen(isAdvanced)}
       />
+
+      <CreateCompanyDialog
+        open={showCreateCompany}
+        onOpenChange={setShowCreateCompany}
+        onCreated={() => fetchCompanies()}
+      />
     </div>
   );
 }

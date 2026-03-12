@@ -94,6 +94,11 @@ export default function EmployeesOverview() {
         .select('*', { count: 'exact' })
         .eq('organization_id', organizationId);
 
+      // Scope to active company
+      if (companyId) {
+        query = query.eq('company_id', companyId);
+      }
+
       // Apply filters
       if (statusFilter !== 'all') {
         query = query.eq('status', statusFilter);
