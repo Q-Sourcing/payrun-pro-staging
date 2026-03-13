@@ -18,12 +18,12 @@ export default function PayRunsOverview() {
     async function load() {
       if (!organizationId) return
       setLoading(true)
-      const { data } = await getOrgPayRuns(organizationId)
+      const { data } = await getOrgPayRuns(organizationId, { companyId: companyId || undefined })
       setRows(data || [])
       setLoading(false)
     }
     load()
-  }, [organizationId])
+  }, [organizationId, companyId])
 
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
   const paginatedRows = rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)

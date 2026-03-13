@@ -1,28 +1,34 @@
 import { supabase } from '@/integrations/supabase/client';
 
-async function countWithOrg(table: string, orgId: string) {
-  // Attempt org-scoped count; if column missing, fallback to global count
-  const scoped = await (supabase as any).from(table).select('id', { count: 'exact', head: true }).eq('organization_id', orgId)
+async function countWithOrgAndCompany(table: string, orgId: string, companyId?: string) {
+  let query = (supabase as any).from(table).select('id', { count: 'exact', head: true }).eq('organization_id', orgId)
+  if (companyId) query = query.eq('company_id', companyId)
+  const scoped = await query
   if (!scoped.error) return scoped.count || 0
+  // Fallback without company filter
+  const orgOnly = await (supabase as any).from(table).select('id', { count: 'exact', head: true }).eq('organization_id', orgId)
+  if (!orgOnly.error) return orgOnly.count || 0
   const global = await (supabase as any).from(table).select('id', { count: 'exact', head: true })
   return global.count || 0
 }
 
-export async function getDashboardStats(orgId: string) {
-  const companies = await countWithOrg('companies', orgId)
+export async function getDashboardStats(orgId: string, companyId?: string) {
+  const companies = companyId ? 1 : await countWithOrgAndCompany('companies', orgId)
 
   // Employees: unified table or legacy with fallback
   let employees = 0
-  const unified = await supabase.from('employee_master').select('id', { count: 'exact', head: true }).eq('organization_id', orgId)
+  let query = supabase.from('employee_master').select('id', { count: 'exact', head: true }).eq('organization_id', orgId)
+  if (companyId) query = query.eq('company_id', companyId)
+  const unified = await query
   if (!unified.error) {
     employees = unified.count || 0
   } else {
-    employees = await countWithOrg('employees', orgId)
+    employees = await countWithOrgAndCompany('employees', orgId, companyId)
   }
 
-  const groups = await countWithOrg('pay_groups', orgId)
+  const groups = await countWithOrgAndCompany('pay_groups', orgId)
 
-  // Payroll this month via RPC -> fallback legacy without org filter if needed
+  // Payroll this month via RPC -> fallback legacy
   let payroll = 0;
   try {
     const { data, error } = await supabase.rpc('get_org_total_payroll', { org_id: orgId });
@@ -32,7 +38,6 @@ export async function getDashboardStats(orgId: string) {
     const now = new Date()
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString()
-    // Try org-scoped legacy pay_runs first
     let legacy = await supabase
       .from('pay_runs')
       .select('total_gross_pay')
@@ -54,7 +59,7 @@ export async function getDashboardStats(orgId: string) {
   return { companies, employees, groups, payroll };
 }
 
-export async function getRecentPayRuns(orgId: string, limit = 5) {
+export async function getRecentPayRuns(orgId: string, limit = 5, companyId?: string) {
   const withComputedTotals = async (rows: any[] | null | undefined) => {
     const payRuns = rows || []
     if (payRuns.length === 0) return payRuns
@@ -127,7 +132,6 @@ export async function getRecentPayRuns(orgId: string, limit = 5) {
     .limit(limit)
 
   if (result.error) {
-    // Retry without org filter if needed
     result = await supabase
       .from('pay_runs')
       .select('id, created_at, pay_period_start, pay_period_end, total_gross, total_gross_pay, total_deductions, total_net, total_net_pay, status, pay_group:pay_group_master(name)')
@@ -142,9 +146,8 @@ export async function getRecentPayRuns(orgId: string, limit = 5) {
   return result
 }
 
-export async function getCompaniesSummary(orgId: string) {
-  // Try org filter first; fallback to all if org column missing
-  let res = await supabase
+export async function getCompaniesSummary(orgId: string, companyId?: string) {
+  let query = supabase
     .from('companies')
     .select(`
       id,
@@ -154,6 +157,13 @@ export async function getCompaniesSummary(orgId: string) {
       payroll:pay_runs(total_gross_pay)
     `)
     .eq('organization_id', orgId)
+  
+  // If a specific company is selected, only show that company
+  if (companyId) {
+    query = query.eq('id', companyId)
+  }
+
+  let res = await query
   if (res.error) {
     res = await supabase
       .from('companies')
