@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode, useCa
 import { supabase } from '@/integrations/supabase/client';
 import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { UserRole } from '@/lib/types/roles';
+import { queryClient } from '@/lib/data/query-client';
 
 interface OrgContextValue {
   organizationId: string | null;
@@ -32,10 +33,14 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
   const isPlatformAdmin = user?.email?.toLowerCase() === PLATFORM_ADMIN_EMAIL.toLowerCase() ||
     localStorage.getItem('login_mode') === 'platform_admin';
 
-  // When companyId changes, re-derive organizationId from the company
+  // When companyId changes, re-derive organizationId from the company + invalidate all caches
   const setCompanyId = useCallback(async (newCompanyId: string | null) => {
     setCompanyIdState(newCompanyId);
     setNeedsCompanySelection(false);
+    
+    // Invalidate ALL query caches so every page refetches with new company scope
+    queryClient.clear();
+    
     if (newCompanyId) {
       if (typeof window !== 'undefined') localStorage.setItem('active_company_id', newCompanyId);
       try {
@@ -72,7 +77,6 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
               const cid = data[0].company_id;
               setCompanyIdState(cid);
               if (typeof window !== 'undefined') localStorage.setItem('active_company_id', cid);
-              // Derive org from this company
               const { data: comp } = await supabase
                 .from('companies')
                 .select('organization_id')
@@ -85,7 +89,6 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
               setNeedsCompanySelection(false);
               return;
             } else if (data.length > 1) {
-              // Multiple companies and none selected → flag for redirect
               setNeedsCompanySelection(true);
               return;
             }

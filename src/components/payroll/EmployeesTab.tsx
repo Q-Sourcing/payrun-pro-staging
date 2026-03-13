@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useOrg } from "@/lib/tenant/OrgContext";
 import { getCurrencyByCode } from "@/lib/constants/countries";
 import { format } from "date-fns";
 import AddEmployeeDialog from "./AddEmployeeDialog";
@@ -54,6 +55,7 @@ interface Employee {
 }
 
 const EmployeesTab = () => {
+  const { organizationId, companyId } = useOrg();
   const [searchParams, setSearchParams] = useSearchParams();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,11 +132,15 @@ const EmployeesTab = () => {
         .maybeSingle();
       setCompanyName(cs?.company_name || null);
 
-      // Fetch all employees
-      const { data: employeesData, error } = await (supabase as any)
+      // Fetch employees scoped to org + company
+      let empQuery = (supabase as any)
         .from("employees")
-        .select("*")
-        .order("first_name");
+        .select("*");
+      
+      if (organizationId) empQuery = empQuery.eq('organization_id', organizationId);
+      if (companyId) empQuery = empQuery.eq('company_id', companyId);
+      
+      const { data: employeesData, error } = await empQuery.order("first_name");
 
       if (error) throw error;
 
@@ -209,7 +215,7 @@ const EmployeesTab = () => {
 
   useEffect(() => {
     fetchEmployees();
-  }, []);
+  }, [organizationId, companyId]);
 
   useEffect(() => {
     const action = searchParams.get("action");
