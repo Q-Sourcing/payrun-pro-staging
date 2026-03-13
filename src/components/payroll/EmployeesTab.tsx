@@ -215,7 +215,7 @@ const EmployeesTab = () => {
 
   useEffect(() => {
     fetchEmployees();
-  }, []);
+  }, [organizationId, companyId]);
 
   useEffect(() => {
     const action = searchParams.get("action");
