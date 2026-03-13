@@ -238,7 +238,7 @@ const PayRunsTab = () => {
 
   useEffect(() => {
     fetchPayRuns();
-  }, []);
+  }, [organizationId, companyId]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
