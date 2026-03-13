@@ -62,6 +62,7 @@ interface PayRun {
 }
 
 const PayRunsTab = () => {
+  const { organizationId, companyId } = useOrg();
   const [payRuns, setPayRuns] = useState<PayRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
