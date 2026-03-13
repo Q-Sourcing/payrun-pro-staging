@@ -27,6 +27,7 @@ interface Project {
 }
 
 const Projects = () => {
+    const { organizationId, companyId } = useOrg();
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAddDialog, setShowAddDialog] = useState(false);
