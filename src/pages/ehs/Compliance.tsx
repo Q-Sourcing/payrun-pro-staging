@@ -74,14 +74,14 @@ export default function EhsCompliance() {
                   <TableCell>{r.regulation_body || '—'}</TableCell>
                   <TableCell className="max-w-xs truncate">{r.requirement_description}</TableCell>
                   <TableCell>{r.category || '—'}</TableCell>
-                  <TableCell><Badge className={COMPLIANCE_STATUS_COLORS[r.compliance_status]}>{r.compliance_status.replace('_', ' ')}</Badge></TableCell>
+                  <TableCell><Badge className={COMPLIANCE_STATUS_COLORS[r.compliance_status]}>{r.compliance_status?.replace('_', ' ') ?? '—'}</Badge></TableCell>
                   <TableCell>{r.due_date ? format(new Date(r.due_date), 'MMM d, yyyy') : '—'}</TableCell>
                   <TableCell>
                     <Select value={r.compliance_status} onValueChange={(v) => statusMutation.mutate({ id: r.id, status: v })}>
                       <SelectTrigger className="h-8 w-32"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {['compliant', 'non_compliant', 'partially_compliant', 'under_review'].map((s) => (
-                          <SelectItem key={s} value={s}>{s.replace('_', ' ')}</SelectItem>
+                          <SelectItem key={s} value={s}>{s?.replace('_', ' ')}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

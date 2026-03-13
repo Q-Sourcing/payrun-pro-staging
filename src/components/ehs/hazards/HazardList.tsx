@@ -106,10 +106,10 @@ export function HazardList() {
                 <TableRow key={hazard.id} className="cursor-pointer hover:bg-muted/50" onClick={() => { setEditHazard(hazard); setShowForm(true); }}>
                   <TableCell className="font-mono text-xs">{hazard.hazard_number}</TableCell>
                   <TableCell className="max-w-[300px] truncate">{hazard.description}</TableCell>
-                  <TableCell className="capitalize">{hazard.observation_type.replace('_', ' ')}</TableCell>
+                  <TableCell className="capitalize">{hazard.observation_type?.replace('_', ' ') ?? '—'}</TableCell>
                   <TableCell>
                     <Badge variant="secondary" className={RISK_LEVEL_COLORS[hazard.risk_level]}>
-                      {hazard.risk_level.charAt(0).toUpperCase() + hazard.risk_level.slice(1)}
+                      {hazard.risk_level ? hazard.risk_level.charAt(0).toUpperCase() + hazard.risk_level.slice(1) : '—'}
                     </Badge>
                   </TableCell>
                   <TableCell>

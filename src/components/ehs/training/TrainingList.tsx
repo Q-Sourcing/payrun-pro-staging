@@ -86,7 +86,7 @@ export function TrainingList() {
                   <TableCell>{rec.expiry_date ? format(new Date(rec.expiry_date), 'dd MMM yyyy') : '-'}</TableCell>
                   <TableCell>
                     <Badge variant="secondary" className={STATUS_COLORS[rec.status]}>
-                      {rec.status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                      {(rec.status ?? '').replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
                     </Badge>
                   </TableCell>
                 </TableRow>
