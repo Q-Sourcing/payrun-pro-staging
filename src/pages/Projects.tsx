@@ -37,7 +37,7 @@ const Projects = () => {
         try {
             let query = supabase
                 .from("projects")
-                .select("*");
+                .select("*") as any;
             
             if (organizationId) query = query.eq('organization_id', organizationId);
             if (companyId) query = query.eq('company_id', companyId);
