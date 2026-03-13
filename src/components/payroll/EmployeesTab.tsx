@@ -132,11 +132,15 @@ const EmployeesTab = () => {
         .maybeSingle();
       setCompanyName(cs?.company_name || null);
 
-      // Fetch all employees
-      const { data: employeesData, error } = await (supabase as any)
+      // Fetch employees scoped to org + company
+      let empQuery = (supabase as any)
         .from("employees")
-        .select("*")
-        .order("first_name");
+        .select("*");
+      
+      if (organizationId) empQuery = empQuery.eq('organization_id', organizationId);
+      if (companyId) empQuery = empQuery.eq('company_id', companyId);
+      
+      const { data: employeesData, error } = await empQuery.order("first_name");
 
       if (error) throw error;
 
