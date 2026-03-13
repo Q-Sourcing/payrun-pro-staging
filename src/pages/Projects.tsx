@@ -60,7 +60,7 @@ const Projects = () => {
 
     useEffect(() => {
         fetchProjects();
-    }, []);
+    }, [organizationId, companyId]);
 
     const getStatusBadge = (status: string) => {
         switch (status) {
