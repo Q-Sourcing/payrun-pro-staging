@@ -36,10 +36,14 @@ const Projects = () => {
 
     const fetchProjects = async () => {
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from("projects")
-                .select("*")
-                .order("created_at", { ascending: false });
+                .select("*");
+            
+            if (organizationId) query = query.eq('organization_id', organizationId);
+            if (companyId) query = query.eq('company_id', companyId);
+            
+            const { data, error } = await query.order("created_at", { ascending: false });
 
             if (error) throw error;
             setProjects(data || []);
