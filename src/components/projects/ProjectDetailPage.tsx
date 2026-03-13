@@ -450,7 +450,7 @@ export default function ProjectDetailPage() {
                   {project.supports_all_pay_types
                     ? "All pay types supported for this project type"
                     : (project.allowed_pay_types || []).length
-                      ? project.allowed_pay_types.map((pt: string) => <Badge key={pt} className="mr-1">{pt.replace("_", " ")}</Badge>)
+                      ? project.allowed_pay_types.map((pt: string) => <Badge key={pt} className="mr-1">{(pt || "").replace("_", " ")}</Badge>)
                       : "No specific pay types configured"}
                 </div>
                 {!project.supports_all_pay_types && payTypeMismatches.length > 0 && (

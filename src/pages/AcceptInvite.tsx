@@ -301,7 +301,7 @@ export default function AcceptInvite() {
                                             {inviteInfo.roles.length > 0 ? (
                                                 inviteInfo.roles.map((role) => (
                                                     <Badge key={role} variant="secondary" className="capitalize text-[10px] px-2 py-0">
-                                                        {role.replace('_', ' ')}
+                                                        {(role || "").replace('_', ' ')}
                                                     </Badge>
                                                 ))
                                             ) : (

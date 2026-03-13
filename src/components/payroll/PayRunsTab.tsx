@@ -262,7 +262,7 @@ const PayRunsTab = () => {
       case "processed":
         return "Processed";
       default:
-        return status.charAt(0).toUpperCase() + status.slice(1);
+        return (status || "").charAt(0).toUpperCase() + (status || "").slice(1);
     }
   };
 
@@ -271,11 +271,10 @@ const PayRunsTab = () => {
     if (category === 'projects') return 'Projects';
     return 'Other';
   };
-
   const getTypeLabel = (type?: string) => {
     if (!type) return 'Regular';
     if (type === 'regular' || type === 'local') return 'Regular';
-    return type.charAt(0).toUpperCase() + type.slice(1);
+    return (type || "").charAt(0).toUpperCase() + (type || "").slice(1);
   };
 
   const formatCurrency = (amount: number, payRun?: PayRun) => {

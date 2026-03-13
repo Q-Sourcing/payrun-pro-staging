@@ -174,7 +174,7 @@ export function AdminAttendanceGrid({ organizationId }: AdminAttendanceGridProps
                         <SelectValue placeholder="Select...">
                           {attendance[emp.id] && (
                             <Badge variant="outline" className={`text-xs ${STATUS_COLORS[attendance[emp.id]]}`}>
-                              {attendance[emp.id].replace("_", " ")}
+                              {(attendance[emp.id] || "").replace("_", " ")}
                             </Badge>
                           )}
                         </SelectValue>
@@ -183,7 +183,7 @@ export function AdminAttendanceGrid({ organizationId }: AdminAttendanceGridProps
                         {STATUSES.map((s) => (
                           <SelectItem key={s} value={s}>
                             <Badge variant="outline" className={`text-xs ${STATUS_COLORS[s]}`}>
-                              {s.replace("_", " ")}
+                              {(s || "").replace("_", " ")}
                             </Badge>
                           </SelectItem>
                         ))}

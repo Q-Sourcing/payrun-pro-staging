@@ -1721,7 +1721,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                       <SelectTrigger className="w-32">
                                         <SelectValue>
                                           <span className={getStatusColor(item.status)}>
-                                            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                                            {(item.status || "").charAt(0).toUpperCase() + (item.status || "").slice(1)}
                                           </span>
                                         </SelectValue>
                                       </SelectTrigger>

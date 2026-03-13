@@ -129,7 +129,7 @@ export function AttendanceCalendar({ records, month }: AttendanceCalendarProps) 
                 {label}
               </div>
               <span className="text-xs text-muted-foreground capitalize">
-                {status.toLowerCase().replace("_", " ")}
+                {(status || "").toLowerCase().replace("_", " ")}
               </span>
             </div>
           ))}
