@@ -55,6 +55,7 @@ interface Employee {
 }
 
 const EmployeesTab = () => {
+  const { organizationId, companyId } = useOrg();
   const [searchParams, setSearchParams] = useSearchParams();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
