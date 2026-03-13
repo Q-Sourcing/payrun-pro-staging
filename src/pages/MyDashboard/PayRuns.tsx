@@ -9,7 +9,7 @@ import { ChevronLeft, ChevronRight, DollarSign, TrendingUp, FileText, Clock } fr
 const PAGE_SIZE = 10
 
 export default function PayRunsOverview() {
-  const { organizationId } = useOrg()
+  const { organizationId, companyId } = useOrg()
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
