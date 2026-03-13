@@ -7,6 +7,8 @@ import { useToast } from "@/hooks/use-toast";
 import AddProjectDialog from "@/components/projects/AddProjectDialog";
 import { Plus, FolderKanban, Calendar, CheckCircle2, XCircle, Clock, MapPin, Building2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useOrg } from "@/lib/tenant/OrgContext";
+import { useNavigate } from "react-router-dom";
 
 interface Project {
     id: string;
