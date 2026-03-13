@@ -112,7 +112,7 @@ const PayRunsTab = () => {
             error = result.error;
           } else {
             // Regular query for all pay runs using pay_group_master
-            const result = await (supabase
+            let payRunQuery = (supabase
               .from("pay_runs" as any)
               .select(`
                 *,
@@ -125,8 +125,11 @@ const PayRunsTab = () => {
                 ),
                 pay_items (count),
                 projects (name)
-              `)
-              .order("pay_run_date", { ascending: false }) as any);
+              `) as any);
+            
+            if (organizationId) payRunQuery = payRunQuery.eq('organization_id', organizationId);
+            
+            const result = await payRunQuery.order("pay_run_date", { ascending: false });
 
             data = result.data;
             error = result.error;
