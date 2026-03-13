@@ -33,6 +33,7 @@ import { UserPlus, Eye, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ProjectsService } from "@/lib/services/projects.service";
 import { useQuery } from "@tanstack/react-query";
+import { useOrg } from "@/lib/tenant/OrgContext";
 
 interface PayRun {
   id: string;
