@@ -392,11 +392,29 @@ export const ApproversSection = () => {
     <>
       <Card>
         <CardHeader className="pb-4">
-          <CardTitle className="text-lg">Approval Workflow</CardTitle>
-          <CardDescription>
-            Configure the approvers for payrun approval. Add approvers by OBAC role (recommended)
-            or by individual user. Approvers are notified in the order listed.
-          </CardDescription>
+          <div className="flex items-start justify-between">
+            <div>
+              <CardTitle className="text-lg">Approval Workflow</CardTitle>
+              <CardDescription>
+                Configure the approvers for payrun approval. Add approvers by OBAC role (recommended)
+                or by individual user. Approvers are notified in the order listed.
+              </CardDescription>
+            </div>
+          </div>
+          {workflowMeta && (
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground pt-1">
+              {workflowMeta.created_by_name && (
+                <span>Created by <strong className="text-foreground/70">{workflowMeta.created_by_name}</strong>
+                  {workflowMeta.created_at && ` on ${new Date(workflowMeta.created_at).toLocaleDateString()}`}
+                </span>
+              )}
+              {workflowMeta.updated_by_name && (
+                <span>Last edited by <strong className="text-foreground/70">{workflowMeta.updated_by_name}</strong>
+                  {workflowMeta.updated_at && ` on ${new Date(workflowMeta.updated_at).toLocaleDateString()}`}
+                </span>
+              )}
+            </div>
+          )}
         </CardHeader>
 
         <CardContent className="space-y-4">
