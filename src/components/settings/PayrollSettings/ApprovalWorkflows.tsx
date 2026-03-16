@@ -251,12 +251,12 @@ export const ApprovalWorkflows = () => {
     if (loading) return <div>Loading settings...</div>;
 
     if (editingWorkflow !== undefined) {
+        const orgId = orgSettings?.org_id || "unknown";
         return (
             <WorkflowBuilder
-                workflow={editingWorkflow}
                 orgSettings={orgSettings || {
                     id: "temp",
-                    org_id: "unknown",
+                    org_id: orgId,
                     max_approval_levels: 5,
                     approvals_sequential: true,
                     approvals_allow_delegation: true,
@@ -265,11 +265,11 @@ export const ApprovalWorkflows = () => {
                     payroll_approvals_enabled: true,
                     approvals_enabled_scopes: []
                 }}
-                onSave={() => {
+                organizationId={orgId}
+                onBack={() => {
                     setEditingWorkflow(undefined);
                     loadData();
                 }}
-                onCancel={() => setEditingWorkflow(undefined)}
             />
         );
     }
