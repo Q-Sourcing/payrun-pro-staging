@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ApproversSection } from "@/components/settings/ApproversSection";
+
 import { ThemeSettings } from "@/components/settings/ThemeSettings";
 import { EmployeeSettingsSection } from "@/components/settings/EmployeeSettingsSection";
 import { AboutSection } from "@/components/settings/AboutSection";
