@@ -106,6 +106,9 @@ export const ApprovalWorkflows = () => {
   const [renameValue, setRenameValue] = useState("");
   const [saving, setSaving] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [autoAction, setAutoAction] = useState<'none' | 'auto_approve' | 'auto_reject'>('none');
+  const [activeAnchor, setActiveAnchor] = useState('details');
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Routing
   const [routingExpanded, setRoutingExpanded] = useState(true);
