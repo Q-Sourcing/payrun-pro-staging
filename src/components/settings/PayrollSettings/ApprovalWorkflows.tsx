@@ -629,7 +629,7 @@ export const ApprovalWorkflows = () => {
                     <Input
                       value={editName}
                       onChange={e => setEditName(e.target.value)}
-                      className="h-8 text-sm font-semibold border-transparent hover:border-border focus:border-border bg-transparent px-1"
+                      className="h-9 text-base font-bold border-transparent hover:border-border focus:border-border bg-transparent px-1 hover:underline decoration-muted-foreground/30 underline-offset-4"
                       placeholder="Workflow name"
                     />
                     <div className="flex items-center gap-2 shrink-0">
