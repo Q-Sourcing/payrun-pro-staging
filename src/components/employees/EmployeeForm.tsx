@@ -1115,7 +1115,20 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div className="space-y-2">
                 <Label htmlFor="designation">Designation</Label>
-                <Input id="designation" {...form.register("designation")} />
+                <Select
+                  value={form.watch("designation") || ""}
+                  onValueChange={(val) => form.setValue("designation", val === "__none" ? null : val, { shouldDirty: true })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select designation" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">— None —</SelectItem>
+                    {designationsList.map((d) => (
+                      <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="work_location">Work Location</Label>
