@@ -292,18 +292,61 @@ export const ApprovalWorkflows = () => {
     }
     setSaving(true);
     try {
+      let workflowId = selectedId;
       if (selectedId && selectedWorkflow) {
         await workflowService.updateWorkflow(selectedId, { name: editName, description: editDescription, is_active: editActive });
         await workflowService.updateWorkflowSteps(selectedId, steps as any);
-        toast({ title: "Workflow updated" });
       } else {
         const orgId = orgSettings?.org_id || "";
         const newWf = await workflowService.createWorkflow({
           org_id: orgId, name: editName, description: editDescription, is_active: editActive, is_default: false,
         }, steps as any);
+        workflowId = newWf.id;
         setSelectedId(newWf.id);
-        toast({ title: "Workflow created" });
       }
+
+      // Save criteria if any
+      if (workflowId && inlineCriteria.length > 0) {
+        try {
+          await workflowService.saveCriteria(workflowId, inlineCriteria.map((c, i) => ({
+            field: c.field as any,
+            operator: c.operator as any,
+            value: c.value || [],
+            sequence_number: i,
+          })));
+        } catch (e) { console.error('Failed to save criteria:', e); }
+      }
+
+      // Save messages
+      if (workflowId) {
+        for (const [eventType, msgData] of Object.entries(inlineMessages)) {
+          try {
+            await workflowService.saveMessage(workflowId, {
+              event_type: eventType as any,
+              from_type: (msgData.from_type || 'system') as any,
+              to_type: (msgData.to_type || 'current_approver') as any,
+              subject: msgData.subject || '',
+              body_content: msgData.body_content || '',
+              is_active: msgData.is_active !== false,
+            });
+          } catch (e) { console.error('Failed to save message:', e); }
+        }
+      }
+
+      // Save followup
+      if (workflowId) {
+        try {
+          await workflowService.saveFollowup(workflowId, {
+            is_enabled: inlineFollowup.enabled,
+            followup_type: inlineFollowup.type,
+            days_after: inlineFollowup.daysAfter,
+            repeat_interval_days: inlineFollowup.type === 'repeat' ? inlineFollowup.repeatInterval : undefined,
+            send_at_time: inlineFollowup.sendAt,
+          });
+        } catch (e) { console.error('Failed to save followup:', e); }
+      }
+
+      toast({ title: selectedWorkflow ? "Workflow updated" : "Workflow created" });
       await loadData();
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Failed to save", variant: "destructive" });
