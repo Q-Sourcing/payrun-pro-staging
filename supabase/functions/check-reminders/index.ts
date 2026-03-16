@@ -156,13 +156,116 @@ serve(async (req) => {
       }
     }
 
-    // ── Approval reminders ────────────────────────────────────────────────
+    // ── Approval reminders (per-workflow followups first, then global rules) ──
+    // Step 1: Process per-workflow followup configs
+    const processedPayrunIds = new Set<string>();
+
+    const { data: allPendingSteps } = await supabaseAdmin
+      .from("payrun_approval_steps")
+      .select("payrun_id, approver_user_id, level, workflow_id")
+      .eq("status", "pending");
+
+    if (allPendingSteps && allPendingSteps.length > 0) {
+      // Group by workflow_id to batch-fetch followup configs
+      const workflowIds = Array.from(new Set(
+        (allPendingSteps as any[]).map((s: any) => s.workflow_id).filter(Boolean)
+      ));
+
+      const followupByWorkflow = new Map<string, any>();
+      if (workflowIds.length > 0) {
+        const { data: followups } = await supabaseAdmin
+          .from("approval_workflow_followups")
+          .select("*")
+          .in("workflow_id", workflowIds)
+          .eq("is_enabled", true);
+
+        (followups ?? []).forEach((f: any) => followupByWorkflow.set(f.workflow_id, f));
+      }
+
+      for (const step of allPendingSteps as any[]) {
+        if (!step.workflow_id || !followupByWorkflow.has(step.workflow_id)) continue;
+
+        const followup = followupByWorkflow.get(step.workflow_id);
+        const daysAfter = followup.days_after || 1;
+
+        // Find the payrun's submission time
+        const { data: payrun } = await supabaseAdmin
+          .from("pay_runs")
+          .select("id, approval_submitted_at, organization_id")
+          .eq("id", step.payrun_id)
+          .eq("approval_status", "pending_approval")
+          .maybeSingle();
+
+        if (!payrun?.approval_submitted_at) continue;
+
+        const submittedAt = new Date(payrun.approval_submitted_at);
+        const daysSinceSubmit = Math.floor((today.getTime() - submittedAt.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (daysSinceSubmit < daysAfter) continue;
+
+        // For repeat: check if we should send based on interval
+        if (followup.followup_type === 'repeat') {
+          const daysSinceFirst = daysSinceSubmit - daysAfter;
+          const repeatInterval = followup.repeat_interval_days || 1;
+          if (daysSinceFirst > 0 && daysSinceFirst % repeatInterval !== 0) continue;
+
+          // Cap at 10 reminders
+          const totalReminders = 1 + Math.floor(daysSinceFirst / repeatInterval);
+          if (totalReminders > 10) continue;
+        } else {
+          // One-time: only send on the exact day
+          if (daysSinceSubmit !== daysAfter) continue;
+        }
+
+        processedPayrunIds.add(step.payrun_id);
+
+        const template = "Payrun approval has been pending for {{days_after}} day(s). Please review.";
+        const message = renderTemplate(template, {
+          days_after: String(daysSinceSubmit),
+          payrun_id: step.payrun_id,
+        });
+
+        notificationInserts.push({
+          user_id: step.approver_user_id,
+          type: "approval_reminder",
+          title: "Payrun Approval Reminder",
+          message,
+          metadata: {
+            rule_type: "approval_reminder",
+            days_after: daysSinceSubmit,
+            payrun_id: step.payrun_id,
+            organization_id: payrun.organization_id,
+            source: "workflow_followup",
+            workflow_id: step.workflow_id,
+          },
+        });
+
+        // Trigger email
+        try {
+          await fetch(`${supabaseUrl}/functions/v1/trigger-approval-email`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${serviceRoleKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              payrun_id: step.payrun_id,
+              event_key: "APPROVAL_REMINDER",
+              recipient_user_id: step.approver_user_id,
+            }),
+          });
+        } catch (emailErr) {
+          console.warn("Workflow followup email failed (non-fatal):", emailErr);
+        }
+      }
+    }
+
+    // Step 2: Fall back to global reminder_rules for payruns not handled by workflow followups
     const approvalRules = ((rules ?? []) as ReminderRule[]).filter((r) => r.rule_type === "approval_reminder");
 
     for (const rule of approvalRules) {
       if (!rule.days_after) continue;
 
-      // Find payruns that have been pending_approval for >= days_after days
       const submittedBefore = toYyyyMmDdUtc(addDaysUtc(today, -rule.days_after));
 
       const { data: stalePayruns } = await supabaseAdmin
@@ -175,7 +278,9 @@ serve(async (req) => {
       if (!stalePayruns || stalePayruns.length === 0) continue;
 
       for (const payrun of stalePayruns as any[]) {
-        // Find the active step approver
+        // Skip if already handled by per-workflow followup
+        if (processedPayrunIds.has(payrun.id)) continue;
+
         const { data: activeStep } = await supabaseAdmin
           .from("payrun_approval_steps")
           .select("approver_user_id")
@@ -197,10 +302,9 @@ serve(async (req) => {
           type: "approval_reminder",
           title: "Payrun Approval Reminder",
           message,
-          metadata: { rule_type: "approval_reminder", days_after: rule.days_after, payrun_id: payrun.id, organization_id: rule.organization_id },
+          metadata: { rule_type: "approval_reminder", days_after: rule.days_after, payrun_id: payrun.id, organization_id: rule.organization_id, source: "global_rule" },
         });
 
-        // Also trigger email reminder
         try {
           await fetch(`${supabaseUrl}/functions/v1/trigger-approval-email`, {
             method: "POST",

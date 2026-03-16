@@ -61,12 +61,12 @@ export const ApprovalFlowChart = ({ steps }: ApprovalFlowChartProps) => {
             <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${
               resolvable
                 ? 'bg-card border-border text-foreground'
-                : 'bg-amber-50 border-amber-200 text-amber-700'
+                : 'bg-accent/50 border-accent text-accent-foreground'
             }`}>
               <span>{meta?.icon || '👤'}</span>
               <span className="font-semibold">L{step.level}</span>
               <span className="max-w-[120px] truncate">{label}</span>
-              {!resolvable && <AlertTriangle className="h-3 w-3 text-amber-500" />}
+              {!resolvable && <AlertTriangle className="h-3 w-3 text-destructive" />}
             </div>
             {i < steps.length - 1 && <ArrowRight className="h-3 w-3 text-muted-foreground" />}
           </div>
@@ -76,7 +76,7 @@ export const ApprovalFlowChart = ({ steps }: ApprovalFlowChartProps) => {
       {/* Approved node */}
       <div className="flex items-center gap-1">
         <ArrowRight className="h-3 w-3 text-muted-foreground" />
-        <div className="px-3 py-1.5 rounded-full bg-green-50 text-green-700 text-xs font-semibold border border-green-200 flex items-center gap-1">
+        <div className="px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-semibold border border-primary/20 flex items-center gap-1">
           <CheckCircle2 className="h-3 w-3" /> Approved
         </div>
       </div>
