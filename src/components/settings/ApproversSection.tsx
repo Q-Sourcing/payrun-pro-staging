@@ -34,14 +34,23 @@ import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { roleCatalog, type RoleKey } from "@/lib/obacDisplay";
 
-// Roles eligible for approval workflows
-const APPROVER_ROLES: RoleKey[] = [
-  "ORG_OWNER",
-  "ORG_ADMIN",
-  "ORG_PAYROLL_ADMIN",
-  "ORG_FINANCE_APPROVER",
-  "ORG_HEAD_OFFICE_PAYROLL",
+// Roles eligible for approval workflows — grouped for the modal
+const APPROVER_ROLE_GROUPS: { label: string; roles: RoleKey[] }[] = [
+  {
+    label: "Administration & Finance",
+    roles: ["ORG_OWNER", "ORG_ADMIN", "ORG_FINANCE_APPROVER"],
+  },
+  {
+    label: "Payroll",
+    roles: ["ORG_PAYROLL_ADMIN", "ORG_HEAD_OFFICE_PAYROLL"],
+  },
+  {
+    label: "Hierarchy (Auto-Resolved)",
+    roles: ["ORG_REPORTING_MANAGER", "ORG_DEPARTMENT_HEAD", "ORG_PROJECT_MANAGER"],
+  },
 ];
+
+const ALL_APPROVER_ROLES: RoleKey[] = APPROVER_ROLE_GROUPS.flatMap(g => g.roles);
 
 interface WorkflowStep {
   id: string;
