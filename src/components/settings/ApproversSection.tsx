@@ -165,21 +165,31 @@ export const ApproversSection = () => {
   const fetchWorkflowMeta = useCallback(async (wfId: string) => {
     const { data } = await (supabase as any)
       .from("approval_workflows")
-      .select(`
-        created_at, updated_at,
-        creator:created_by(first_name, last_name),
-        editor:updated_by(first_name, last_name)
-      `)
+      .select("created_at, updated_at, created_by, updated_by")
       .eq("id", wfId)
       .maybeSingle();
 
     if (data) {
-      const creatorName = data.creator
-        ? [data.creator.first_name, data.creator.last_name].filter(Boolean).join(" ")
-        : undefined;
-      const editorName = data.editor
-        ? [data.editor.first_name, data.editor.last_name].filter(Boolean).join(" ")
-        : undefined;
+      let creatorName: string | undefined;
+      let editorName: string | undefined;
+
+      if (data.created_by) {
+        const { data: creator } = await (supabase as any)
+          .from("user_profiles")
+          .select("first_name, last_name")
+          .eq("id", data.created_by)
+          .maybeSingle();
+        if (creator) creatorName = [creator.first_name, creator.last_name].filter(Boolean).join(" ");
+      }
+      if (data.updated_by) {
+        const { data: editor } = await (supabase as any)
+          .from("user_profiles")
+          .select("first_name, last_name")
+          .eq("id", data.updated_by)
+          .maybeSingle();
+        if (editor) editorName = [editor.first_name, editor.last_name].filter(Boolean).join(" ");
+      }
+
       setWorkflowMeta({
         created_by_name: creatorName,
         updated_by_name: editorName,
