@@ -706,8 +706,10 @@ export const ApprovalWorkflows = () => {
                         <ApprovalFollowupConfig workflowId={selectedId} />
                       </>
                     ) : (
-                      <div className="py-8 text-center border-2 border-dashed rounded-lg">
-                        <p className="text-sm text-muted-foreground">Save the workflow first to configure messages.</p>
+                      <div className="py-6 text-center border-2 border-dashed rounded-lg">
+                        <Mail className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">Messages can be configured after saving.</p>
+                        <p className="text-xs text-muted-foreground mt-1">Default email templates will be applied automatically.</p>
                       </div>
                     )}
                   </CardContent>
