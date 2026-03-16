@@ -191,6 +191,12 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
 
     const renderStandardContent = () => {
         switch (activeSection) {
+            case "approvers":
+                return (
+                    <SettingsSectionGuard requiredRole="ORG_FINANCE_CONTROLLER" requiredPermission="process_payroll">
+                        <ApproversSection />
+                    </SettingsSectionGuard>
+                );
             case "company":
                 return (
                     <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration">
