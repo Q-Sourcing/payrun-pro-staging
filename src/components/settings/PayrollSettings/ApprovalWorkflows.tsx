@@ -25,11 +25,11 @@ import {
   APPROVER_TYPE_META,
 } from "@/lib/types/workflow";
 import { roleCatalog, type RoleKey } from "@/lib/obacDisplay";
-import { ApproverTypeModal } from "./ApproverTypeModal";
 import { ApprovalFlowChart } from "./ApprovalFlowChart";
-import { ApprovalCriteriaBuilder } from "./ApprovalCriteriaBuilder";
-import { ApprovalFollowupConfig } from "./ApprovalFollowupConfig";
-import { ApprovalWorkflowMessages } from "./ApprovalWorkflowMessages";
+import { InlineCriteriaEditor } from "./InlineCriteriaEditor";
+import { InlineApproverEditor } from "./InlineApproverEditor";
+import { InlineMessagesEditor } from "./InlineMessagesEditor";
+import { ApprovalWorkflowCriteria, ApprovalWorkflowMessage } from "@/lib/types/workflow";
 import {
   Plus, Trash2, ShieldCheck, ArrowRight, Loader2, GitBranch,
   MoreVertical, Copy, Pencil, Star, ArrowUp, ArrowDown,
