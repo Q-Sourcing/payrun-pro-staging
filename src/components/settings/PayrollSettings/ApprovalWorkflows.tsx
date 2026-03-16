@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -13,628 +13,881 @@ import { useToast } from "@/hooks/use-toast";
 import { useUserRole } from "@/hooks/use-user-role";
 import { workflowService } from "@/lib/services/workflow.service";
 import {
-    OrgSettings,
-    ApprovalWorkflow,
-    PayrollApprovalScope,
-    APPROVAL_SCOPE_LABELS,
-    PayrollApprovalConfig
+  OrgSettings,
+  ApprovalWorkflow,
+  ApprovalWorkflowStep,
+  PayrollApprovalScope,
+  APPROVAL_SCOPE_LABELS,
+  PayrollApprovalConfig,
+  ApproverType,
+  APPROVER_TYPE_META,
 } from "@/lib/types/workflow";
-import { WorkflowBuilder } from "./WorkflowBuilder";
+import { roleCatalog, type RoleKey } from "@/lib/obacDisplay";
+import { ApproverTypeModal } from "./ApproverTypeModal";
+import { ApprovalFlowChart } from "./ApprovalFlowChart";
+import { ApprovalCriteriaBuilder } from "./ApprovalCriteriaBuilder";
+import { ApprovalFollowupConfig } from "./ApprovalFollowupConfig";
+import { ApprovalWorkflowMessages } from "./ApprovalWorkflowMessages";
 import {
-    Plus, Pencil, Trash2, ShieldCheck, ArrowRight, Layers, LayoutGrid,
-    Settings2, ListChecks, ChevronRight, Loader2, ToggleLeft, GitBranch,
+  Plus, Trash2, ShieldCheck, ArrowRight, Loader2, GitBranch,
+  MoreVertical, Copy, Pencil, Star, ArrowUp, ArrowDown,
+  GripVertical, ChevronDown, ChevronUp, Settings2, ListChecks,
+  X, Info, Lightbulb,
 } from "lucide-react";
 import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogFooter,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 
 interface EmployeeCategory {
-    id: string;
-    label: string;
-    organization_id: string;
-    active: boolean;
+  id: string;
+  label: string;
+  organization_id: string;
+  active: boolean;
 }
 
+const BANNER_DISMISSED_KEY = "approval-guidance-banner-dismissed";
+
 export const ApprovalWorkflows = () => {
-    const { toast } = useToast();
-    const { role, isSuperAdmin } = useUserRole();
-    const isOrgAdmin = role === 'ORG_ADMIN';
-    const [orgSettings, setOrgSettings] = useState<OrgSettings | null>(null);
-    const [workflows, setWorkflows] = useState<ApprovalWorkflow[]>([]);
-    const [payrollConfigs, setPayrollConfigs] = useState<PayrollApprovalConfig[]>([]);
-    const [categories, setCategories] = useState<EmployeeCategory[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [savingSettings, setSavingSettings] = useState(false);
-    const [activeView, setActiveView] = useState<'overview' | 'builder'>('overview');
-    const [activeTab, setActiveTab] = useState('streams');
-    const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
-    const [editingConfig, setEditingConfig] = useState<Partial<PayrollApprovalConfig> & { categories: string[] } | null>(null);
+  const { toast } = useToast();
+  const { role, isSuperAdmin } = useUserRole();
+  const isOrgAdmin = role === "ORG_ADMIN";
 
-    // Settings Form State
-    const [maxLevels, setMaxLevels] = useState(5);
-    const [sequential, setSequential] = useState(true);
-    const [allowDelegation, setAllowDelegation] = useState(true);
-    const [rejectionComment, setRejectionComment] = useState(true);
-    const [payrollEnabled, setPayrollEnabled] = useState(false);
-    const [enabledScopes, setEnabledScopes] = useState<PayrollApprovalScope[]>([]);
+  // Data
+  const [orgSettings, setOrgSettings] = useState<OrgSettings | null>(null);
+  const [workflows, setWorkflows] = useState<ApprovalWorkflow[]>([]);
+  const [payrollConfigs, setPayrollConfigs] = useState<PayrollApprovalConfig[]>([]);
+  const [categories, setCategories] = useState<EmployeeCategory[]>([]);
+  const [loading, setLoading] = useState(true);
 
-    useEffect(() => { loadData(); }, []);
+  // Selection
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedWorkflow, setSelectedWorkflow] = useState<ApprovalWorkflow | null>(null);
+  const [steps, setSteps] = useState<Partial<ApprovalWorkflowStep>[]>([]);
+  const [activeTab, setActiveTab] = useState("approvers");
 
-    const loadData = async () => {
-        setLoading(true);
-        try {
-            let orgId = await import("@/lib/services/multi-tenant-payroll").then(m => m.MultiTenantPayrollService.getCurrentOrganizationId());
+  // Editing
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editActive, setEditActive] = useState(true);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [addModalOpen, setAddModalOpen] = useState(false);
 
-            if (!orgId) {
-                const { data: { user } } = await import("@/integrations/supabase/client").then(m => m.supabase.auth.getUser());
-                orgId = user?.user_metadata?.organization_id || (user?.app_metadata as any)?.organization_id;
+  // Routing
+  const [routingExpanded, setRoutingExpanded] = useState(true);
+  const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
+  const [editingConfig, setEditingConfig] = useState<Partial<PayrollApprovalConfig> & { categories: string[] } | null>(null);
 
-                if (!orgId && user?.id) {
-                    const { data: profile } = await import("@/integrations/supabase/client").then(m => m.supabase
-                        .from('user_profiles')
-                        .select('organization_id')
-                        .eq('id', user.id)
-                        .maybeSingle()
-                    );
-                    if (profile?.organization_id) orgId = profile.organization_id;
-                }
+  // Global Policy slide-over
+  const [policyOpen, setPolicyOpen] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [maxLevels, setMaxLevels] = useState(5);
+  const [sequential, setSequential] = useState(true);
+  const [allowDelegation, setAllowDelegation] = useState(true);
+  const [rejectionComment, setRejectionComment] = useState(true);
+  const [payrollEnabled, setPayrollEnabled] = useState(false);
+  const [enabledScopes, setEnabledScopes] = useState<PayrollApprovalScope[]>([]);
 
-                if (!orgId && isSuperAdmin) {
-                    const { data: defaultOrg } = await import("@/integrations/supabase/client").then(m => m.supabase
-                        .from('pay_groups')
-                        .select('organization_id')
-                        .limit(1)
-                        .maybeSingle()
-                    );
-                    if (defaultOrg) orgId = defaultOrg.organization_id;
-                }
-            }
+  // Guidance banner
+  const [bannerDismissed, setBannerDismissed] = useState(() => {
+    try { return localStorage.getItem(BANNER_DISMISSED_KEY) === "true"; } catch { return false; }
+  });
 
-            if (!orgId) {
-                toast({ title: "Error", description: "Could not identify your organization.", variant: "destructive" });
-                setLoading(false);
-                return;
-            }
+  const dismissBanner = () => {
+    setBannerDismissed(true);
+    try { localStorage.setItem(BANNER_DISMISSED_KEY, "true"); } catch {}
+  };
 
-            const settings = await workflowService.getOrgSettings(orgId);
-            if (settings) {
-                const mapped: OrgSettings = { ...settings, org_id: (settings as any).organization_id || settings.org_id };
-                setOrgSettings(mapped);
-                setMaxLevels(mapped.max_approval_levels);
-                setSequential(mapped.approvals_sequential);
-                setAllowDelegation(mapped.approvals_allow_delegation);
-                setRejectionComment(mapped.approvals_rejection_comment_required);
-                setPayrollEnabled(mapped.payroll_approvals_enabled || false);
-                setEnabledScopes(mapped.approvals_enabled_scopes || []);
-            } else {
-                setOrgSettings({
-                    id: "new", org_id: orgId,
-                    max_approval_levels: 5, approvals_sequential: true,
-                    approvals_allow_delegation: true, approvals_rejection_comment_required: true,
-                    approvals_visibility_non_admin: true, payroll_approvals_enabled: false,
-                    approvals_enabled_scopes: []
-                });
-            }
+  // ─── Data Loading ───
+  useEffect(() => { loadData(); }, []);
 
-            const [wfs, configs, { data: catData }] = await Promise.all([
-                workflowService.getWorkflows(orgId),
-                workflowService.getApprovalConfigs(orgId),
-                import("@/integrations/supabase/client").then(m => m.supabase
-                    .from('employee_categories').select('*').eq('organization_id', orgId).is('active', true)
-                ),
-            ]);
-            setWorkflows(wfs);
-            setPayrollConfigs(configs);
-            setCategories(catData as any || []);
-        } catch (e) {
-            console.error(e);
-            toast({ title: "Error", description: "Failed to load approval settings", variant: "destructive" });
-        } finally {
-            setLoading(false);
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      let orgId = await import("@/lib/services/multi-tenant-payroll").then(m => m.MultiTenantPayrollService.getCurrentOrganizationId());
+      if (!orgId) {
+        const { data: { user } } = await import("@/integrations/supabase/client").then(m => m.supabase.auth.getUser());
+        orgId = user?.user_metadata?.organization_id || (user?.app_metadata as any)?.organization_id;
+        if (!orgId && user?.id) {
+          const { data: profile } = await import("@/integrations/supabase/client").then(m => m.supabase
+            .from('user_profiles').select('organization_id').eq('id', user.id).maybeSingle()
+          );
+          if (profile?.organization_id) orgId = profile.organization_id;
         }
-    };
-
-    const handleSaveSettings = async () => {
-        if (!orgSettings) return;
-        setSavingSettings(true);
-        try {
-            const updated = await workflowService.updateOrgSettings({
-                org_id: orgSettings.org_id,
-                max_approval_levels: Number(maxLevels),
-                approvals_sequential: sequential,
-                approvals_allow_delegation: allowDelegation,
-                approvals_rejection_comment_required: rejectionComment,
-                approvals_visibility_non_admin: orgSettings.approvals_visibility_non_admin,
-                payroll_approvals_enabled: payrollEnabled,
-                approvals_enabled_scopes: enabledScopes
-            });
-            setOrgSettings(updated);
-            toast({ title: "Saved", description: "Approval policy updated." });
-        } catch {
-            toast({ title: "Error", description: "Failed to save settings", variant: "destructive" });
-        } finally {
-            setSavingSettings(false);
+        if (!orgId && isSuperAdmin) {
+          const { data: defaultOrg } = await import("@/integrations/supabase/client").then(m => m.supabase
+            .from('pay_groups').select('organization_id').limit(1).maybeSingle()
+          );
+          if (defaultOrg) orgId = defaultOrg.organization_id;
         }
-    };
+      }
+      if (!orgId) {
+        toast({ title: "Error", description: "Could not identify your organization.", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
 
-    const toggleScope = (scope: PayrollApprovalScope) => {
-        setEnabledScopes(prev => prev.includes(scope) ? prev.filter(s => s !== scope) : [...prev, scope]);
-    };
-
-    const handleSaveConfig = async () => {
-        if (!editingConfig || !editingConfig.name || !orgSettings) return;
-        try {
-            await workflowService.updateApprovalConfig(orgSettings.org_id, {
-                ...editingConfig, name: editingConfig.name, categories: editingConfig.categories
-            });
-            setIsConfigDialogOpen(false);
-            setEditingConfig(null);
-            loadData();
-            toast({ title: "Saved", description: "Approval stream saved." });
-        } catch (e) {
-            console.error(e);
-            toast({ title: "Error", description: "Failed to save", variant: "destructive" });
-        }
-    };
-
-    const handleDeleteConfig = async (id: string) => {
-        if (!confirm("Delete this approval stream?")) return;
-        try {
-            await workflowService.deleteApprovalConfig(id);
-            loadData();
-            toast({ title: "Deleted" });
-        } catch { toast({ title: "Error", description: "Failed to delete", variant: "destructive" }); }
-    };
-
-    const getAvailableCategories = (currentConfigId?: string) => {
-        const usedIds = payrollConfigs.filter(c => c.id !== currentConfigId).flatMap(c => c.categories || []);
-        return categories.filter(cat => !usedIds.includes(cat.id));
-    };
-
-    const toggleCategory = (catId: string) => {
-        if (!editingConfig) return;
-        const current = editingConfig.categories || [];
-        setEditingConfig({
-            ...editingConfig,
-            categories: current.includes(catId) ? current.filter(id => id !== catId) : [...current, catId]
+      const settings = await workflowService.getOrgSettings(orgId);
+      if (settings) {
+        const mapped: OrgSettings = { ...settings, org_id: (settings as any).organization_id || settings.org_id };
+        setOrgSettings(mapped);
+        setMaxLevels(mapped.max_approval_levels);
+        setSequential(mapped.approvals_sequential);
+        setAllowDelegation(mapped.approvals_allow_delegation);
+        setRejectionComment(mapped.approvals_rejection_comment_required);
+        setPayrollEnabled(mapped.payroll_approvals_enabled || false);
+        setEnabledScopes(mapped.approvals_enabled_scopes || []);
+      } else {
+        setOrgSettings({
+          id: "new", org_id: orgId,
+          max_approval_levels: 5, approvals_sequential: true,
+          approvals_allow_delegation: true, approvals_rejection_comment_required: true,
+          approvals_visibility_non_admin: true, payroll_approvals_enabled: false,
+          approvals_enabled_scopes: []
         });
+      }
+
+      const [wfs, configs, { data: catData }] = await Promise.all([
+        workflowService.getWorkflows(orgId),
+        workflowService.getApprovalConfigs(orgId),
+        import("@/integrations/supabase/client").then(m => m.supabase
+          .from('employee_categories').select('*').eq('organization_id', orgId).is('active', true)
+        ),
+      ]);
+      setWorkflows(wfs);
+      setPayrollConfigs(configs);
+      setCategories(catData as any || []);
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Error", description: "Failed to load approval settings", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ─── Workflow Selection ───
+  useEffect(() => {
+    if (!selectedId) {
+      setSelectedWorkflow(null);
+      setSteps([]);
+      return;
+    }
+    const load = async () => {
+      try {
+        const wf = await workflowService.getWorkflowWithSteps(selectedId);
+        setSelectedWorkflow(wf);
+        setSteps(wf?.steps || []);
+        setEditName(wf?.name || "");
+        setEditDescription(wf?.description || "");
+        setEditActive(wf?.is_active ?? true);
+      } catch (e) { console.error(e); }
     };
+    load();
+  }, [selectedId]);
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center py-20 gap-3">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Loading approval settings…</span>
-            </div>
-        );
+  // ─── Step Operations ───
+  const handleAddStep = (stepData: {
+    approver_type: ApproverType;
+    approver_role?: string;
+    approver_user_id?: string;
+    approver_designation_id?: string;
+    approver_department_id?: string;
+    approver_group_id?: string;
+  }) => {
+    const newLevel = steps.length + 1;
+    setSteps([...steps, { level: newLevel, sequence_number: newLevel, notify_email: true, notify_in_app: true, ...stepData }]);
+  };
+
+  const removeStep = (index: number) => {
+    setSteps(steps.filter((_, i) => i !== index).map((s, i) => ({ ...s, level: i + 1, sequence_number: i + 1 })));
+  };
+
+  const moveStep = (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= steps.length) return;
+    const newSteps = [...steps];
+    [newSteps[index], newSteps[newIndex]] = [newSteps[newIndex], newSteps[index]];
+    setSteps(newSteps.map((s, i) => ({ ...s, level: i + 1, sequence_number: i + 1 })));
+  };
+
+  const getStepLabel = (step: Partial<ApprovalWorkflowStep>) => {
+    const type = step.approver_type || 'role';
+    const meta = APPROVER_TYPE_META[type as ApproverType];
+    if (type === 'role' && step.approver_role) {
+      const r = roleCatalog[step.approver_role as RoleKey];
+      return r?.label || step.approver_role;
     }
-
-    // Full-screen workflow builder view
-    if (activeView === 'builder') {
-        const orgId = orgSettings?.org_id || "unknown";
-        return (
-            <WorkflowBuilder
-                orgSettings={orgSettings || {
-                    id: "temp", org_id: orgId, max_approval_levels: 5,
-                    approvals_sequential: true, approvals_allow_delegation: true,
-                    approvals_rejection_comment_required: true, approvals_visibility_non_admin: true,
-                    payroll_approvals_enabled: true, approvals_enabled_scopes: []
-                }}
-                organizationId={orgId}
-                onBack={() => { setActiveView('overview'); loadData(); }}
-            />
-        );
+    if (type === 'individual' && step.approver_user) {
+      return `${step.approver_user.first_name} ${step.approver_user.last_name}`;
     }
+    return meta?.label || type;
+  };
 
+  // ─── Workflow CRUD ───
+  const handleSaveWorkflow = async () => {
+    if (!editName.trim()) {
+      toast({ title: "Error", description: "Workflow name is required", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      if (selectedId && selectedWorkflow) {
+        await workflowService.updateWorkflow(selectedId, { name: editName, description: editDescription, is_active: editActive });
+        await workflowService.updateWorkflowSteps(selectedId, steps as any);
+        toast({ title: "Workflow updated" });
+      } else {
+        const orgId = orgSettings?.org_id || "";
+        const newWf = await workflowService.createWorkflow({
+          org_id: orgId, name: editName, description: editDescription, is_active: editActive, is_default: false,
+        }, steps as any);
+        setSelectedId(newWf.id);
+        toast({ title: "Workflow created" });
+      }
+      await loadData();
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to save", variant: "destructive" });
+    } finally { setSaving(false); }
+  };
+
+  const handleNewWorkflow = () => {
+    setSelectedId(null);
+    setSelectedWorkflow(null);
+    setSteps([]);
+    setEditName("New Workflow");
+    setEditDescription("");
+    setEditActive(true);
+    setActiveTab("approvers");
+  };
+
+  const handleDuplicate = async (id: string) => {
+    try {
+      const newWf = await workflowService.duplicateWorkflow(id);
+      await loadData();
+      setSelectedId(newWf.id);
+      toast({ title: "Workflow duplicated" });
+    } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await workflowService.deleteWorkflow(id);
+      if (selectedId === id) setSelectedId(null);
+      await loadData();
+      toast({ title: "Workflow deleted" });
+    } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+  };
+
+  const handleSetDefault = async (id: string) => {
+    try {
+      await workflowService.setDefaultWorkflow(orgSettings?.org_id || "", id);
+      await loadData();
+      toast({ title: "Default workflow updated" });
+    } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
+  };
+
+  const handleInlineRename = async (id: string) => {
+    if (!renameValue.trim()) return;
+    try {
+      await workflowService.updateWorkflow(id, { name: renameValue });
+      setRenamingId(null);
+      await loadData();
+    } catch { /* ignore */ }
+  };
+
+  // ─── Routing / Streams ───
+  const handleSaveConfig = async () => {
+    if (!editingConfig || !editingConfig.name || !orgSettings) return;
+    try {
+      await workflowService.updateApprovalConfig(orgSettings.org_id, {
+        ...editingConfig, name: editingConfig.name, categories: editingConfig.categories
+      });
+      setIsConfigDialogOpen(false);
+      setEditingConfig(null);
+      loadData();
+      toast({ title: "Saved", description: "Route saved." });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Error", description: "Failed to save", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteConfig = async (id: string) => {
+    if (!confirm("Delete this route?")) return;
+    try {
+      await workflowService.deleteApprovalConfig(id);
+      loadData();
+      toast({ title: "Deleted" });
+    } catch { toast({ title: "Error", description: "Failed to delete", variant: "destructive" }); }
+  };
+
+  const getAvailableCategories = (currentConfigId?: string) => {
+    const usedIds = payrollConfigs.filter(c => c.id !== currentConfigId).flatMap(c => c.categories || []);
+    return categories.filter(cat => !usedIds.includes(cat.id));
+  };
+
+  const toggleCategory = (catId: string) => {
+    if (!editingConfig) return;
+    const current = editingConfig.categories || [];
+    setEditingConfig({
+      ...editingConfig,
+      categories: current.includes(catId) ? current.filter(id => id !== catId) : [...current, catId]
+    });
+  };
+
+  // ─── Global Policy ───
+  const handleSaveSettings = async () => {
+    if (!orgSettings) return;
+    setSavingSettings(true);
+    try {
+      const updated = await workflowService.updateOrgSettings({
+        org_id: orgSettings.org_id,
+        max_approval_levels: Number(maxLevels),
+        approvals_sequential: sequential,
+        approvals_allow_delegation: allowDelegation,
+        approvals_rejection_comment_required: rejectionComment,
+        approvals_visibility_non_admin: orgSettings.approvals_visibility_non_admin,
+        payroll_approvals_enabled: payrollEnabled,
+        approvals_enabled_scopes: enabledScopes
+      });
+      setOrgSettings(updated);
+      toast({ title: "Saved", description: "Global policy updated." });
+    } catch {
+      toast({ title: "Error", description: "Failed to save settings", variant: "destructive" });
+    } finally { setSavingSettings(false); }
+  };
+
+  const toggleScope = (scope: PayrollApprovalScope) => {
+    setEnabledScopes(prev => prev.includes(scope) ? prev.filter(s => s !== scope) : [...prev, scope]);
+  };
+
+  // ─── Category chips for a workflow ───
+  const getCategoryChipsForWorkflow = (workflowId: string) => {
+    const configs = payrollConfigs.filter(c => c.workflow_id === workflowId);
+    const catIds = configs.flatMap(c => c.categories || []);
+    return categories.filter(cat => catIds.includes(cat.id));
+  };
+
+  if (loading) {
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                    <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                        <ShieldCheck className="h-5 w-5 text-primary" />
-                        Approval Workflows
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                        Configure approval chains, routing rules, and notifications for payroll processing.
-                    </p>
-                </div>
-                <Button size="sm" onClick={() => setActiveView('builder')} className="gap-1.5">
-                    <GitBranch className="h-4 w-4" />
-                    Open Workflow Builder
-                </Button>
+      <div className="flex items-center justify-center py-20 gap-3">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        <span className="text-sm text-muted-foreground">Loading approval settings…</span>
+      </div>
+    );
+  }
+
+  const orgId = orgSettings?.org_id || "";
+
+  return (
+    <TooltipProvider delayDuration={300}>
+      <div className="space-y-4">
+        {/* ─── Guidance Banner ─── */}
+        {!bannerDismissed && (
+          <div className="flex items-start gap-3 p-3 rounded-lg border border-primary/20 bg-primary/5">
+            <Lightbulb className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-foreground">
+                <span className="font-medium">How approvals work:</span> Create a workflow → assign approvers → route employee categories to it.
+              </p>
+            </div>
+            <Button variant="ghost" size="sm" className="shrink-0 h-7 text-xs text-muted-foreground" onClick={dismissBanner}>
+              Dismiss
+            </Button>
+          </div>
+        )}
+
+        {/* ─── Two-Panel Layout ─── */}
+        <div className="flex border rounded-xl overflow-hidden bg-card" style={{ minHeight: "560px" }}>
+
+          {/* ═══ LEFT PANEL ═══ */}
+          <div className="w-[280px] border-r bg-muted/30 flex flex-col shrink-0">
+            {/* Workflow list header */}
+            <div className="p-3 border-b flex items-center justify-between">
+              <h3 className="text-sm font-bold text-foreground">Workflows</h3>
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleNewWorkflow}>
+                <Plus className="h-3 w-3" /> New
+              </Button>
             </div>
 
-            {/* Tabbed Layout */}
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="w-full justify-start border-b rounded-none bg-transparent p-0 h-auto">
-                    <TabsTrigger
-                        value="streams"
-                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3 pt-2 text-sm"
-                    >
-                        <Layers className="h-4 w-4 mr-1.5" />
-                        Approval Streams
-                        {payrollConfigs.length > 0 && (
-                            <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-[10px]">{payrollConfigs.length}</Badge>
-                        )}
-                    </TabsTrigger>
-                    <TabsTrigger
-                        value="workflows"
-                        className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3 pt-2 text-sm"
-                    >
-                        <GitBranch className="h-4 w-4 mr-1.5" />
-                        Workflows
-                        {workflows.length > 0 && (
-                            <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-[10px]">{workflows.length}</Badge>
-                        )}
-                    </TabsTrigger>
-                    {isSuperAdmin && (
-                        <TabsTrigger
-                            value="policy"
-                            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3 pt-2 text-sm"
+            {/* Workflow list */}
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {workflows.length === 0 ? (
+                <div className="py-8 text-center">
+                  <GitBranch className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-xs text-muted-foreground">No workflows yet</p>
+                </div>
+              ) : (
+                workflows.map(wf => {
+                  const catChips = getCategoryChipsForWorkflow(wf.id);
+                  return (
+                    <Tooltip key={wf.id}>
+                      <TooltipTrigger asChild>
+                        <div
+                          className={`group relative p-3 rounded-lg cursor-pointer transition-all ${
+                            selectedId === wf.id
+                              ? 'bg-primary/10 border border-primary/30'
+                              : 'hover:bg-muted border border-transparent'
+                          }`}
+                          onClick={() => setSelectedId(wf.id)}
+                          onDoubleClick={() => { setRenamingId(wf.id); setRenameValue(wf.name); }}
                         >
-                            <Settings2 className="h-4 w-4 mr-1.5" />
-                            Global Policy
-                        </TabsTrigger>
-                    )}
-                </TabsList>
-
-                {/* ─── Streams Tab ─── */}
-                <TabsContent value="streams" className="mt-6 space-y-4">
-                    <div className="flex items-center justify-between">
-                        <p className="text-sm text-muted-foreground">
-                            Map employee categories to specific approval workflows.
-                        </p>
-                        {(isSuperAdmin || isOrgAdmin) && orgSettings && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-1.5"
-                                onClick={() => { setEditingConfig({ name: '', categories: [], is_enabled: true }); setIsConfigDialogOpen(true); }}
-                            >
-                                <Plus className="h-3.5 w-3.5" /> New Stream
-                            </Button>
-                        )}
-                    </div>
-
-                    {payrollConfigs.length === 0 ? (
-                        <div className="py-16 flex flex-col items-center justify-center text-center border-2 border-dashed border-border rounded-lg">
-                            <Layers className="h-10 w-10 text-muted-foreground/30 mb-3" />
-                            <p className="text-sm font-medium text-foreground">No approval streams yet</p>
-                            <p className="text-xs text-muted-foreground mt-1 max-w-xs">
-                                Create a stream to route specific employee categories through a dedicated approval workflow.
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="space-y-2">
-                            {payrollConfigs.map(config => {
-                                const wf = workflows.find(w => w.id === config.workflow_id);
-                                return (
-                                    <div
-                                        key={config.id}
-                                        className="group flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-muted/30 transition-colors"
-                                    >
-                                        <div className={`shrink-0 p-2 rounded-lg ${config.is_enabled ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                                            <LayoutGrid className="h-4 w-4" />
-                                        </div>
-
-                                        <div className="flex-1 min-w-0 space-y-1">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-sm font-medium text-foreground">{config.name}</span>
-                                                {!config.is_enabled && <Badge variant="secondary" className="text-[10px] h-4">Disabled</Badge>}
-                                            </div>
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                {config.categories && config.categories.length > 0 ? (
-                                                    config.categories.slice(0, 3).map(catId => {
-                                                        const cat = categories.find(c => c.id === catId);
-                                                        return cat ? (
-                                                            <Badge key={catId} variant="outline" className="text-[10px] h-5 px-1.5 font-normal">
-                                                                {cat.label}
-                                                            </Badge>
-                                                        ) : null;
-                                                    })
-                                                ) : (
-                                                    <span className="text-[11px] text-muted-foreground italic">No categories</span>
-                                                )}
-                                                {(config.categories?.length || 0) > 3 && (
-                                                    <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal">
-                                                        +{(config.categories?.length || 0) - 3} more
-                                                    </Badge>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <div className="shrink-0 flex items-center gap-2">
-                                            {wf ? (
-                                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                                    <ArrowRight className="h-3 w-3" />
-                                                    <span className="font-medium text-foreground">{wf.name}</span>
-                                                    {wf.version && <span className="text-[10px]">v{wf.version}</span>}
-                                                </div>
-                                            ) : (
-                                                <span className="text-xs text-muted-foreground italic">No workflow</span>
-                                            )}
-                                        </div>
-
-                                        <div className="shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <Switch
-                                                checked={config.is_enabled}
-                                                onCheckedChange={async (val) => {
-                                                    if (!orgSettings) return;
-                                                    await workflowService.updateApprovalConfig(orgSettings.org_id, {
-                                                        ...config, is_enabled: val, categories: config.categories || []
-                                                    } as any);
-                                                    loadData();
-                                                }}
-                                                className="scale-90"
-                                            />
-                                            <Button
-                                                variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                                                onClick={() => {
-                                                    setEditingConfig({
-                                                        id: config.id, name: config.name, description: config.description,
-                                                        is_enabled: config.is_enabled, workflow_id: config.workflow_id,
-                                                        categories: config.categories || []
-                                                    });
-                                                    setIsConfigDialogOpen(true);
-                                                }}
-                                            >
-                                                <Pencil className="h-3.5 w-3.5" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost" size="icon"
-                                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                                onClick={() => handleDeleteConfig(config.id)}
-                                            >
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                            </Button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </TabsContent>
-
-                {/* ─── Workflows Tab ─── */}
-                <TabsContent value="workflows" className="mt-6 space-y-4">
-                    <div className="flex items-center justify-between">
-                        <p className="text-sm text-muted-foreground">
-                            Define approval chains with steps, criteria, reminders, and email templates.
-                        </p>
-                        <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setActiveView('builder')}>
-                            <Plus className="h-3.5 w-3.5" /> New Workflow
-                        </Button>
-                    </div>
-
-                    {workflows.length === 0 ? (
-                        <div className="py-16 flex flex-col items-center justify-center text-center border-2 border-dashed border-border rounded-lg">
-                            <GitBranch className="h-10 w-10 text-muted-foreground/30 mb-3" />
-                            <p className="text-sm font-medium text-foreground">No workflows defined</p>
-                            <p className="text-xs text-muted-foreground mt-1 max-w-xs">
-                                Create your first approval workflow to define who reviews and approves pay runs.
-                            </p>
-                            <Button variant="outline" size="sm" className="mt-4 gap-1.5" onClick={() => setActiveView('builder')}>
-                                <Plus className="h-3.5 w-3.5" /> Create Workflow
-                            </Button>
-                        </div>
-                    ) : (
-                        <div className="space-y-2">
-                            {workflows.map(wf => (
-                                <div
-                                    key={wf.id}
-                                    className="group flex items-center gap-4 p-4 rounded-lg border bg-card hover:bg-muted/30 transition-colors cursor-pointer"
-                                    onClick={() => setActiveView('builder')}
-                                >
-                                    <div className={`shrink-0 p-2 rounded-lg ${wf.is_active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                                        <GitBranch className="h-4 w-4" />
-                                    </div>
-
-                                    <div className="flex-1 min-w-0 space-y-1">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm font-medium text-foreground">{wf.name}</span>
-                                            {wf.is_default && <Badge className="text-[10px] h-4 px-1.5">Default</Badge>}
-                                            {wf.version && <Badge variant="outline" className="text-[10px] h-4 px-1.5">v{wf.version}</Badge>}
-                                            {!wf.is_active && <Badge variant="secondary" className="text-[10px] h-4 px-1.5">Inactive</Badge>}
-                                        </div>
-                                        {wf.description && (
-                                            <p className="text-xs text-muted-foreground truncate">{wf.description}</p>
-                                        )}
-                                        {wf.applies_to_scopes && wf.applies_to_scopes.length > 0 && (
-                                            <div className="flex gap-1 flex-wrap">
-                                                {wf.applies_to_scopes.map(scope => (
-                                                    <Badge key={scope} variant="outline" className="text-[10px] h-4 px-1.5 font-normal">
-                                                        {APPROVAL_SCOPE_LABELS[scope]}
-                                                    </Badge>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </TabsContent>
-
-                {/* ─── Global Policy Tab ─── */}
-                {isSuperAdmin && (
-                    <TabsContent value="policy" className="mt-6 space-y-6">
-                        <p className="text-sm text-muted-foreground">
-                            Organization-wide defaults that apply to all approval workflows unless overridden.
-                        </p>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            {/* Left: Controls */}
-                            <div className="space-y-5">
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-medium">Maximum Approval Levels</Label>
-                                    <Input
-                                        type="number" min={1} max={20}
-                                        value={maxLevels}
-                                        onChange={e => setMaxLevels(Number(e.target.value))}
-                                        className="w-24 h-9"
-                                    />
-                                    <p className="text-xs text-muted-foreground">Limit total approvers per workflow (1–20).</p>
-                                </div>
-
-                                <Separator />
-
-                                {[
-                                    { label: 'Sequential Approvals', desc: 'Levels must be approved in order', value: sequential, set: setSequential },
-                                    { label: 'Allow Delegation', desc: 'Approvers can delegate their tasks', value: allowDelegation, set: setAllowDelegation },
-                                    { label: 'Require Rejection Comments', desc: 'Force users to explain rejections', value: rejectionComment, set: setRejectionComment },
-                                ].map(item => (
-                                    <div key={item.label} className="flex items-center justify-between py-1">
-                                        <div className="space-y-0.5">
-                                            <Label className="text-sm font-medium">{item.label}</Label>
-                                            <p className="text-xs text-muted-foreground">{item.desc}</p>
-                                        </div>
-                                        <Switch checked={item.value} onCheckedChange={item.set} />
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Right: Scopes */}
-                            <div className="space-y-3">
-                                <div className="flex items-center gap-2">
-                                    <ListChecks className="h-4 w-4 text-primary" />
-                                    <Label className="text-sm font-medium">Enabled Scopes</Label>
-                                </div>
-                                <p className="text-xs text-muted-foreground">Select which payroll actions require approval.</p>
-                                <div className="space-y-2">
-                                    {(Object.keys(APPROVAL_SCOPE_LABELS) as PayrollApprovalScope[]).map(scope => (
-                                        <label
-                                            key={scope}
-                                            className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/30 cursor-pointer transition-colors"
-                                        >
-                                            <Checkbox
-                                                checked={enabledScopes.includes(scope)}
-                                                onCheckedChange={() => toggleScope(scope)}
-                                            />
-                                            <span className="text-sm">{APPROVAL_SCOPE_LABELS[scope]}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        <Separator />
-
-                        <div className="flex justify-end">
-                            <Button onClick={handleSaveSettings} disabled={savingSettings} size="sm">
-                                {savingSettings && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-                                Save Policy
-                            </Button>
-                        </div>
-                    </TabsContent>
-                )}
-            </Tabs>
-
-            {/* ─── Stream Config Dialog ─── */}
-            <Dialog open={isConfigDialogOpen} onOpenChange={setIsConfigDialogOpen}>
-                <DialogContent className="sm:max-w-lg">
-                    <DialogHeader>
-                        <DialogTitle>{editingConfig?.id ? 'Edit Approval Stream' : 'New Approval Stream'}</DialogTitle>
-                        <DialogDescription>
-                            Map employee categories to a specific approval workflow.
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="space-y-5 py-2">
-                        <div className="space-y-2">
-                            <Label className="text-sm font-medium">Stream Name</Label>
-                            <Input
-                                placeholder="e.g. Head Office Payroll"
-                                value={editingConfig?.name || ''}
-                                onChange={e => setEditingConfig(prev => ({ ...prev!, name: e.target.value }))}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label className="text-sm font-medium">Description</Label>
-                            <Input
-                                placeholder="Optional description…"
-                                value={editingConfig?.description || ''}
-                                onChange={e => setEditingConfig(prev => ({ ...prev!, description: e.target.value }))}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label className="text-sm font-medium">Approval Workflow</Label>
-                            <Select
-                                value={editingConfig?.workflow_id || ''}
-                                onValueChange={val => setEditingConfig(prev => ({ ...prev!, workflow_id: val }))}
-                            >
-                                <SelectTrigger><SelectValue placeholder="Select workflow…" /></SelectTrigger>
-                                <SelectContent>
-                                    {workflows.map(wf => (
-                                        <SelectItem key={wf.id} value={wf.id}>
-                                            {wf.name} {wf.version ? `(v${wf.version})` : ''}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <Label className="text-sm font-medium">Employee Categories</Label>
-                                <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                                    Overlap protected
-                                </span>
-                            </div>
-                            <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
-                                {getAvailableCategories(editingConfig?.id).length === 0 ? (
-                                    <p className="text-xs text-muted-foreground text-center py-4">
-                                        All categories are assigned to other streams.
-                                    </p>
-                                ) : (
-                                    getAvailableCategories(editingConfig?.id).map(cat => (
-                                        <label
-                                            key={cat.id}
-                                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                                                editingConfig?.categories?.includes(cat.id)
-                                                    ? 'border-primary/30 bg-primary/5'
-                                                    : 'border-border bg-card hover:bg-muted/30'
-                                            }`}
-                                        >
-                                            <Checkbox
-                                                checked={editingConfig?.categories?.includes(cat.id)}
-                                                onCheckedChange={() => toggleCategory(cat.id)}
-                                            />
-                                            <span className="text-sm">{cat.label}</span>
-                                        </label>
-                                    ))
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              {renamingId === wf.id ? (
+                                <Input
+                                  autoFocus
+                                  className="h-6 text-xs px-1"
+                                  value={renameValue}
+                                  onChange={e => setRenameValue(e.target.value)}
+                                  onBlur={() => handleInlineRename(wf.id)}
+                                  onKeyDown={e => { if (e.key === 'Enter') handleInlineRename(wf.id); if (e.key === 'Escape') setRenamingId(null); }}
+                                  onClick={e => e.stopPropagation()}
+                                />
+                              ) : (
+                                <p className="text-sm font-medium truncate">{wf.name}</p>
+                              )}
+                              <div className="flex items-center gap-1 mt-1 flex-wrap">
+                                <Badge variant={wf.is_active ? "default" : "secondary"} className="text-[9px] h-4 px-1">
+                                  {wf.is_active ? 'Active' : 'Inactive'}
+                                </Badge>
+                                {wf.is_default && (
+                                  <Badge variant="secondary" className="text-[9px] h-4 px-1 gap-0.5">
+                                    <Star className="h-2.5 w-2.5" /> Default
+                                  </Badge>
                                 )}
+                              </div>
+                              {catChips.length > 0 && (
+                                <div className="flex gap-1 flex-wrap mt-1.5">
+                                  {catChips.slice(0, 3).map(cat => (
+                                    <Badge key={cat.id} variant="outline" className="text-[9px] h-4 px-1 font-normal">
+                                      {cat.label}
+                                    </Badge>
+                                  ))}
+                                  {catChips.length > 3 && (
+                                    <Badge variant="outline" className="text-[9px] h-4 px-1 font-normal">
+                                      +{catChips.length - 3}
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
                             </div>
+
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100">
+                                  <MoreVertical className="h-3 w-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-40">
+                                <DropdownMenuItem onClick={e => { e.stopPropagation(); handleSetDefault(wf.id); }}>
+                                  <Star className="h-3 w-3 mr-2" /> Set as Default
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={e => { e.stopPropagation(); handleDuplicate(wf.id); }}>
+                                  <Copy className="h-3 w-3 mr-2" /> Duplicate
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive" onClick={e => { e.stopPropagation(); handleDelete(wf.id); }}>
+                                  <Trash2 className="h-3 w-3 mr-2" /> Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="text-xs max-w-[200px]">
+                        Click to configure steps, criteria, and notifications
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                })
+              )}
+            </div>
+
+            {/* ─── Routing Section ─── */}
+            <div className="border-t">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="w-full flex items-center justify-between p-3 text-xs font-semibold text-foreground hover:bg-muted/50 transition-colors"
+                    onClick={() => setRoutingExpanded(!routingExpanded)}
+                  >
+                    Routing
+                    {routingExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-xs max-w-[200px]">
+                  Map employee groups to specific workflows
+                </TooltipContent>
+              </Tooltip>
+
+              {routingExpanded && (
+                <div className="px-3 pb-3 space-y-1.5">
+                  {payrollConfigs.length === 0 ? (
+                    <p className="text-[11px] text-muted-foreground italic text-center py-2">No routes defined</p>
+                  ) : (
+                    payrollConfigs.map(config => {
+                      const wf = workflows.find(w => w.id === config.workflow_id);
+                      const configCats = (config.categories || [])
+                        .map(cId => categories.find(c => c.id === cId))
+                        .filter(Boolean);
+                      return (
+                        <div
+                          key={config.id}
+                          className={`flex items-center gap-1.5 px-2 py-1.5 rounded text-[11px] cursor-pointer transition-colors ${
+                            config.workflow_id === selectedId ? 'bg-primary/10' : 'hover:bg-muted'
+                          }`}
+                          onClick={() => {
+                            if (config.workflow_id) setSelectedId(config.workflow_id);
+                          }}
+                        >
+                          <div className="flex items-center gap-1 flex-1 min-w-0 flex-wrap">
+                            {configCats.length > 0 ? (
+                              configCats.slice(0, 2).map(cat => (
+                                <Badge key={cat!.id} variant="outline" className="text-[9px] h-4 px-1 font-normal shrink-0">
+                                  {cat!.label}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-muted-foreground italic">{config.name}</span>
+                            )}
+                            {configCats.length > 2 && (
+                              <span className="text-muted-foreground">+{configCats.length - 2}</span>
+                            )}
+                          </div>
+                          <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <span className="font-medium truncate max-w-[80px]">{wf?.name || "—"}</span>
+                          <Button
+                            variant="ghost" size="icon" className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100"
+                            onClick={e => { e.stopPropagation(); handleDeleteConfig(config.id); }}
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </Button>
+                        </div>
+                      );
+                    })
+                  )}
+                  <Button
+                    variant="ghost" size="sm"
+                    className="w-full h-7 text-[11px] gap-1 text-muted-foreground"
+                    onClick={() => { setEditingConfig({ name: '', categories: [], is_enabled: true }); setIsConfigDialogOpen(true); }}
+                  >
+                    <Plus className="h-3 w-3" /> Add Route
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ═══ RIGHT PANEL ═══ */}
+          <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+            {!selectedId && !editName ? (
+              <div className="flex-1 flex items-center justify-center text-center p-8">
+                <div>
+                  <ShieldCheck className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground mb-4">Select a workflow to configure it</p>
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={handleNewWorkflow}>
+                    <Plus className="h-3.5 w-3.5" /> Create your first workflow
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Header */}
+                <div className="p-4 border-b space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Input
+                      value={editName}
+                      onChange={e => setEditName(e.target.value)}
+                      className="h-8 text-sm font-semibold border-transparent hover:border-border focus:border-border bg-transparent px-1"
+                      placeholder="Workflow name"
+                    />
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Switch checked={editActive} onCheckedChange={setEditActive} />
+                      <Label className="text-xs">{editActive ? 'Active' : 'Inactive'}</Label>
+                    </div>
+                  </div>
+                  <Input
+                    value={editDescription}
+                    onChange={e => setEditDescription(e.target.value)}
+                    className="h-7 text-xs text-muted-foreground border-transparent hover:border-border focus:border-border bg-transparent px-1"
+                    placeholder="Description (optional)"
+                  />
+                </div>
+
+                {/* Builder Tabs */}
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+                  <div className="px-4 pt-2 border-b">
+                    <TabsList className="h-9">
+                      <TabsTrigger value="approvers" className="text-xs">Approvers</TabsTrigger>
+                      <TabsTrigger value="criteria" className="text-xs">Criteria</TabsTrigger>
+                      <TabsTrigger value="followup" className="text-xs">Follow-up</TabsTrigger>
+                      <TabsTrigger value="messages" className="text-xs">Messages</TabsTrigger>
+                    </TabsList>
+                  </div>
+
+                  {/* Approvers Tab */}
+                  <TabsContent value="approvers" className="flex-1 p-4 space-y-4 mt-0">
+                    <div className="space-y-2">
+                      {steps.length === 0 ? (
+                        <div className="py-8 text-center border-2 border-dashed rounded-lg">
+                          <p className="text-sm text-muted-foreground">No approval steps. Add the first approver to get started.</p>
+                        </div>
+                      ) : (
+                        steps.map((step, index) => {
+                          const type = step.approver_type || 'role';
+                          const meta = APPROVER_TYPE_META[type as ApproverType];
+                          const label = getStepLabel(step);
+                          return (
+                            <div key={index} className="flex items-center gap-2 px-3 py-2.5 rounded-lg border bg-card hover:bg-muted/30 transition-colors">
+                              <GripVertical className="h-4 w-4 text-muted-foreground/50 cursor-grab shrink-0" />
+                              <Badge variant="secondary" className="text-xs font-semibold shrink-0">L{step.level}</Badge>
+                              <span className="text-sm shrink-0">{meta?.icon}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{label}</p>
+                                <p className="text-[10px] text-muted-foreground">{meta?.label}</p>
+                              </div>
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <Button variant="ghost" size="icon" className="h-7 w-7" disabled={index === 0} onClick={() => moveStep(index, 'up')}>
+                                  <ArrowUp className="h-3 w-3" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" disabled={index === steps.length - 1} onClick={() => moveStep(index, 'down')}>
+                                  <ArrowDown className="h-3 w-3" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => removeStep(index)}>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                      <Button variant="outline" size="sm" className="gap-1" onClick={() => setAddModalOpen(true)}>
+                        <Plus className="h-3 w-3" /> Add Approver
+                      </Button>
                     </div>
 
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsConfigDialogOpen(false)}>Cancel</Button>
-                        <Button
-                            onClick={handleSaveConfig}
-                            disabled={!editingConfig?.name || (editingConfig?.categories?.length || 0) === 0}
-                        >
-                            Save Stream
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                    <Separator />
+                    <div>
+                      <Label className="text-xs font-semibold text-muted-foreground mb-2 block">Flow Preview</Label>
+                      <div className="border rounded-lg p-2 bg-muted/20 overflow-x-auto">
+                        <ApprovalFlowChart steps={steps} />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <Button onClick={handleSaveWorkflow} disabled={saving}>
+                        {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                        {selectedWorkflow ? 'Update Workflow' : 'Create Workflow'}
+                      </Button>
+                    </div>
+                  </TabsContent>
+
+                  {/* Criteria Tab */}
+                  <TabsContent value="criteria" className="flex-1 p-4 mt-0">
+                    {selectedId ? (
+                      <ApprovalCriteriaBuilder workflowId={selectedId} organizationId={orgId} />
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-8 text-center">Save the workflow first to add criteria.</p>
+                    )}
+                  </TabsContent>
+
+                  {/* Follow-up Tab */}
+                  <TabsContent value="followup" className="flex-1 p-4 mt-0">
+                    {selectedId ? (
+                      <ApprovalFollowupConfig workflowId={selectedId} />
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-8 text-center">Save the workflow first to configure follow-ups.</p>
+                    )}
+                  </TabsContent>
+
+                  {/* Messages Tab */}
+                  <TabsContent value="messages" className="flex-1 p-4 mt-0">
+                    {selectedId ? (
+                      <ApprovalWorkflowMessages workflowId={selectedId} />
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-8 text-center">Save the workflow first to configure messages.</p>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </>
+            )}
+          </div>
         </div>
-    );
+
+        {/* ─── Route Config Dialog ─── */}
+        <Dialog open={isConfigDialogOpen} onOpenChange={setIsConfigDialogOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{editingConfig?.id ? 'Edit Route' : 'New Route'}</DialogTitle>
+              <DialogDescription>Map employee categories to a specific approval workflow.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-5 py-2">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Route Name</Label>
+                <Input
+                  placeholder="e.g. Head Office Payroll"
+                  value={editingConfig?.name || ''}
+                  onChange={e => setEditingConfig(prev => ({ ...prev!, name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Approval Workflow</Label>
+                <Select
+                  value={editingConfig?.workflow_id || ''}
+                  onValueChange={val => setEditingConfig(prev => ({ ...prev!, workflow_id: val }))}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select workflow…" /></SelectTrigger>
+                  <SelectContent>
+                    {workflows.map(wf => (
+                      <SelectItem key={wf.id} value={wf.id}>
+                        {wf.name} {wf.version ? `(v${wf.version})` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Employee Categories</Label>
+                  <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">Overlap protected</span>
+                </div>
+                <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+                  {getAvailableCategories(editingConfig?.id).length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">All categories are assigned to other routes.</p>
+                  ) : (
+                    getAvailableCategories(editingConfig?.id).map(cat => (
+                      <label
+                        key={cat.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                          editingConfig?.categories?.includes(cat.id) ? 'border-primary/30 bg-primary/5' : 'border-border bg-card hover:bg-muted/30'
+                        }`}
+                      >
+                        <Checkbox checked={editingConfig?.categories?.includes(cat.id)} onCheckedChange={() => toggleCategory(cat.id)} />
+                        <span className="text-sm">{cat.label}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsConfigDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSaveConfig} disabled={!editingConfig?.name || (editingConfig?.categories?.length || 0) === 0}>
+                Save Route
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ─── Global Policy Sheet ─── */}
+        <Sheet open={policyOpen} onOpenChange={setPolicyOpen}>
+          <SheetContent className="sm:max-w-md overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle className="flex items-center gap-2">
+                <Settings2 className="h-5 w-5" /> Global Policy
+              </SheetTitle>
+              <SheetDescription>
+                Organization-wide defaults that apply to all approval workflows.
+              </SheetDescription>
+            </SheetHeader>
+            <div className="space-y-6 mt-6">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Maximum Approval Levels</Label>
+                <Input
+                  type="number" min={1} max={20}
+                  value={maxLevels}
+                  onChange={e => setMaxLevels(Number(e.target.value))}
+                  className="w-24 h-9"
+                />
+                <p className="text-xs text-muted-foreground">Limit total approvers per workflow (1–20).</p>
+              </div>
+
+              <Separator />
+
+              {[
+                { label: 'Sequential Approvals', desc: 'Levels must be approved in order', value: sequential, set: setSequential },
+                { label: 'Allow Delegation', desc: 'Approvers can delegate their tasks', value: allowDelegation, set: setAllowDelegation },
+                { label: 'Require Rejection Comments', desc: 'Force users to explain rejections', value: rejectionComment, set: setRejectionComment },
+              ].map(item => (
+                <div key={item.label} className="flex items-center justify-between py-1">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-medium">{item.label}</Label>
+                    <p className="text-xs text-muted-foreground">{item.desc}</p>
+                  </div>
+                  <Switch checked={item.value} onCheckedChange={item.set} />
+                </div>
+              ))}
+
+              <Separator />
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <ListChecks className="h-4 w-4 text-primary" />
+                  <Label className="text-sm font-medium">Enabled Scopes</Label>
+                </div>
+                <p className="text-xs text-muted-foreground">Select which payroll actions require approval.</p>
+                <div className="space-y-2">
+                  {(Object.keys(APPROVAL_SCOPE_LABELS) as PayrollApprovalScope[]).map(scope => (
+                    <label
+                      key={scope}
+                      className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/30 cursor-pointer transition-colors"
+                    >
+                      <Checkbox checked={enabledScopes.includes(scope)} onCheckedChange={() => toggleScope(scope)} />
+                      <span className="text-sm">{APPROVAL_SCOPE_LABELS[scope]}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <Button onClick={handleSaveSettings} disabled={savingSettings} size="sm">
+                  {savingSettings && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+                  Save Policy
+                </Button>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        {/* Add Approver Modal */}
+        <ApproverTypeModal
+          open={addModalOpen}
+          onOpenChange={setAddModalOpen}
+          organizationId={orgId}
+          onAdd={handleAddStep}
+        />
+      </div>
+    </TooltipProvider>
+  );
 };
