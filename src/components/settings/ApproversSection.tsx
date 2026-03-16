@@ -149,6 +149,33 @@ export const ApproversSection = () => {
     setLoading(false);
   }, [toast]);
 
+  const fetchWorkflowMeta = useCallback(async (wfId: string) => {
+    const { data } = await (supabase as any)
+      .from("approval_workflows")
+      .select(`
+        created_at, updated_at,
+        creator:created_by(first_name, last_name),
+        editor:updated_by(first_name, last_name)
+      `)
+      .eq("id", wfId)
+      .maybeSingle();
+
+    if (data) {
+      const creatorName = data.creator
+        ? [data.creator.first_name, data.creator.last_name].filter(Boolean).join(" ")
+        : undefined;
+      const editorName = data.editor
+        ? [data.editor.first_name, data.editor.last_name].filter(Boolean).join(" ")
+        : undefined;
+      setWorkflowMeta({
+        created_by_name: creatorName,
+        updated_by_name: editorName,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      });
+    }
+  }, []);
+
   useEffect(() => {
     const init = async () => {
       if (!organizationId) return;
@@ -156,10 +183,11 @@ export const ApproversSection = () => {
       if (wfId) {
         setWorkflowId(wfId);
         await fetchSteps(wfId);
+        await fetchWorkflowMeta(wfId);
       }
     };
     init();
-  }, [organizationId, ensureDefaultWorkflow, fetchSteps]);
+  }, [organizationId, ensureDefaultWorkflow, fetchSteps, fetchWorkflowMeta]);
 
   // ─── Ensure payroll_approval_configs catch-all row ───────────────────────
 
