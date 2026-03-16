@@ -74,6 +74,12 @@ export const ApproversSection = () => {
   const [steps, setSteps] = useState<WorkflowStep[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [workflowMeta, setWorkflowMeta] = useState<{
+    created_by_name?: string;
+    updated_by_name?: string;
+    created_at?: string;
+    updated_at?: string;
+  } | null>(null);
 
   // Modal
   const [modalOpen, setModalOpen] = useState(false);
