@@ -2,20 +2,33 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
-// Direct invocation payload (from service layer)
 interface DirectPayload {
   payrun_id: string;
   event_key: 'PAYRUN_SUBMITTED' | 'PAYRUN_APPROVED' | 'PAYRUN_REJECTED' | 'APPROVAL_REMINDER';
   recipient_user_id: string;
 }
 
-// Webhook payload (legacy support)
 interface WebhookPayload {
   type: 'INSERT' | 'UPDATE';
   table: string;
   schema: string;
   record: any;
   old_record: any;
+}
+
+const EVENT_TO_MESSAGE_TYPE: Record<string, string> = {
+  PAYRUN_SUBMITTED: 'submitted',
+  PAYRUN_APPROVED: 'approved',
+  PAYRUN_REJECTED: 'rejected',
+  APPROVAL_REMINDER: 'followup',
+}
+
+function renderTemplate(template: string, vars: Record<string, string>): string {
+  let out = template
+  for (const [k, v] of Object.entries(vars)) {
+    out = out.replaceAll(`{{${k}}}`, v)
+  }
+  return out
 }
 
 serve(async (req) => {
@@ -34,19 +47,15 @@ serve(async (req) => {
     let recipientUserId = ''
     let payrunId = ''
 
-    // Detect direct invocation vs webhook payload
     if (body.event_key && body.recipient_user_id && body.payrun_id) {
-      // Direct call from service layer
       const payload = body as DirectPayload
       eventKey = payload.event_key
       recipientUserId = payload.recipient_user_id
       payrunId = payload.payrun_id
       console.log(`Direct invocation: ${eventKey} for user ${recipientUserId}`)
     } else {
-      // Legacy webhook payload routing
       const payload = body as WebhookPayload
       const { table, record, type } = payload
-
       console.log(`Webhook trigger: ${table} ${type}`)
 
       if (table === 'payrun_approval_steps') {
@@ -85,7 +94,7 @@ serve(async (req) => {
       })
     }
 
-    // ── 1. Resolve recipient email & name from user_profiles ──────────────
+    // 1. Resolve recipient
     const { data: userProfile } = await supabase
       .from('user_profiles')
       .select('email, first_name, last_name')
@@ -109,7 +118,7 @@ serve(async (req) => {
       if (!name) name = email.split('@')[0]
     }
 
-    // ── 2. Get payrun details with enriched data ──────────────────────────
+    // 2. Get payrun details
     const { data: payrun } = await supabase
       .from('pay_runs')
       .select(`
@@ -128,7 +137,7 @@ serve(async (req) => {
       })
     }
 
-    // ── 3. Get org info ───────────────────────────────────────────────────
+    // 3. Get org info
     let orgId = ''
     let orgName = 'Your Organization'
 
@@ -144,13 +153,13 @@ serve(async (req) => {
       }
     }
 
-    // ── 4. Get employee count from pay_items ──────────────────────────────
+    // 4. Get employee count
     const { count: totalEmployees } = await supabase
       .from('pay_items')
       .select('id', { count: 'exact', head: true })
       .eq('pay_run_id', payrunId)
 
-    // ── 5. Build rich variables ───────────────────────────────────────────
+    // 5. Build variables
     const periodStart = payrun.pay_period_start
       ? new Date(payrun.pay_period_start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
       : 'N/A'
@@ -165,6 +174,7 @@ serve(async (req) => {
       pay_period: `${periodStart} to ${periodEnd}`,
       payrun_id: payrunId,
       organization_name: orgName,
+      org_name: orgName,
       total_gross: payrun.total_gross ? Number(payrun.total_gross).toLocaleString('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }) : '0',
       total_employees: String(totalEmployees || 0),
       pay_group_name: (payrun.pay_group_master as any)?.name || 'Default',
@@ -185,6 +195,7 @@ serve(async (req) => {
       variables['submitted_by'] = submitter
         ? `${submitter.first_name || ''} ${submitter.last_name || ''}`.trim()
         : 'System'
+      variables['submitter_name'] = variables['submitted_by']
       variables['action_url'] = `${appUrl}/my-approvals`
     }
 
@@ -211,6 +222,7 @@ serve(async (req) => {
         variables['rejected_by'] = 'Approver'
       }
       variables['reason'] = step?.comments || 'No reason provided'
+      variables['rejection_reason'] = variables['reason']
       variables['action_url'] = `${appUrl}/payroll`
     }
 
@@ -244,26 +256,72 @@ serve(async (req) => {
       variables['action_url'] = `${appUrl}/my-approvals`
     }
 
-    // ── 6. Queue email via queue-email function ───────────────────────────
+    // 6. Check for per-workflow email template
+    let useWorkflowTemplate = false
+    let workflowSubject = ''
+    let workflowBody = ''
+    const messageEventType = EVENT_TO_MESSAGE_TYPE[eventKey]
+
+    if (messageEventType) {
+      // Find the workflow_id from the payrun's approval steps
+      const { data: approvalStep } = await supabase
+        .from('payrun_approval_steps')
+        .select('workflow_id')
+        .eq('payrun_id', payrunId)
+        .limit(1)
+        .maybeSingle()
+
+      const workflowId = (approvalStep as any)?.workflow_id
+
+      if (workflowId) {
+        const { data: wfMessage } = await supabase
+          .from('approval_workflow_messages')
+          .select('subject, body_content, is_active')
+          .eq('workflow_id', workflowId)
+          .eq('event_type', messageEventType)
+          .maybeSingle()
+
+        if (wfMessage && wfMessage.is_active) {
+          useWorkflowTemplate = true
+          workflowSubject = renderTemplate(wfMessage.subject, variables)
+          workflowBody = renderTemplate(wfMessage.body_content, variables)
+          console.log(`Using per-workflow template for ${eventKey} (workflow: ${workflowId})`)
+        }
+      }
+    }
+
+    // 7. Queue email — use per-workflow template or fall back to global
+    const queuePayload: Record<string, any> = {
+      org_id: orgId || null,
+      event_key: eventKey,
+      recipient_email: email,
+      recipient_name: name,
+      variables,
+    }
+
+    if (useWorkflowTemplate) {
+      queuePayload.subject_override = workflowSubject
+      queuePayload.body_override = workflowBody
+    }
+
     const queueResponse = await fetch(`${supabaseUrl}/functions/v1/queue-email`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${supabaseKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        org_id: orgId || null,
-        event_key: eventKey,
-        recipient_email: email,
-        recipient_name: name,
-        variables,
-      }),
+      body: JSON.stringify(queuePayload),
     })
 
     const queueResult = await queueResponse.json()
     console.log(`Email queued for ${eventKey}: `, queueResult)
 
-    return new Response(JSON.stringify({ success: true, event_key: eventKey, queue_result: queueResult }), {
+    return new Response(JSON.stringify({
+      success: true,
+      event_key: eventKey,
+      used_workflow_template: useWorkflowTemplate,
+      queue_result: queueResult,
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })

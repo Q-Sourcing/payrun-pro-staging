@@ -280,8 +280,8 @@ export const ApproverTypeModal = ({ open, onOpenChange, organizationId, onAdd }:
           )}
 
           {(approverType === "reporting_to" || approverType === "project_manager") && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
-              <p className="text-xs text-amber-700">
+            <div className="p-3 bg-accent/50 border border-accent rounded-md">
+              <p className="text-xs text-accent-foreground">
                 {approverType === "reporting_to"
                   ? "This will resolve to each employee's direct manager (reports_to_id) when the pay run is submitted."
                   : "This will resolve to the project's responsible manager when the pay run is submitted."}
