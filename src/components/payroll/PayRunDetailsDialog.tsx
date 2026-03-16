@@ -1404,7 +1404,6 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              // If only one employee is selected, auto-select them for payslip
                               if (selectedItems.size === 1) {
                                 const selectedItem = payItems.find(item => selectedItems.has(item.id));
                                 if (selectedItem) {
@@ -1420,16 +1419,18 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                             <FileText className="h-4 w-4 mr-2" />
                             Generate Payslip{selectedItems.size > 1 ? 's' : ''}
                           </Button>
-                          <Select onValueChange={(value) => handleBulkStatusUpdate(value as any)}>
-                            <SelectTrigger className="w-48">
-                              <SelectValue placeholder="Bulk update status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pending">Mark as Pending</SelectItem>
-                              <SelectItem value="approved">Mark as Approved</SelectItem>
-                              <SelectItem value="paid">Mark as Paid</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          {!isReadOnly && (
+                            <Select onValueChange={(value) => handleBulkStatusUpdate(value as any)}>
+                              <SelectTrigger className="w-48">
+                                <SelectValue placeholder="Bulk update status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pending">Mark as Pending</SelectItem>
+                                <SelectItem value="approved">Mark as Approved</SelectItem>
+                                <SelectItem value="paid">Mark as Paid</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
                         </>
                       )}
 
