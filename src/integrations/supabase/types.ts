@@ -6840,6 +6840,57 @@ export type Database = {
           },
         ]
       }
+      payrun_approvals: {
+        Row: {
+          actioned_at: string | null
+          approver_email: string
+          approver_name: string
+          created_at: string | null
+          id: string
+          payrun_id: string
+          status: string
+          step_order: number
+          token: string
+        }
+        Insert: {
+          actioned_at?: string | null
+          approver_email: string
+          approver_name: string
+          created_at?: string | null
+          id?: string
+          payrun_id: string
+          status?: string
+          step_order: number
+          token?: string
+        }
+        Update: {
+          actioned_at?: string | null
+          approver_email?: string
+          approver_name?: string
+          created_at?: string | null
+          id?: string
+          payrun_id?: string
+          status?: string
+          step_order?: number
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payrun_approvals_payrun_id_fkey"
+            columns: ["payrun_id"]
+            isOneToOne: false
+            referencedRelation: "master_payrolls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payrun_approvals_payrun_id_fkey"
+            columns: ["payrun_id"]
+            isOneToOne: false
+            referencedRelation: "pay_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payrun_employees: {
         Row: {
           created_at: string | null
@@ -6906,6 +6957,58 @@ export type Database = {
             columns: ["pay_run_id"]
             isOneToOne: false
             referencedRelation: "pay_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payrun_workflow_approvers: {
+        Row: {
+          approver_email: string
+          approver_id: string | null
+          approver_name: string
+          company_id: string
+          created_at: string | null
+          id: string
+          step_order: number
+        }
+        Insert: {
+          approver_email: string
+          approver_id?: string | null
+          approver_name: string
+          company_id: string
+          created_at?: string | null
+          id?: string
+          step_order: number
+        }
+        Update: {
+          approver_email?: string
+          approver_id?: string | null
+          approver_name?: string
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          step_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payrun_workflow_approvers_approver_id_fkey"
+            columns: ["approver_id"]
+            isOneToOne: false
+            referencedRelation: "super_admin_dashboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payrun_workflow_approvers_approver_id_fkey"
+            columns: ["approver_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payrun_workflow_approvers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
