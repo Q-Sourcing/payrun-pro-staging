@@ -131,7 +131,7 @@ export const ApprovalWorkflowMessages = ({ workflowId }: ApprovalWorkflowMessage
     };
     let result = template;
     Object.entries(sampleValues).forEach(([k, v]) => {
-      result = result.replaceAll(k, v);
+      result = result.split(k).join(v);
     });
     return result;
   };
