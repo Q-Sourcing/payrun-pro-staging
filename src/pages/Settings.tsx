@@ -35,6 +35,7 @@ import {
   Timer,
   ChevronRight,
   KeyRound,
+  GitBranch,
 } from "lucide-react";
 
 const Settings = () => {
