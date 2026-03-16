@@ -43,7 +43,7 @@ const Settings = () => {
 
   const allMenuItems = [
     { id: "about",           label: "About & Help",        icon: Info,         permission: null },
-    { id: "approvers",       label: "Approvers",           icon: GitBranch,    permission: "payroll.run" },
+    
     { id: "attendance",      label: "Attendance",          icon: Timer,        permission: "attendance.view" },
     { id: "company",         label: "Company",             icon: Building2,    permission: "settings.manage" },
     { id: "contracts",       label: "Contracts",           icon: ScrollText,   permission: "contracts.manage" },
