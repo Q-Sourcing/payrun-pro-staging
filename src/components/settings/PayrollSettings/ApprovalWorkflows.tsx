@@ -315,12 +315,34 @@ export const ApprovalWorkflows = () => {
     setScreen('builder');
   };
 
-  const handleBackToList = () => {
+  const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false);
+
+  const hasUnsavedChanges = () => {
+    if (!selectedWorkflow && editName) return true; // new workflow with edits
+    if (selectedWorkflow) {
+      if (editName !== selectedWorkflow.name) return true;
+      if (editDescription !== (selectedWorkflow.description || "")) return true;
+      if (editActive !== selectedWorkflow.is_active) return true;
+      if (steps.length !== (selectedWorkflow.steps?.length || 0)) return true;
+    }
+    return false;
+  };
+
+  const confirmBackToList = () => {
+    setUnsavedDialogOpen(false);
     setScreen('list');
     setSelectedId(null);
     setSelectedWorkflow(null);
     setEditName("");
     setEditDescription("");
+  };
+
+  const handleBackToList = () => {
+    if (hasUnsavedChanges()) {
+      setUnsavedDialogOpen(true);
+    } else {
+      confirmBackToList();
+    }
   };
 
   const handleDuplicate = async (id: string) => {
