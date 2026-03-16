@@ -19,6 +19,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmployeeCategoriesTab } from './EmployeeCategoriesTab';
 import { CompanyUnitsTab } from './CompanyUnitsTab';
+import { DesignationsManager } from './DesignationsManager';
 
 interface OrganizationSetupModalProps {
     open: boolean;
