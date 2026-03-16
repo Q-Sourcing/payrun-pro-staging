@@ -4,6 +4,9 @@ import { useOrg } from "@/lib/tenant/OrgContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -34,14 +37,23 @@ import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { roleCatalog, type RoleKey } from "@/lib/obacDisplay";
 
-// Roles eligible for approval workflows
-const APPROVER_ROLES: RoleKey[] = [
-  "ORG_OWNER",
-  "ORG_ADMIN",
-  "ORG_PAYROLL_ADMIN",
-  "ORG_FINANCE_APPROVER",
-  "ORG_HEAD_OFFICE_PAYROLL",
+// Roles eligible for approval workflows — grouped for the modal
+const APPROVER_ROLE_GROUPS: { label: string; roles: RoleKey[] }[] = [
+  {
+    label: "Administration & Finance",
+    roles: ["ORG_OWNER", "ORG_ADMIN", "ORG_FINANCE_APPROVER"],
+  },
+  {
+    label: "Payroll",
+    roles: ["ORG_PAYROLL_ADMIN", "ORG_HEAD_OFFICE_PAYROLL"],
+  },
+  {
+    label: "Hierarchy (Auto-Resolved)",
+    roles: ["ORG_REPORTING_MANAGER", "ORG_DEPARTMENT_HEAD", "ORG_PROJECT_MANAGER"],
+  },
 ];
+
+const ALL_APPROVER_ROLES: RoleKey[] = APPROVER_ROLE_GROUPS.flatMap(g => g.roles);
 
 interface WorkflowStep {
   id: string;
@@ -90,6 +102,11 @@ export const ApproversSection = () => {
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserOption | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
+
+  // Per-category config
+  const [categories, setCategories] = useState<{ id: string; key: string; label: string }[]>([]);
+  const [configs, setConfigs] = useState<{ id: string; name: string; is_enabled: boolean; workflow_id: string | null; categories: string[] }[]>([]);
+  const [configsLoading, setConfigsLoading] = useState(false);
 
   // ─── Get or create default workflow ───────────────────────────────────────
 
@@ -199,18 +216,37 @@ export const ApproversSection = () => {
     }
   }, []);
 
+  const fetchCategoryConfigs = useCallback(async () => {
+    if (!organizationId) return;
+    setConfigsLoading(true);
+    try {
+      const [catRes, cfgRes] = await Promise.all([
+        (supabase as any).from("employee_categories").select("id, key, label").eq("organization_id", organizationId),
+        (supabase as any).from("payroll_approval_configs").select("*, categories:payroll_approval_categories(category_id)").eq("organization_id", organizationId),
+      ]);
+      setCategories((catRes.data ?? []) as any[]);
+      setConfigs(
+        (cfgRes.data ?? []).map((c: any) => ({
+          ...c,
+          categories: c.categories?.map((x: any) => x.category_id) || [],
+        }))
+      );
+    } catch { /* ignore */ }
+    setConfigsLoading(false);
+  }, [organizationId]);
+
   useEffect(() => {
     const init = async () => {
       if (!organizationId) return;
       const wfId = await ensureDefaultWorkflow();
       if (wfId) {
         setWorkflowId(wfId);
-        await fetchSteps(wfId);
-        await fetchWorkflowMeta(wfId);
+        await Promise.all([fetchSteps(wfId), fetchWorkflowMeta(wfId)]);
       }
+      await fetchCategoryConfigs();
     };
     init();
-  }, [organizationId, ensureDefaultWorkflow, fetchSteps, fetchWorkflowMeta]);
+  }, [organizationId, ensureDefaultWorkflow, fetchSteps, fetchWorkflowMeta, fetchCategoryConfigs]);
 
   // ─── Ensure payroll_approval_configs catch-all row ───────────────────────
 
@@ -529,6 +565,69 @@ export const ApproversSection = () => {
         </CardContent>
       </Card>
 
+      {/* Per-Category Approval Config */}
+      <Card className="mt-6">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg">Category-Specific Approvals</CardTitle>
+          <CardDescription>
+            Assign different approval workflows to specific employee categories (e.g. Head Office vs Projects).
+            Categories without a config will use the default workflow above.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {configsLoading ? (
+            <div className="flex items-center gap-2 py-6 justify-center text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Loading configs…</span>
+            </div>
+          ) : configs.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-sm text-muted-foreground">
+                No category-specific configs yet. All categories use the default workflow.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {configs.map((cfg) => (
+                <div key={cfg.id} className="flex items-center justify-between rounded-lg border bg-card px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium">{cfg.name}</p>
+                      <Badge variant={cfg.is_enabled ? "default" : "secondary"} className="text-[10px]">
+                        {cfg.is_enabled ? "Active" : "Disabled"}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {cfg.categories.map((catId) => {
+                        const cat = categories.find((c) => c.id === catId);
+                        return cat ? (
+                          <Badge key={catId} variant="outline" className="text-[10px]">
+                            {cat.label || cat.key}
+                          </Badge>
+                        ) : null;
+                      })}
+                    </div>
+                  </div>
+                  <Switch
+                    checked={cfg.is_enabled}
+                    onCheckedChange={async (val) => {
+                      await (supabase as any)
+                        .from("payroll_approval_configs")
+                        .update({ is_enabled: val })
+                        .eq("id", cfg.id);
+                      await fetchCategoryConfigs();
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground pt-2">
+            To manage approval streams in detail, go to <strong>Payroll Settings → Approval Workflows</strong>.
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Add Approver Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-md">
@@ -566,28 +665,36 @@ export const ApproversSection = () => {
             {approverMode === "role" && (
               <div className="space-y-2">
                 <Label>Select Role</Label>
-                <div className="border rounded-md divide-y max-h-56 overflow-y-auto">
-                  {APPROVER_ROLES.map((roleKey) => {
-                    const role = roleCatalog[roleKey];
-                    const isSelected = selectedRole === roleKey;
-                    return (
-                      <button
-                        key={roleKey}
-                        className={`w-full text-left px-3 py-2.5 transition-colors text-sm ${
-                          isSelected ? "bg-primary/10 border-primary/20" : "hover:bg-muted"
-                        }`}
-                        onClick={() => setSelectedRole(roleKey)}
-                      >
-                        <div className="flex items-center gap-2">
-                          <ShieldCheck className={`h-4 w-4 shrink-0 ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
-                          <div>
-                            <p className="font-medium">{role.label}</p>
-                            <p className="text-xs text-muted-foreground">{role.description}</p>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
+                <div className="border rounded-md max-h-64 overflow-y-auto">
+                  {APPROVER_ROLE_GROUPS.map((group) => (
+                    <div key={group.label}>
+                      <div className="px-3 py-1.5 bg-muted/50 text-xs font-semibold text-muted-foreground uppercase tracking-wider sticky top-0">
+                        {group.label}
+                      </div>
+                      {group.roles.map((roleKey) => {
+                        const role = roleCatalog[roleKey];
+                        const isSelected = selectedRole === roleKey;
+                        const isHierarchy = group.label.includes("Hierarchy");
+                        return (
+                          <button
+                            key={roleKey}
+                            className={`w-full text-left px-3 py-2.5 transition-colors text-sm border-b last:border-b-0 ${
+                              isSelected ? "bg-primary/10 border-primary/20" : "hover:bg-muted"
+                            }`}
+                            onClick={() => setSelectedRole(roleKey)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <ShieldCheck className={`h-4 w-4 shrink-0 ${isSelected ? "text-primary" : isHierarchy ? "text-amber-500" : "text-muted-foreground"}`} />
+                              <div>
+                                <p className="font-medium">{role.label}</p>
+                                <p className="text-xs text-muted-foreground">{role.description}</p>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
                 {selectedRole && (
                   <div className="flex items-center gap-2 p-3 bg-primary/5 rounded-md border border-primary/20">
