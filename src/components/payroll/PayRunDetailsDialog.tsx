@@ -287,6 +287,10 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
       setPayRunData(payRunData);
 
+      // Fetch current user's pending step for this payrun (for button gating)
+      const myStep = await PayrunsService.getMyStepForPayrun(payRunId);
+      setCurrentUserStep(myStep);
+
       // Check if this is an expatriate pay run
       const isExpat = payRunData?.payroll_type === 'expatriate' ||
         payRunData?.pay_group_master?.type === 'expatriate';
