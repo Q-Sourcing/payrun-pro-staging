@@ -565,6 +565,69 @@ export const ApproversSection = () => {
         </CardContent>
       </Card>
 
+      {/* Per-Category Approval Config */}
+      <Card className="mt-6">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg">Category-Specific Approvals</CardTitle>
+          <CardDescription>
+            Assign different approval workflows to specific employee categories (e.g. Head Office vs Projects).
+            Categories without a config will use the default workflow above.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {configsLoading ? (
+            <div className="flex items-center gap-2 py-6 justify-center text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-sm">Loading configs…</span>
+            </div>
+          ) : configs.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-sm text-muted-foreground">
+                No category-specific configs yet. All categories use the default workflow.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {configs.map((cfg) => (
+                <div key={cfg.id} className="flex items-center justify-between rounded-lg border bg-card px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium">{cfg.name}</p>
+                      <Badge variant={cfg.is_enabled ? "default" : "secondary"} className="text-[10px]">
+                        {cfg.is_enabled ? "Active" : "Disabled"}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {cfg.categories.map((catId) => {
+                        const cat = categories.find((c) => c.id === catId);
+                        return cat ? (
+                          <Badge key={catId} variant="outline" className="text-[10px]">
+                            {cat.label || cat.key}
+                          </Badge>
+                        ) : null;
+                      })}
+                    </div>
+                  </div>
+                  <Switch
+                    checked={cfg.is_enabled}
+                    onCheckedChange={async (val) => {
+                      await (supabase as any)
+                        .from("payroll_approval_configs")
+                        .update({ is_enabled: val })
+                        .eq("id", cfg.id);
+                      await fetchCategoryConfigs();
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground pt-2">
+            To manage approval streams in detail, go to <strong>Payroll Settings → Approval Workflows</strong>.
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Add Approver Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-md">
