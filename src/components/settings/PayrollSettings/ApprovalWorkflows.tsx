@@ -595,8 +595,10 @@ export const ApprovalWorkflows = () => {
                     {selectedId ? (
                       <ApprovalCriteriaBuilder workflowId={selectedId} organizationId={orgId} />
                     ) : (
-                      <div className="py-8 text-center border-2 border-dashed rounded-lg">
-                        <p className="text-sm text-muted-foreground">Save the workflow first to set criteria.</p>
+                      <div className="py-6 text-center border-2 border-dashed rounded-lg">
+                        <Filter className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">Criteria can be configured after saving.</p>
+                        <p className="text-xs text-muted-foreground mt-1">Complete the other sections and save to enable criteria.</p>
                       </div>
                     )}
                   </CardContent>
