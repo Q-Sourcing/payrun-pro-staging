@@ -1435,93 +1435,94 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                       )}
 
                       <div className="ml-auto flex gap-2">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="default" size="sm">
-                              <Settings className="h-4 w-4 mr-2" />
-                              Bulk Actions
-                              <ChevronDown className="h-4 w-4 ml-2" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-64">
-                            <DropdownMenuItem onClick={() => setBulkAddDialogOpen(true)} className="gap-2">
-                              <Plus className="h-4 w-4 text-green-600" />
-                              <span>Add to All Employees</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setBulkDeductDialogOpen(true)} className="gap-2">
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                              <span>Deduct from All Employees</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setGeneratePayslipsDialogOpen(true)} className="gap-2">
-                              <FileText className="h-4 w-4 text-blue-600" />
-                              <span>Generate All Payslips</span>
-                            </DropdownMenuItem>
-                            {canExportBankSchedule && (
-                              <DropdownMenuItem onClick={() => setBankScheduleDialogOpen(true)} className="gap-2">
-                                <FileSpreadsheet className="h-4 w-4 text-green-600" />
-                                <span>Export Bank Schedule</span>
+                        {!isReadOnly && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="default" size="sm">
+                                <Settings className="h-4 w-4 mr-2" />
+                                Bulk Actions
+                                <ChevronDown className="h-4 w-4 ml-2" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-64">
+                              <DropdownMenuItem onClick={() => setBulkAddDialogOpen(true)} className="gap-2">
+                                <Plus className="h-4 w-4 text-green-600" />
+                                <span>Add to All Employees</span>
                               </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem onClick={() => setLstDialogOpen(true)} className="gap-2">
-                              <Flag className="h-4 w-4 text-green-700" />
-                              <span>Uganda LST Deductions</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={async () => {
-                              try {
-                                if (!payRunId) return;
-                                // Remove all LST custom deductions for items in this pay run only
-                                const { data: items } = await (supabase as any)
-                                  .from("pay_items")
-                                  .select("id")
-                                  .eq("pay_run_id", payRunId);
-                                const ids = (items || []).map(i => i.id);
-                                if (ids.length > 0) {
-                                  await (supabase as any)
-                                    .from("pay_item_custom_deductions")
-                                    .delete()
-                                    .in("pay_item_id", ids)
-                                    .eq("name", "LST");
+                              <DropdownMenuItem onClick={() => setBulkDeductDialogOpen(true)} className="gap-2">
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                                <span>Deduct from All Employees</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => setGeneratePayslipsDialogOpen(true)} className="gap-2">
+                                <FileText className="h-4 w-4 text-blue-600" />
+                                <span>Generate All Payslips</span>
+                              </DropdownMenuItem>
+                              {canExportBankSchedule && (
+                                <DropdownMenuItem onClick={() => setBankScheduleDialogOpen(true)} className="gap-2">
+                                  <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                                  <span>Export Bank Schedule</span>
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => setLstDialogOpen(true)} className="gap-2">
+                                <Flag className="h-4 w-4 text-green-700" />
+                                <span>Uganda LST Deductions</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={async () => {
+                                try {
+                                  if (!payRunId) return;
+                                  const { data: items } = await (supabase as any)
+                                    .from("pay_items")
+                                    .select("id")
+                                    .eq("pay_run_id", payRunId);
+                                  const ids = (items || []).map(i => i.id);
+                                  if (ids.length > 0) {
+                                    await (supabase as any)
+                                      .from("pay_item_custom_deductions")
+                                      .delete()
+                                      .in("pay_item_id", ids)
+                                      .eq("name", "LST");
+                                  }
+                                  await updatePayRunTotals();
+                                  fetchPayItems();
+                                  toast({ title: "LST Removed", description: "Removed LST deductions for this pay run." });
+                                } catch (e: any) {
+                                  toast({ title: "Failed to remove LST", description: e?.message || "", variant: "destructive" });
                                 }
-                                await updatePayRunTotals();
-                                fetchPayItems();
-                                toast({ title: "LST Removed", description: "Removed LST deductions for this pay run." });
-                              } catch (e: any) {
-                                toast({ title: "Failed to remove LST", description: e?.message || "", variant: "destructive" });
-                              }
-                            }} className="gap-2">
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                              <span>Remove LST Deductions</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setGeneratePayrollSummaryDialogOpen(true)} className="gap-2">
-                              <Download className="h-4 w-4 text-blue-600" />
-                              <span>Generate Payroll Summary</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setApplyBenefitsDialogOpen(true)} className="gap-2">
-                              <Gift className="h-4 w-4 text-purple-600" />
-                              <span>Apply Benefits Package</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setRecalculateTaxesDialogOpen(true)} className="gap-2">
-                              <Calculator className="h-4 w-4 text-orange-600" />
-                              <span>Recalculate All Taxes</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setRemoveCustomItemsDialogOpen(true)} className="gap-2">
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                              <span>Remove All Custom Items</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => setBulkSelectedDialogOpen(true)}
-                              disabled={selectedItems.size === 0}
-                              className="gap-2"
-                            >
-                              <Settings className="h-4 w-4" />
-                              <span>Apply to Selected ({selectedItems.size})</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                              }} className="gap-2">
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                                <span>Remove LST Deductions</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setGeneratePayrollSummaryDialogOpen(true)} className="gap-2">
+                                <Download className="h-4 w-4 text-blue-600" />
+                                <span>Generate Payroll Summary</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => setApplyBenefitsDialogOpen(true)} className="gap-2">
+                                <Gift className="h-4 w-4 text-purple-600" />
+                                <span>Apply Benefits Package</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setRecalculateTaxesDialogOpen(true)} className="gap-2">
+                                <Calculator className="h-4 w-4 text-orange-600" />
+                                <span>Recalculate All Taxes</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => setRemoveCustomItemsDialogOpen(true)} className="gap-2">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                                <span>Remove All Custom Items</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setBulkSelectedDialogOpen(true)}
+                                disabled={selectedItems.size === 0}
+                                className="gap-2"
+                              >
+                                <Settings className="h-4 w-4" />
+                                <span>Apply to Selected ({selectedItems.size})</span>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
 
                         <Button variant="outline" size="sm" onClick={exportToCSV}>
                           <Download className="h-4 w-4 mr-2" />
