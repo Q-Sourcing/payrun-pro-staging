@@ -25,7 +25,7 @@ export function IppmsPieceRatesPanel({ projectId }: Props) {
 
   const getEmployeeName = (id: string) => {
     const emp = (employees || []).find((e: any) => e.id === id);
-    if (!emp) return id.slice(0, 8) + '…';
+    if (!emp) return (id || "").slice(0, 8) + '…';
     return [emp.first_name, emp.last_name].filter(Boolean).join(' ') || emp.email;
   };
 
@@ -77,7 +77,7 @@ export function IppmsPieceRatesPanel({ projectId }: Props) {
                 {rates.map((row) => (
                   <tr key={row.id} className="border-b last:border-0 hover:bg-muted/10 transition-colors">
                     <td className="py-2.5 px-4 font-medium">{getEmployeeName(row.employee_id)}</td>
-                    <td className="py-2.5 px-4">{row.piece_id.slice(0, 8)}</td>
+                    <td className="py-2.5 px-4">{(row.piece_id || "").slice(0, 8)}</td>
                     <td className="py-2.5 px-4 text-right tabular-nums font-semibold">{row.rate.toFixed(2)}</td>
                     <td className="py-2.5 px-4 font-mono text-muted-foreground">{row.start_date}</td>
                     <td className="py-2.5 px-4 font-mono text-muted-foreground">{row.end_date || '—'}</td>

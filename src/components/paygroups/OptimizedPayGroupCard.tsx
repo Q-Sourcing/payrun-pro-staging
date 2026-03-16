@@ -86,7 +86,7 @@ export default function OptimizedPayGroupCard({
                   variant="secondary" 
                   className={`mt-1 ${getPayGroupTypeColor(group.type)}`}
                 >
-                  {group.type.charAt(0).toUpperCase() + group.type.slice(1)}
+                  {(group.type || "").charAt(0).toUpperCase() + (group.type || "").slice(1)}
                 </Badge>
               </div>
             </div>

@@ -4,7 +4,7 @@ import { getOrgPayGroups } from '@/lib/services/OrgDataService'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function PayGroupsOverview() {
-  const { organizationId } = useOrg()
+  const { organizationId, companyId } = useOrg()
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -12,12 +12,12 @@ export default function PayGroupsOverview() {
     async function load() {
       if (!organizationId) return
       setLoading(true)
-      const { data } = await getOrgPayGroups(organizationId)
+      const { data } = await getOrgPayGroups(organizationId, { companyId: companyId || undefined })
       setRows(data || [])
       setLoading(false)
     }
     load()
-  }, [organizationId])
+  }, [organizationId, companyId])
 
   return (
     <div className="px-6 py-6">

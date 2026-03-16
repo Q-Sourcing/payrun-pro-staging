@@ -187,7 +187,9 @@ const App = () => {
                 <Route path="/set-password" element={<SetPassword />} />
                 <Route path="/choose-company" element={
                   <ProtectedRoute>
-                    <CompanyPicker />
+                    <OrgProvider>
+                      <CompanyPicker />
+                    </OrgProvider>
                   </ProtectedRoute>
                 } />
 

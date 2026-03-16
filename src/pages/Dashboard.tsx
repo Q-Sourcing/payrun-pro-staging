@@ -4,7 +4,7 @@ import { getDashboardStats, getRecentPayRuns, getCompaniesSummary } from '@/lib/
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const Dashboard = () => {
-  const { organizationId } = useOrg();
+  const { organizationId, companyId } = useOrg();
   const [stats, setStats] = useState<{ companies: number; employees: number; groups: number; payroll: number }>({ companies: 0, employees: 0, groups: 0, payroll: 0 });
   const [payRuns, setPayRuns] = useState<any[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
@@ -14,23 +14,23 @@ const Dashboard = () => {
     if (!organizationId) return;
     setLoading(true);
     Promise.all([
-      getDashboardStats(organizationId),
-      getRecentPayRuns(organizationId),
-      getCompaniesSummary(organizationId)
+      getDashboardStats(organizationId, companyId || undefined),
+      getRecentPayRuns(organizationId, 5, companyId || undefined),
+      getCompaniesSummary(organizationId, companyId || undefined)
     ]).then(([stats, payRunsRes, companiesRes]) => {
       setStats(stats);
       setPayRuns(payRunsRes.data || []);
       setCompanies(companiesRes.data || []);
       setLoading(false);
     });
-  }, [organizationId]);
+  }, [organizationId, companyId]);
 
   return (
     <div className="px-6 py-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Organization Overview</h1>
-          <p className="text-muted-foreground text-sm">Welcome back — here’s how your organization is performing.</p>
+          <p className="text-muted-foreground text-sm">Welcome back — here's how your organization is performing.</p>
         </div>
       </div>
       {/* Metrics */}

@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import AddProjectDialog from "@/components/projects/AddProjectDialog";
 import { Plus, FolderKanban, Calendar, CheckCircle2, XCircle, Clock, MapPin, Building2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useOrg } from "@/lib/tenant/OrgContext";
 
 interface Project {
     id: string;
@@ -25,6 +26,7 @@ interface Project {
 }
 
 const Projects = () => {
+    const { organizationId, companyId } = useOrg();
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAddDialog, setShowAddDialog] = useState(false);
@@ -33,10 +35,14 @@ const Projects = () => {
 
     const fetchProjects = async () => {
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from("projects")
-                .select("*")
-                .order("created_at", { ascending: false });
+                .select("*") as any;
+            
+            if (organizationId) query = query.eq('organization_id', organizationId);
+            if (companyId) query = query.eq('company_id', companyId);
+            
+            const { data, error } = await query.order("created_at", { ascending: false });
 
             if (error) throw error;
             setProjects(data || []);
@@ -54,7 +60,7 @@ const Projects = () => {
 
     useEffect(() => {
         fetchProjects();
-    }, []);
+    }, [organizationId, companyId]);
 
     const getStatusBadge = (status: string) => {
         switch (status) {

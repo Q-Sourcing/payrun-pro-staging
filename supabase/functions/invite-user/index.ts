@@ -92,10 +92,7 @@ serve(async (req) => {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }, { onConflict: 'id' })
-
-        if (profileErr) {
-          console.error('Profile upsert error on accept:', profileErr)
-        }
+        if (profileErr) console.error('Profile upsert error on accept:', profileErr)
 
         const { error: upErr } = await supabaseAdmin.from('user_profiles').upsert({
           id: user_id,
@@ -105,9 +102,28 @@ serve(async (req) => {
           role: inv.role || 'user',
           updated_at: new Date().toISOString(),
         }, { onConflict: 'id' })
+        if (upErr) console.error('user_profiles upsert error on accept:', upErr)
 
-        if (upErr) {
-          console.error('user_profiles upsert error on accept:', upErr)
+        // ── Wire up RBAC: assign the invited role so permissions take effect ──
+        if (inv.role) {
+          // Determine org_id from any existing profile
+          let orgId = '00000000-0000-0000-0000-000000000001'
+          const { data: existingProfile } = await supabaseAdmin
+            .from('user_profiles').select('organization_id').eq('id', user_id).maybeSingle()
+          if (existingProfile?.organization_id) orgId = existingProfile.organization_id
+
+          // Remove old org-level assignments, then insert fresh one
+          await supabaseAdmin.from('rbac_assignments').delete()
+            .eq('user_id', user_id).eq('org_id', orgId).neq('role_code', 'PLATFORM_SUPER_ADMIN')
+
+          const { error: rbacErr } = await supabaseAdmin.from('rbac_assignments').upsert({
+            user_id,
+            role_code: inv.role,
+            scope_type: 'GLOBAL',
+            scope_id: null,
+            org_id: orgId,
+          }, { onConflict: 'user_id,role_code,scope_type' })
+          if (rbacErr) console.error('rbac_assignments upsert error on accept:', rbacErr)
         }
       }
 

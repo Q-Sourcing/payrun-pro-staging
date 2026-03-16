@@ -73,13 +73,13 @@ export function IppmsLeavePanel({ projectId }: Props) {
 
   const getEmployeeName = (id: string) => {
     const emp = (employees || []).find((e: any) => e.id === id);
-    if (!emp) return id.slice(0, 8) + '…';
+    if (!emp) return (id || "").slice(0, 8) + '…';
     return [emp.first_name, emp.last_name].filter(Boolean).join(' ') || emp.email;
   };
 
   const getLeaveTypeName = (id: string) => {
     const lt = typeOptions.find((t) => t.id === id);
-    return lt ? lt.name : id.slice(0, 8);
+    return lt ? lt.name : (id || "").slice(0, 8);
   };
 
   const stats = useMemo(() => ({

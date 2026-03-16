@@ -9,7 +9,7 @@ import { ChevronLeft, ChevronRight, DollarSign, TrendingUp, FileText, Clock } fr
 const PAGE_SIZE = 10
 
 export default function PayRunsOverview() {
-  const { organizationId } = useOrg()
+  const { organizationId, companyId } = useOrg()
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
@@ -18,12 +18,12 @@ export default function PayRunsOverview() {
     async function load() {
       if (!organizationId) return
       setLoading(true)
-      const { data } = await getOrgPayRuns(organizationId)
+      const { data } = await getOrgPayRuns(organizationId, { companyId: companyId || undefined })
       setRows(data || [])
       setLoading(false)
     }
     load()
-  }, [organizationId])
+  }, [organizationId, companyId])
 
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
   const paginatedRows = rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)

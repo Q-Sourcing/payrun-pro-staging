@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 import { UserRole } from '@/lib/types/roles';
+import { queryClient } from '@/lib/data/query-client';
 
 interface OrgContextValue {
   organizationId: string | null;
@@ -9,7 +10,8 @@ interface OrgContextValue {
   companyId: string | null;
   companyUnitId: string | null;
   isPlatformAdmin: boolean;
-  selectedOrganizationId: string | null; // For platform admin context switching
+  needsCompanySelection: boolean;
+  selectedOrganizationId: string | null;
   setCompanyId: (companyId: string | null) => void;
   setCompanyUnitId: (companyUnitId: string | null) => void;
   setSelectedOrganizationId: (orgId: string | null) => void;
@@ -23,25 +25,49 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
   const { user, session, profile, isLoading } = useSupabaseAuth();
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
-  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [companyId, setCompanyIdState] = useState<string | null>(null);
   const [companyUnitId, setCompanyUnitId] = useState<string | null>(null);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
+  const [needsCompanySelection, setNeedsCompanySelection] = useState(false);
 
-  // Check if user is platform admin
   const isPlatformAdmin = user?.email?.toLowerCase() === PLATFORM_ADMIN_EMAIL.toLowerCase() ||
     localStorage.getItem('login_mode') === 'platform_admin';
 
-  // Attempt to derive org from multiple sources
+  // When companyId changes, re-derive organizationId from the company + invalidate all caches
+  const setCompanyId = useCallback(async (newCompanyId: string | null) => {
+    setCompanyIdState(newCompanyId);
+    setNeedsCompanySelection(false);
+    
+    // Invalidate ALL query caches so every page refetches with new company scope
+    queryClient.clear();
+    
+    if (newCompanyId) {
+      if (typeof window !== 'undefined') localStorage.setItem('active_company_id', newCompanyId);
+      try {
+        const { data: comp } = await supabase
+          .from('companies')
+          .select('organization_id')
+          .eq('id', newCompanyId)
+          .single();
+        if (comp?.organization_id) {
+          setOrganizationId(comp.organization_id);
+          if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', comp.organization_id);
+        }
+      } catch { }
+    }
+  }, []);
+
   useEffect(() => {
     async function resolveOrg() {
-      // Ensure company context first (from picker/membership)
-      try {
-        const storedCompany = typeof window !== 'undefined' ? localStorage.getItem('active_company_id') : null;
-        if (!companyId && storedCompany) {
-          setCompanyId(storedCompany);
-        }
-        // If no company selected yet, try to derive from memberships
-        if (!storedCompany && user?.id) {
+      // Restore company from localStorage
+      const storedCompany = typeof window !== 'undefined' ? localStorage.getItem('active_company_id') : null;
+      if (!companyId && storedCompany) {
+        setCompanyIdState(storedCompany);
+      }
+
+      // If no company stored, check memberships
+      if (!storedCompany && user?.id) {
+        try {
           const { data, error } = await supabase
             .from('user_company_memberships')
             .select('company_id')
@@ -49,64 +75,72 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
           if (!error && data) {
             if (data.length === 1) {
               const cid = data[0].company_id;
-              setCompanyId(cid);
+              setCompanyIdState(cid);
               if (typeof window !== 'undefined') localStorage.setItem('active_company_id', cid);
+              const { data: comp } = await supabase
+                .from('companies')
+                .select('organization_id')
+                .eq('id', cid)
+                .single();
+              if (comp?.organization_id) {
+                setOrganizationId(comp.organization_id);
+                if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', comp.organization_id);
+              }
+              setNeedsCompanySelection(false);
+              return;
             } else if (data.length > 1) {
-              // Multiple choices: let the company picker handle selection
-              // Don't auto-pick here
-            }
-          }
-        }
-      } catch { }
-
-      // Platform admin mode - use selected organization or default
-      if (isPlatformAdmin) {
-        const selectedOrg = selectedOrganizationId ||
-          (typeof window !== 'undefined' ? localStorage.getItem('active_organization_id') : null);
-        if (selectedOrg) {
-          setOrganizationId(selectedOrg);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('active_organization_id', selectedOrg);
-          }
-          return;
-        }
-        // Platform admin without selected org - try to get first org or leave null
-        try {
-          const orgs = await supabase.from('organizations').select('id').limit(1);
-          if (!orgs.error && orgs.data && orgs.data.length > 0) {
-            setOrganizationId(orgs.data[0].id);
-            setSelectedOrganizationId(orgs.data[0].id);
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('active_organization_id', orgs.data[0].id);
-            }
-          }
-        } catch { }
-        return;
-      }
-
-      // Regular user flow
-      // 1) localStorage (persisted selection)
-      const stored = typeof window !== 'undefined' ? localStorage.getItem('active_organization_id') : null;
-      if (!organizationId && stored) {
-        setOrganizationId(stored);
-      }
-
-      // If organization is still unknown, derive it from selected company
-      if (!organizationId) {
-        try {
-          const effectiveCompanyId = companyId || (typeof window !== 'undefined' ? localStorage.getItem('active_company_id') : null);
-          if (effectiveCompanyId) {
-            const { data: comp } = await supabase.from('companies').select('organization_id').eq('id', effectiveCompanyId).single();
-            if (comp?.organization_id) {
-              setOrganizationId(comp.organization_id);
-              if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', comp.organization_id);
+              setNeedsCompanySelection(true);
               return;
             }
           }
         } catch { }
       }
 
-      // 2) user_profiles via loaded profile
+      // Platform admin mode
+      if (isPlatformAdmin) {
+        const selectedOrg = selectedOrganizationId ||
+          (typeof window !== 'undefined' ? localStorage.getItem('active_organization_id') : null);
+        if (selectedOrg) {
+          setOrganizationId(selectedOrg);
+          if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', selectedOrg);
+          return;
+        }
+        try {
+          const orgs = await supabase.from('organizations').select('id').limit(1);
+          if (!orgs.error && orgs.data && orgs.data.length > 0) {
+            setOrganizationId(orgs.data[0].id);
+            setSelectedOrganizationId(orgs.data[0].id);
+            if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', orgs.data[0].id);
+          }
+        } catch { }
+        return;
+      }
+
+      // Regular user: derive org from stored company
+      const effectiveCompanyId = companyId || storedCompany;
+      if (effectiveCompanyId && !organizationId) {
+        try {
+          const { data: comp } = await supabase
+            .from('companies')
+            .select('organization_id')
+            .eq('id', effectiveCompanyId)
+            .single();
+          if (comp?.organization_id) {
+            setOrganizationId(comp.organization_id);
+            if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', comp.organization_id);
+            return;
+          }
+        } catch { }
+      }
+
+      // Stored org
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('active_organization_id') : null;
+      if (!organizationId && stored) {
+        setOrganizationId(stored);
+        return;
+      }
+
+      // Profile fallback
       if (profile?.organization_id) {
         setOrganizationId(profile.organization_id);
         if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', profile.organization_id);
@@ -114,7 +148,7 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      // 3) JWT claims
+      // JWT claims
       try {
         const jwt = session?.access_token;
         if (jwt) {
@@ -128,7 +162,7 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
         }
       } catch { }
 
-      // 4) Query user_profiles directly for this user (in case profile context not populated yet)
+      // Query user_profiles
       try {
         if (user?.id) {
           const up = await supabase.from('user_profiles').select('organization_id, role').eq('id', user.id).single();
@@ -141,7 +175,7 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
         }
       } catch { }
 
-      // 5) Heuristic fallbacks: first visible organization → else infer from companies/pay_groups/employees
+      // Heuristic fallbacks
       try {
         const orgs = await supabase.from('organizations').select('id').limit(1);
         if (!orgs.error && orgs.data && orgs.data.length > 0) {
@@ -150,33 +184,8 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
       } catch { }
-      try {
-        const comps = await supabase.from('companies').select('organization_id').limit(1);
-        if (!comps.error && comps.data && comps.data.length > 0 && comps.data[0].organization_id) {
-          setOrganizationId(comps.data[0].organization_id);
-          if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', comps.data[0].organization_id);
-          return;
-        }
-      } catch { }
-      try {
-        const pgs = await supabase.from('pay_groups').select('organization_id').limit(1);
-        if (!pgs.error && pgs.data && pgs.data.length > 0 && pgs.data[0].organization_id) {
-          setOrganizationId(pgs.data[0].organization_id);
-          if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', pgs.data[0].organization_id);
-          return;
-        }
-      } catch { }
-      try {
-        const emps = await supabase.from('employees').select('organization_id').limit(1);
-        if (!emps.error && emps.data && emps.data.length > 0 && emps.data[0].organization_id) {
-          setOrganizationId(emps.data[0].organization_id);
-          if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', emps.data[0].organization_id);
-          return;
-        }
-      } catch { }
     }
 
-    // Avoid running while auth is still loading to reduce flicker
     if (!isLoading) {
       resolveOrg();
     }
@@ -188,6 +197,7 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
     companyId,
     companyUnitId,
     isPlatformAdmin,
+    needsCompanySelection,
     selectedOrganizationId,
     setCompanyId,
     setCompanyUnitId,

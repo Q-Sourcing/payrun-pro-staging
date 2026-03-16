@@ -33,6 +33,7 @@ import { UserPlus, Eye, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ProjectsService } from "@/lib/services/projects.service";
 import { useQuery } from "@tanstack/react-query";
+import { useOrg } from "@/lib/tenant/OrgContext";
 
 interface PayRun {
   id: string;
@@ -61,6 +62,7 @@ interface PayRun {
 }
 
 const PayRunsTab = () => {
+  const { organizationId, companyId } = useOrg();
   const [payRuns, setPayRuns] = useState<PayRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -110,7 +112,7 @@ const PayRunsTab = () => {
             error = result.error;
           } else {
             // Regular query for all pay runs using pay_group_master
-            const result = await (supabase
+            let payRunQuery = (supabase
               .from("pay_runs" as any)
               .select(`
                 *,
@@ -123,8 +125,11 @@ const PayRunsTab = () => {
                 ),
                 pay_items (count),
                 projects (name)
-              `)
-              .order("pay_run_date", { ascending: false }) as any);
+              `) as any);
+            
+            if (organizationId) payRunQuery = payRunQuery.eq('organization_id', organizationId);
+            
+            const result = await payRunQuery.order("pay_run_date", { ascending: false });
 
             data = result.data;
             error = result.error;
@@ -233,7 +238,7 @@ const PayRunsTab = () => {
 
   useEffect(() => {
     fetchPayRuns();
-  }, []);
+  }, [organizationId, companyId]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -257,7 +262,7 @@ const PayRunsTab = () => {
       case "processed":
         return "Processed";
       default:
-        return status.charAt(0).toUpperCase() + status.slice(1);
+        return (status || "").charAt(0).toUpperCase() + (status || "").slice(1);
     }
   };
 
@@ -266,11 +271,10 @@ const PayRunsTab = () => {
     if (category === 'projects') return 'Projects';
     return 'Other';
   };
-
   const getTypeLabel = (type?: string) => {
     if (!type) return 'Regular';
     if (type === 'regular' || type === 'local') return 'Regular';
-    return type.charAt(0).toUpperCase() + type.slice(1);
+    return (type || "").charAt(0).toUpperCase() + (type || "").slice(1);
   };
 
   const formatCurrency = (amount: number, payRun?: PayRun) => {

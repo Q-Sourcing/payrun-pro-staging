@@ -70,7 +70,7 @@ export function CorrectiveActionList() {
                   <TableCell className="max-w-xs truncate">{a.description}</TableCell>
                   <TableCell><Badge variant="outline">{a.source_type}</Badge></TableCell>
                   <TableCell><Badge className={PRIORITY_COLORS[a.priority]}>{a.priority}</Badge></TableCell>
-                  <TableCell><Badge className={STATUS_COLORS[a.status] || ''}>{a.status.replace('_', ' ')}</Badge></TableCell>
+                  <TableCell><Badge className={STATUS_COLORS[a.status] || ''}>{a.status?.replace('_', ' ') ?? '—'}</Badge></TableCell>
                   <TableCell>{a.due_date ? format(new Date(a.due_date), 'MMM d, yyyy') : '—'}</TableCell>
                   <TableCell>
                     {a.status !== 'closed' && (

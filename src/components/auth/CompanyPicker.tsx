@@ -4,11 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+import { useOrg } from '@/lib/tenant/OrgContext';
 
 type Company = { id: string; name: string };
 
 export default function CompanyPicker() {
   const { user } = useSupabaseAuth();
+  const { setCompanyId } = useOrg();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -33,7 +35,7 @@ export default function CompanyPicker() {
         // Auto-select if only one
         if (mapped.length === 1) {
           const id = mapped[0].id;
-          localStorage.setItem('active_company_id', id);
+          setCompanyId(id);
           navigate('/dashboard', { replace: true });
         }
       } catch (e) {
@@ -43,10 +45,10 @@ export default function CompanyPicker() {
       }
     })();
     return () => { cancelled = true; };
-  }, [user?.id, navigate]);
+  }, [user?.id, navigate, setCompanyId]);
 
   const choose = (id: string) => {
-    localStorage.setItem('active_company_id', id);
+    setCompanyId(id);
     navigate('/dashboard', { replace: true });
   };
 
