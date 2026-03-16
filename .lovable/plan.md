@@ -1,54 +1,58 @@
 
+# Add Contract Template Manager to Settings
 
-## Refactor Settings Page to Full Screen
+## What We're Building
+A new "Contract Templates" section in the Settings panel where admins can create, edit, and manage contract templates. These templates are then available when generating contracts for employees.
 
-The Settings page currently renders inside the MainLayout's content area (with sidebar + header + padding), constraining it within `max-w-7xl` and `px-4 lg:px-8 py-6`. To make it full screen, I'll make the Settings page take over the entire viewport — hiding the main sidebar and header — similar to how `isAdvancedSettingsOpen` already works in MainLayout.
+## Changes
 
-### Approach
+### 1. New Component: ContractTemplateManager
+- Location: `src/components/settings/ContractTemplateManager.tsx`
+- Features:
+  - List all active templates for the current organization (table with name, country, employment type, version)
+  - "New Template" button opening a dialog/form
+  - Edit existing templates
+  - Delete (soft-delete by setting `is_active = false`)
+- Template form fields:
+  - Name (required)
+  - Description
+  - Country code (optional dropdown)
+  - Employment type (optional dropdown: permanent, contract, intern, expatriate)
+  - Body HTML (rich text area with placeholder variable hints like `{{employee_name}}`, `{{start_date}}`, `{{job_title}}`, `{{salary}}`)
+  - Placeholders editor (add/remove placeholder keys with labels and default values)
+- Preview pane showing rendered HTML
 
-**Use the existing `SettingsModal` pattern**: MainLayout already supports an "advanced settings" mode that hides the sidebar and header and gives the content `100vw`. Instead of rendering Settings as a routed page inside the layout, I'll convert the Settings page itself into a full-screen overlay that:
+### 2. Register in SettingsContent
+- Add a new menu item `"contracts"` with icon `FileText` (or `ScrollText`) in the `allMenuItems` array
+- Add the corresponding `case "contracts"` in `renderStandardContent()` rendering `<ContractTemplateManager />`
+- Role guard: `ORG_ADMIN` / `organization_configuration`
 
-1. Hides the MainLayout sidebar and header (using the existing `isAdvancedSettingsOpen` mechanism or a similar approach)
-2. Has its own top bar with a back/close button to return to the previous page
-3. Uses the full viewport width with its own internal sidebar nav + content area
+### 3. Service Layer
+- Reuse existing `ContractsService.getTemplates()`, `createTemplate()`, `updateTemplate()` from `src/lib/data/contracts.service.ts` (already built in Phase 2)
 
-### Changes
+## Technical Details
 
-**`src/pages/Settings.tsx`**:
-- Remove the `max-w-7xl` container constraint
-- Make the root div `fixed inset-0 z-40` to overlay the entire screen
-- Add a slim top bar: back arrow + "Settings" title + close button
-- Settings sidebar nav becomes a fixed left column (`w-56`) with full height
-- Content area fills the remaining space with its own scroll
-- Back/close button navigates to the previous route via `useNavigate(-1)`
-
-**`src/layouts/MainLayout.tsx`**:
-- Detect when the current route is `/settings` (or use a context/state) and hide the sidebar + header automatically, similar to the `isAdvancedSettingsOpen` flag
-- OR: simply let the Settings page render as a fixed overlay on top, which is simpler and requires no MainLayout changes
-
-I'll go with the **fixed overlay approach** — it's self-contained and doesn't require MainLayout modifications.
-
-### Layout Structure
-
+### ContractTemplateManager component structure
 ```text
-┌─────────────────────────────────────────────────┐
-│ ← Back    Settings                          ✕   │  ← slim top bar
-├────────────┬────────────────────────────────────┤
-│ About      │                                    │
-│ Attendance │   [Active section content]         │
-│ Company    │                                    │
-│ Contracts  │                                    │
-│ Data Mgmt  │                                    │
-│ Display    │                                    │
-│ Email      │                                    │
-│ Employees  │                                    │
-│ ...        │                                    │
-│            │                                    │
-└────────────┴────────────────────────────────────┘
+ContractTemplateManager
+  +-- Templates Table (list view)
+  +-- CreateEditTemplateDialog
+       +-- Name, Description, Country, Employment Type fields
+       +-- Body HTML textarea with placeholder hints
+       +-- Placeholders JSONB editor (dynamic key/label/default rows)
+       +-- Preview tab
 ```
 
-### Files
-| Action | File |
-|--------|------|
-| Rewrite | `src/pages/Settings.tsx` |
+### Placeholder system
+Templates use `{{key}}` syntax. The manager will show a sidebar with available variables:
+- `{{employee_name}}`, `{{employee_number}}`, `{{job_title}}`
+- `{{start_date}}`, `{{end_date}}`, `{{salary}}`
+- `{{company_name}}`, `{{department}}`
+- Plus any custom placeholders defined on the template
 
+### Files to create
+- `src/components/contracts/ContractTemplateManager.tsx` -- main list + CRUD component
+- `src/components/contracts/ContractTemplateForm.tsx` -- create/edit form dialog
+
+### Files to modify
+- `src/components/settings/SettingsContent.tsx` -- add menu item + render case
