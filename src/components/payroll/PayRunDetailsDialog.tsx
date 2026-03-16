@@ -1999,13 +1999,15 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                                         <span className={deduction.type === 'deduction' ? 'text-orange-600' : 'text-green-600'}>
                                                           {deduction.type === 'deduction' ? '-' : '+'}{formatCurrency(deduction.amount, payGroupCurrency)}
                                                         </span>
-                                                        <Button
-                                                          variant="ghost"
-                                                          size="sm"
-                                                          onClick={() => handleDeleteCustomDeduction(deduction.id!)}
-                                                        >
-                                                          <Trash2 className="h-3 w-3" />
-                                                        </Button>
+                                                        {!isReadOnly && (
+                                                          <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleDeleteCustomDeduction(deduction.id!)}
+                                                          >
+                                                            <Trash2 className="h-3 w-3" />
+                                                          </Button>
+                                                        )}
                                                       </div>
                                                     </div>
                                                   ))}
