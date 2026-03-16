@@ -287,6 +287,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
   const [probationPeriodDays, setProbationPeriodDays] = useState(90);
   const [addingSubDept, setAddingSubDept] = useState(false);
   const [newSubDeptName, setNewSubDeptName] = useState("");
+  const [designationsList, setDesignationsList] = useState<Array<{ id: string; name: string }>>([]);
 
   const selectedEngagementType = useMemo(
     () => engagementTypes.find((item) => item.name === watchEngagementType) || null,
