@@ -7675,6 +7675,45 @@ export type Database = {
           },
         ]
       }
+      reminder_rules: {
+        Row: {
+          created_at: string | null
+          days_after: number | null
+          days_before: number | null
+          id: string
+          is_active: boolean | null
+          notification_template: string | null
+          notify_roles: string[] | null
+          organization_id: string
+          rule_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          days_after?: number | null
+          days_before?: number | null
+          id?: string
+          is_active?: boolean | null
+          notification_template?: string | null
+          notify_roles?: string[] | null
+          organization_id: string
+          rule_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          days_after?: number | null
+          days_before?: number | null
+          id?: string
+          is_active?: boolean | null
+          notification_template?: string | null
+          notify_roles?: string[] | null
+          organization_id?: string
+          rule_type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       role_assignments: {
         Row: {
           assigned_at: string
