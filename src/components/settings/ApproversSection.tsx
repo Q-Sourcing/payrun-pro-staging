@@ -575,28 +575,36 @@ export const ApproversSection = () => {
             {approverMode === "role" && (
               <div className="space-y-2">
                 <Label>Select Role</Label>
-                <div className="border rounded-md divide-y max-h-56 overflow-y-auto">
-                  {APPROVER_ROLES.map((roleKey) => {
-                    const role = roleCatalog[roleKey];
-                    const isSelected = selectedRole === roleKey;
-                    return (
-                      <button
-                        key={roleKey}
-                        className={`w-full text-left px-3 py-2.5 transition-colors text-sm ${
-                          isSelected ? "bg-primary/10 border-primary/20" : "hover:bg-muted"
-                        }`}
-                        onClick={() => setSelectedRole(roleKey)}
-                      >
-                        <div className="flex items-center gap-2">
-                          <ShieldCheck className={`h-4 w-4 shrink-0 ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
-                          <div>
-                            <p className="font-medium">{role.label}</p>
-                            <p className="text-xs text-muted-foreground">{role.description}</p>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
+                <div className="border rounded-md max-h-64 overflow-y-auto">
+                  {APPROVER_ROLE_GROUPS.map((group) => (
+                    <div key={group.label}>
+                      <div className="px-3 py-1.5 bg-muted/50 text-xs font-semibold text-muted-foreground uppercase tracking-wider sticky top-0">
+                        {group.label}
+                      </div>
+                      {group.roles.map((roleKey) => {
+                        const role = roleCatalog[roleKey];
+                        const isSelected = selectedRole === roleKey;
+                        const isHierarchy = group.label.includes("Hierarchy");
+                        return (
+                          <button
+                            key={roleKey}
+                            className={`w-full text-left px-3 py-2.5 transition-colors text-sm border-b last:border-b-0 ${
+                              isSelected ? "bg-primary/10 border-primary/20" : "hover:bg-muted"
+                            }`}
+                            onClick={() => setSelectedRole(roleKey)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <ShieldCheck className={`h-4 w-4 shrink-0 ${isSelected ? "text-primary" : isHierarchy ? "text-amber-500" : "text-muted-foreground"}`} />
+                              <div>
+                                <p className="font-medium">{role.label}</p>
+                                <p className="text-xs text-muted-foreground">{role.description}</p>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
                 {selectedRole && (
                   <div className="flex items-center gap-2 p-3 bg-primary/5 rounded-md border border-primary/20">
