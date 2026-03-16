@@ -74,6 +74,12 @@ export const ApproversSection = () => {
   const [steps, setSteps] = useState<WorkflowStep[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [workflowMeta, setWorkflowMeta] = useState<{
+    created_by_name?: string;
+    updated_by_name?: string;
+    created_at?: string;
+    updated_at?: string;
+  } | null>(null);
 
   // Modal
   const [modalOpen, setModalOpen] = useState(false);
@@ -143,6 +149,33 @@ export const ApproversSection = () => {
     setLoading(false);
   }, [toast]);
 
+  const fetchWorkflowMeta = useCallback(async (wfId: string) => {
+    const { data } = await (supabase as any)
+      .from("approval_workflows")
+      .select(`
+        created_at, updated_at,
+        creator:created_by(first_name, last_name),
+        editor:updated_by(first_name, last_name)
+      `)
+      .eq("id", wfId)
+      .maybeSingle();
+
+    if (data) {
+      const creatorName = data.creator
+        ? [data.creator.first_name, data.creator.last_name].filter(Boolean).join(" ")
+        : undefined;
+      const editorName = data.editor
+        ? [data.editor.first_name, data.editor.last_name].filter(Boolean).join(" ")
+        : undefined;
+      setWorkflowMeta({
+        created_by_name: creatorName,
+        updated_by_name: editorName,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      });
+    }
+  }, []);
+
   useEffect(() => {
     const init = async () => {
       if (!organizationId) return;
@@ -150,10 +183,11 @@ export const ApproversSection = () => {
       if (wfId) {
         setWorkflowId(wfId);
         await fetchSteps(wfId);
+        await fetchWorkflowMeta(wfId);
       }
     };
     init();
-  }, [organizationId, ensureDefaultWorkflow, fetchSteps]);
+  }, [organizationId, ensureDefaultWorkflow, fetchSteps, fetchWorkflowMeta]);
 
   // ─── Ensure payroll_approval_configs catch-all row ───────────────────────
 
@@ -291,20 +325,40 @@ export const ApproversSection = () => {
       insertPayload.approver_type = "individual";
     }
 
-    const { error } = await (supabase as any).from("approval_workflow_steps").insert(insertPayload);
+    try {
+      const { error } = await (supabase as any).from("approval_workflow_steps").insert(insertPayload);
 
-    if (error) {
-      toast({ title: "Error", description: "Failed to add approver.", variant: "destructive" });
-    } else {
-      await ensureApprovalConfig(workflowId);
+      if (error) {
+        toast({ title: "Error", description: "Failed to add approver.", variant: "destructive" });
+        return;
+      }
+
+      // Non-blocking: ensure config exists, but don't let it freeze the UI
+      try {
+        await ensureApprovalConfig(workflowId);
+      } catch (configErr) {
+        console.warn("ensureApprovalConfig failed (non-fatal):", configErr);
+      }
+
+      // Update workflow's updated_by
+      await (supabase as any)
+        .from("approval_workflows")
+        .update({ updated_by: (await supabase.auth.getUser()).data.user?.id, updated_at: new Date().toISOString() })
+        .eq("id", workflowId);
+
       const displayName = approverMode === "role" && selectedRole
         ? roleCatalog[selectedRole].label
         : [selectedUser?.first_name, selectedUser?.last_name].filter(Boolean).join(" ") || selectedUser?.email;
       toast({ title: "Approver added", description: `${displayName} added to level ${nextLevel}.` });
       setModalOpen(false);
       await fetchSteps(workflowId);
+      await fetchWorkflowMeta(workflowId);
+    } catch (err) {
+      console.error("handleSave error:", err);
+      toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   // ─── Helper: display name for a step ──────────────────────────────────────
@@ -338,11 +392,29 @@ export const ApproversSection = () => {
     <>
       <Card>
         <CardHeader className="pb-4">
-          <CardTitle className="text-lg">Approval Workflow</CardTitle>
-          <CardDescription>
-            Configure the approvers for payrun approval. Add approvers by OBAC role (recommended)
-            or by individual user. Approvers are notified in the order listed.
-          </CardDescription>
+          <div className="flex items-start justify-between">
+            <div>
+              <CardTitle className="text-lg">Approval Workflow</CardTitle>
+              <CardDescription>
+                Configure the approvers for payrun approval. Add approvers by OBAC role (recommended)
+                or by individual user. Approvers are notified in the order listed.
+              </CardDescription>
+            </div>
+          </div>
+          {workflowMeta && (
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground pt-1">
+              {workflowMeta.created_by_name && (
+                <span>Created by <strong className="text-foreground/70">{workflowMeta.created_by_name}</strong>
+                  {workflowMeta.created_at && ` on ${new Date(workflowMeta.created_at).toLocaleDateString()}`}
+                </span>
+              )}
+              {workflowMeta.updated_by_name && (
+                <span>Last edited by <strong className="text-foreground/70">{workflowMeta.updated_by_name}</strong>
+                  {workflowMeta.updated_at && ` on ${new Date(workflowMeta.updated_at).toLocaleDateString()}`}
+                </span>
+              )}
+            </div>
+          )}
         </CardHeader>
 
         <CardContent className="space-y-4">
