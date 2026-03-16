@@ -58,6 +58,7 @@ const Settings = () => {
     { id: "data",            label: "Data Management",   icon: Database,     permission: "settings.manage" },
     { id: "about",           label: "About & Help",      icon: Info,         permission: null },
     { id: "attendance",      label: "Attendance",        icon: Timer,        permission: "attendance.view" },
+    { id: "approvers",       label: "Approvers",         icon: GitBranch,    permission: "payroll.run" },
   ];
 
   const menuItems = allMenuItems.filter(item => {
