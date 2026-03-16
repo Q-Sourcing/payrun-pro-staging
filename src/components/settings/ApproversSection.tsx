@@ -305,7 +305,16 @@ export const ApproversSection = () => {
     if (!workflowId || !canSave) return;
     setSaving(true);
 
-    const nextLevel = steps.length + 1;
+    // Query max level from DB to avoid UNIQUE constraint conflicts
+    const { data: maxData } = await (supabase as any)
+      .from("approval_workflow_steps")
+      .select("level")
+      .eq("workflow_id", workflowId)
+      .order("level", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const nextLevel = (maxData?.level ?? 0) + 1;
 
     const insertPayload: Record<string, any> = {
       workflow_id: workflowId,
