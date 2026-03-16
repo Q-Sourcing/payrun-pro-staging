@@ -3,23 +3,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
 type ReminderRule = {
+  id: string;
   organization_id: string;
-  rule_type: "probation_expiry" | "contract_expiry";
-  days_before: number;
+  rule_type: "probation_expiry" | "contract_expiry" | "approval_reminder";
+  days_before: number | null;
+  days_after: number | null;
   notify_roles: string[];
   notification_template: string | null;
   is_active: boolean;
-};
-
-type EmployeeRow = {
-  id: string;
-  organization_id: string;
-  first_name: string | null;
-  last_name: string | null;
-  email: string;
-  project_id: string | null;
-  probation_end_date: string | null; // YYYY-MM-DD
-  probation_status: string | null;
 };
 
 function todayUtcDate(): Date {
@@ -55,11 +46,8 @@ serve(async (req) => {
 
   try {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!serviceRoleKey) {
-      throw new Error("SUPABASE_SERVICE_ROLE_KEY not found");
-    }
+    if (!serviceRoleKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY not found");
 
-    // Lightweight protection for cron-only invocation.
     const cronSecret = Deno.env.get("CRON_SECRET");
     if (cronSecret) {
       const got = req.headers.get("x-cron-secret") || "";
@@ -72,29 +60,22 @@ serve(async (req) => {
     }
 
     const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL") ?? "", serviceRoleKey);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 
     const body = (await req.json().catch(() => ({}))) as { organizationId?: string };
     const orgFilter = body.organizationId?.trim() || null;
 
     let rulesQuery = supabaseAdmin
       .from("reminder_rules")
-      .select("organization_id, rule_type, days_before, notify_roles, notification_template, is_active")
+      .select("id, organization_id, rule_type, days_before, days_after, notify_roles, notification_template, is_active")
       .eq("is_active", true);
     if (orgFilter) rulesQuery = rulesQuery.eq("organization_id", orgFilter);
 
     const { data: rules, error: rulesError } = await rulesQuery;
     if (rulesError) throw rulesError;
 
-    const activeProbationRules = ((rules ?? []) as ReminderRule[]).filter((r) => r.rule_type === "probation_expiry");
-    if (activeProbationRules.length === 0) {
-      return new Response(JSON.stringify({ success: true, processed: 0, inserted: 0 }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const today = todayUtcDate();
-    const inserts: Array<{
+    const notificationInserts: Array<{
       user_id: string;
       type: string;
       title: string;
@@ -102,66 +83,56 @@ serve(async (req) => {
       metadata: Record<string, unknown>;
     }> = [];
 
-    for (const rule of activeProbationRules) {
+    // ── Probation reminders ───────────────────────────────────────────────
+    const probationRules = ((rules ?? []) as ReminderRule[]).filter((r) => r.rule_type === "probation_expiry");
+
+    for (const rule of probationRules) {
+      if (!rule.days_before) continue;
       const targetDate = toYyyyMmDdUtc(addDaysUtc(today, rule.days_before));
 
-      const { data: employees, error: empErr } = await supabaseAdmin
+      const { data: employees } = await supabaseAdmin
         .from("employees")
         .select("id, organization_id, first_name, last_name, email, project_id, probation_end_date, probation_status")
         .eq("organization_id", rule.organization_id)
         .eq("status", "active")
         .in("probation_status", ["on_probation", "extended"])
         .eq("probation_end_date", targetDate);
-      if (empErr) throw empErr;
 
-      const dueEmployees = (employees ?? []) as EmployeeRow[];
-      if (dueEmployees.length === 0) continue;
+      if (!employees || employees.length === 0) continue;
 
-      // Resolve HR/admin recipients from notify_roles.
       const notifyRoleKeys = rule.notify_roles?.length ? rule.notify_roles : ["ORG_HR", "ORG_ADMIN"];
-      const { data: orgRoles, error: rolesErr } = await supabaseAdmin
+      const { data: orgRoles } = await supabaseAdmin
         .from("org_roles")
         .select("id, key")
         .eq("org_id", rule.organization_id)
         .in("key", notifyRoleKeys);
-      if (rolesErr) throw rolesErr;
       const roleIds = (orgRoles ?? []).map((r: any) => r.id);
 
       let hrUserIds: string[] = [];
       if (roleIds.length > 0) {
-        const { data: our, error: ourErr } = await supabaseAdmin
+        const { data: our } = await supabaseAdmin
           .from("org_user_roles")
-          .select("org_user_id, role_id")
+          .select("org_user_id")
           .in("role_id", roleIds);
-        if (ourErr) throw ourErr;
         const orgUserIds = Array.from(new Set((our ?? []).map((x: any) => x.org_user_id)));
-
         if (orgUserIds.length > 0) {
-          const { data: orgUsers, error: ouErr } = await supabaseAdmin
+          const { data: orgUsers } = await supabaseAdmin
             .from("org_users")
-            .select("id, user_id, status")
+            .select("user_id, status")
             .eq("org_id", rule.organization_id)
             .in("id", orgUserIds);
-          if (ouErr) throw ouErr;
           hrUserIds = Array.from(new Set((orgUsers ?? []).filter((ou: any) => ou.status === "active").map((ou: any) => ou.user_id)));
         }
       }
 
-      // Resolve project managers in bulk.
-      const projectIds = Array.from(new Set(dueEmployees.map((e) => e.project_id).filter(Boolean))) as string[];
+      const projectIds = Array.from(new Set(employees.map((e: any) => e.project_id).filter(Boolean))) as string[];
       const projectManagerByProject = new Map<string, string>();
       if (projectIds.length > 0) {
-        const { data: projects, error: projErr } = await supabaseAdmin
-          .from("projects")
-          .select("id, responsible_manager_id")
-          .in("id", projectIds);
-        if (projErr) throw projErr;
-        (projects ?? []).forEach((p: any) => {
-          if (p?.id && p?.responsible_manager_id) projectManagerByProject.set(p.id, p.responsible_manager_id);
-        });
+        const { data: projects } = await supabaseAdmin.from("projects").select("id, responsible_manager_id").in("id", projectIds);
+        (projects ?? []).forEach((p: any) => { if (p?.id && p?.responsible_manager_id) projectManagerByProject.set(p.id, p.responsible_manager_id); });
       }
 
-      for (const emp of dueEmployees) {
+      for (const emp of employees as any[]) {
         const employeeName = [emp.first_name, emp.last_name].filter(Boolean).join(" ").trim() || emp.email;
         const template = rule.notification_template || "Probation for {{employee_name}} ends in {{days_before}} day(s).";
         const message = renderTemplate(template, {
@@ -169,50 +140,100 @@ serve(async (req) => {
           days_before: String(rule.days_before),
           probation_end_date: String(emp.probation_end_date || ""),
         });
-
         const recipients = new Set<string>(hrUserIds);
         const mgrId = emp.project_id ? projectManagerByProject.get(emp.project_id) : undefined;
         if (mgrId) recipients.add(mgrId);
 
         for (const recipientId of recipients) {
-          inserts.push({
+          notificationInserts.push({
             user_id: recipientId,
             type: "probation_reminder",
             title: "Probation Expiry Reminder",
             message,
-            metadata: {
-              rule_type: "probation_expiry",
-              days_before: rule.days_before,
-              employee_id: emp.id,
-              employee_email: emp.email,
-              probation_end_date: emp.probation_end_date,
-              organization_id: emp.organization_id,
-              project_id: emp.project_id,
-              manager_user_id: mgrId ?? null,
-            },
+            metadata: { rule_type: "probation_expiry", days_before: rule.days_before, employee_id: emp.id, probation_end_date: emp.probation_end_date, organization_id: emp.organization_id },
           });
         }
       }
     }
 
-    if (inserts.length > 0) {
-      // Best-effort de-dupe: avoid multiple notifications per user/employee/day.
-      const startOfDay = today.toISOString();
-      const filtered: typeof inserts = [];
+    // ── Approval reminders ────────────────────────────────────────────────
+    const approvalRules = ((rules ?? []) as ReminderRule[]).filter((r) => r.rule_type === "approval_reminder");
 
-      for (const item of inserts) {
+    for (const rule of approvalRules) {
+      if (!rule.days_after) continue;
+
+      // Find payruns that have been pending_approval for >= days_after days
+      const submittedBefore = toYyyyMmDdUtc(addDaysUtc(today, -rule.days_after));
+
+      const { data: stalePayruns } = await supabaseAdmin
+        .from("pay_runs")
+        .select("id, approval_current_level, approval_submitted_at, organization_id")
+        .eq("approval_status", "pending_approval")
+        .lte("approval_submitted_at", submittedBefore + "T23:59:59Z")
+        .eq("organization_id", rule.organization_id);
+
+      if (!stalePayruns || stalePayruns.length === 0) continue;
+
+      for (const payrun of stalePayruns as any[]) {
+        // Find the active step approver
+        const { data: activeStep } = await supabaseAdmin
+          .from("payrun_approval_steps")
+          .select("approver_user_id")
+          .eq("payrun_id", payrun.id)
+          .eq("status", "pending")
+          .eq("level", payrun.approval_current_level)
+          .maybeSingle();
+
+        if (!activeStep?.approver_user_id) continue;
+
+        const template = rule.notification_template || "Payrun approval has been pending for {{days_after}} day(s). Please review.";
+        const message = renderTemplate(template, {
+          days_after: String(rule.days_after),
+          payrun_id: payrun.id,
+        });
+
+        notificationInserts.push({
+          user_id: activeStep.approver_user_id,
+          type: "approval_reminder",
+          title: "Payrun Approval Reminder",
+          message,
+          metadata: { rule_type: "approval_reminder", days_after: rule.days_after, payrun_id: payrun.id, organization_id: rule.organization_id },
+        });
+
+        // Also trigger email reminder
+        try {
+          await fetch(`${supabaseUrl}/functions/v1/trigger-approval-email`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${serviceRoleKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              payrun_id: payrun.id,
+              event_key: "APPROVAL_REMINDER",
+              recipient_user_id: activeStep.approver_user_id,
+            }),
+          });
+        } catch (emailErr) {
+          console.warn("Approval reminder email failed (non-fatal):", emailErr);
+        }
+      }
+    }
+
+    // ── Insert notifications (with dedup) ─────────────────────────────────
+    let inserted = 0;
+    if (notificationInserts.length > 0) {
+      const startOfDay = today.toISOString();
+      const filtered: typeof notificationInserts = [];
+
+      for (const item of notificationInserts) {
         const { data: existing } = await supabaseAdmin
           .from("notifications")
           .select("id")
           .eq("user_id", item.user_id)
           .eq("type", item.type)
           .gte("created_at", startOfDay)
-          .contains("metadata", {
-            rule_type: item.metadata.rule_type,
-            employee_id: item.metadata.employee_id,
-            days_before: item.metadata.days_before,
-            probation_end_date: item.metadata.probation_end_date,
-          } as any)
+          .contains("metadata", { rule_type: item.metadata.rule_type } as any)
           .limit(1);
 
         if (!existing || existing.length === 0) filtered.push(item);
@@ -221,15 +242,11 @@ serve(async (req) => {
       if (filtered.length > 0) {
         const { error: insErr } = await supabaseAdmin.from("notifications").insert(filtered);
         if (insErr) throw insErr;
+        inserted = filtered.length;
       }
-
-      return new Response(JSON.stringify({ success: true, processed: inserts.length, inserted: filtered.length }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
-    return new Response(JSON.stringify({ success: true, processed: 0, inserted: 0 }), {
+    return new Response(JSON.stringify({ success: true, processed: notificationInserts.length, inserted }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -241,4 +258,3 @@ serve(async (req) => {
     });
   }
 });
-
