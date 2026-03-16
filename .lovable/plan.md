@@ -1,58 +1,53 @@
 
-# Add Contract Template Manager to Settings
 
-## What We're Building
-A new "Contract Templates" section in the Settings panel where admins can create, edit, and manage contract templates. These templates are then available when generating contracts for employees.
+## Plan: OBAC Role-Based Approvers
 
-## Changes
+The `approval_workflow_steps` table already has `approver_role text` alongside `approver_user_id uuid`. The current UI ignores the role column entirely and only allows selecting individual users. This needs to support both modes.
 
-### 1. New Component: ContractTemplateManager
-- Location: `src/components/settings/ContractTemplateManager.tsx`
-- Features:
-  - List all active templates for the current organization (table with name, country, employment type, version)
-  - "New Template" button opening a dialog/form
-  - Edit existing templates
-  - Delete (soft-delete by setting `is_active = false`)
-- Template form fields:
-  - Name (required)
-  - Description
-  - Country code (optional dropdown)
-  - Employment type (optional dropdown: permanent, contract, intern, expatriate)
-  - Body HTML (rich text area with placeholder variable hints like `{{employee_name}}`, `{{start_date}}`, `{{job_title}}`, `{{salary}}`)
-  - Placeholders editor (add/remove placeholder keys with labels and default values)
-- Preview pane showing rendered HTML
+### Change 1: Update ApproversSection UI
 
-### 2. Register in SettingsContent
-- Add a new menu item `"contracts"` with icon `FileText` (or `ScrollText`) in the `allMenuItems` array
-- Add the corresponding `case "contracts"` in `renderStandardContent()` rendering `<ContractTemplateManager />`
-- Role guard: `ORG_ADMIN` / `organization_configuration`
+**File:** `src/components/settings/ApproversSection.tsx`
 
-### 3. Service Layer
-- Reuse existing `ContractsService.getTemplates()`, `createTemplate()`, `updateTemplate()` from `src/lib/data/contracts.service.ts` (already built in Phase 2)
+Modify the "Add Approver" modal to offer two modes:
 
-## Technical Details
+- **By Role** — select an OBAC role (from `roleCatalog` in `src/lib/obacDisplay.ts`). Only roles that make sense for approval: `ORG_OWNER`, `ORG_ADMIN`, `ORG_PAYROLL_ADMIN`, `ORG_FINANCE_APPROVER`, `ORG_HEAD_OFFICE_PAYROLL`
+- **By Individual** — existing user search (kept as fallback)
 
-### ContractTemplateManager component structure
-```text
-ContractTemplateManager
-  +-- Templates Table (list view)
-  +-- CreateEditTemplateDialog
-       +-- Name, Description, Country, Employment Type fields
-       +-- Body HTML textarea with placeholder hints
-       +-- Placeholders JSONB editor (dynamic key/label/default rows)
-       +-- Preview tab
+Toggle between modes with a simple tab/radio selector at the top of the modal.
+
+When saving a role-based step:
+```ts
+{ workflow_id, level, sequence_number, approver_role: selectedRole, approver_user_id: null }
 ```
 
-### Placeholder system
-Templates use `{{key}}` syntax. The manager will show a sidebar with available variables:
-- `{{employee_name}}`, `{{employee_number}}`, `{{job_title}}`
-- `{{start_date}}`, `{{end_date}}`, `{{salary}}`
-- `{{company_name}}`, `{{department}}`
-- Plus any custom placeholders defined on the template
+When saving an individual step (existing behavior):
+```ts
+{ workflow_id, level, sequence_number, approver_user_id: userId, approver_role: null }
+```
 
-### Files to create
-- `src/components/contracts/ContractTemplateManager.tsx` -- main list + CRUD component
-- `src/components/contracts/ContractTemplateForm.tsx` -- create/edit form dialog
+### Change 2: Update step display
 
-### Files to modify
-- `src/components/settings/SettingsContent.tsx` -- add menu item + render case
+In the approver list, show role-based steps with the role label from `roleCatalog` (e.g., "Finance Approver") and a role badge instead of a user name/email.
+
+### Change 3: Update submit RPC resolution
+
+**File:** `src/lib/services/workflow.service.ts` — `getApprovalChainForPayrun`
+
+When building `payrun_approval_steps` from `approval_workflow_steps`, if a step has `approver_role` instead of `approver_user_id`, resolve the role to the matching `org_users` + `org_user_roles` who hold that role in the organization. The first matching user becomes the `approver_user_id` on the payrun step instance.
+
+However — the `submit_payrun_for_approval` RPC is a database function. Need to check if resolution happens there or in the service layer.
+
+### Change 3 (revised): Check the RPC
+
+The `submit_payrun_for_approval` RPC creates `payrun_approval_steps` from `approval_workflow_steps`. If a step has `approver_role` set, the RPC needs to resolve that role to actual user(s) via `org_users` + `org_user_roles` + `org_roles`. This requires a migration to update the RPC.
+
+### Technical details
+
+- Import `roleCatalog` from `src/lib/obacDisplay.ts` for display labels
+- Filter approver-eligible roles to: `ORG_OWNER`, `ORG_ADMIN`, `ORG_PAYROLL_ADMIN`, `ORG_FINANCE_APPROVER`, `ORG_HEAD_OFFICE_PAYROLL`
+- The `submit_payrun_for_approval` RPC will need a `LEFT JOIN` on `org_users → org_user_roles → org_roles` to resolve role-based steps to actual approver user IDs when creating payrun approval step instances
+
+### Files changed
+1. `src/components/settings/ApproversSection.tsx` — Add role selection mode to modal, update step display
+2. New migration — Update `submit_payrun_for_approval` RPC to resolve `approver_role` to user IDs via OBAC tables
+
