@@ -34,7 +34,7 @@ import {
   Plus, Trash2, ShieldCheck, ArrowRight, Loader2, GitBranch,
   MoreVertical, Copy, Pencil, Star, ArrowUp, ArrowDown,
   GripVertical, ChevronDown, ChevronUp, Settings2, ListChecks,
-  X, Info, Lightbulb, ArrowLeft, Search, ToggleLeft,
+  X, Info, Lightbulb, ArrowLeft, Search, ToggleLeft, Filter, Mail,
 } from "lucide-react";
 import {
   DropdownMenu,
