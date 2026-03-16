@@ -432,7 +432,7 @@ export const ApprovalWorkflows = () => {
         <div className="flex border rounded-xl overflow-hidden bg-card flex-1 min-h-0">
 
           {/* ═══ LEFT PANEL ═══ */}
-          <div className="w-[280px] border-r bg-muted/30 flex flex-col shrink-0">
+          <div className="w-[280px] border-r bg-muted/30 flex flex-col shrink-0 min-h-0">
             {/* Workflow list header */}
             <div className="p-3 border-b flex items-center justify-between">
               <h3 className="text-sm font-bold text-foreground">Workflows</h3>
