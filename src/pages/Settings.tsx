@@ -119,6 +119,8 @@ const Settings = () => {
         return <EmailSettingsSection />;
       case "attendance":
         return <AttendanceSettingsSection />;
+      case "approvers":
+        return <ApproversSection />;
       default:
         return <ThemeSettings />;
     }
