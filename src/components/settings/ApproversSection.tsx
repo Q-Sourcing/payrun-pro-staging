@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrg } from "@/lib/tenant/OrgContext";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,13 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowUp,
@@ -21,6 +27,7 @@ import {
   UserPlus,
   UserCheck,
   Loader2,
+  Building2,
 } from "lucide-react";
 
 interface Approver {
@@ -34,14 +41,18 @@ interface Approver {
 }
 
 export const ApproversSection = () => {
-  const { companyId } = useOrg();
+  const { companyId, organizationId } = useOrg();
   const { toast } = useToast();
 
+  // Resolved company — may differ from context when platform-admin picks first company
+  const [resolvedCompanyId, setResolvedCompanyId] = useState<string | null>(null);
+  const [resolving, setResolving] = useState(true);
+
   const [approvers, setApprovers] = useState<Approver[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  // Modal state
+  // Modal
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [newName, setNewName] = useState("");
@@ -49,67 +60,118 @@ export const ApproversSection = () => {
   const [nameError, setNameError] = useState("");
   const [emailError, setEmailError] = useState("");
 
-  // ─── Data fetching ────────────────────────────────────────────────────────
+  // ─── Resolve company ──────────────────────────────────────────────────────
 
-  const fetchApprovers = async () => {
-    if (!companyId) return;
+  useEffect(() => {
+    async function resolve() {
+      setResolving(true);
+
+      // 1. Use context companyId if available
+      if (companyId) {
+        setResolvedCompanyId(companyId);
+        setResolving(false);
+        return;
+      }
+
+      // 2. Fall back: find the first company for this org (platform admin case)
+      if (organizationId) {
+        const { data } = await supabase
+          .from("companies")
+          .select("id")
+          .eq("organization_id", organizationId)
+          .limit(1)
+          .maybeSingle();
+        if (data?.id) {
+          setResolvedCompanyId(data.id);
+          setResolving(false);
+          return;
+        }
+      }
+
+      // 3. Last resort: user's own membership
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user?.id) {
+        const { data: mem } = await supabase
+          .from("user_company_memberships")
+          .select("company_id")
+          .eq("user_id", user.id)
+          .limit(1)
+          .maybeSingle();
+        if (mem?.company_id) {
+          setResolvedCompanyId(mem.company_id);
+          setResolving(false);
+          return;
+        }
+      }
+
+      setResolvedCompanyId(null);
+      setResolving(false);
+    }
+
+    resolve();
+  }, [companyId, organizationId]);
+
+  // ─── Fetch approvers ──────────────────────────────────────────────────────
+
+  const fetchApprovers = useCallback(async () => {
+    if (!resolvedCompanyId) return;
     setLoading(true);
     const { data, error } = await supabase
       .from("payrun_workflow_approvers")
       .select("*")
-      .eq("company_id", companyId)
+      .eq("company_id", resolvedCompanyId)
       .order("step_order", { ascending: true });
 
     if (error) {
-      toast({ title: "Error", description: "Failed to load approvers.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Failed to load approvers.",
+        variant: "destructive",
+      });
     } else {
       setApprovers((data ?? []) as Approver[]);
     }
     setLoading(false);
-  };
+  }, [resolvedCompanyId, toast]);
 
   useEffect(() => {
-    fetchApprovers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId]);
+    if (resolvedCompanyId) fetchApprovers();
+  }, [resolvedCompanyId, fetchApprovers]);
 
-  // ─── Reorder helpers ─────────────────────────────────────────────────────
+  // ─── Reorder ──────────────────────────────────────────────────────────────
 
-  /** Swap step_order between two approvers in DB and re-fetch. */
   const swapSteps = async (a: Approver, b: Approver) => {
     setActionLoading(`swap-${a.id}-${b.id}`);
-    const { error: errA } = await supabase
-      .from("payrun_workflow_approvers")
-      .update({ step_order: b.step_order })
-      .eq("id", a.id);
-
-    const { error: errB } = await supabase
-      .from("payrun_workflow_approvers")
-      .update({ step_order: a.step_order })
-      .eq("id", b.id);
-
-    if (errA || errB) {
-      toast({ title: "Error", description: "Failed to reorder approvers.", variant: "destructive" });
+    const [r1, r2] = await Promise.all([
+      supabase
+        .from("payrun_workflow_approvers")
+        .update({ step_order: b.step_order })
+        .eq("id", a.id),
+      supabase
+        .from("payrun_workflow_approvers")
+        .update({ step_order: a.step_order })
+        .eq("id", b.id),
+    ]);
+    if (r1.error || r2.error) {
+      toast({
+        title: "Error",
+        description: "Failed to reorder approvers.",
+        variant: "destructive",
+      });
     }
     await fetchApprovers();
     setActionLoading(null);
   };
 
-  const moveUp = (index: number) => {
-    if (index === 0) return;
-    swapSteps(approvers[index], approvers[index - 1]);
-  };
-
-  const moveDown = (index: number) => {
-    if (index === approvers.length - 1) return;
-    swapSteps(approvers[index], approvers[index + 1]);
-  };
+  const moveUp = (i: number) => { if (i > 0) swapSteps(approvers[i], approvers[i - 1]); };
+  const moveDown = (i: number) => { if (i < approvers.length - 1) swapSteps(approvers[i], approvers[i + 1]); };
 
   // ─── Remove + resequence ─────────────────────────────────────────────────
 
   const removeApprover = async (id: string) => {
     setActionLoading(`remove-${id}`);
-
     const { error } = await supabase
       .from("payrun_workflow_approvers")
       .delete()
@@ -121,16 +183,17 @@ export const ApproversSection = () => {
       return;
     }
 
-    // Resequence remaining approvers
     const remaining = approvers.filter((a) => a.id !== id);
-    for (let i = 0; i < remaining.length; i++) {
-      await supabase
-        .from("payrun_workflow_approvers")
-        .update({ step_order: i + 1 })
-        .eq("id", remaining[i].id);
-    }
+    await Promise.all(
+      remaining.map((a, idx) =>
+        supabase
+          .from("payrun_workflow_approvers")
+          .update({ step_order: idx + 1 })
+          .eq("id", a.id)
+      )
+    );
 
-    toast({ title: "Approver removed", description: "Step order has been updated." });
+    toast({ title: "Approver removed", description: "Step order updated." });
     await fetchApprovers();
     setActionLoading(null);
   };
@@ -149,36 +212,31 @@ export const ApproversSection = () => {
     let valid = true;
     if (!newName.trim()) { setNameError("Full name is required."); valid = false; }
     else setNameError("");
-
-    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!newEmail.trim()) { setEmailError("Email address is required."); valid = false; }
-    else if (!emailRe.test(newEmail.trim())) { setEmailError("Enter a valid email address."); valid = false; }
+    else if (!re.test(newEmail.trim())) { setEmailError("Enter a valid email address."); valid = false; }
     else setEmailError("");
-
     return valid;
   };
 
   const handleSave = async () => {
-    if (!validateForm() || !companyId) return;
+    if (!validateForm() || !resolvedCompanyId) return;
     setSaving(true);
 
-    const nextOrder = approvers.length > 0
-      ? Math.max(...approvers.map((a) => a.step_order)) + 1
-      : 1;
+    const nextOrder =
+      approvers.length > 0 ? Math.max(...approvers.map((a) => a.step_order)) + 1 : 1;
 
-    const { error } = await supabase
-      .from("payrun_workflow_approvers")
-      .insert({
-        company_id: companyId,
-        approver_name: newName.trim(),
-        approver_email: newEmail.trim().toLowerCase(),
-        step_order: nextOrder,
-      });
+    const { error } = await supabase.from("payrun_workflow_approvers").insert({
+      company_id: resolvedCompanyId,
+      approver_name: newName.trim(),
+      approver_email: newEmail.trim().toLowerCase(),
+      step_order: nextOrder,
+    });
 
     if (error) {
       toast({ title: "Error", description: "Failed to add approver.", variant: "destructive" });
     } else {
-      toast({ title: "Approver added", description: `${newName.trim()} has been added to the workflow.` });
+      toast({ title: "Approver added", description: `${newName.trim()} added to the workflow.` });
       setModalOpen(false);
       await fetchApprovers();
     }
@@ -186,6 +244,32 @@ export const ApproversSection = () => {
   };
 
   // ─── Render ───────────────────────────────────────────────────────────────
+
+  if (resolving) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-sm">Loading…</span>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!resolvedCompanyId) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+          <div className="rounded-full bg-muted p-4">
+            <Building2 className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <p className="text-sm text-muted-foreground max-w-xs">
+            No company is associated with your account. Please select a company first to configure approvers.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <>
@@ -210,7 +294,8 @@ export const ApproversSection = () => {
                 <UserCheck className="h-6 w-6 text-muted-foreground" />
               </div>
               <p className="text-sm text-muted-foreground max-w-xs">
-                No approvers configured yet. Click <strong>Add Approver</strong> to get started.
+                No approvers configured yet. Click{" "}
+                <strong>Add Approver</strong> to get started.
               </p>
             </div>
           ) : (
@@ -227,12 +312,10 @@ export const ApproversSection = () => {
                     key={approver.id}
                     className="flex items-center gap-3 rounded-lg border bg-card px-4 py-3 transition-colors hover:bg-muted/30"
                   >
-                    {/* Step badge */}
                     <span className="flex h-7 w-14 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary">
                       Step {approver.step_order}
                     </span>
 
-                    {/* Info */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium leading-tight truncate">
                         {approver.approver_name}
@@ -242,7 +325,6 @@ export const ApproversSection = () => {
                       </p>
                     </div>
 
-                    {/* Actions */}
                     <div className="flex items-center gap-1 shrink-0">
                       <Button
                         variant="ghost"
@@ -316,7 +398,10 @@ export const ApproversSection = () => {
                 id="approver-name"
                 placeholder="e.g. Jane Doe"
                 value={newName}
-                onChange={(e) => { setNewName(e.target.value); setNameError(""); }}
+                onChange={(e) => {
+                  setNewName(e.target.value);
+                  setNameError("");
+                }}
               />
               {nameError && (
                 <p className="text-xs text-destructive">{nameError}</p>
@@ -330,8 +415,13 @@ export const ApproversSection = () => {
                 type="email"
                 placeholder="e.g. jane.doe@company.com"
                 value={newEmail}
-                onChange={(e) => { setNewEmail(e.target.value); setEmailError(""); }}
-                onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
+                onChange={(e) => {
+                  setNewEmail(e.target.value);
+                  setEmailError("");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSave();
+                }}
               />
               {emailError && (
                 <p className="text-xs text-destructive">{emailError}</p>
@@ -340,7 +430,11 @@ export const ApproversSection = () => {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setModalOpen(false)} disabled={saving}>
+            <Button
+              variant="outline"
+              onClick={() => setModalOpen(false)}
+              disabled={saving}
+            >
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={saving} className="gap-2">
