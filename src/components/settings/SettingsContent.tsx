@@ -62,13 +62,6 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
             requiredRole: 'SELF_USER' as const
         },
         {
-            id: "approvers",
-            label: "Approvers",
-            icon: GitBranch,
-            requiredRole: 'ORG_FINANCE_CONTROLLER' as const,
-            requiredPermission: 'process_payroll'
-        },
-        {
             id: "attendance-settings",
             label: "Attendance",
             icon: Timer,
