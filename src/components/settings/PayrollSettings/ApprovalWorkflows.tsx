@@ -25,11 +25,11 @@ import {
   APPROVER_TYPE_META,
 } from "@/lib/types/workflow";
 import { roleCatalog, type RoleKey } from "@/lib/obacDisplay";
-import { ApproverTypeModal } from "./ApproverTypeModal";
 import { ApprovalFlowChart } from "./ApprovalFlowChart";
-import { ApprovalCriteriaBuilder } from "./ApprovalCriteriaBuilder";
-import { ApprovalFollowupConfig } from "./ApprovalFollowupConfig";
-import { ApprovalWorkflowMessages } from "./ApprovalWorkflowMessages";
+import { InlineCriteriaEditor } from "./InlineCriteriaEditor";
+import { InlineApproverEditor } from "./InlineApproverEditor";
+import { InlineMessagesEditor } from "./InlineMessagesEditor";
+import { ApprovalWorkflowCriteria, ApprovalWorkflowMessage } from "@/lib/types/workflow";
 import {
   Plus, Trash2, ShieldCheck, ArrowRight, Loader2, GitBranch,
   MoreVertical, Copy, Pencil, Star, ArrowUp, ArrowDown,
@@ -114,8 +114,19 @@ export const ApprovalWorkflows = () => {
   const [editDescription, setEditDescription] = useState("");
   const [editActive, setEditActive] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [addModalOpen, setAddModalOpen] = useState(false); // kept for compat but unused
   const [autoAction, setAutoAction] = useState<'none' | 'auto_approve' | 'auto_reject'>('none');
+
+  // Inline editor state
+  const [inlineCriteria, setInlineCriteria] = useState<Partial<ApprovalWorkflowCriteria>[]>([]);
+  const [inlineMessages, setInlineMessages] = useState<Record<string, Partial<ApprovalWorkflowMessage>>>({});
+  const [inlineFollowup, setInlineFollowup] = useState({
+    enabled: false,
+    type: 'one_time' as 'one_time' | 'repeat',
+    daysAfter: 2,
+    repeatInterval: 1,
+    sendAt: '09:00',
+  });
   const [activeAnchor, setActiveAnchor] = useState('details');
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -281,18 +292,61 @@ export const ApprovalWorkflows = () => {
     }
     setSaving(true);
     try {
+      let workflowId = selectedId;
       if (selectedId && selectedWorkflow) {
         await workflowService.updateWorkflow(selectedId, { name: editName, description: editDescription, is_active: editActive });
         await workflowService.updateWorkflowSteps(selectedId, steps as any);
-        toast({ title: "Workflow updated" });
       } else {
         const orgId = orgSettings?.org_id || "";
         const newWf = await workflowService.createWorkflow({
           org_id: orgId, name: editName, description: editDescription, is_active: editActive, is_default: false,
         }, steps as any);
+        workflowId = newWf.id;
         setSelectedId(newWf.id);
-        toast({ title: "Workflow created" });
       }
+
+      // Save criteria if any
+      if (workflowId && inlineCriteria.length > 0) {
+        try {
+          await workflowService.saveCriteria(workflowId, inlineCriteria.map((c, i) => ({
+            field: c.field as any,
+            operator: c.operator as any,
+            value: c.value || [],
+            sequence_number: i,
+          })));
+        } catch (e) { console.error('Failed to save criteria:', e); }
+      }
+
+      // Save messages
+      if (workflowId) {
+        for (const [eventType, msgData] of Object.entries(inlineMessages)) {
+          try {
+            await workflowService.saveMessage(workflowId, {
+              event_type: eventType as any,
+              from_type: (msgData.from_type || 'system') as any,
+              to_type: (msgData.to_type || 'current_approver') as any,
+              subject: msgData.subject || '',
+              body_content: msgData.body_content || '',
+              is_active: msgData.is_active !== false,
+            });
+          } catch (e) { console.error('Failed to save message:', e); }
+        }
+      }
+
+      // Save followup
+      if (workflowId) {
+        try {
+          await workflowService.saveFollowup(workflowId, {
+            is_enabled: inlineFollowup.enabled,
+            followup_type: inlineFollowup.type,
+            days_after: inlineFollowup.daysAfter,
+            repeat_interval_days: inlineFollowup.type === 'repeat' ? inlineFollowup.repeatInterval : undefined,
+            send_at_time: inlineFollowup.sendAt,
+          });
+        } catch (e) { console.error('Failed to save followup:', e); }
+      }
+
+      toast({ title: selectedWorkflow ? "Workflow updated" : "Workflow created" });
       await loadData();
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Failed to save", variant: "destructive" });
@@ -309,6 +363,9 @@ export const ApprovalWorkflows = () => {
       setEditName("New Workflow");
       setEditDescription("");
       setEditActive(true);
+      setInlineCriteria([]);
+      setInlineMessages({});
+      setInlineFollowup({ enabled: false, type: 'one_time', daysAfter: 2, repeatInterval: 1, sendAt: '09:00' });
     }
     setAutoAction('none');
     setActiveAnchor('details');
@@ -592,15 +649,12 @@ export const ApprovalWorkflows = () => {
                     <CardDescription>This workflow will trigger when the following conditions are met.</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {selectedId ? (
-                      <ApprovalCriteriaBuilder workflowId={selectedId} organizationId={orgId} />
-                    ) : (
-                      <div className="py-6 text-center border-2 border-dashed rounded-lg">
-                        <Filter className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                        <p className="text-sm text-muted-foreground">Criteria can be configured after saving.</p>
-                        <p className="text-xs text-muted-foreground mt-1">Complete the other sections and save to enable criteria.</p>
-                      </div>
-                    )}
+                    <InlineCriteriaEditor
+                      workflowId={selectedId}
+                      organizationId={orgId}
+                      criteria={inlineCriteria}
+                      onChange={setInlineCriteria}
+                    />
                   </CardContent>
                 </Card>
 
@@ -612,45 +666,13 @@ export const ApprovalWorkflows = () => {
                   </CardHeader>
                   <CardContent className="space-y-5">
                     <div className={autoAction !== 'none' ? 'opacity-40 pointer-events-none' : ''}>
-                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 block">Configure Manually</Label>
-                      <div className="space-y-2">
-                        {steps.length === 0 ? (
-                          <div className="py-6 text-center border-2 border-dashed rounded-lg">
-                            <p className="text-sm text-muted-foreground">No approval steps yet.</p>
-                          </div>
-                        ) : (
-                          steps.map((step, index) => {
-                            const type = step.approver_type || 'role';
-                            const meta = APPROVER_TYPE_META[type as ApproverType];
-                            const label = getStepLabel(step);
-                            return (
-                              <div key={index} className="flex items-center gap-2 px-3 py-2.5 rounded-lg border bg-card hover:bg-muted/30 transition-colors">
-                                <GripVertical className="h-4 w-4 text-muted-foreground/50 cursor-grab shrink-0" />
-                                <Badge variant="secondary" className="text-xs font-semibold shrink-0">L{step.level}</Badge>
-                                <span className="text-sm shrink-0">{meta?.icon}</span>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium truncate">{label}</p>
-                                  <p className="text-[10px] text-muted-foreground">{meta?.label}</p>
-                                </div>
-                                <div className="flex items-center gap-0.5 shrink-0">
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" disabled={index === 0} onClick={() => moveStep(index, 'up')}>
-                                    <ArrowUp className="h-3 w-3" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" disabled={index === steps.length - 1} onClick={() => moveStep(index, 'down')}>
-                                    <ArrowDown className="h-3 w-3" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => removeStep(index)}>
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              </div>
-                            );
-                          })
-                        )}
-                        <Button variant="outline" size="sm" className="gap-1" onClick={() => setAddModalOpen(true)}>
-                          <Plus className="h-3 w-3" /> Add Approver
-                        </Button>
-                      </div>
+                      <InlineApproverEditor
+                        organizationId={orgId}
+                        steps={steps}
+                        onStepsChange={setSteps}
+                        followup={inlineFollowup}
+                        onFollowupChange={setInlineFollowup}
+                      />
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -681,14 +703,6 @@ export const ApprovalWorkflows = () => {
                         </p>
                       )}
                     </div>
-
-                    <Separator />
-                    <div>
-                      <Label className="text-xs font-semibold text-muted-foreground mb-2 block">Flow Preview</Label>
-                      <div className="border rounded-lg p-2 bg-muted/20 overflow-x-auto">
-                        <ApprovalFlowChart steps={autoAction !== 'none' ? [] : steps} />
-                      </div>
-                    </div>
                   </CardContent>
                 </Card>
 
@@ -698,20 +712,12 @@ export const ApprovalWorkflows = () => {
                     <CardTitle className="text-base">Messages</CardTitle>
                     <CardDescription>Configure the emails sent at each stage of this workflow.</CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-5">
-                    {selectedId ? (
-                      <>
-                        <ApprovalWorkflowMessages workflowId={selectedId} />
-                        <Separator />
-                        <ApprovalFollowupConfig workflowId={selectedId} />
-                      </>
-                    ) : (
-                      <div className="py-6 text-center border-2 border-dashed rounded-lg">
-                        <Mail className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                        <p className="text-sm text-muted-foreground">Messages can be configured after saving.</p>
-                        <p className="text-xs text-muted-foreground mt-1">Default email templates will be applied automatically.</p>
-                      </div>
-                    )}
+                  <CardContent>
+                    <InlineMessagesEditor
+                      workflowId={selectedId}
+                      messages={inlineMessages}
+                      onChange={setInlineMessages}
+                    />
                   </CardContent>
                 </Card>
               </div>
@@ -786,7 +792,7 @@ export const ApprovalWorkflows = () => {
             </SheetContent>
           </Sheet>
 
-          <ApproverTypeModal open={addModalOpen} onOpenChange={setAddModalOpen} organizationId={orgId} onAdd={handleAddStep} />
+          {/* ApproverTypeModal removed — approvers are now inline */}
 
           {/* Unsaved Changes Dialog */}
           <Dialog open={unsavedDialogOpen} onOpenChange={setUnsavedDialogOpen}>
