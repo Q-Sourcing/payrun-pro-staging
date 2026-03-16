@@ -1,58 +1,37 @@
 
-# Add Contract Template Manager to Settings
+## Answer: Yes, Resend is Already the Email Delivery Layer — and It's Already Wired In
 
-## What We're Building
-A new "Contract Templates" section in the Settings panel where admins can create, edit, and manage contract templates. These templates are then available when generating contracts for employees.
+The email pipeline for the approval notifications is **already built around Resend**. Here's the full picture of how it connects:
 
-## Changes
-
-### 1. New Component: ContractTemplateManager
-- Location: `src/components/settings/ContractTemplateManager.tsx`
-- Features:
-  - List all active templates for the current organization (table with name, country, employment type, version)
-  - "New Template" button opening a dialog/form
-  - Edit existing templates
-  - Delete (soft-delete by setting `is_active = false`)
-- Template form fields:
-  - Name (required)
-  - Description
-  - Country code (optional dropdown)
-  - Employment type (optional dropdown: permanent, contract, intern, expatriate)
-  - Body HTML (rich text area with placeholder variable hints like `{{employee_name}}`, `{{start_date}}`, `{{job_title}}`, `{{salary}}`)
-  - Placeholders editor (add/remove placeholder keys with labels and default values)
-- Preview pane showing rendered HTML
-
-### 2. Register in SettingsContent
-- Add a new menu item `"contracts"` with icon `FileText` (or `ScrollText`) in the `allMenuItems` array
-- Add the corresponding `case "contracts"` in `renderStandardContent()` rendering `<ContractTemplateManager />`
-- Role guard: `ORG_ADMIN` / `organization_configuration`
-
-### 3. Service Layer
-- Reuse existing `ContractsService.getTemplates()`, `createTemplate()`, `updateTemplate()` from `src/lib/data/contracts.service.ts` (already built in Phase 2)
-
-## Technical Details
-
-### ContractTemplateManager component structure
-```text
-ContractTemplateManager
-  +-- Templates Table (list view)
-  +-- CreateEditTemplateDialog
-       +-- Name, Description, Country, Employment Type fields
-       +-- Body HTML textarea with placeholder hints
-       +-- Placeholders JSONB editor (dynamic key/label/default rows)
-       +-- Preview tab
+```
+trigger-approval-email (edge fn)
+        ↓
+   queue-email (edge fn)
+        ↓  resolves template from email_templates
+        ↓  inserts into email_outbox
+        ↓
+   send-email (edge fn)
+        ↓  uses RESEND_API_KEY
+        ↓  calls resend.emails.send()
+        ↓
+      Resend API → recipient's inbox
 ```
 
-### Placeholder system
-Templates use `{{key}}` syntax. The manager will show a sidebar with available variables:
-- `{{employee_name}}`, `{{employee_number}}`, `{{job_title}}`
-- `{{start_date}}`, `{{end_date}}`, `{{salary}}`
-- `{{company_name}}`, `{{department}}`
-- Plus any custom placeholders defined on the template
+So Resend **is** the actual delivery engine. `send-email/index.ts` already imports the Resend SDK and uses `RESEND_API_KEY`. The `queue-email` function renders templates and writes to the outbox, then fires `send-email` to dispatch via Resend.
 
-### Files to create
-- `src/components/contracts/ContractTemplateManager.tsx` -- main list + CRUD component
-- `src/components/contracts/ContractTemplateForm.tsx` -- create/edit form dialog
+### What this means for the plan
 
-### Files to modify
-- `src/components/settings/SettingsContent.tsx` -- add menu item + render case
+The **3-phase plan remains unchanged**. Resend doesn't need to be added — it's already the backbone. The work in Phase 2 is:
+
+1. **Fix `trigger-approval-email`** — it currently reads from `profiles` (wrong table, should be `user_profiles`) and uses `period_start`/`period_end` (wrong field names, should be `pay_period_start`/`pay_period_end`). Once fixed, it correctly calls `queue-email` → `send-email` → Resend.
+
+2. **Wire the trigger** — `trigger-approval-email` currently waits to be called by a database webhook that was never set up. The plan calls `supabase.functions.invoke('trigger-approval-email', ...)` directly from `PayrunsService` after each submit/approve/reject action. No webhook needed.
+
+3. **Confirm `RESEND_API_KEY` secret is set** — the `send-email` function checks for it on every call and throws if missing. The `test_resend_direct.cjs` file in the repo confirms the key was tested, but we should verify it's in Supabase function secrets before Phase 2 goes live.
+
+### Nothing new to add
+- No new email provider needed
+- No new SDK imports needed
+- The full Resend path (`queue-email` → `send-email` → Resend) is already working infrastructure
+
+The only thing between the approval actions and emails landing in inboxes is the bug fixes in `trigger-approval-email` and the missing invoke calls in the service layer — both covered in Phase 2.
