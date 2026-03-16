@@ -6,7 +6,9 @@ export type RoleKey =
   | "ORG_FINANCE_APPROVER"
   | "ORG_PROJECT_MANAGER"
   | "ORG_HEAD_OFFICE_PAYROLL"
-  | "ORG_VIEWER";
+  | "ORG_VIEWER"
+  | "ORG_DEPARTMENT_HEAD"
+  | "ORG_REPORTING_MANAGER";
 
 export type RoleCategory =
   | "Administration"
