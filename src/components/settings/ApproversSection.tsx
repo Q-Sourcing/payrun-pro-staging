@@ -216,18 +216,37 @@ export const ApproversSection = () => {
     }
   }, []);
 
+  const fetchCategoryConfigs = useCallback(async () => {
+    if (!organizationId) return;
+    setConfigsLoading(true);
+    try {
+      const [catRes, cfgRes] = await Promise.all([
+        (supabase as any).from("employee_categories").select("id, key, label").eq("organization_id", organizationId),
+        (supabase as any).from("payroll_approval_configs").select("*, categories:payroll_approval_categories(category_id)").eq("organization_id", organizationId),
+      ]);
+      setCategories((catRes.data ?? []) as any[]);
+      setConfigs(
+        (cfgRes.data ?? []).map((c: any) => ({
+          ...c,
+          categories: c.categories?.map((x: any) => x.category_id) || [],
+        }))
+      );
+    } catch { /* ignore */ }
+    setConfigsLoading(false);
+  }, [organizationId]);
+
   useEffect(() => {
     const init = async () => {
       if (!organizationId) return;
       const wfId = await ensureDefaultWorkflow();
       if (wfId) {
         setWorkflowId(wfId);
-        await fetchSteps(wfId);
-        await fetchWorkflowMeta(wfId);
+        await Promise.all([fetchSteps(wfId), fetchWorkflowMeta(wfId)]);
       }
+      await fetchCategoryConfigs();
     };
     init();
-  }, [organizationId, ensureDefaultWorkflow, fetchSteps, fetchWorkflowMeta]);
+  }, [organizationId, ensureDefaultWorkflow, fetchSteps, fetchWorkflowMeta, fetchCategoryConfigs]);
 
   // ─── Ensure payroll_approval_configs catch-all row ───────────────────────
 
