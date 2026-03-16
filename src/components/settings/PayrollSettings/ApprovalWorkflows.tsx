@@ -787,6 +787,34 @@ export const ApprovalWorkflows = () => {
           </Sheet>
 
           <ApproverTypeModal open={addModalOpen} onOpenChange={setAddModalOpen} organizationId={orgId} onAdd={handleAddStep} />
+
+          {/* Unsaved Changes Dialog */}
+          <Dialog open={unsavedDialogOpen} onOpenChange={setUnsavedDialogOpen}>
+            <DialogContent className="sm:max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Unsaved Changes</DialogTitle>
+                <DialogDescription>
+                  You have unsaved changes. Do you want to save before leaving?
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button variant="outline" onClick={confirmBackToList}>
+                  Discard
+                </Button>
+                <Button
+                  onClick={async () => {
+                    await handleSaveWorkflow();
+                    setUnsavedDialogOpen(false);
+                    confirmBackToList();
+                  }}
+                  disabled={saving}
+                >
+                  {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                  Save & Exit
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </TooltipProvider>
     );
