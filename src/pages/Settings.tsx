@@ -13,6 +13,7 @@ import { DataManagementSection } from "@/components/settings/DataManagementSecti
 import { PayslipDesignerSection } from "@/components/settings/PayslipDesignerSection";
 import { EmailSettingsSection } from "@/components/settings/EmailSettingsSection";
 import { AttendanceSettingsSection } from "@/components/settings/AttendanceSettingsSection";
+import { ApproversSection } from "@/components/settings/ApproversSection";
 import UsersManagement from "@/pages/UsersManagement";
 import { ContractTemplateManager } from "@/components/contracts/ContractTemplateManager";
 import { AccessControlManager } from "@/components/admin/access-control/AccessControlManager";
@@ -34,6 +35,7 @@ import {
   Timer,
   ChevronRight,
   KeyRound,
+  GitBranch,
 } from "lucide-react";
 
 const Settings = () => {
@@ -56,6 +58,7 @@ const Settings = () => {
     { id: "data",            label: "Data Management",   icon: Database,     permission: "settings.manage" },
     { id: "about",           label: "About & Help",      icon: Info,         permission: null },
     { id: "attendance",      label: "Attendance",        icon: Timer,        permission: "attendance.view" },
+    { id: "approvers",       label: "Approvers",         icon: GitBranch,    permission: "payroll.run" },
   ];
 
   const menuItems = allMenuItems.filter(item => {
@@ -116,6 +119,8 @@ const Settings = () => {
         return <EmailSettingsSection />;
       case "attendance":
         return <AttendanceSettingsSection />;
+      case "approvers":
+        return <ApproversSection />;
       default:
         return <ThemeSettings />;
     }
