@@ -1731,24 +1731,30 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                   <TableCell>{formatCurrency(calculated.totalDeductions, payGroupCurrency)}</TableCell>
                                   <TableCell className="font-bold text-primary">{formatCurrency(calculated.netPay, payGroupCurrency)}</TableCell>
                                   <TableCell>
-                                    <Select
-                                      value={item.status}
-                                      onValueChange={(value) => handleStatusChange(item.id, value as any)}
-                                    >
-                                      <SelectTrigger className="w-32">
-                                        <SelectValue>
-                                          <span className={getStatusColor(item.status)}>
-                                            {(item.status || "").charAt(0).toUpperCase() + (item.status || "").slice(1)}
-                                          </span>
-                                        </SelectValue>
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="draft">Draft</SelectItem>
-                                        <SelectItem value="pending">Pending</SelectItem>
-                                        <SelectItem value="approved">Approved</SelectItem>
-                                        <SelectItem value="paid">Paid</SelectItem>
-                                      </SelectContent>
-                                    </Select>
+                                    {isReadOnly ? (
+                                      <Badge variant={getStatusBadgeVariant(item.status)} className={getStatusColor(item.status)}>
+                                        {(item.status || "").charAt(0).toUpperCase() + (item.status || "").slice(1)}
+                                      </Badge>
+                                    ) : (
+                                      <Select
+                                        value={item.status}
+                                        onValueChange={(value) => handleStatusChange(item.id, value as any)}
+                                      >
+                                        <SelectTrigger className="w-32">
+                                          <SelectValue>
+                                            <span className={getStatusColor(item.status)}>
+                                              {(item.status || "").charAt(0).toUpperCase() + (item.status || "").slice(1)}
+                                            </span>
+                                          </SelectValue>
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="draft">Draft</SelectItem>
+                                          <SelectItem value="pending">Pending</SelectItem>
+                                          <SelectItem value="approved">Approved</SelectItem>
+                                          <SelectItem value="paid">Paid</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    )}
                                   </TableCell>
                                   <TableCell>
                                     <div className="flex gap-2">
