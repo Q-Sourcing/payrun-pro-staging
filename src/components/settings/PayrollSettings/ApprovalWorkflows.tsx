@@ -34,7 +34,7 @@ import {
   Plus, Trash2, ShieldCheck, ArrowRight, Loader2, GitBranch,
   MoreVertical, Copy, Pencil, Star, ArrowUp, ArrowDown,
   GripVertical, ChevronDown, ChevronUp, Settings2, ListChecks,
-  X, Info, Lightbulb, ArrowLeft, Search, ToggleLeft,
+  X, Info, Lightbulb, ArrowLeft, Search, ToggleLeft, Filter, Mail,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -315,12 +315,34 @@ export const ApprovalWorkflows = () => {
     setScreen('builder');
   };
 
-  const handleBackToList = () => {
+  const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false);
+
+  const hasUnsavedChanges = () => {
+    if (!selectedWorkflow && editName) return true; // new workflow with edits
+    if (selectedWorkflow) {
+      if (editName !== selectedWorkflow.name) return true;
+      if (editDescription !== (selectedWorkflow.description || "")) return true;
+      if (editActive !== selectedWorkflow.is_active) return true;
+      if (steps.length !== (selectedWorkflow.steps?.length || 0)) return true;
+    }
+    return false;
+  };
+
+  const confirmBackToList = () => {
+    setUnsavedDialogOpen(false);
     setScreen('list');
     setSelectedId(null);
     setSelectedWorkflow(null);
     setEditName("");
     setEditDescription("");
+  };
+
+  const handleBackToList = () => {
+    if (hasUnsavedChanges()) {
+      setUnsavedDialogOpen(true);
+    } else {
+      confirmBackToList();
+    }
   };
 
   const handleDuplicate = async (id: string) => {
@@ -573,8 +595,10 @@ export const ApprovalWorkflows = () => {
                     {selectedId ? (
                       <ApprovalCriteriaBuilder workflowId={selectedId} organizationId={orgId} />
                     ) : (
-                      <div className="py-8 text-center border-2 border-dashed rounded-lg">
-                        <p className="text-sm text-muted-foreground">Save the workflow first to set criteria.</p>
+                      <div className="py-6 text-center border-2 border-dashed rounded-lg">
+                        <Filter className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">Criteria can be configured after saving.</p>
+                        <p className="text-xs text-muted-foreground mt-1">Complete the other sections and save to enable criteria.</p>
                       </div>
                     )}
                   </CardContent>
@@ -682,8 +706,10 @@ export const ApprovalWorkflows = () => {
                         <ApprovalFollowupConfig workflowId={selectedId} />
                       </>
                     ) : (
-                      <div className="py-8 text-center border-2 border-dashed rounded-lg">
-                        <p className="text-sm text-muted-foreground">Save the workflow first to configure messages.</p>
+                      <div className="py-6 text-center border-2 border-dashed rounded-lg">
+                        <Mail className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">Messages can be configured after saving.</p>
+                        <p className="text-xs text-muted-foreground mt-1">Default email templates will be applied automatically.</p>
                       </div>
                     )}
                   </CardContent>
@@ -761,6 +787,34 @@ export const ApprovalWorkflows = () => {
           </Sheet>
 
           <ApproverTypeModal open={addModalOpen} onOpenChange={setAddModalOpen} organizationId={orgId} onAdd={handleAddStep} />
+
+          {/* Unsaved Changes Dialog */}
+          <Dialog open={unsavedDialogOpen} onOpenChange={setUnsavedDialogOpen}>
+            <DialogContent className="sm:max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Unsaved Changes</DialogTitle>
+                <DialogDescription>
+                  You have unsaved changes. Do you want to save before leaving?
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button variant="outline" onClick={confirmBackToList}>
+                  Discard
+                </Button>
+                <Button
+                  onClick={async () => {
+                    await handleSaveWorkflow();
+                    setUnsavedDialogOpen(false);
+                    confirmBackToList();
+                  }}
+                  disabled={saving}
+                >
+                  {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                  Save & Exit
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </TooltipProvider>
     );
