@@ -46,8 +46,10 @@ const Settings = () => {
     { id: "company",         label: "Company",           icon: Building2,    permission: "settings.manage" },
     { id: "employee",        label: "Employees",         icon: Users,        permission: "employees.view" },
     { id: "payroll",         label: "Payroll",           icon: DollarSign,   permission: "payroll.run" },
+    { id: "approvers",       label: "Approvers",         icon: GitBranch,    permission: "payroll.run" },
     { id: "contracts",       label: "Contracts",         icon: ScrollText,   permission: "contracts.manage" },
     { id: "payslip-designer",label: "Payslip Designer",  icon: FileText,     permission: "payroll.run" },
+    { id: "attendance",      label: "Attendance",        icon: Timer,        permission: "attendance.view" },
     { id: "theme",           label: "Display & Theme",   icon: Palette,      permission: null },
     { id: "security",        label: "Security",          icon: Shield,       permission: "settings.manage" },
     { id: "notifications",   label: "Notifications",     icon: Bell,         permission: null },
@@ -57,8 +59,6 @@ const Settings = () => {
     { id: "access-control",  label: "Roles & Permissions", icon: KeyRound,   permission: "roles.manage" },
     { id: "data",            label: "Data Management",   icon: Database,     permission: "settings.manage" },
     { id: "about",           label: "About & Help",      icon: Info,         permission: null },
-    { id: "attendance",      label: "Attendance",        icon: Timer,        permission: "attendance.view" },
-    { id: "approvers",       label: "Approvers",         icon: GitBranch,    permission: "payroll.run" },
   ];
 
   const menuItems = allMenuItems.filter(item => {
@@ -139,7 +139,7 @@ const Settings = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6">
           {/* Sidebar Navigation */}
-          <div className="lg:sticky lg:top-6 lg:self-start">
+          <div className="lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto lg:pr-1">
             <nav className="space-y-0.5">
               {menuItems.map((item) => {
                 const Icon = item.icon;
