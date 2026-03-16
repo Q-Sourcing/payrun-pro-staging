@@ -114,8 +114,19 @@ export const ApprovalWorkflows = () => {
   const [editDescription, setEditDescription] = useState("");
   const [editActive, setEditActive] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [addModalOpen, setAddModalOpen] = useState(false); // kept for compat but unused
   const [autoAction, setAutoAction] = useState<'none' | 'auto_approve' | 'auto_reject'>('none');
+
+  // Inline editor state
+  const [inlineCriteria, setInlineCriteria] = useState<Partial<ApprovalWorkflowCriteria>[]>([]);
+  const [inlineMessages, setInlineMessages] = useState<Record<string, Partial<ApprovalWorkflowMessage>>>({});
+  const [inlineFollowup, setInlineFollowup] = useState({
+    enabled: false,
+    type: 'one_time' as 'one_time' | 'repeat',
+    daysAfter: 2,
+    repeatInterval: 1,
+    sendAt: '09:00',
+  });
   const [activeAnchor, setActiveAnchor] = useState('details');
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
