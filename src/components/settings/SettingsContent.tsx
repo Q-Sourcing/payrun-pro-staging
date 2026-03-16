@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ApproversSection } from "@/components/settings/ApproversSection";
 import { ThemeSettings } from "@/components/settings/ThemeSettings";
 import { EmployeeSettingsSection } from "@/components/settings/EmployeeSettingsSection";
 import { AboutSection } from "@/components/settings/AboutSection";
@@ -32,6 +33,7 @@ import {
     ScrollText,
     AlarmClock,
     Timer,
+    GitBranch,
     Settings as SettingsIcon,
     Building2 as BuildingIcon
 } from "lucide-react";
@@ -55,9 +57,56 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
     // Define menu items with role requirements
     const allMenuItems = [
         {
+            id: "about",
+            label: "About & Help",
+            icon: Info,
+            requiredRole: 'SELF_USER' as const
+        },
+        {
+            id: "approvers",
+            label: "Approvers",
+            icon: GitBranch,
+            requiredRole: 'ORG_FINANCE_CONTROLLER' as const,
+            requiredPermission: 'process_payroll'
+        },
+        {
+            id: "attendance-settings",
+            label: "Attendance",
+            icon: Timer,
+            requiredRole: 'ORG_ADMIN' as const,
+            requiredPermission: 'organization_configuration'
+        },
+        {
             id: "company",
             label: "Company Settings",
             icon: Building2,
+            requiredRole: 'ORG_ADMIN' as const,
+            requiredPermission: 'organization_configuration'
+        },
+        {
+            id: "contracts",
+            label: "Contract Templates",
+            icon: ScrollText,
+            requiredRole: 'ORG_ADMIN' as const,
+            requiredPermission: 'organization_configuration'
+        },
+        {
+            id: "data",
+            label: "Data Management",
+            icon: Database,
+            requiredRole: 'ORG_ADMIN' as const,
+            requiredPermission: 'export_data'
+        },
+        {
+            id: "theme",
+            label: "Display & Theme",
+            icon: Palette,
+            requiredRole: 'SELF_USER' as const
+        },
+        {
+            id: "emails",
+            label: "Email & Logic",
+            icon: Mail,
             requiredRole: 'ORG_ADMIN' as const,
             requiredPermission: 'organization_configuration'
         },
@@ -67,6 +116,19 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
             icon: Users,
             requiredRole: 'ORG_HR_ADMIN' as const,
             requiredPermission: 'view_organization_employees'
+        },
+        {
+            id: "integrations",
+            label: "Integrations",
+            icon: RefreshCw,
+            requiredRole: 'ORG_ADMIN' as const,
+            requiredPermission: 'manage_integrations'
+        },
+        {
+            id: "notifications",
+            label: "Notifications",
+            icon: Bell,
+            requiredRole: 'SELF_USER' as const
         },
         {
             id: "payroll",
@@ -83,17 +145,11 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
             requiredPermission: 'process_payroll'
         },
         {
-            id: "contracts",
-            label: "Contract Templates",
-            icon: ScrollText,
+            id: "reminders",
+            label: "Reminders",
+            icon: AlarmClock,
             requiredRole: 'ORG_ADMIN' as const,
             requiredPermission: 'organization_configuration'
-        },
-        {
-            id: "theme",
-            label: "Display & Theme",
-            icon: Palette,
-            requiredRole: 'SELF_USER' as const // Everyone can access theme
         },
         {
             id: "security",
@@ -103,58 +159,11 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
             requiredPermission: 'organization_configuration'
         },
         {
-            id: "notifications",
-            label: "Notifications",
-            icon: Bell,
-            requiredRole: 'SELF_USER' as const // Everyone can access notifications
-        },
-        {
-            id: "integrations",
-            label: "Integrations",
-            icon: RefreshCw,
-            requiredRole: 'ORG_ADMIN' as const,
-            requiredPermission: 'manage_integrations'
-        },
-        {
-            id: "emails",
-            label: "Email & Logic",
-            icon: Mail,
-            requiredRole: 'ORG_ADMIN' as const,
-            requiredPermission: 'organization_configuration'
-        },
-        {
-            id: "reminders",
-            label: "Reminders",
-            icon: AlarmClock,
-            requiredRole: 'ORG_ADMIN' as const,
-            requiredPermission: 'organization_configuration'
-        },
-        {
             id: "system",
             label: "System Settings",
             icon: SettingsIcon,
             requiredRole: 'PLATFORM_SUPER_ADMIN' as const,
             requiredPermission: 'system_configuration'
-        },
-        {
-            id: "data",
-            label: "Data Management",
-            icon: Database,
-            requiredRole: 'ORG_ADMIN' as const,
-            requiredPermission: 'export_data'
-        },
-        {
-            id: "about",
-            label: "About & Help",
-            icon: Info,
-            requiredRole: 'SELF_USER' as const // Everyone can access about
-        },
-        {
-            id: "attendance-settings",
-            label: "Attendance",
-            icon: Timer,
-            requiredRole: 'ORG_ADMIN' as const,
-            requiredPermission: 'organization_configuration'
         },
     ];
 
@@ -182,6 +191,12 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
 
     const renderStandardContent = () => {
         switch (activeSection) {
+            case "approvers":
+                return (
+                    <SettingsSectionGuard requiredRole="ORG_FINANCE_CONTROLLER" requiredPermission="process_payroll">
+                        <ApproversSection />
+                    </SettingsSectionGuard>
+                );
             case "company":
                 return (
                     <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration">

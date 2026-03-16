@@ -1,45 +1,58 @@
 
+# Add Contract Template Manager to Settings
 
-## Plan: 3 Changes
+## What We're Building
+A new "Contract Templates" section in the Settings panel where admins can create, edit, and manage contract templates. These templates are then available when generating contracts for employees.
 
-### 1. Lock Pay Run editing when submitted for approval
+## Changes
 
-Currently, when a pay run has `approval_status` of `pending_approval`, `approved`, or `locked`, users can still edit pay items, run bulk actions, add/remove deductions, etc. All editing UI should be disabled.
+### 1. New Component: ContractTemplateManager
+- Location: `src/components/settings/ContractTemplateManager.tsx`
+- Features:
+  - List all active templates for the current organization (table with name, country, employment type, version)
+  - "New Template" button opening a dialog/form
+  - Edit existing templates
+  - Delete (soft-delete by setting `is_active = false`)
+- Template form fields:
+  - Name (required)
+  - Description
+  - Country code (optional dropdown)
+  - Employment type (optional dropdown: permanent, contract, intern, expatriate)
+  - Body HTML (rich text area with placeholder variable hints like `{{employee_name}}`, `{{start_date}}`, `{{job_title}}`, `{{salary}}`)
+  - Placeholders editor (add/remove placeholder keys with labels and default values)
+- Preview pane showing rendered HTML
 
-**Approach:** Add an `isReadOnly` flag in `PayRunDetailsDialog.tsx` derived from `payRunData`:
+### 2. Register in SettingsContent
+- Add a new menu item `"contracts"` with icon `FileText` (or `ScrollText`) in the `allMenuItems` array
+- Add the corresponding `case "contracts"` in `renderStandardContent()` rendering `<ContractTemplateManager />`
+- Role guard: `ORG_ADMIN` / `organization_configuration`
 
-```typescript
-const isReadOnly = payRunData?.approval_status && 
-  !['draft', 'rejected'].includes(payRunData.approval_status);
+### 3. Service Layer
+- Reuse existing `ContractsService.getTemplates()`, `createTemplate()`, `updateTemplate()` from `src/lib/data/contracts.service.ts` (already built in Phase 2)
+
+## Technical Details
+
+### ContractTemplateManager component structure
+```text
+ContractTemplateManager
+  +-- Templates Table (list view)
+  +-- CreateEditTemplateDialog
+       +-- Name, Description, Country, Employment Type fields
+       +-- Body HTML textarea with placeholder hints
+       +-- Placeholders JSONB editor (dynamic key/label/default rows)
+       +-- Preview tab
 ```
 
-Then conditionally hide or disable:
-- The "Bulk Actions" dropdown menu
-- Bulk status update select
-- Individual employee edit/save buttons (inline editing in expanded rows)
-- "Add Custom Deduction" buttons
-- All bulk operation dialogs (Add to All, Deduct from All, Apply Benefits, Recalculate Taxes, Remove Custom Items, LST operations)
-- Show a read-only banner at the top: "This pay run is pending approval and cannot be edited."
+### Placeholder system
+Templates use `{{key}}` syntax. The manager will show a sidebar with available variables:
+- `{{employee_name}}`, `{{employee_number}}`, `{{job_title}}`
+- `{{start_date}}`, `{{end_date}}`, `{{salary}}`
+- `{{company_name}}`, `{{department}}`
+- Plus any custom placeholders defined on the template
 
-Export/view-only actions (Export CSV, Generate Payslips, Generate Payroll Summary, Bank Schedule Export) remain enabled.
+### Files to create
+- `src/components/contracts/ContractTemplateManager.tsx` -- main list + CRUD component
+- `src/components/contracts/ContractTemplateForm.tsx` -- create/edit form dialog
 
-**File:** `src/components/payroll/PayRunDetailsDialog.tsx`
-
-### 2. Add "Approvers" to SettingsContent (modal settings)
-
-The `ApproversSection` component exists and is wired in `Settings.tsx` (full-page settings), but is missing from `SettingsContent.tsx` (the modal-based settings used elsewhere). Add it to both `allMenuItems` and `renderStandardContent` in `SettingsContent.tsx`.
-
-**File:** `src/components/settings/SettingsContent.tsx`
-
-### 3. Sort settings nav items alphabetically
-
-Sort `allMenuItems` alphabetically by `label` in both:
-- `src/pages/Settings.tsx` — reorder the array
-- `src/components/settings/SettingsContent.tsx` — reorder the array
-
-**Alphabetical order for Settings.tsx:**
-About & Help, Approvers, Attendance, Company, Contracts, Data Management, Display & Theme, Email & Logic, Employees, Integrations, Notifications, Payroll, Payslip Designer, Roles & Permissions, Security, User Management
-
-**Alphabetical order for SettingsContent.tsx:**
-About & Help, Approvers, Attendance, Company Settings, Contract Templates, Data Management, Display & Theme, Email & Logic, Employee Settings, Integrations, Notifications, Payroll Settings, Payslip Designer, Reminders, Security & Access, System Settings
-
+### Files to modify
+- `src/components/settings/SettingsContent.tsx` -- add menu item + render case

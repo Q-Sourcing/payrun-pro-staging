@@ -43,22 +43,22 @@ const Settings = () => {
   const { can, isAdmin, isLoading } = useRbacPermissions();
 
   const allMenuItems = [
-    { id: "company",         label: "Company",           icon: Building2,    permission: "settings.manage" },
-    { id: "employee",        label: "Employees",         icon: Users,        permission: "employees.view" },
-    { id: "payroll",         label: "Payroll",           icon: DollarSign,   permission: "payroll.run" },
-    { id: "approvers",       label: "Approvers",         icon: GitBranch,    permission: "payroll.run" },
-    { id: "contracts",       label: "Contracts",         icon: ScrollText,   permission: "contracts.manage" },
-    { id: "payslip-designer",label: "Payslip Designer",  icon: FileText,     permission: "payroll.run" },
-    { id: "attendance",      label: "Attendance",        icon: Timer,        permission: "attendance.view" },
-    { id: "theme",           label: "Display & Theme",   icon: Palette,      permission: null },
-    { id: "security",        label: "Security",          icon: Shield,       permission: "settings.manage" },
-    { id: "notifications",   label: "Notifications",     icon: Bell,         permission: null },
-    { id: "integrations",    label: "Integrations",      icon: RefreshCw,    permission: "settings.manage" },
-    { id: "emails",          label: "Email & Logic",     icon: Mail,         permission: "settings.manage" },
-    { id: "system",          label: "User Management",   icon: SettingsIcon, permission: "users.view" },
-    { id: "access-control",  label: "Roles & Permissions", icon: KeyRound,   permission: "roles.manage" },
-    { id: "data",            label: "Data Management",   icon: Database,     permission: "settings.manage" },
-    { id: "about",           label: "About & Help",      icon: Info,         permission: null },
+    { id: "about",           label: "About & Help",        icon: Info,         permission: null },
+    { id: "approvers",       label: "Approvers",           icon: GitBranch,    permission: "payroll.run" },
+    { id: "attendance",      label: "Attendance",          icon: Timer,        permission: "attendance.view" },
+    { id: "company",         label: "Company",             icon: Building2,    permission: "settings.manage" },
+    { id: "contracts",       label: "Contracts",           icon: ScrollText,   permission: "contracts.manage" },
+    { id: "data",            label: "Data Management",     icon: Database,     permission: "settings.manage" },
+    { id: "theme",           label: "Display & Theme",     icon: Palette,      permission: null },
+    { id: "emails",          label: "Email & Logic",       icon: Mail,         permission: "settings.manage" },
+    { id: "employee",        label: "Employees",           icon: Users,        permission: "employees.view" },
+    { id: "integrations",    label: "Integrations",        icon: RefreshCw,    permission: "settings.manage" },
+    { id: "notifications",   label: "Notifications",       icon: Bell,         permission: null },
+    { id: "payroll",         label: "Payroll",             icon: DollarSign,   permission: "payroll.run" },
+    { id: "payslip-designer",label: "Payslip Designer",    icon: FileText,     permission: "payroll.run" },
+    { id: "access-control",  label: "Roles & Permissions", icon: KeyRound,     permission: "roles.manage" },
+    { id: "security",        label: "Security",            icon: Shield,       permission: "settings.manage" },
+    { id: "system",          label: "User Management",     icon: SettingsIcon, permission: "users.view" },
   ];
 
   const menuItems = allMenuItems.filter(item => {
