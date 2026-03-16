@@ -792,7 +792,7 @@ export const ApprovalWorkflows = () => {
             </SheetContent>
           </Sheet>
 
-          <ApproverTypeModal open={addModalOpen} onOpenChange={setAddModalOpen} organizationId={orgId} onAdd={handleAddStep} />
+          {/* ApproverTypeModal removed — approvers are now inline */}
 
           {/* Unsaved Changes Dialog */}
           <Dialog open={unsavedDialogOpen} onOpenChange={setUnsavedDialogOpen}>
