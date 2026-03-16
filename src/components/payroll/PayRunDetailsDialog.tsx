@@ -1758,43 +1758,45 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                   </TableCell>
                                   <TableCell>
                                     <div className="flex gap-2">
-                                      {!isEditing ? (
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => setEditingItems(prev => ({ ...prev, [item.id]: {} }))}
-                                          aria-label="Edit row"
-                                          title="Edit"
-                                        >
-                                          <Pencil className="h-4 w-4" />
-                                        </Button>
-                                      ) : (
-                                        <>
+                                      {!isReadOnly && (
+                                        !isEditing ? (
                                           <Button
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => handleSave(item)}
-                                            aria-label="Save row"
-                                            title="Save"
+                                            onClick={() => setEditingItems(prev => ({ ...prev, [item.id]: {} }))}
+                                            aria-label="Edit row"
+                                            title="Edit"
                                           >
-                                            <Check className="h-4 w-4 text-green-600" />
+                                            <Pencil className="h-4 w-4" />
                                           </Button>
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => {
-                                              setEditingItems(prev => {
-                                                const next = { ...prev };
-                                                delete next[item.id];
-                                                return next;
-                                              });
-                                            }}
-                                            aria-label="Cancel edit"
-                                            title="Cancel"
-                                          >
-                                            <X className="h-4 w-4 text-red-600" />
-                                          </Button>
-                                        </>
+                                        ) : (
+                                          <>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => handleSave(item)}
+                                              aria-label="Save row"
+                                              title="Save"
+                                            >
+                                              <Check className="h-4 w-4 text-green-600" />
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => {
+                                                setEditingItems(prev => {
+                                                  const next = { ...prev };
+                                                  delete next[item.id];
+                                                  return next;
+                                                });
+                                              }}
+                                              aria-label="Cancel edit"
+                                              title="Cancel"
+                                            >
+                                              <X className="h-4 w-4 text-red-600" />
+                                            </Button>
+                                          </>
+                                        )
                                       )}
                                       <Button
                                         variant="outline"
