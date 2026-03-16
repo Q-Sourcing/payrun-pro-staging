@@ -412,10 +412,10 @@ export const ApprovalWorkflows = () => {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="space-y-4">
+      <div className="flex flex-col h-[calc(100vh-12rem)]">
         {/* ─── Guidance Banner ─── */}
         {!bannerDismissed && (
-          <div className="flex items-start gap-3 p-3 rounded-lg border border-primary/20 bg-primary/5">
+          <div className="flex items-start gap-3 p-3 rounded-lg border border-primary/20 bg-primary/5 mb-3 shrink-0">
             <Lightbulb className="h-4 w-4 text-primary shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <p className="text-sm text-foreground">
@@ -429,7 +429,7 @@ export const ApprovalWorkflows = () => {
         )}
 
         {/* ─── Two-Panel Layout ─── */}
-        <div className="flex border rounded-xl overflow-hidden bg-card" style={{ minHeight: "560px" }}>
+        <div className="flex border rounded-xl overflow-hidden bg-card flex-1 min-h-0">
 
           {/* ═══ LEFT PANEL ═══ */}
           <div className="w-[280px] border-r bg-muted/30 flex flex-col shrink-0">
