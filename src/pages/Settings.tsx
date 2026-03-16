@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 import { ThemeSettings } from "@/components/settings/ThemeSettings";
 import { CompanySettingsSection } from "@/components/settings/CompanySettingsSection";
 import { EmployeeSettingsSection } from "@/components/settings/EmployeeSettingsSection";
@@ -13,6 +12,8 @@ import { DataManagementSection } from "@/components/settings/DataManagementSecti
 import { PayslipDesignerSection } from "@/components/settings/PayslipDesignerSection";
 import { EmailSettingsSection } from "@/components/settings/EmailSettingsSection";
 import { AttendanceSettingsSection } from "@/components/settings/AttendanceSettingsSection";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 import UsersManagement from "@/pages/UsersManagement";
 import { ContractTemplateManager } from "@/components/contracts/ContractTemplateManager";
@@ -33,17 +34,18 @@ import {
   FileText,
   ScrollText,
   Timer,
-  ChevronRight,
   KeyRound,
+  ArrowLeft,
+  X,
 } from "lucide-react";
 
 const Settings = () => {
   const [activeSection, setActiveSection] = useState("theme");
   const { can, isAdmin, isLoading } = useRbacPermissions();
+  const navigate = useNavigate();
 
   const allMenuItems = [
     { id: "about",           label: "About & Help",        icon: Info,         permission: null },
-    
     { id: "attendance",      label: "Attendance",          icon: Timer,        permission: "attendance.view" },
     { id: "company",         label: "Company",             icon: Building2,    permission: "settings.manage" },
     { id: "contracts",       label: "Contracts",           icon: ScrollText,   permission: "contracts.manage" },
@@ -61,7 +63,6 @@ const Settings = () => {
   ];
 
   const menuItems = allMenuItems.filter(item => {
-    // While loading, show everything — items will settle once roles resolve
     if (isLoading) return true;
     if (isAdmin) return true;
     if (item.permission === null) return true;
@@ -109,7 +110,7 @@ const Settings = () => {
         return <UsersManagement />;
       case "access-control":
         return (
-          <div className="h-[calc(100vh-200px)]">
+          <div className="h-[calc(100vh-120px)]">
             <AccessControlManager />
           </div>
         );
@@ -127,45 +128,65 @@ const Settings = () => {
   const activeItem = menuItems.find(i => i.id === activeSection);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6">
-        {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage your Q-Payroll preferences and configuration</p>
+    <div className="fixed inset-0 z-40 bg-background flex flex-col">
+      {/* Top Bar */}
+      <header className="flex-shrink-0 h-14 border-b border-border bg-background flex items-center justify-between px-4">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back</span>
+          </button>
+          <div className="h-5 w-px bg-border" />
+          <h1 className="text-lg font-semibold text-foreground">Settings</h1>
+          {activeItem && (
+            <>
+              <div className="h-5 w-px bg-border" />
+              <span className="text-sm text-muted-foreground">{activeItem.label}</span>
+            </>
+          )}
         </div>
+        <button
+          onClick={() => navigate(-1)}
+          className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          aria-label="Close settings"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6">
-          {/* Sidebar Navigation */}
-          <div className="lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto lg:pr-1">
-            <nav className="space-y-0.5">
-              {menuItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeSection === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveSection(item.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4 flex-shrink-0" />
-                    <span className="flex-1 text-left">{item.label}</span>
-                    {isActive && <ChevronRight className="h-3.5 w-3.5 opacity-70" />}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
+      {/* Body */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        <nav className="w-56 flex-shrink-0 border-r border-border bg-muted/30 overflow-y-auto py-3 px-2">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeSection === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveSection(item.id)}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors mb-0.5 ${
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                <Icon className="h-4 w-4 flex-shrink-0" />
+                <span className="text-left truncate">{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
 
-          {/* Content Area */}
-          <div className="min-w-0">
+        {/* Content */}
+        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+          <div className="max-w-5xl">
             {renderSection()}
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );
