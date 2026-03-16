@@ -62,7 +62,8 @@ const Settings = () => {
   ];
 
   const menuItems = allMenuItems.filter(item => {
-    if (isLoading) return item.permission === null; // show unguarded items while loading
+    // While loading, show everything — items will settle once roles resolve
+    if (isLoading) return true;
     if (isAdmin) return true;
     if (item.permission === null) return true;
     return can(item.permission);
