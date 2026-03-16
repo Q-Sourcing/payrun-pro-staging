@@ -287,6 +287,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
   const [probationPeriodDays, setProbationPeriodDays] = useState(90);
   const [addingSubDept, setAddingSubDept] = useState(false);
   const [newSubDeptName, setNewSubDeptName] = useState("");
+  const [designationsList, setDesignationsList] = useState<Array<{ id: string; name: string }>>([]);
 
   const selectedEngagementType = useMemo(
     () => engagementTypes.find((item) => item.name === watchEngagementType) || null,
@@ -395,6 +396,21 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
     return parts.join(", ") || "0 months";
   };
   const experienceText = useMemo(() => calculateExperienceFromDateJoined(watchDateJoined), [watchDateJoined]);
+
+  // Load designations for dropdown
+  useEffect(() => {
+    const loadDesignations = async () => {
+      if (!organizationId) return;
+      const { data } = await (supabase as any)
+        .from('designations')
+        .select('id, name')
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
+        .order('name');
+      setDesignationsList(data ?? []);
+    };
+    void loadDesignations();
+  }, [organizationId]);
 
   // Auto-populate company from active company in OrgContext
   useEffect(() => {
@@ -1114,7 +1130,20 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div className="space-y-2">
                 <Label htmlFor="designation">Designation</Label>
-                <Input id="designation" {...form.register("designation")} />
+                <Select
+                  value={form.watch("designation") || ""}
+                  onValueChange={(val) => form.setValue("designation", val === "__none" ? null : val, { shouldDirty: true })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select designation" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">— None —</SelectItem>
+                    {designationsList.map((d) => (
+                      <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="work_location">Work Location</Label>
