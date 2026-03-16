@@ -1,0 +1,1 @@
+ALTER TABLE public.org_settings ALTER COLUMN org_id SET DEFAULT gen_random_uuid();
