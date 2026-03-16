@@ -141,6 +141,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
   const [payItems, setPayItems] = useState<PayItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [currentUserStep, setCurrentUserStep] = useState<any>(null);
   const [editingItems, setEditingItems] = useState<Record<string, Partial<PayItem> & { pay_rate?: number }>>({});
   const [expandedEmployee, setExpandedEmployee] = useState<string | null>(null);
   const [newCustomDeduction, setNewCustomDeduction] = useState<Record<string, { name: string; amount: string; type: string }>>({});
