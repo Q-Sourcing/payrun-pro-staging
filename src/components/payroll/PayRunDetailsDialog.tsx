@@ -1325,6 +1325,15 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                   </div>
                 ) : (
                   <div className="flex-1 overflow-hidden flex flex-col gap-4">
+                    {/* Read-only banner when submitted for approval */}
+                    {isReadOnly && (
+                      <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700">
+                        <Lock className="h-4 w-4 text-amber-600" />
+                        <AlertDescription className="text-amber-800 dark:text-amber-200 font-medium">
+                          This pay run is {payRunData?.approval_status === 'pending_approval' ? 'pending approval' : payRunData?.approval_status} and cannot be edited.
+                        </AlertDescription>
+                      </Alert>
+                    )}
                     {/* Summary Cards */}
                     <div className="modern-dialog-content">
                       <div className="grid grid-cols-4 gap-4 flex-shrink-0">
