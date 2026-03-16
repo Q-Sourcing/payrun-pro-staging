@@ -325,20 +325,40 @@ export const ApproversSection = () => {
       insertPayload.approver_type = "individual";
     }
 
-    const { error } = await (supabase as any).from("approval_workflow_steps").insert(insertPayload);
+    try {
+      const { error } = await (supabase as any).from("approval_workflow_steps").insert(insertPayload);
 
-    if (error) {
-      toast({ title: "Error", description: "Failed to add approver.", variant: "destructive" });
-    } else {
-      await ensureApprovalConfig(workflowId);
+      if (error) {
+        toast({ title: "Error", description: "Failed to add approver.", variant: "destructive" });
+        return;
+      }
+
+      // Non-blocking: ensure config exists, but don't let it freeze the UI
+      try {
+        await ensureApprovalConfig(workflowId);
+      } catch (configErr) {
+        console.warn("ensureApprovalConfig failed (non-fatal):", configErr);
+      }
+
+      // Update workflow's updated_by
+      await (supabase as any)
+        .from("approval_workflows")
+        .update({ updated_by: (await supabase.auth.getUser()).data.user?.id, updated_at: new Date().toISOString() })
+        .eq("id", workflowId);
+
       const displayName = approverMode === "role" && selectedRole
         ? roleCatalog[selectedRole].label
         : [selectedUser?.first_name, selectedUser?.last_name].filter(Boolean).join(" ") || selectedUser?.email;
       toast({ title: "Approver added", description: `${displayName} added to level ${nextLevel}.` });
       setModalOpen(false);
       await fetchSteps(workflowId);
+      await fetchWorkflowMeta(workflowId);
+    } catch (err) {
+      console.error("handleSave error:", err);
+      toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   // ─── Helper: display name for a step ──────────────────────────────────────
