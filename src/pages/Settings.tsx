@@ -139,7 +139,7 @@ const Settings = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6">
           {/* Sidebar Navigation */}
-          <div className="lg:sticky lg:top-6 lg:self-start">
+          <div className="lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto lg:pr-1">
             <nav className="space-y-0.5">
               {menuItems.map((item) => {
                 const Icon = item.icon;
