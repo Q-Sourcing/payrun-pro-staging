@@ -535,7 +535,7 @@ export const ApprovalWorkflows = () => {
             </div>
 
             {/* ─── Routing Section ─── */}
-            <div className="border-t">
+            <div className="border-t-2 border-border shrink-0">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
