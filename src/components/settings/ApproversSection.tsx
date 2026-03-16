@@ -217,9 +217,9 @@ export const ApproversSection = () => {
   const ensureApprovalConfig = useCallback(async (wfId: string) => {
     if (!organizationId) return;
 
-    await (supabase as any)
-      .rpc("seed_default_categories", { org_id: organizationId })
-      .catch(() => {});
+    try {
+      await (supabase as any).rpc("seed_default_categories", { org_id: organizationId });
+    } catch { /* ignore */ }
 
     const { data: categories } = await (supabase as any)
       .from("employee_categories")
