@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { workflowService } from "@/lib/services/workflow.service";
+import { PayrunsService } from "@/lib/services/payruns.service";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +16,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { Loader2, CheckCircle2, Clock, Users, DollarSign } from "lucide-react";
 
 export default function MyApprovals() {
     const { toast } = useToast();
@@ -59,17 +60,28 @@ export default function MyApprovals() {
     const submitAction = async () => {
         if (!selectedStep || !actionType) return;
 
+        // Use payrun_id (not step id) — the RPCs operate at the payrun level
+        const payrunId = selectedStep.payrun_id || selectedStep.pay_run?.id;
+        if (!payrunId) {
+            toast({ title: "Error", description: "Cannot find payrun ID", variant: "destructive" });
+            return;
+        }
+
         setSubmitting(true);
         try {
             if (actionType === 'approve') {
-                await workflowService.approvePayrunStep(selectedStep.id, comments);
+                await PayrunsService.approveStep(payrunId, comments);
                 toast({ title: "Approved", description: "Pay run step approved successfully." });
             } else {
-                await workflowService.rejectPayrunStep(selectedStep.id, comments);
+                if (!comments.trim()) {
+                    toast({ title: "Required", description: "Please provide a rejection reason.", variant: "destructive" });
+                    setSubmitting(false);
+                    return;
+                }
+                await PayrunsService.rejectStep(payrunId, comments);
                 toast({ title: "Rejected", description: "Pay run step rejected." });
             }
 
-            // Close dialog and reload
             setSelectedStep(null);
             setActionType(null);
             loadApprovals();
@@ -83,6 +95,11 @@ export default function MyApprovals() {
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const formatCurrency = (amount: number | null | undefined) => {
+        if (!amount) return "—";
+        return new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(amount);
     };
 
     return (
@@ -107,67 +124,92 @@ export default function MyApprovals() {
                     ) : approvals.length === 0 ? (
                         <Card>
                             <CardContent className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                                <CheckCircle2 className="h-12 w-12 mb-4 text-green-100 fill-green-600 opacity-20" />
+                                <CheckCircle2 className="h-12 w-12 mb-4 opacity-20" />
                                 <p>No {activeTab} approvals found.</p>
                             </CardContent>
                         </Card>
                     ) : (
                         <div className="grid gap-4">
-                            {approvals.map((step) => (
-                                <Card key={step.id}>
-                                    <CardHeader className="pb-3">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <CardTitle className="text-lg">
-                                                    {step.step_name}
-                                                </CardTitle>
-                                                <CardDescription>
-                                                    Pay Run: {format(new Date(step.pay_run.pay_period_start), 'MMM d, yyyy')} - {format(new Date(step.pay_run.pay_period_end), 'MMM d, yyyy')}
-                                                </CardDescription>
-                                            </div>
-                                            <Badge variant={
-                                                step.status === 'pending' ? 'outline' :
-                                                    step.status === 'rejected' ? 'destructive' : 'default'
-                                            }>
-                                                {step.status}
-                                            </Badge>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="flex justify-between items-end">
-                                            <div className="text-sm text-muted-foreground space-y-1">
-                                                <div className="flex items-center gap-2">
-                                                    <Clock className="h-4 w-4" />
-                                                    Received: {format(new Date(step.created_at), 'PPP p')}
+                            {approvals.map((step) => {
+                                const payrun = step.pay_run;
+                                const periodStart = payrun?.pay_period_start
+                                    ? format(new Date(payrun.pay_period_start), 'MMM d, yyyy')
+                                    : '—';
+                                const periodEnd = payrun?.pay_period_end
+                                    ? format(new Date(payrun.pay_period_end), 'MMM d, yyyy')
+                                    : '—';
+
+                                return (
+                                    <Card key={step.id}>
+                                        <CardHeader className="pb-3">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <CardTitle className="text-lg">
+                                                        Pay Period: {periodStart} – {periodEnd}
+                                                    </CardTitle>
+                                                    <CardDescription>
+                                                        Step Level {step.level} · Submitted {step.created_at ? format(new Date(step.created_at), 'PPP') : '—'}
+                                                    </CardDescription>
                                                 </div>
-                                                {step.comments && (
-                                                    <div className="mt-2 p-2 bg-muted rounded text-xs">
-                                                        <strong>Comments:</strong> {step.comments}
+                                                <Badge variant={
+                                                    step.status === 'pending' ? 'outline' :
+                                                        step.status === 'rejected' ? 'destructive' : 'default'
+                                                }>
+                                                    {step.status}
+                                                </Badge>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                                                {payrun?.total_gross != null && (
+                                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                                        <DollarSign className="h-4 w-4" />
+                                                        <span>Total Gross: <strong className="text-foreground">{formatCurrency(payrun.total_gross)}</strong></span>
+                                                    </div>
+                                                )}
+                                                {payrun?.pay_group_name && (
+                                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                                        <Users className="h-4 w-4" />
+                                                        <span>Pay Group: <strong className="text-foreground">{payrun.pay_group_name}</strong></span>
                                                     </div>
                                                 )}
                                             </div>
 
-                                            {activeTab === 'pending' && (
-                                                <div className="flex gap-2">
-                                                    <Button
-                                                        variant="destructive"
-                                                        size="sm"
-                                                        onClick={() => handleAction(step, 'reject')}
-                                                    >
-                                                        Reject
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        onClick={() => handleAction(step, 'approve')}
-                                                    >
-                                                        Approve
-                                                    </Button>
+                                            <div className="flex justify-between items-end">
+                                                <div className="text-sm text-muted-foreground space-y-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <Clock className="h-4 w-4" />
+                                                        Received: {step.created_at ? format(new Date(step.created_at), 'PPP p') : '—'}
+                                                    </div>
+                                                    {step.comments && (
+                                                        <div className="mt-2 p-2 bg-muted rounded text-xs">
+                                                            <strong>Comments:</strong> {step.comments}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            )}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
+
+                                                {activeTab === 'pending' && (
+                                                    <div className="flex gap-2">
+                                                        <Button
+                                                            variant="destructive"
+                                                            size="sm"
+                                                            onClick={() => handleAction(step, 'reject')}
+                                                        >
+                                                            Reject
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            onClick={() => handleAction(step, 'approve')}
+                                                        >
+                                                            Approve
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })}
                         </div>
                     )}
                 </TabsContent>
@@ -178,7 +220,7 @@ export default function MyApprovals() {
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>
-                            {actionType === 'approve' ? 'Approve Request' : 'Reject Request'}
+                            {actionType === 'approve' ? 'Approve Pay Run' : 'Reject Pay Run'}
                         </DialogTitle>
                         <DialogDescription>
                             {actionType === 'approve'
@@ -187,13 +229,29 @@ export default function MyApprovals() {
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="space-y-4 py-4">
+                    {selectedStep && (
+                        <div className="py-2 px-1 bg-muted/50 rounded-md text-sm space-y-1">
+                            <p><strong>Period:</strong> {
+                                selectedStep.pay_run?.pay_period_start
+                                    ? `${format(new Date(selectedStep.pay_run.pay_period_start), 'MMM d, yyyy')} – ${format(new Date(selectedStep.pay_run.pay_period_end), 'MMM d, yyyy')}`
+                                    : '—'
+                            }</p>
+                            {selectedStep.pay_run?.total_gross && (
+                                <p><strong>Total Gross:</strong> {new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(selectedStep.pay_run.total_gross)}</p>
+                            )}
+                            <p><strong>Approval Level:</strong> {selectedStep.level}</p>
+                        </div>
+                    )}
+
+                    <div className="space-y-4 py-2">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Comments {actionType === 'reject' && '*'}</label>
+                            <label className="text-sm font-medium">
+                                Comments {actionType === 'reject' && <span className="text-destructive">*</span>}
+                            </label>
                             <Textarea
                                 value={comments}
                                 onChange={(e) => setComments(e.target.value)}
-                                placeholder={actionType === 'approve' ? "Optional approval notes..." : "Reason for rejection..."}
+                                placeholder={actionType === 'approve' ? "Optional approval notes..." : "Reason for rejection (required)..."}
                             />
                         </div>
                     </div>
