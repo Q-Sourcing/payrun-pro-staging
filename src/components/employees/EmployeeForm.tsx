@@ -397,6 +397,21 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
   };
   const experienceText = useMemo(() => calculateExperienceFromDateJoined(watchDateJoined), [watchDateJoined]);
 
+  // Load designations for dropdown
+  useEffect(() => {
+    const loadDesignations = async () => {
+      if (!organizationId) return;
+      const { data } = await (supabase as any)
+        .from('designations')
+        .select('id, name')
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
+        .order('name');
+      setDesignationsList(data ?? []);
+    };
+    void loadDesignations();
+  }, [organizationId]);
+
   // Auto-populate company from active company in OrgContext
   useEffect(() => {
     const loadActiveCompany = async () => {
