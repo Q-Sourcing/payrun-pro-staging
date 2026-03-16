@@ -320,6 +320,9 @@ export const ApprovalWorkflows = () => {
       setEditName("New Workflow");
       setEditDescription("");
       setEditActive(true);
+      setInlineCriteria([]);
+      setInlineMessages({});
+      setInlineFollowup({ enabled: false, type: 'one_time', daysAfter: 2, repeatInterval: 1, sendAt: '09:00' });
     }
     setAutoAction('none');
     setActiveAnchor('details');
