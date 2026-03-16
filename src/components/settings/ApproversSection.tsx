@@ -28,14 +28,27 @@ import {
   UserCheck,
   Loader2,
   Search,
+  ShieldCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { roleCatalog, type RoleKey } from "@/lib/obacDisplay";
+
+// Roles eligible for approval workflows
+const APPROVER_ROLES: RoleKey[] = [
+  "ORG_OWNER",
+  "ORG_ADMIN",
+  "ORG_PAYROLL_ADMIN",
+  "ORG_FINANCE_APPROVER",
+  "ORG_HEAD_OFFICE_PAYROLL",
+];
 
 interface WorkflowStep {
   id: string;
   workflow_id: string;
   level: number;
   approver_user_id: string | null;
+  approver_role: string | null;
   sequence_number: number;
   approver?: {
     first_name: string | null;
@@ -51,6 +64,8 @@ interface UserOption {
   email: string | null;
 }
 
+type ApproverMode = "role" | "individual";
+
 export const ApproversSection = () => {
   const { organizationId } = useOrg();
   const { toast } = useToast();
@@ -63,6 +78,8 @@ export const ApproversSection = () => {
   // Modal
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [approverMode, setApproverMode] = useState<ApproverMode>("role");
+  const [selectedRole, setSelectedRole] = useState<RoleKey | null>(null);
   const [userSearch, setUserSearch] = useState("");
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserOption | null>(null);
@@ -73,7 +90,6 @@ export const ApproversSection = () => {
   const ensureDefaultWorkflow = useCallback(async (): Promise<string | null> => {
     if (!organizationId) return null;
 
-    // Look for existing default workflow
     const { data: existing } = await (supabase as any)
       .from("approval_workflows")
       .select("id")
@@ -85,7 +101,6 @@ export const ApproversSection = () => {
 
     if (existing?.id) return existing.id;
 
-    // Create default workflow
     const { data: created, error } = await (supabase as any)
       .from("approval_workflows")
       .insert({
@@ -114,7 +129,7 @@ export const ApproversSection = () => {
     const { data, error } = await (supabase as any)
       .from("approval_workflow_steps")
       .select(`
-        id, workflow_id, level, approver_user_id, sequence_number,
+        id, workflow_id, level, approver_user_id, approver_role, sequence_number,
         approver:approver_user_id(first_name, last_name, email)
       `)
       .eq("workflow_id", wfId)
@@ -141,17 +156,14 @@ export const ApproversSection = () => {
   }, [organizationId, ensureDefaultWorkflow, fetchSteps]);
 
   // ─── Ensure payroll_approval_configs catch-all row ───────────────────────
-  // This wires the default workflow to the submit RPC lookup chain
 
   const ensureApprovalConfig = useCallback(async (wfId: string) => {
     if (!organizationId) return;
 
-    // Get or create the two default employee categories
     await (supabase as any)
       .rpc("seed_default_categories", { org_id: organizationId })
-      .catch(() => {}); // ignore if already seeded
+      .catch(() => {});
 
-    // Get default categories for this org
     const { data: categories } = await (supabase as any)
       .from("employee_categories")
       .select("id, key")
@@ -159,7 +171,6 @@ export const ApproversSection = () => {
 
     if (!categories || categories.length === 0) return;
 
-    // Upsert a config for the workflow
     const { data: config, error: configErr } = await (supabase as any)
       .from("payroll_approval_configs")
       .upsert({
@@ -173,7 +184,6 @@ export const ApproversSection = () => {
 
     if (configErr || !config) return;
 
-    // Link all categories to this config
     for (const cat of categories) {
       await (supabase as any)
         .from("payroll_approval_categories")
@@ -208,7 +218,6 @@ export const ApproversSection = () => {
       return;
     }
 
-    // Re-sequence remaining steps
     if (workflowId) {
       const remaining = steps.filter((s) => s.id !== id);
       await Promise.all(
@@ -227,7 +236,7 @@ export const ApproversSection = () => {
   // ─── Search users ─────────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!userSearch.trim() || !organizationId) {
+    if (!userSearch.trim() || !organizationId || approverMode !== "individual") {
       setUserOptions([]);
       return;
     }
@@ -243,44 +252,74 @@ export const ApproversSection = () => {
       setSearchLoading(false);
     }, 300);
     return () => clearTimeout(timeout);
-  }, [userSearch, organizationId]);
+  }, [userSearch, organizationId, approverMode]);
 
   // ─── Add approver ─────────────────────────────────────────────────────────
 
   const openModal = () => {
     setSelectedUser(null);
+    setSelectedRole(null);
     setUserSearch("");
     setUserOptions([]);
+    setApproverMode("role");
     setModalOpen(true);
   };
 
+  const canSave = approverMode === "role" ? !!selectedRole : !!selectedUser;
+
   const handleSave = async () => {
-    if (!selectedUser || !workflowId) return;
+    if (!workflowId || !canSave) return;
     setSaving(true);
 
     const nextLevel = steps.length + 1;
 
-    const { error } = await (supabase as any).from("approval_workflow_steps").insert({
+    const insertPayload: Record<string, any> = {
       workflow_id: workflowId,
       level: nextLevel,
       sequence_number: nextLevel,
-      approver_user_id: selectedUser.id,
-      approver_type: "individual",
       notify_email: true,
       notify_in_app: true,
-    });
+    };
+
+    if (approverMode === "role" && selectedRole) {
+      insertPayload.approver_role = selectedRole;
+      insertPayload.approver_user_id = null;
+      insertPayload.approver_type = "role";
+    } else if (approverMode === "individual" && selectedUser) {
+      insertPayload.approver_user_id = selectedUser.id;
+      insertPayload.approver_role = null;
+      insertPayload.approver_type = "individual";
+    }
+
+    const { error } = await (supabase as any).from("approval_workflow_steps").insert(insertPayload);
 
     if (error) {
       toast({ title: "Error", description: "Failed to add approver.", variant: "destructive" });
     } else {
-      // Ensure approval config is wired up
       await ensureApprovalConfig(workflowId);
-      const name = [selectedUser.first_name, selectedUser.last_name].filter(Boolean).join(" ") || selectedUser.email;
-      toast({ title: "Approver added", description: `${name} added to level ${nextLevel}.` });
+      const displayName = approverMode === "role" && selectedRole
+        ? roleCatalog[selectedRole].label
+        : [selectedUser?.first_name, selectedUser?.last_name].filter(Boolean).join(" ") || selectedUser?.email;
+      toast({ title: "Approver added", description: `${displayName} added to level ${nextLevel}.` });
       setModalOpen(false);
       await fetchSteps(workflowId);
     }
     setSaving(false);
+  };
+
+  // ─── Helper: display name for a step ──────────────────────────────────────
+
+  const getStepDisplay = (step: WorkflowStep) => {
+    if (step.approver_role && step.approver_role in roleCatalog) {
+      const role = roleCatalog[step.approver_role as RoleKey];
+      return { name: role.label, subtitle: role.description, isRole: true };
+    }
+    const approver = (step as any).approver;
+    const name = approver
+      ? [approver.first_name, approver.last_name].filter(Boolean).join(" ") || approver.email
+      : step.approver_user_id || "Unknown User";
+    const email = approver?.email || "";
+    return { name, subtitle: email, isRole: false };
   };
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -301,8 +340,8 @@ export const ApproversSection = () => {
         <CardHeader className="pb-4">
           <CardTitle className="text-lg">Approval Workflow</CardTitle>
           <CardDescription>
-            Configure the approvers for payrun approval. Approvers are notified in the order listed and
-            must be existing users in your organization.
+            Configure the approvers for payrun approval. Add approvers by OBAC role (recommended)
+            or by individual user. Approvers are notified in the order listed.
           </CardDescription>
         </CardHeader>
 
@@ -324,11 +363,7 @@ export const ApproversSection = () => {
           ) : (
             <div className="space-y-2">
               {steps.map((step, index) => {
-                const approver = (step as any).approver;
-                const name = approver
-                  ? [approver.first_name, approver.last_name].filter(Boolean).join(" ") || approver.email
-                  : step.approver_user_id || "Unknown User";
-                const email = approver?.email || "";
+                const display = getStepDisplay(step);
                 const isFirst = index === 0;
                 const isLast = index === steps.length - 1;
                 const isBusy = actionLoading === `remove-${step.id}` || actionLoading?.includes(step.id);
@@ -342,9 +377,20 @@ export const ApproversSection = () => {
                       Level {step.level}
                     </Badge>
 
+                    {display.isRole && (
+                      <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
+                    )}
+
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium leading-tight truncate">{name}</p>
-                      {email && <p className="text-xs text-muted-foreground truncate">{email}</p>}
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium leading-tight truncate">{display.name}</p>
+                        {display.isRole && (
+                          <Badge variant="outline" className="text-[10px] shrink-0">Role</Badge>
+                        )}
+                      </div>
+                      {display.subtitle && (
+                        <p className="text-xs text-muted-foreground truncate">{display.subtitle}</p>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
@@ -385,75 +431,143 @@ export const ApproversSection = () => {
           <DialogHeader>
             <DialogTitle>Add Approver</DialogTitle>
             <DialogDescription>
-              Search for an existing user in your organization to add as an approver.
+              Choose to assign an approver by OBAC role or by individual user.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Search User</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Name or email…"
-                  className="pl-9"
-                  value={userSearch}
-                  onChange={(e) => {
-                    setUserSearch(e.target.value);
-                    setSelectedUser(null);
-                  }}
-                />
+            {/* Mode selector */}
+            <RadioGroup
+              value={approverMode}
+              onValueChange={(v) => {
+                setApproverMode(v as ApproverMode);
+                setSelectedRole(null);
+                setSelectedUser(null);
+                setUserSearch("");
+                setUserOptions([]);
+              }}
+              className="flex gap-4"
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="role" id="mode-role" />
+                <Label htmlFor="mode-role" className="cursor-pointer text-sm font-medium">By Role</Label>
               </div>
-            </div>
-
-            {searchLoading && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Searching…
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="individual" id="mode-individual" />
+                <Label htmlFor="mode-individual" className="cursor-pointer text-sm font-medium">By Individual</Label>
               </div>
-            )}
+            </RadioGroup>
 
-            {userOptions.length > 0 && !selectedUser && (
-              <div className="border rounded-md divide-y max-h-48 overflow-y-auto">
-                {userOptions.map((u) => {
-                  const label = [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email;
-                  return (
-                    <button
-                      key={u.id}
-                      className="w-full text-left px-3 py-2 hover:bg-muted transition-colors text-sm"
-                      onClick={() => {
-                        setSelectedUser(u);
-                        setUserSearch(label || "");
-                        setUserOptions([]);
-                      }}
-                    >
-                      <p className="font-medium">{label}</p>
-                      {u.email && <p className="text-xs text-muted-foreground">{u.email}</p>}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {selectedUser && (
-              <div className="flex items-center gap-2 p-3 bg-primary/5 rounded-md border border-primary/20">
-                <UserCheck className="h-4 w-4 text-primary" />
-                <div className="text-sm">
-                  <p className="font-medium">
-                    {[selectedUser.first_name, selectedUser.last_name].filter(Boolean).join(" ") || "User"}
-                  </p>
-                  {selectedUser.email && <p className="text-xs text-muted-foreground">{selectedUser.email}</p>}
+            {/* Role selection */}
+            {approverMode === "role" && (
+              <div className="space-y-2">
+                <Label>Select Role</Label>
+                <div className="border rounded-md divide-y max-h-56 overflow-y-auto">
+                  {APPROVER_ROLES.map((roleKey) => {
+                    const role = roleCatalog[roleKey];
+                    const isSelected = selectedRole === roleKey;
+                    return (
+                      <button
+                        key={roleKey}
+                        className={`w-full text-left px-3 py-2.5 transition-colors text-sm ${
+                          isSelected ? "bg-primary/10 border-primary/20" : "hover:bg-muted"
+                        }`}
+                        onClick={() => setSelectedRole(roleKey)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className={`h-4 w-4 shrink-0 ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
+                          <div>
+                            <p className="font-medium">{role.label}</p>
+                            <p className="text-xs text-muted-foreground">{role.description}</p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-                <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs"
-                  onClick={() => { setSelectedUser(null); setUserSearch(""); }}>
-                  Change
-                </Button>
+                {selectedRole && (
+                  <div className="flex items-center gap-2 p-3 bg-primary/5 rounded-md border border-primary/20">
+                    <ShieldCheck className="h-4 w-4 text-primary" />
+                    <div className="text-sm">
+                      <p className="font-medium">{roleCatalog[selectedRole].label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Any user with this role will be eligible to approve at this level.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
+            )}
+
+            {/* Individual user selection */}
+            {approverMode === "individual" && (
+              <>
+                <div className="space-y-1.5">
+                  <Label>Search User</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Name or email…"
+                      className="pl-9"
+                      value={userSearch}
+                      onChange={(e) => {
+                        setUserSearch(e.target.value);
+                        setSelectedUser(null);
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {searchLoading && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Searching…
+                  </div>
+                )}
+
+                {userOptions.length > 0 && !selectedUser && (
+                  <div className="border rounded-md divide-y max-h-48 overflow-y-auto">
+                    {userOptions.map((u) => {
+                      const label = [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email;
+                      return (
+                        <button
+                          key={u.id}
+                          className="w-full text-left px-3 py-2 hover:bg-muted transition-colors text-sm"
+                          onClick={() => {
+                            setSelectedUser(u);
+                            setUserSearch(label || "");
+                            setUserOptions([]);
+                          }}
+                        >
+                          <p className="font-medium">{label}</p>
+                          {u.email && <p className="text-xs text-muted-foreground">{u.email}</p>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {selectedUser && (
+                  <div className="flex items-center gap-2 p-3 bg-primary/5 rounded-md border border-primary/20">
+                    <UserCheck className="h-4 w-4 text-primary" />
+                    <div className="text-sm">
+                      <p className="font-medium">
+                        {[selectedUser.first_name, selectedUser.last_name].filter(Boolean).join(" ") || "User"}
+                      </p>
+                      {selectedUser.email && <p className="text-xs text-muted-foreground">{selectedUser.email}</p>}
+                    </div>
+                    <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs"
+                      onClick={() => { setSelectedUser(null); setUserSearch(""); }}>
+                      Change
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setModalOpen(false)} disabled={saving}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving || !selectedUser} className="gap-2">
+            <Button onClick={handleSave} disabled={saving || !canSave} className="gap-2">
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               Add
             </Button>
