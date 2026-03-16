@@ -312,42 +312,38 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
     }
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="md:col-span-1">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">Navigation</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                        <nav className="space-y-1">
-                            {menuItems.map((item) => {
-                                const Icon = item.icon;
-                                return (
-                                    <button
-                                        key={item.id}
-                                        onClick={() => setActiveSection(item.id)}
-                                        className={`settings-nav-item ${activeSection === item.id
-                                            ? "settings-nav-item-selected"
-                                            : "settings-nav-item-unselected"
-                                            }`}
-                                        style={activeSection === item.id ? {
-                                            backgroundColor: 'hsl(192 78% 30%)',
-                                            color: 'white'
-                                        } : {}}
-                                    >
-                                        <Icon className="h-4 w-4" />
-                                        <span>{item.label}</span>
-                                    </button>
-                                );
-                            })}
-                        </nav>
-                    </CardContent>
-                </Card>
-            </div>
+        <div className="flex h-full">
+            {/* Sidebar */}
+            <nav className="w-64 flex-shrink-0 border-r border-border overflow-y-auto py-4 px-3">
+                <h3 className="text-sm font-semibold text-foreground mb-3 px-3">Navigation</h3>
+                <div className="space-y-0.5">
+                    {menuItems.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = activeSection === item.id;
+                        return (
+                            <button
+                                key={item.id}
+                                onClick={() => setActiveSection(item.id)}
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                                    isActive
+                                        ? "bg-primary text-primary-foreground shadow-sm"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                                }`}
+                            >
+                                <Icon className="h-4 w-4 flex-shrink-0" />
+                                <span className="text-left truncate">{item.label}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </nav>
 
-            <div className="md:col-span-3">
-                {renderStandardContent()}
-            </div>
+            {/* Content */}
+            <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+                <div className="max-w-5xl">
+                    {renderStandardContent()}
+                </div>
+            </main>
         </div>
     );
 };

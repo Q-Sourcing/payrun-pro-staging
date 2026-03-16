@@ -45,11 +45,9 @@ export const SettingsModal = ({ open, onOpenChange, onAdvancedModeChange }: Sett
                         </button>
                     </header>
 
-                    {/* Content */}
-                    <div className="flex-1 overflow-y-auto p-6 lg:p-8">
-                        <div className="max-w-6xl mx-auto">
-                            <SettingsContent onAdvancedModeChange={onAdvancedModeChange} />
-                        </div>
+                    {/* Content - fills remaining space */}
+                    <div className="flex-1 overflow-hidden">
+                        <SettingsContent onAdvancedModeChange={onAdvancedModeChange} />
                     </div>
                 </motion.div>
             )}
