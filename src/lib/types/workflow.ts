@@ -7,8 +7,30 @@ export type PayrollApprovalScope =
     | 'payroll_overrides'
     | 'backdated_changes';
 
-// Approver assignment types
-export type ApproverType = 'role' | 'individual' | 'hybrid';
+// Extended approver types for Phase 3
+export type ApproverType =
+    | 'role'
+    | 'individual'
+    | 'hybrid'
+    | 'reporting_to'
+    | 'department_head'
+    | 'department_members'
+    | 'designation'
+    | 'project_manager'
+    | 'group';
+
+// Approver type display metadata
+export const APPROVER_TYPE_META: Record<ApproverType, { label: string; icon: string; description: string }> = {
+    reporting_to: { label: 'Reporting Manager', icon: '👤', description: 'Resolves to the employee\'s direct manager at runtime' },
+    role: { label: 'By OBAC Role', icon: '🛡️', description: 'Any user with this organizational role' },
+    department_head: { label: 'Department Head', icon: '🏢', description: 'Head of the employee\'s department' },
+    department_members: { label: 'Department Members', icon: '👥', description: 'All users in the selected department' },
+    designation: { label: 'By Designation', icon: '📋', description: 'All users with the selected designation' },
+    individual: { label: 'Specific Individual', icon: '🧑', description: 'A specific named user' },
+    project_manager: { label: 'Project Manager', icon: '📊', description: 'Manager of the associated project' },
+    group: { label: 'Approval Group', icon: '👥', description: 'Members of a named approval group' },
+    hybrid: { label: 'Role + Fallback', icon: '🔄', description: 'Role-based with individual fallback' },
+};
 
 // Predefined OBAC roles that can be approvers
 export const APPROVER_ROLES = {
@@ -32,7 +54,6 @@ export interface OrgSettings {
     approvals_allow_delegation: boolean;
     approvals_rejection_comment_required: boolean;
     approvals_visibility_non_admin: boolean;
-    // NEW FIELDS
     payroll_approvals_enabled?: boolean;
     approvals_enabled_scopes?: PayrollApprovalScope[];
     created_at?: string;
@@ -50,13 +71,13 @@ export interface ApprovalWorkflow {
     created_by?: string;
     created_at?: string;
     updated_at?: string;
-    // NEW FIELDS
+    updated_by?: string;
     applies_to_scopes?: PayrollApprovalScope[];
     version?: number;
     steps?: ApprovalWorkflowStep[];
 }
 
-// Extended workflow step with approver type and fallback
+// Extended workflow step with all approver types
 export interface ApprovalWorkflowStep {
     id: string;
     workflow_id: string;
@@ -67,9 +88,11 @@ export interface ApprovalWorkflowStep {
     notify_email: boolean;
     notify_in_app: boolean;
     created_at?: string;
-    // NEW FIELDS
     approver_type?: ApproverType;
     fallback_user_id?: string;
+    approver_designation_id?: string;
+    approver_department_id?: string;
+    approver_group_id?: string;
     // UI helpers
     approver_user?: {
         first_name: string;
@@ -99,12 +122,10 @@ export interface PayrunApprovalStep {
     delegated_at?: string;
     created_at?: string;
     updated_at?: string;
-    // NEW FIELDS
     workflow_version?: number;
     override_reason?: string;
     override_by?: string;
     override_at?: string;
-    // UI helpers
     approver?: { first_name: string; last_name: string; };
     actioned_by_user?: { first_name: string; last_name: string; };
     delegated_by_user?: { first_name: string; last_name: string; };
@@ -140,7 +161,7 @@ export const APPROVAL_SCOPE_LABELS: Record<PayrollApprovalScope, string> = {
     backdated_changes: 'Backdated Payroll Changes',
 };
 
-// --- NEW PER-TYPE APPROVAL TYPES ---
+// --- Per-Type Approval Config ---
 
 export interface PayrollApprovalConfig {
     id: string;
@@ -151,8 +172,7 @@ export interface PayrollApprovalConfig {
     workflow_id?: string;
     created_at?: string;
     updated_at?: string;
-    // UI Helpers
-    categories?: string[]; // Array of category IDs
+    categories?: string[];
     workflow?: ApprovalWorkflow;
 }
 
@@ -176,3 +196,113 @@ export interface NotificationTemplate {
     created_at?: string;
     updated_at?: string;
 }
+
+// --- Phase 3: Approval Groups ---
+
+export interface ApprovalGroup {
+    id: string;
+    organization_id: string;
+    name: string;
+    description?: string;
+    is_active: boolean;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface ApprovalGroupMember {
+    id: string;
+    group_id: string;
+    user_id: string;
+    created_at?: string;
+}
+
+// --- Phase 4: Criteria ---
+
+export type CriteriaField = 'amount' | 'pay_group' | 'employee_category' | 'department' | 'designation' | 'payrun_type';
+export type CriteriaOperator = 'equals' | 'not_equals' | 'greater_than' | 'less_than' | 'in' | 'contains';
+
+export interface ApprovalWorkflowCriteria {
+    id: string;
+    workflow_id: string;
+    field: CriteriaField;
+    operator: CriteriaOperator;
+    value: any;
+    sequence_number: number;
+    created_at?: string;
+}
+
+export const CRITERIA_FIELD_LABELS: Record<CriteriaField, string> = {
+    amount: 'Total Amount',
+    pay_group: 'Pay Group',
+    employee_category: 'Employee Category',
+    department: 'Department',
+    designation: 'Designation',
+    payrun_type: 'Pay Run Type',
+};
+
+export const CRITERIA_OPERATORS: Record<CriteriaField, { value: CriteriaOperator; label: string }[]> = {
+    amount: [
+        { value: 'greater_than', label: 'Greater than' },
+        { value: 'less_than', label: 'Less than' },
+        { value: 'equals', label: 'Equals' },
+    ],
+    pay_group: [{ value: 'in', label: 'Is one of' }],
+    employee_category: [{ value: 'in', label: 'Is one of' }],
+    department: [{ value: 'in', label: 'Is one of' }],
+    designation: [{ value: 'in', label: 'Is one of' }],
+    payrun_type: [{ value: 'in', label: 'Is one of' }],
+};
+
+// --- Phase 5: Follow-ups ---
+
+export interface ApprovalWorkflowFollowup {
+    id: string;
+    workflow_id: string;
+    is_enabled: boolean;
+    followup_type: 'one_time' | 'repeat';
+    days_after: number;
+    repeat_interval_days?: number;
+    send_at_time: string;
+    created_at?: string;
+    updated_at?: string;
+}
+
+// --- Phase 6: Messages ---
+
+export type MessageEventType = 'submitted' | 'approved' | 'rejected' | 'followup';
+export type MessageFromType = 'system' | 'submitter' | 'approver';
+export type MessageToType = 'current_approver' | 'all_approvers' | 'submitter' | 'all';
+
+export interface ApprovalWorkflowMessage {
+    id: string;
+    workflow_id: string;
+    event_type: MessageEventType;
+    from_type: MessageFromType;
+    to_type: MessageToType;
+    subject: string;
+    body_content: string;
+    is_active: boolean;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export const MESSAGE_EVENT_LABELS: Record<MessageEventType, string> = {
+    submitted: 'Submitted for Approval',
+    approved: 'Approved',
+    rejected: 'Rejected',
+    followup: 'Follow-up Reminder',
+};
+
+export const MESSAGE_VARIABLES = [
+    '{{total_gross}}',
+    '{{pay_period}}',
+    '{{approver_name}}',
+    '{{submitter_name}}',
+    '{{org_name}}',
+    '{{current_level}}',
+    '{{total_levels}}',
+    '{{rejection_reason}}',
+    '{{workflow_name}}',
+    '{{due_date}}',
+    '{{action_url}}',
+];
