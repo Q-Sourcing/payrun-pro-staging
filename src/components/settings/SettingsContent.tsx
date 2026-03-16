@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ApproversSection } from "@/components/settings/ApproversSection";
+
 import { ThemeSettings } from "@/components/settings/ThemeSettings";
 import { EmployeeSettingsSection } from "@/components/settings/EmployeeSettingsSection";
 import { AboutSection } from "@/components/settings/AboutSection";
@@ -33,7 +33,6 @@ import {
     ScrollText,
     AlarmClock,
     Timer,
-    GitBranch,
     Settings as SettingsIcon,
     Building2 as BuildingIcon
 } from "lucide-react";
@@ -61,13 +60,6 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
             label: "About & Help",
             icon: Info,
             requiredRole: 'SELF_USER' as const
-        },
-        {
-            id: "approvers",
-            label: "Approvers",
-            icon: GitBranch,
-            requiredRole: 'ORG_FINANCE_CONTROLLER' as const,
-            requiredPermission: 'process_payroll'
         },
         {
             id: "attendance-settings",
@@ -191,12 +183,6 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
 
     const renderStandardContent = () => {
         switch (activeSection) {
-            case "approvers":
-                return (
-                    <SettingsSectionGuard requiredRole="ORG_FINANCE_CONTROLLER" requiredPermission="process_payroll">
-                        <ApproversSection />
-                    </SettingsSectionGuard>
-                );
             case "company":
                 return (
                     <SettingsSectionGuard requiredRole="ORG_ADMIN" requiredPermission="organization_configuration">
