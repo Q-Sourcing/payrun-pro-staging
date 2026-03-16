@@ -103,6 +103,11 @@ export const ApproversSection = () => {
   const [selectedUser, setSelectedUser] = useState<UserOption | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
 
+  // Per-category config
+  const [categories, setCategories] = useState<{ id: string; key: string; label: string }[]>([]);
+  const [configs, setConfigs] = useState<{ id: string; name: string; is_enabled: boolean; workflow_id: string | null; categories: string[] }[]>([]);
+  const [configsLoading, setConfigsLoading] = useState(false);
+
   // ─── Get or create default workflow ───────────────────────────────────────
 
   const ensureDefaultWorkflow = useCallback(async (): Promise<string | null> => {
