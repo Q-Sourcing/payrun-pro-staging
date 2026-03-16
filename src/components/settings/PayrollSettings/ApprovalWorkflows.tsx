@@ -614,7 +614,7 @@ export const ApprovalWorkflows = () => {
             </div>
           </div>
 
-          {/* ═══ RIGHT PANEL ═══ */}
+          {/* ═══ RIGHT PANEL — Scroll-spy layout ═══ */}
           <div className="flex-1 flex flex-col min-w-0 min-h-0">
             {!selectedId && !editName ? (
               <div className="flex-1 flex items-center justify-center text-center p-8">
@@ -627,129 +627,246 @@ export const ApprovalWorkflows = () => {
                 </div>
               </div>
             ) : (
-              <>
-                {/* Header */}
-                <div className="p-4 border-b space-y-3">
-                  <div className="flex items-center gap-3">
-                    <Input
-                      value={editName}
-                      onChange={e => setEditName(e.target.value)}
-                      className="h-9 text-base font-bold border-transparent hover:border-border focus:border-border bg-transparent px-1 hover:underline decoration-muted-foreground/30 underline-offset-4"
-                      placeholder="Workflow name"
-                    />
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Switch checked={editActive} onCheckedChange={setEditActive} />
-                      <Label className="text-xs">{editActive ? 'Active' : 'Inactive'}</Label>
-                    </div>
-                  </div>
-                  <Input
-                    value={editDescription}
-                    onChange={e => setEditDescription(e.target.value)}
-                    className="h-7 text-xs text-muted-foreground border-transparent hover:border-border focus:border-border bg-transparent px-1"
-                    placeholder="Description (optional)"
-                  />
-                </div>
+              <div className="flex flex-1 min-h-0">
+                {/* Anchor Nav (sticky left column) */}
+                <nav className="w-[160px] shrink-0 border-r bg-muted/20 py-4 px-2 sticky top-0 self-start">
+                  {[
+                    { id: 'details', label: 'Approval Details' },
+                    { id: 'criteria', label: 'Criteria' },
+                    { id: 'approvers', label: 'Approvers' },
+                    { id: 'messages', label: 'Messages' },
+                  ].map(item => (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        const el = document.getElementById(`section-${item.id}`);
+                        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }}
+                      className={`w-full text-left px-3 py-2 text-xs rounded-md transition-colors mb-0.5 ${
+                        activeAnchor === item.id
+                          ? 'text-primary font-semibold border-l-2 border-primary bg-primary/5'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted border-l-2 border-transparent'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </nav>
 
-                {/* Builder Tabs */}
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-                  <div className="px-4 pt-2 border-b shrink-0">
-                    <TabsList className="h-9">
-                      <TabsTrigger value="approvers" className="text-xs">Approvers</TabsTrigger>
-                      <TabsTrigger value="criteria" className="text-xs">Criteria</TabsTrigger>
-                      <TabsTrigger value="followup" className="text-xs">Follow-up</TabsTrigger>
-                      <TabsTrigger value="messages" className="text-xs">Messages</TabsTrigger>
-                    </TabsList>
-                  </div>
-
-                  {/* Scrollable tab content area */}
-                  <div className="flex-1 overflow-y-auto min-h-0">
-                    {/* Approvers Tab */}
-                    <TabsContent value="approvers" className="p-4 space-y-4 mt-0">
-                      <div className="space-y-2">
-                        {steps.length === 0 ? (
-                          <div className="py-8 text-center border-2 border-dashed rounded-lg">
-                            <p className="text-sm text-muted-foreground">No approval steps. Add the first approver to get started.</p>
+                {/* Scrollable content column */}
+                <div className="flex-1 flex flex-col min-h-0">
+                  <div
+                    ref={scrollContainerRef}
+                    className="flex-1 overflow-y-auto p-5 space-y-5"
+                    onScroll={() => {
+                      const container = scrollContainerRef.current;
+                      if (!container) return;
+                      const sections = ['details', 'criteria', 'approvers', 'messages'];
+                      for (const id of sections) {
+                        const el = document.getElementById(`section-${id}`);
+                        if (el) {
+                          const rect = el.getBoundingClientRect();
+                          const containerRect = container.getBoundingClientRect();
+                          if (rect.top <= containerRect.top + 100) {
+                            setActiveAnchor(id);
+                          }
+                        }
+                      }
+                    }}
+                  >
+                    {/* ── Section 1: Approval Details ── */}
+                    <Card id="section-details">
+                      <CardHeader className="pb-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle className="text-base">Approval Details</CardTitle>
+                            <CardDescription>Basic details of this approval workflow.</CardDescription>
                           </div>
-                        ) : (
-                          steps.map((step, index) => {
-                            const type = step.approver_type || 'role';
-                            const meta = APPROVER_TYPE_META[type as ApproverType];
-                            const label = getStepLabel(step);
-                            return (
-                              <div key={index} className="flex items-center gap-2 px-3 py-2.5 rounded-lg border bg-card hover:bg-muted/30 transition-colors">
-                                <GripVertical className="h-4 w-4 text-muted-foreground/50 cursor-grab shrink-0" />
-                                <Badge variant="secondary" className="text-xs font-semibold shrink-0">L{step.level}</Badge>
-                                <span className="text-sm shrink-0">{meta?.icon}</span>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium truncate">{label}</p>
-                                  <p className="text-[10px] text-muted-foreground">{meta?.label}</p>
-                                </div>
-                                <div className="flex items-center gap-0.5 shrink-0">
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" disabled={index === 0} onClick={() => moveStep(index, 'up')}>
-                                    <ArrowUp className="h-3 w-3" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" disabled={index === steps.length - 1} onClick={() => moveStep(index, 'down')}>
-                                    <ArrowDown className="h-3 w-3" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => removeStep(index)}>
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              </div>
-                            );
-                          })
-                        )}
-                        <Button variant="outline" size="sm" className="gap-1" onClick={() => setAddModalOpen(true)}>
-                          <Plus className="h-3 w-3" /> Add Approver
-                        </Button>
-                      </div>
-
-                      <Separator />
-                      <div>
-                        <Label className="text-xs font-semibold text-muted-foreground mb-2 block">Flow Preview</Label>
-                        <div className="border rounded-lg p-2 bg-muted/20 overflow-x-auto">
-                          <ApprovalFlowChart steps={steps} />
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Switch checked={editActive} onCheckedChange={setEditActive} />
+                            <Label className="text-xs">{editActive ? 'Active' : 'Inactive'}</Label>
+                          </div>
                         </div>
-                      </div>
-                    </TabsContent>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-sm font-medium">
+                            Workflow Name <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            value={editName}
+                            onChange={e => setEditName(e.target.value)}
+                            placeholder="e.g. Standard Payroll Approval"
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-sm font-medium">Description</Label>
+                          <Textarea
+                            value={editDescription}
+                            onChange={e => setEditDescription(e.target.value)}
+                            placeholder="Optional description of this workflow…"
+                            className="min-h-[72px] text-sm resize-none"
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
 
-                    {/* Criteria Tab */}
-                    <TabsContent value="criteria" className="p-4 mt-0">
-                      {selectedId ? (
-                        <ApprovalCriteriaBuilder workflowId={selectedId} organizationId={orgId} />
-                      ) : (
-                        <p className="text-sm text-muted-foreground py-8 text-center">Save the workflow first to add criteria.</p>
-                      )}
-                    </TabsContent>
+                    {/* ── Section 2: Criteria ── */}
+                    <Card id="section-criteria">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="text-base">Criteria</CardTitle>
+                        <CardDescription>This workflow will trigger when the following conditions are met.</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {selectedId ? (
+                          <ApprovalCriteriaBuilder workflowId={selectedId} organizationId={orgId} />
+                        ) : (
+                          <div className="py-8 text-center border-2 border-dashed rounded-lg">
+                            <p className="text-sm text-muted-foreground">Save the workflow first to set criteria.</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
 
-                    {/* Follow-up Tab */}
-                    <TabsContent value="followup" className="p-4 mt-0">
-                      {selectedId ? (
-                        <ApprovalFollowupConfig workflowId={selectedId} />
-                      ) : (
-                        <p className="text-sm text-muted-foreground py-8 text-center">Save the workflow first to configure follow-ups.</p>
-                      )}
-                    </TabsContent>
+                    {/* ── Section 3: Approvers ── */}
+                    <Card id="section-approvers">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="text-base">Approvers</CardTitle>
+                        <CardDescription>Configure who approves this workflow and in what order.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-5">
+                        {/* Manual approver chain */}
+                        <div className={autoAction !== 'none' ? 'opacity-40 pointer-events-none' : ''}>
+                          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3 block">Configure Manually</Label>
+                          <div className="space-y-2">
+                            {steps.length === 0 ? (
+                              <div className="py-6 text-center border-2 border-dashed rounded-lg">
+                                <p className="text-sm text-muted-foreground">No approval steps yet.</p>
+                              </div>
+                            ) : (
+                              steps.map((step, index) => {
+                                const type = step.approver_type || 'role';
+                                const meta = APPROVER_TYPE_META[type as ApproverType];
+                                const label = getStepLabel(step);
+                                return (
+                                  <div key={index} className="flex items-center gap-2 px-3 py-2.5 rounded-lg border bg-card hover:bg-muted/30 transition-colors">
+                                    <GripVertical className="h-4 w-4 text-muted-foreground/50 cursor-grab shrink-0" />
+                                    <Badge variant="secondary" className="text-xs font-semibold shrink-0">L{step.level}</Badge>
+                                    <span className="text-sm shrink-0">{meta?.icon}</span>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium truncate">{label}</p>
+                                      <p className="text-[10px] text-muted-foreground">{meta?.label}</p>
+                                    </div>
+                                    <div className="flex items-center gap-0.5 shrink-0">
+                                      <Button variant="ghost" size="icon" className="h-7 w-7" disabled={index === 0} onClick={() => moveStep(index, 'up')}>
+                                        <ArrowUp className="h-3 w-3" />
+                                      </Button>
+                                      <Button variant="ghost" size="icon" className="h-7 w-7" disabled={index === steps.length - 1} onClick={() => moveStep(index, 'down')}>
+                                        <ArrowDown className="h-3 w-3" />
+                                      </Button>
+                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => removeStep(index)}>
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                            <Button variant="outline" size="sm" className="gap-1" onClick={() => setAddModalOpen(true)}>
+                              <Plus className="h-3 w-3" /> Add Approver
+                            </Button>
+                          </div>
+                        </div>
 
-                    {/* Messages Tab */}
-                    <TabsContent value="messages" className="p-4 mt-0">
-                      {selectedId ? (
-                        <ApprovalWorkflowMessages workflowId={selectedId} />
-                      ) : (
-                        <p className="text-sm text-muted-foreground py-8 text-center">Save the workflow first to configure messages.</p>
-                      )}
-                    </TabsContent>
+                        {/* OR Divider */}
+                        <div className="flex items-center gap-3">
+                          <Separator className="flex-1" />
+                          <span className="text-xs font-medium text-muted-foreground">(OR)</span>
+                          <Separator className="flex-1" />
+                        </div>
+
+                        {/* Auto-action option */}
+                        <div className="space-y-2">
+                          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Auto-action</Label>
+                          <RadioGroup value={autoAction} onValueChange={(v) => setAutoAction(v as any)} className="flex gap-4">
+                            <div className="flex items-center gap-2">
+                              <RadioGroupItem value="none" id="aa-none" />
+                              <Label htmlFor="aa-none" className="text-sm cursor-pointer">None</Label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <RadioGroupItem value="auto_approve" id="aa-approve" />
+                              <Label htmlFor="aa-approve" className="text-sm cursor-pointer">Auto Approve</Label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <RadioGroupItem value="auto_reject" id="aa-reject" />
+                              <Label htmlFor="aa-reject" className="text-sm cursor-pointer">Auto Reject</Label>
+                            </div>
+                          </RadioGroup>
+                          {autoAction !== 'none' && (
+                            <p className="text-xs text-muted-foreground italic bg-muted/50 rounded px-3 py-2">
+                              Steps are ignored when auto-action is selected. The pay run will be automatically {autoAction === 'auto_approve' ? 'approved' : 'rejected'}.
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Flow Preview */}
+                        <Separator />
+                        <div>
+                          <Label className="text-xs font-semibold text-muted-foreground mb-2 block">Flow Preview</Label>
+                          <div className="border rounded-lg p-2 bg-muted/20 overflow-x-auto">
+                            <ApprovalFlowChart steps={autoAction !== 'none' ? [] : steps} />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* ── Section 4: Messages ── */}
+                    <Card id="section-messages">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="text-base">Messages</CardTitle>
+                        <CardDescription>Configure the emails sent at each stage of this workflow.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-5">
+                        {selectedId ? (
+                          <>
+                            <ApprovalWorkflowMessages workflowId={selectedId} />
+
+                            {/* Follow-up Reminders (inside Messages card) */}
+                            <Separator />
+                            <ApprovalFollowupConfig workflowId={selectedId} />
+                          </>
+                        ) : (
+                          <div className="py-8 text-center border-2 border-dashed rounded-lg">
+                            <p className="text-sm text-muted-foreground">Save the workflow first to configure messages.</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
                   </div>
 
-                  {/* Sticky save button */}
-                  <div className="shrink-0 border-t bg-card px-4 py-3 flex justify-end">
+                  {/* Sticky bottom action bar */}
+                  <div className="shrink-0 border-t bg-card px-5 py-3 flex items-center justify-between">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground"
+                      onClick={() => {
+                        setSelectedId(null);
+                        setSelectedWorkflow(null);
+                        setEditName("");
+                        setEditDescription("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
                     <Button onClick={handleSaveWorkflow} disabled={saving}>
                       {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-                      {selectedWorkflow ? 'Update Workflow' : 'Create Workflow'}
+                      Save Workflow
                     </Button>
                   </div>
-                </Tabs>
-              </>
+                </div>
+              </div>
             )}
           </div>
         </div>
