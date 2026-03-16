@@ -65,6 +65,16 @@ export const roleCatalog: Record<RoleKey, { label: string; category: RoleCategor
     category: "Projects",
     description: "Manage Manpower, Expatriate, and IPPMS projects within scoped access.",
   },
+  ORG_DEPARTMENT_HEAD: {
+    label: "Department Head",
+    category: "HR & People",
+    description: "Head of department — auto-resolved based on organizational hierarchy.",
+  },
+  ORG_REPORTING_MANAGER: {
+    label: "Reporting Manager",
+    category: "HR & People",
+    description: "Direct reporting manager — auto-resolved from the employee's reporting chain.",
+  },
   ORG_VIEWER: {
     label: "Read-only Viewer",
     category: "Other",
