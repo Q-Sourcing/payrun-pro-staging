@@ -33,6 +33,7 @@ import {
     ScrollText,
     AlarmClock,
     Timer,
+    GitBranch,
     Settings as SettingsIcon,
     Building2 as BuildingIcon
 } from "lucide-react";

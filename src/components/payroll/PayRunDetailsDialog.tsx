@@ -170,6 +170,9 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
   const [expatriatePayGroup, setExpatriatePayGroup] = useState<any>(null);
   const [assignedExpatEmployees, setAssignedExpatEmployees] = useState<any[]>([]);
   const [payRunData, setPayRunData] = useState<any>(null);
+  // Derive read-only state from approval status
+  const isReadOnly = payRunData?.approval_status &&
+    !['draft', 'rejected'].includes(payRunData.approval_status);
   const { toast } = useToast();
   const { canExportBankSchedule } = useBankSchedulePermissions();
   // Approval Workflow State
