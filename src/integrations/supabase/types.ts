@@ -1556,6 +1556,44 @@ export type Database = {
         }
         Relationships: []
       }
+      designations: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "designations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ehs_compliance_requirements: {
         Row: {
           category: string | null
@@ -4048,6 +4086,7 @@ export type Database = {
           date_joined: string | null
           date_of_birth: string | null
           designation: string | null
+          designation_id: string | null
           email: string
           employee_category: string | null
           employee_number: string
@@ -4104,6 +4143,7 @@ export type Database = {
           date_joined?: string | null
           date_of_birth?: string | null
           designation?: string | null
+          designation_id?: string | null
           email: string
           employee_category?: string | null
           employee_number: string
@@ -4160,6 +4200,7 @@ export type Database = {
           date_joined?: string | null
           date_of_birth?: string | null
           designation?: string | null
+          designation_id?: string | null
           email?: string
           employee_category?: string | null
           employee_number?: string
@@ -4220,6 +4261,13 @@ export type Database = {
             columns: ["sub_department_id"]
             isOneToOne: false
             referencedRelation: "sub_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_designation_id_fkey"
+            columns: ["designation_id"]
+            isOneToOne: false
+            referencedRelation: "designations"
             referencedColumns: ["id"]
           },
           {
