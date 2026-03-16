@@ -141,6 +141,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
   const [payItems, setPayItems] = useState<PayItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [currentUserStep, setCurrentUserStep] = useState<any>(null);
   const [editingItems, setEditingItems] = useState<Record<string, Partial<PayItem> & { pay_rate?: number }>>({});
   const [expandedEmployee, setExpandedEmployee] = useState<string | null>(null);
   const [newCustomDeduction, setNewCustomDeduction] = useState<Record<string, { name: string; amount: string; type: string }>>({});
@@ -285,6 +286,10 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       if (payRunError) throw payRunError;
 
       setPayRunData(payRunData);
+
+      // Fetch current user's pending step for this payrun (for button gating)
+      const myStep = await PayrunsService.getMyStepForPayrun(payRunId);
+      setCurrentUserStep(myStep);
 
       // Check if this is an expatriate pay run
       const isExpat = payRunData?.payroll_type === 'expatriate' ||
@@ -2072,22 +2077,22 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
             </TabsContent>
           </Tabs>
 
-          <div className="p-4 border-t flex justify-between bg-white z-20">
+          <div className="p-4 border-t flex justify-between bg-background z-20">
             <div className="flex gap-2">
-              {(isSuperAdmin || role === 'ORG_ADMIN') && (
-                (payRunData?.approval_status === "draft" || payRunData?.approval_status === "rejected" || !payRunData?.approval_status) && (
-                  <Button onClick={handleSubmitForApproval}>Submit for Approval</Button>
-                )
+              {/* Submit: available to any authenticated user when payrun is in draft/rejected */}
+              {(payRunData?.approval_status === "draft" || payRunData?.approval_status === "rejected" || !payRunData?.approval_status) && (
+                <Button onClick={handleSubmitForApproval}>Submit for Approval</Button>
               )}
+              {/* Return to draft: only for admins when rejected */}
               {(payRunData?.approval_status === "rejected" && (isSuperAdmin || role === 'ORG_ADMIN')) && (
                 <Button variant="outline" onClick={handleReturnToDraft}>Return to Draft</Button>
               )}
 
-              {payRunData?.approval_status === "pending_approval" && (
+              {/* Approve/Reject: only shown to the designated approver at the current level */}
+              {payRunData?.approval_status === "pending_approval" && currentUserStep && (
                 <>
                   <Button onClick={() => initApprovalAction('approve')}>Approve</Button>
                   <Button variant="destructive" onClick={() => initApprovalAction('reject')}>Reject</Button>
-                  <Button variant="outline" onClick={() => initApprovalAction('delegate')}>Delegate</Button>
                 </>
               )}
             </div>

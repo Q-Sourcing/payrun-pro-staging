@@ -3,6 +3,25 @@ import { supabase } from '@/integrations/supabase/client';
 import { PayrunApprovalStep, ApprovalActionResponse } from '../types/workflow';
 import { AuditLogger } from './audit-logger';
 
+async function triggerApprovalEmail(
+    payrunId: string,
+    eventKey: 'PAYRUN_SUBMITTED' | 'PAYRUN_APPROVED' | 'PAYRUN_REJECTED' | 'APPROVAL_REMINDER',
+    recipientUserId: string
+) {
+    try {
+        await supabase.functions.invoke('trigger-approval-email', {
+            body: {
+                payrun_id: payrunId,
+                event_key: eventKey,
+                recipient_user_id: recipientUserId,
+            },
+        });
+    } catch (err) {
+        // Non-fatal: log but don't block the main flow
+        console.warn('trigger-approval-email failed (non-fatal):', err);
+    }
+}
+
 export class PayrunsService {
 
     // --- Approval Actions (RPCs) ---
@@ -14,8 +33,16 @@ export class PayrunsService {
 
         if (error) throw error;
 
+        const result = data as ApprovalActionResponse;
+
         await AuditLogger.logPrivilegedAction('payrun.submit', 'pay_run', { id: payrunId });
-        return data as ApprovalActionResponse;
+
+        // Notify the first-level approver if workflow was created
+        if (result?.next_approver) {
+            await triggerApprovalEmail(payrunId, 'PAYRUN_SUBMITTED', result.next_approver);
+        }
+
+        return result;
     }
 
     static async approveStep(payrunId: string, comments?: string): Promise<ApprovalActionResponse> {
@@ -26,8 +53,37 @@ export class PayrunsService {
 
         if (error) throw error;
 
+        const result = data as ApprovalActionResponse;
+
         await AuditLogger.logPrivilegedAction('payrun.approve', 'pay_run', { id: payrunId, comments });
-        return data as ApprovalActionResponse;
+
+        if (result?.status === 'approved') {
+            // Fully approved — notify the submitter
+            const { data: payrun } = await supabase
+                .from('pay_runs')
+                .select('created_by, approval_submitted_by')
+                .eq('id', payrunId)
+                .maybeSingle();
+
+            const notifyUserId = payrun?.approval_submitted_by || payrun?.created_by;
+            if (notifyUserId) {
+                await triggerApprovalEmail(payrunId, 'PAYRUN_APPROVED', notifyUserId);
+            }
+        } else if (result?.status === 'progressing' && result?.next_level) {
+            // Progressing to next level — fetch and notify the next approver
+            const { data: nextStep } = await supabase
+                .from('payrun_approval_steps')
+                .select('approver_user_id')
+                .eq('payrun_id', payrunId)
+                .eq('level', result.next_level)
+                .maybeSingle();
+
+            if (nextStep?.approver_user_id) {
+                await triggerApprovalEmail(payrunId, 'PAYRUN_SUBMITTED', nextStep.approver_user_id);
+            }
+        }
+
+        return result;
     }
 
     static async rejectStep(payrunId: string, comments: string): Promise<ApprovalActionResponse> {
@@ -38,8 +94,23 @@ export class PayrunsService {
 
         if (error) throw error;
 
+        const result = data as ApprovalActionResponse;
+
         await AuditLogger.logPrivilegedAction('payrun.reject', 'pay_run', { id: payrunId, comments });
-        return data as ApprovalActionResponse;
+
+        // Notify the submitter of rejection
+        const { data: payrun } = await supabase
+            .from('pay_runs')
+            .select('created_by, approval_submitted_by')
+            .eq('id', payrunId)
+            .maybeSingle();
+
+        const notifyUserId = payrun?.approval_submitted_by || payrun?.created_by;
+        if (notifyUserId) {
+            await triggerApprovalEmail(payrunId, 'PAYRUN_REJECTED', notifyUserId);
+        }
+
+        return result;
     }
 
     static async delegateStep(payrunId: string, newApproverId: string): Promise<ApprovalActionResponse> {
@@ -53,16 +124,6 @@ export class PayrunsService {
     }
 
     static async returnToDraft(payrunId: string): Promise<{ success: boolean }> {
-        // Implementation might be simple update or RPC if complex cleanup needed
-        // Migration didn't specify RPC for this but plan did "return_payrun_to_draft". 
-        // Checking my created migration... I missed creating 'return_payrun_to_draft' RPC in 20251214000001_approval_functions.sql 
-        // I created submit, approve, reject, delegate. I missed return_to_draft!
-
-        // I should fix the migration or implement it here as direct DB manipulation if permissible (Admin only)
-        // Better to use RPC for safety. I will create the RPC in a subsequent step or just do it here if safe.
-        // Given I am in 'Execute', I can add the RPC.
-
-        // For now, I'll assume I'll add the RPC.
         const { error } = await supabase.rpc('return_payrun_to_draft', {
             payrun_id_input: payrunId
         });
@@ -90,12 +151,10 @@ export class PayrunsService {
 
         if (error) throw error;
 
-        // Transform for UI usage
         return data.map(step => ({
             ...step,
-            approver: step.approver?.[0] || step.approver, // Handle if array returned (unlikely with single relation but safe)
+            approver: step.approver?.[0] || step.approver,
             actioned_by_user: step.actioned_by_user,
-            // Map other fields if needed
         })) as unknown as PayrunApprovalStep[];
     }
 
@@ -108,5 +167,22 @@ export class PayrunsService {
 
         if (error) throw error;
         return data;
+    }
+
+    // Returns the current user's active approval step for a payrun (if any)
+    static async getMyStepForPayrun(payrunId: string): Promise<PayrunApprovalStep | null> {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+
+        const { data, error } = await supabase
+            .from('payrun_approval_steps')
+            .select('*')
+            .eq('payrun_id', payrunId)
+            .eq('approver_user_id', user.id)
+            .eq('status', 'pending')
+            .maybeSingle();
+
+        if (error) return null;
+        return data as unknown as PayrunApprovalStep | null;
     }
 }
