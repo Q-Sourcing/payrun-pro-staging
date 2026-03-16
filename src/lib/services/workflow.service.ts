@@ -30,6 +30,7 @@ export const workflowService = {
         const { data, error } = await (supabase
             .from('org_settings') as any)
             .upsert({
+                org_id: settings.org_id,
                 organization_id: settings.org_id,
                 max_approval_levels: settings.max_approval_levels,
                 approvals_sequential: settings.approvals_sequential,

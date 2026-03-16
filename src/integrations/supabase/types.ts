@@ -5902,7 +5902,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           max_approval_levels?: number
-          org_id: string
+          org_id?: string
           organization_id: string
           payroll_approvals_enabled?: boolean | null
           updated_at?: string | null

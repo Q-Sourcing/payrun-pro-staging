@@ -1,24 +1,58 @@
 
+# Add Contract Template Manager to Settings
 
-## Plan: Fix Approval Workflow — 2 Remaining Gaps
+## What We're Building
+A new "Contract Templates" section in the Settings panel where admins can create, edit, and manage contract templates. These templates are then available when generating contracts for employees.
 
-### Gap 1: `org_settings` upsert fails
-The `org_settings` table has `org_id uuid NOT NULL` with no default value. The `updateOrgSettings` method in `workflow.service.ts` only sets `organization_id` but not `org_id`, so any attempt to save Approver Settings fails with a NOT NULL violation.
+## Changes
 
-**Fix (migration):** Add a default value to `org_id` so it auto-generates when not provided:
-```sql
-ALTER TABLE public.org_settings ALTER COLUMN org_id SET DEFAULT gen_random_uuid();
+### 1. New Component: ContractTemplateManager
+- Location: `src/components/settings/ContractTemplateManager.tsx`
+- Features:
+  - List all active templates for the current organization (table with name, country, employment type, version)
+  - "New Template" button opening a dialog/form
+  - Edit existing templates
+  - Delete (soft-delete by setting `is_active = false`)
+- Template form fields:
+  - Name (required)
+  - Description
+  - Country code (optional dropdown)
+  - Employment type (optional dropdown: permanent, contract, intern, expatriate)
+  - Body HTML (rich text area with placeholder variable hints like `{{employee_name}}`, `{{start_date}}`, `{{job_title}}`, `{{salary}}`)
+  - Placeholders editor (add/remove placeholder keys with labels and default values)
+- Preview pane showing rendered HTML
+
+### 2. Register in SettingsContent
+- Add a new menu item `"contracts"` with icon `FileText` (or `ScrollText`) in the `allMenuItems` array
+- Add the corresponding `case "contracts"` in `renderStandardContent()` rendering `<ContractTemplateManager />`
+- Role guard: `ORG_ADMIN` / `organization_configuration`
+
+### 3. Service Layer
+- Reuse existing `ContractsService.getTemplates()`, `createTemplate()`, `updateTemplate()` from `src/lib/data/contracts.service.ts` (already built in Phase 2)
+
+## Technical Details
+
+### ContractTemplateManager component structure
+```text
+ContractTemplateManager
+  +-- Templates Table (list view)
+  +-- CreateEditTemplateDialog
+       +-- Name, Description, Country, Employment Type fields
+       +-- Body HTML textarea with placeholder hints
+       +-- Placeholders JSONB editor (dynamic key/label/default rows)
+       +-- Preview tab
 ```
 
-**Fix (code):** Update `workflow.service.ts` `updateOrgSettings` to also pass `org_id: settings.org_id` in the upsert payload, using the same value as `organization_id` as a fallback.
+### Placeholder system
+Templates use `{{key}}` syntax. The manager will show a sidebar with available variables:
+- `{{employee_name}}`, `{{employee_number}}`, `{{job_title}}`
+- `{{start_date}}`, `{{end_date}}`, `{{salary}}`
+- `{{company_name}}`, `{{department}}`
+- Plus any custom placeholders defined on the template
 
-### Gap 2: `APPROVAL_REMINDER` email template missing
-The `check-reminders` Edge Function looks up a template for event key `APPROVAL_REMINDER` in `email_templates`. No such row exists, so reminder emails fail with "No template found."
+### Files to create
+- `src/components/contracts/ContractTemplateManager.tsx` -- main list + CRUD component
+- `src/components/contracts/ContractTemplateForm.tsx` -- create/edit form dialog
 
-**Fix (data insert):** Insert a default `APPROVAL_REMINDER` template into `email_templates` with subject and HTML body using variables `{{approver_name}}`, `{{period}}`, `{{pay_group_name}}`, `{{total_gross}}`, `{{action_url}}`.
-
-### Files Changed
-1. **New migration** — `ALTER TABLE org_settings ALTER COLUMN org_id SET DEFAULT gen_random_uuid()`
-2. **Data insert** — Insert `APPROVAL_REMINDER` into `email_templates`
-3. **`src/lib/services/workflow.service.ts`** — Add `org_id` to the upsert payload
-
+### Files to modify
+- `src/components/settings/SettingsContent.tsx` -- add menu item + render case
