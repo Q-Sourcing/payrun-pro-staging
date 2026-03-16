@@ -135,8 +135,7 @@ export const ApproversSection = () => {
     const { data, error } = await (supabase as any)
       .from("approval_workflow_steps")
       .select(`
-        id, workflow_id, level, approver_user_id, approver_role, sequence_number,
-        approver:approver_user_id(first_name, last_name, email)
+        id, workflow_id, level, approver_user_id, approver_role, sequence_number
       `)
       .eq("workflow_id", wfId)
       .order("level", { ascending: true });
@@ -144,7 +143,21 @@ export const ApproversSection = () => {
     if (error) {
       toast({ title: "Error", description: "Failed to load approvers.", variant: "destructive" });
     } else {
-      setSteps((data ?? []) as WorkflowStep[]);
+      // Fetch approver names separately for steps with approver_user_id
+      const stepsWithApprovers = await Promise.all(
+        (data ?? []).map(async (step: any) => {
+          if (step.approver_user_id) {
+            const { data: user } = await (supabase as any)
+              .from("user_profiles")
+              .select("first_name, last_name, email")
+              .eq("id", step.approver_user_id)
+              .maybeSingle();
+            return { ...step, approver: user };
+          }
+          return step;
+        })
+      );
+      setSteps(stepsWithApprovers as WorkflowStep[]);
     }
     setLoading(false);
   }, [toast]);
@@ -152,21 +165,31 @@ export const ApproversSection = () => {
   const fetchWorkflowMeta = useCallback(async (wfId: string) => {
     const { data } = await (supabase as any)
       .from("approval_workflows")
-      .select(`
-        created_at, updated_at,
-        creator:created_by(first_name, last_name),
-        editor:updated_by(first_name, last_name)
-      `)
+      .select("created_at, updated_at, created_by, updated_by")
       .eq("id", wfId)
       .maybeSingle();
 
     if (data) {
-      const creatorName = data.creator
-        ? [data.creator.first_name, data.creator.last_name].filter(Boolean).join(" ")
-        : undefined;
-      const editorName = data.editor
-        ? [data.editor.first_name, data.editor.last_name].filter(Boolean).join(" ")
-        : undefined;
+      let creatorName: string | undefined;
+      let editorName: string | undefined;
+
+      if (data.created_by) {
+        const { data: creator } = await (supabase as any)
+          .from("user_profiles")
+          .select("first_name, last_name")
+          .eq("id", data.created_by)
+          .maybeSingle();
+        if (creator) creatorName = [creator.first_name, creator.last_name].filter(Boolean).join(" ");
+      }
+      if (data.updated_by) {
+        const { data: editor } = await (supabase as any)
+          .from("user_profiles")
+          .select("first_name, last_name")
+          .eq("id", data.updated_by)
+          .maybeSingle();
+        if (editor) editorName = [editor.first_name, editor.last_name].filter(Boolean).join(" ");
+      }
+
       setWorkflowMeta({
         created_by_name: creatorName,
         updated_by_name: editorName,
@@ -194,9 +217,9 @@ export const ApproversSection = () => {
   const ensureApprovalConfig = useCallback(async (wfId: string) => {
     if (!organizationId) return;
 
-    await (supabase as any)
-      .rpc("seed_default_categories", { org_id: organizationId })
-      .catch(() => {});
+    try {
+      await (supabase as any).rpc("seed_default_categories", { org_id: organizationId });
+    } catch { /* ignore */ }
 
     const { data: categories } = await (supabase as any)
       .from("employee_categories")
