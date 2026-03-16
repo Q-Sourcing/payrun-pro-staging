@@ -2013,6 +2013,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                                   ))}
                                                 </div>
                                               )}
+                                              {!isReadOnly && (
                                               <div className="space-y-2">
                                                 <Label>Add Custom Item</Label>
                                                 <Select
@@ -2063,6 +2064,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                                   </Button>
                                                 </div>
                                               </div>
+                                              )}
                                             </CardContent>
                                           </Card>
                                         </div>
