@@ -135,8 +135,7 @@ export const ApproversSection = () => {
     const { data, error } = await (supabase as any)
       .from("approval_workflow_steps")
       .select(`
-        id, workflow_id, level, approver_user_id, approver_role, sequence_number,
-        approver:approver_user_id(first_name, last_name, email)
+        id, workflow_id, level, approver_user_id, approver_role, sequence_number
       `)
       .eq("workflow_id", wfId)
       .order("level", { ascending: true });
@@ -144,7 +143,21 @@ export const ApproversSection = () => {
     if (error) {
       toast({ title: "Error", description: "Failed to load approvers.", variant: "destructive" });
     } else {
-      setSteps((data ?? []) as WorkflowStep[]);
+      // Fetch approver names separately for steps with approver_user_id
+      const stepsWithApprovers = await Promise.all(
+        (data ?? []).map(async (step: any) => {
+          if (step.approver_user_id) {
+            const { data: user } = await (supabase as any)
+              .from("user_profiles")
+              .select("first_name, last_name, email")
+              .eq("id", step.approver_user_id)
+              .maybeSingle();
+            return { ...step, approver: user };
+          }
+          return step;
+        })
+      );
+      setSteps(stepsWithApprovers as WorkflowStep[]);
     }
     setLoading(false);
   }, [toast]);
