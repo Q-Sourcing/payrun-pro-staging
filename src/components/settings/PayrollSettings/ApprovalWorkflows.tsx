@@ -412,10 +412,10 @@ export const ApprovalWorkflows = () => {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="space-y-4">
+      <div className="flex flex-col h-[calc(100vh-12rem)]">
         {/* ─── Guidance Banner ─── */}
         {!bannerDismissed && (
-          <div className="flex items-start gap-3 p-3 rounded-lg border border-primary/20 bg-primary/5">
+          <div className="flex items-start gap-3 p-3 rounded-lg border border-primary/20 bg-primary/5 mb-3 shrink-0">
             <Lightbulb className="h-4 w-4 text-primary shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <p className="text-sm text-foreground">
@@ -429,10 +429,10 @@ export const ApprovalWorkflows = () => {
         )}
 
         {/* ─── Two-Panel Layout ─── */}
-        <div className="flex border rounded-xl overflow-hidden bg-card" style={{ minHeight: "560px" }}>
+        <div className="flex border rounded-xl overflow-hidden bg-card flex-1 min-h-0">
 
           {/* ═══ LEFT PANEL ═══ */}
-          <div className="w-[280px] border-r bg-muted/30 flex flex-col shrink-0">
+          <div className="w-[280px] border-r bg-muted/30 flex flex-col shrink-0 min-h-0">
             {/* Workflow list header */}
             <div className="p-3 border-b flex items-center justify-between">
               <h3 className="text-sm font-bold text-foreground">Workflows</h3>
@@ -535,7 +535,7 @@ export const ApprovalWorkflows = () => {
             </div>
 
             {/* ─── Routing Section ─── */}
-            <div className="border-t">
+            <div className="border-t-2 border-border shrink-0">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -610,7 +610,7 @@ export const ApprovalWorkflows = () => {
           </div>
 
           {/* ═══ RIGHT PANEL ═══ */}
-          <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+          <div className="flex-1 flex flex-col min-w-0 min-h-0">
             {!selectedId && !editName ? (
               <div className="flex-1 flex items-center justify-center text-center p-8">
                 <div>
@@ -629,7 +629,7 @@ export const ApprovalWorkflows = () => {
                     <Input
                       value={editName}
                       onChange={e => setEditName(e.target.value)}
-                      className="h-8 text-sm font-semibold border-transparent hover:border-border focus:border-border bg-transparent px-1"
+                      className="h-9 text-base font-bold border-transparent hover:border-border focus:border-border bg-transparent px-1 hover:underline decoration-muted-foreground/30 underline-offset-4"
                       placeholder="Workflow name"
                     />
                     <div className="flex items-center gap-2 shrink-0">
@@ -646,8 +646,8 @@ export const ApprovalWorkflows = () => {
                 </div>
 
                 {/* Builder Tabs */}
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-                  <div className="px-4 pt-2 border-b">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+                  <div className="px-4 pt-2 border-b shrink-0">
                     <TabsList className="h-9">
                       <TabsTrigger value="approvers" className="text-xs">Approvers</TabsTrigger>
                       <TabsTrigger value="criteria" className="text-xs">Criteria</TabsTrigger>
@@ -656,89 +656,93 @@ export const ApprovalWorkflows = () => {
                     </TabsList>
                   </div>
 
-                  {/* Approvers Tab */}
-                  <TabsContent value="approvers" className="flex-1 p-4 space-y-4 mt-0">
-                    <div className="space-y-2">
-                      {steps.length === 0 ? (
-                        <div className="py-8 text-center border-2 border-dashed rounded-lg">
-                          <p className="text-sm text-muted-foreground">No approval steps. Add the first approver to get started.</p>
-                        </div>
-                      ) : (
-                        steps.map((step, index) => {
-                          const type = step.approver_type || 'role';
-                          const meta = APPROVER_TYPE_META[type as ApproverType];
-                          const label = getStepLabel(step);
-                          return (
-                            <div key={index} className="flex items-center gap-2 px-3 py-2.5 rounded-lg border bg-card hover:bg-muted/30 transition-colors">
-                              <GripVertical className="h-4 w-4 text-muted-foreground/50 cursor-grab shrink-0" />
-                              <Badge variant="secondary" className="text-xs font-semibold shrink-0">L{step.level}</Badge>
-                              <span className="text-sm shrink-0">{meta?.icon}</span>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{label}</p>
-                                <p className="text-[10px] text-muted-foreground">{meta?.label}</p>
+                  {/* Scrollable tab content area */}
+                  <div className="flex-1 overflow-y-auto min-h-0">
+                    {/* Approvers Tab */}
+                    <TabsContent value="approvers" className="p-4 space-y-4 mt-0">
+                      <div className="space-y-2">
+                        {steps.length === 0 ? (
+                          <div className="py-8 text-center border-2 border-dashed rounded-lg">
+                            <p className="text-sm text-muted-foreground">No approval steps. Add the first approver to get started.</p>
+                          </div>
+                        ) : (
+                          steps.map((step, index) => {
+                            const type = step.approver_type || 'role';
+                            const meta = APPROVER_TYPE_META[type as ApproverType];
+                            const label = getStepLabel(step);
+                            return (
+                              <div key={index} className="flex items-center gap-2 px-3 py-2.5 rounded-lg border bg-card hover:bg-muted/30 transition-colors">
+                                <GripVertical className="h-4 w-4 text-muted-foreground/50 cursor-grab shrink-0" />
+                                <Badge variant="secondary" className="text-xs font-semibold shrink-0">L{step.level}</Badge>
+                                <span className="text-sm shrink-0">{meta?.icon}</span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{label}</p>
+                                  <p className="text-[10px] text-muted-foreground">{meta?.label}</p>
+                                </div>
+                                <div className="flex items-center gap-0.5 shrink-0">
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" disabled={index === 0} onClick={() => moveStep(index, 'up')}>
+                                    <ArrowUp className="h-3 w-3" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" disabled={index === steps.length - 1} onClick={() => moveStep(index, 'down')}>
+                                    <ArrowDown className="h-3 w-3" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => removeStep(index)}>
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-0.5 shrink-0">
-                                <Button variant="ghost" size="icon" className="h-7 w-7" disabled={index === 0} onClick={() => moveStep(index, 'up')}>
-                                  <ArrowUp className="h-3 w-3" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" disabled={index === steps.length - 1} onClick={() => moveStep(index, 'down')}>
-                                  <ArrowDown className="h-3 w-3" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => removeStep(index)}>
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                      <Button variant="outline" size="sm" className="gap-1" onClick={() => setAddModalOpen(true)}>
-                        <Plus className="h-3 w-3" /> Add Approver
-                      </Button>
-                    </div>
-
-                    <Separator />
-                    <div>
-                      <Label className="text-xs font-semibold text-muted-foreground mb-2 block">Flow Preview</Label>
-                      <div className="border rounded-lg p-2 bg-muted/20 overflow-x-auto">
-                        <ApprovalFlowChart steps={steps} />
+                            );
+                          })
+                        )}
+                        <Button variant="outline" size="sm" className="gap-1" onClick={() => setAddModalOpen(true)}>
+                          <Plus className="h-3 w-3" /> Add Approver
+                        </Button>
                       </div>
-                    </div>
 
-                    <div className="flex justify-end pt-2">
-                      <Button onClick={handleSaveWorkflow} disabled={saving}>
-                        {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-                        {selectedWorkflow ? 'Update Workflow' : 'Create Workflow'}
-                      </Button>
-                    </div>
-                  </TabsContent>
+                      <Separator />
+                      <div>
+                        <Label className="text-xs font-semibold text-muted-foreground mb-2 block">Flow Preview</Label>
+                        <div className="border rounded-lg p-2 bg-muted/20 overflow-x-auto">
+                          <ApprovalFlowChart steps={steps} />
+                        </div>
+                      </div>
+                    </TabsContent>
 
-                  {/* Criteria Tab */}
-                  <TabsContent value="criteria" className="flex-1 p-4 mt-0">
-                    {selectedId ? (
-                      <ApprovalCriteriaBuilder workflowId={selectedId} organizationId={orgId} />
-                    ) : (
-                      <p className="text-sm text-muted-foreground py-8 text-center">Save the workflow first to add criteria.</p>
-                    )}
-                  </TabsContent>
+                    {/* Criteria Tab */}
+                    <TabsContent value="criteria" className="p-4 mt-0">
+                      {selectedId ? (
+                        <ApprovalCriteriaBuilder workflowId={selectedId} organizationId={orgId} />
+                      ) : (
+                        <p className="text-sm text-muted-foreground py-8 text-center">Save the workflow first to add criteria.</p>
+                      )}
+                    </TabsContent>
 
-                  {/* Follow-up Tab */}
-                  <TabsContent value="followup" className="flex-1 p-4 mt-0">
-                    {selectedId ? (
-                      <ApprovalFollowupConfig workflowId={selectedId} />
-                    ) : (
-                      <p className="text-sm text-muted-foreground py-8 text-center">Save the workflow first to configure follow-ups.</p>
-                    )}
-                  </TabsContent>
+                    {/* Follow-up Tab */}
+                    <TabsContent value="followup" className="p-4 mt-0">
+                      {selectedId ? (
+                        <ApprovalFollowupConfig workflowId={selectedId} />
+                      ) : (
+                        <p className="text-sm text-muted-foreground py-8 text-center">Save the workflow first to configure follow-ups.</p>
+                      )}
+                    </TabsContent>
 
-                  {/* Messages Tab */}
-                  <TabsContent value="messages" className="flex-1 p-4 mt-0">
-                    {selectedId ? (
-                      <ApprovalWorkflowMessages workflowId={selectedId} />
-                    ) : (
-                      <p className="text-sm text-muted-foreground py-8 text-center">Save the workflow first to configure messages.</p>
-                    )}
-                  </TabsContent>
+                    {/* Messages Tab */}
+                    <TabsContent value="messages" className="p-4 mt-0">
+                      {selectedId ? (
+                        <ApprovalWorkflowMessages workflowId={selectedId} />
+                      ) : (
+                        <p className="text-sm text-muted-foreground py-8 text-center">Save the workflow first to configure messages.</p>
+                      )}
+                    </TabsContent>
+                  </div>
+
+                  {/* Sticky save button */}
+                  <div className="shrink-0 border-t bg-card px-4 py-3 flex justify-end">
+                    <Button onClick={handleSaveWorkflow} disabled={saving}>
+                      {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                      {selectedWorkflow ? 'Update Workflow' : 'Create Workflow'}
+                    </Button>
+                  </div>
                 </Tabs>
               </>
             )}
