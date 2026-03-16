@@ -499,10 +499,6 @@ export const workflowService = {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return [];
 
-        // Fetch steps assigned to user directly
-        // TO DO: Also fetch steps assigned to roles the user has (requires more complex query or stored proc)
-        // For compliance simplicity, we might only support direct assignment or resolved role assignment at creation
-
         let query = (supabase as any)
             .from('payrun_approval_steps')
             .select(`
@@ -512,7 +508,10 @@ export const workflowService = {
                     pay_period_start,
                     pay_period_end,
                     pay_run_date,
-                    status
+                    status,
+                    approval_status,
+                    total_gross,
+                    pay_group_id
                 )
             `)
             .eq('approver_user_id', user.id)
@@ -531,18 +530,19 @@ export const workflowService = {
         return data || [];
     },
 
-    async approvePayrunStep(stepId: string, comments?: string): Promise<void> {
+    // Kept for backward compatibility — use PayrunsService.approveStep() for correct RPC call
+    async approvePayrunStep(payrunId: string, comments?: string): Promise<void> {
         const { error } = await (supabase.rpc as any)('approve_payrun_step', {
-            step_id: stepId,
-            comments_text: comments || null
+            payrun_id_input: payrunId,
+            comments_input: comments || null
         });
         if (error) throw error;
     },
 
-    async rejectPayrunStep(stepId: string, comments: string): Promise<void> {
+    async rejectPayrunStep(payrunId: string, comments: string): Promise<void> {
         const { error } = await (supabase.rpc as any)('reject_payrun_step', {
-            step_id: stepId,
-            comments_text: comments
+            payrun_id_input: payrunId,
+            comments_input: comments
         });
         if (error) throw error;
     }
