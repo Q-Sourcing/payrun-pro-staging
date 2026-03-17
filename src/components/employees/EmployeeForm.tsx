@@ -1192,20 +1192,17 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div className="space-y-2">
                 <Label htmlFor="designation">Designation</Label>
-                <Select
+                <SearchableSelect
+                  options={[
+                    { value: "__none", label: "— None —" },
+                    ...designationsList.map((d) => ({ value: d.id, label: d.name })),
+                  ]}
                   value={form.watch("designation") || ""}
                   onValueChange={(val) => form.setValue("designation", val === "__none" ? null : val, { shouldDirty: true })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select designation" />
-                  </SelectTrigger>
-                  <SelectContent>
-                      <SelectItem value="__none">— None —</SelectItem>
-                    {designationsList.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Search designation..."
+                  searchPlaceholder="Search designations..."
+                  emptyMessage="No designations found"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="work_location">Work Location</Label>
@@ -1213,32 +1210,39 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
               </div>
             </div>
 
-            {/* Row 3b: Probation fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="probation_status">Probation Status</Label>
-                <Select
-                  value={String(watchProbationStatus || "")}
-                  onValueChange={(value) => form.setValue("probation_status", value as any)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select probation status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="on_probation">On Probation</SelectItem>
-                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                    <SelectItem value="extended">Extended</SelectItem>
-                  </SelectContent>
-                </Select>
+            {/* Row 3b: Probation fields — only show when Employment Status is "Probation" */}
+            {watchEmploymentStatus === "Probation" && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="probation_status">Probation Status</Label>
+                  <Select
+                    value={String(watchProbationStatus || "")}
+                    onValueChange={(value) => form.setValue("probation_status", value as any)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select probation status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="on_probation">On Probation</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="extended">Extended</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="probation_start_date">Probation Start Date</Label>
+                  <Input id="probation_start_date" type="date" {...form.register("probation_start_date")} />
+                  <p className="text-xs text-muted-foreground">Defaults to Date Joined.</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="probation_end_date">Probation End Date</Label>
+                  <Input id="probation_end_date" type="date" {...form.register("probation_end_date")} />
+                  <p className="text-xs text-muted-foreground">
+                    Auto-calculated from Date Joined + {probationPeriodDays} days (editable).
+                  </p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="probation_end_date">Probation End Date</Label>
-                <Input id="probation_end_date" type="date" {...form.register("probation_end_date")} />
-                <p className="text-xs text-muted-foreground">
-                  Auto-calculated from Date Joined + {probationPeriodDays} days (editable).
-                </p>
-              </div>
-            </div>
+            )}
 
             {/* Row 4: Sub-Department (with Quick Add), Reporting Manager */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
