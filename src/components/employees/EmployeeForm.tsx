@@ -820,14 +820,8 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
     return () => container.removeEventListener("scroll", handler);
   }, [maximized]);
 
-  const accordionContent = (
-    <Accordion
-      type={maximized ? "multiple" : "single"}
-      collapsible={!maximized}
-      defaultValue={maximized ? SECTIONS.map(s => s.value) : "personal" as any}
-      value={maximized ? SECTIONS.map(s => s.value) : undefined}
-      className="w-full max-w-full min-w-0 overflow-x-hidden"
-    >
+  const accordionItems = (
+    <>
         <div ref={(el) => { sectionRefs.current["personal"] = el; }}>
         <AccordionItem value="personal">
           <AccordionTrigger>
