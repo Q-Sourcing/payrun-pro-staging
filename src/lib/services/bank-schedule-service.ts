@@ -71,7 +71,7 @@ export class BankScheduleService {
       // Fetch employee details using the correct column names (first_name, last_name)
       const { data: employees, error: employeesError } = await supabase
         .from('employees')
-        .select('id, first_name, last_name, bank_name, account_number, status')
+        .select('id, first_name, last_name, bank_name, account_number, status, pay_rate, pay_type')
         .in('id', employeeIds)
         .eq('status', 'active');
 

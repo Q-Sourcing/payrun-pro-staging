@@ -1343,6 +1343,18 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
                 />
               </div>
             </div>
+
+            {/* Work Email & Work Phone — at bottom of Employment section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Work Email {watchCategory === "head_office" ? "*" : ""}</Label>
+                <Input id="email" type="email" {...form.register("email")} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="work_phone">Work Phone</Label>
+                <Input id="work_phone" {...form.register("work_phone")} />
+              </div>
+            </div>
           </AccordionContent>
         </AccordionItem>
         </div>
