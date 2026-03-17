@@ -9,6 +9,7 @@ const Layout = () => {
   const [activeTab, setActiveTab] = useState("employees");
   const { theme, setTheme } = useTheme();
   const [pinned, setPinned] = useState(true);
+  const { counts: anomalyCounts } = useAnomalyCounts();
 
   const isDark = theme === "dark";
 
