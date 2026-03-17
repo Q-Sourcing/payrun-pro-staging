@@ -453,23 +453,23 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
     void loadDesignations();
   }, [organizationId]);
 
-  // Auto-populate company from active company in OrgContext
+  // Auto-populate company from active company in OrgContext + load prefix settings
+  const [prefixHoCode, setPrefixHoCode] = useState("QSSU");
+  const [prefixPrCode, setPrefixPrCode] = useState("PR");
+
   useEffect(() => {
     const loadActiveCompany = async () => {
       if (companyId) {
-        // Set company_id from active company
         form.setValue("company_id", companyId, { shouldDirty: false });
-
-        // Load company name for display
         try {
           const { data } = await supabase
             .from('companies')
-            .select('name')
+            .select('name, short_code')
             .eq('id', companyId)
             .single();
           if (data) {
             setActiveCompanyName(data.name);
-            setActiveCompanyShortCode(""); // short_code doesn't exist
+            setActiveCompanyShortCode(data.short_code || "");
           }
         } catch (error) {
           console.error('Error loading company name:', error);
@@ -481,7 +481,24 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
         setActiveCompanyShortCode('');
       }
     };
+
+    const loadPrefixSettings = async () => {
+      try {
+        const { data } = await (supabase as any)
+          .from("employee_number_settings")
+          .select("sub_department_rules")
+          .limit(1)
+          .single();
+        if (data?.sub_department_rules) {
+          const rules = data.sub_department_rules;
+          if (rules._ho_unit_code) setPrefixHoCode(rules._ho_unit_code);
+          if (rules._project_unit_code) setPrefixPrCode(rules._project_unit_code);
+        }
+      } catch {}
+    };
+
     void loadActiveCompany();
+    void loadPrefixSettings();
   }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load categories
