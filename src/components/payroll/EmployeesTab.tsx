@@ -535,8 +535,8 @@ const EmployeesTab = () => {
         </div>
       ) : (
         <>
-          <div>
-            <TableWrapper>
+          <div className="min-w-0">
+            <TableWrapper containerClassName="w-full">
               <thead className="bg-muted/50 sticky top-0 z-10">
                 <tr>
                   {visibleColumns.employee_number !== false && <th className="px-4 py-2 text-left text-sm font-medium text-muted-foreground whitespace-nowrap">Employee ID</th>}
