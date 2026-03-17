@@ -453,23 +453,23 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
     void loadDesignations();
   }, [organizationId]);
 
-  // Auto-populate company from active company in OrgContext
+  // Auto-populate company from active company in OrgContext + load prefix settings
+  const [prefixHoCode, setPrefixHoCode] = useState("QSSU");
+  const [prefixPrCode, setPrefixPrCode] = useState("PR");
+
   useEffect(() => {
     const loadActiveCompany = async () => {
       if (companyId) {
-        // Set company_id from active company
         form.setValue("company_id", companyId, { shouldDirty: false });
-
-        // Load company name for display
         try {
           const { data } = await supabase
             .from('companies')
-            .select('name')
+            .select('name, short_code')
             .eq('id', companyId)
             .single();
           if (data) {
             setActiveCompanyName(data.name);
-            setActiveCompanyShortCode(""); // short_code doesn't exist
+            setActiveCompanyShortCode(data.short_code || "");
           }
         } catch (error) {
           console.error('Error loading company name:', error);
@@ -481,7 +481,24 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
         setActiveCompanyShortCode('');
       }
     };
+
+    const loadPrefixSettings = async () => {
+      try {
+        const { data } = await (supabase as any)
+          .from("employee_number_settings")
+          .select("sub_department_rules")
+          .limit(1)
+          .single();
+        if (data?.sub_department_rules) {
+          const rules = data.sub_department_rules;
+          if (rules._ho_unit_code) setPrefixHoCode(rules._ho_unit_code);
+          if (rules._project_unit_code) setPrefixPrCode(rules._project_unit_code);
+        }
+      } catch {}
+    };
+
     void loadActiveCompany();
+    void loadPrefixSettings();
   }, [companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load categories
@@ -720,28 +737,28 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
     void load();
   }, [watchCategory, watchEmployeeType, watchPayType, watchProjectId]);
 
-  // Build prefix options: ORG-COUNTRY-BUSINESSUNIT format
+  // Build prefix options: ORG-COUNTRY-BUSINESSUNIT format using configurable unit codes
   const prefixOptions = useMemo(() => {
     const orgCode = activeCompanyShortCode || "QS";
     const countryCode = form.getValues("country") || "UG";
     if (watchCategory === "head_office") {
-      return [`${orgCode}-${countryCode}-${orgCode}${countryCode.substring(0, 1)}U`];
+      return [`${orgCode}-${countryCode}-${prefixHoCode}`];
     } else if (watchCategory === "projects") {
-      return [`${orgCode}-${countryCode}-PR`];
+      return [`${orgCode}-${countryCode}-${prefixPrCode}`];
     }
-    return [`${orgCode}-${countryCode}-${orgCode}${countryCode.substring(0, 1)}U`, `${orgCode}-${countryCode}-PR`];
-  }, [activeCompanyShortCode, watchCategory, form.watch("country")]);
+    return [`${orgCode}-${countryCode}-${prefixHoCode}`, `${orgCode}-${countryCode}-${prefixPrCode}`];
+  }, [activeCompanyShortCode, watchCategory, form.watch("country"), prefixHoCode, prefixPrCode]);
 
   // When category changes, default the employee_prefix accordingly
   useEffect(() => {
     const orgCode = activeCompanyShortCode || "QS";
     const countryCode = form.getValues("country") || "UG";
     if (watchCategory === "head_office") {
-      form.setValue("employee_prefix", `${orgCode}-${countryCode}-${orgCode}${countryCode.substring(0, 1)}U`, { shouldDirty: true });
+      form.setValue("employee_prefix", `${orgCode}-${countryCode}-${prefixHoCode}`, { shouldDirty: true });
     } else if (watchCategory === "projects") {
-      form.setValue("employee_prefix", `${orgCode}-${countryCode}-PR`, { shouldDirty: true });
+      form.setValue("employee_prefix", `${orgCode}-${countryCode}-${prefixPrCode}`, { shouldDirty: true });
     }
-  }, [watchCategory, activeCompanyShortCode, form.watch("country")]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [watchCategory, activeCompanyShortCode, form.watch("country"), prefixHoCode, prefixPrCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Edit-mode default bootstrapping
   useEffect(() => {
@@ -1025,17 +1042,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
             <div className="font-medium">Employment Information</div>
           </AccordionTrigger>
           <AccordionContent className="overflow-x-hidden">
-            {/* Work Email & Work Phone */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Work Email {watchCategory === "head_office" ? "*" : ""}</Label>
-                <Input id="email" type="email" {...form.register("email")} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="work_phone">Work Phone</Label>
-                <Input id="work_phone" {...form.register("work_phone")} />
-              </div>
-            </div>
+            {/* Work Email & Work Phone moved to bottom of employment section */}
             {/* Row 1: Company, Company Unit */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -1351,6 +1358,18 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
                   disabled
                   className="bg-gray-100 cursor-not-allowed"
                 />
+              </div>
+            </div>
+
+            {/* Work Email & Work Phone — at bottom of Employment section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Work Email {watchCategory === "head_office" ? "*" : ""}</Label>
+                <Input id="email" type="email" {...form.register("email")} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="work_phone">Work Phone</Label>
+                <Input id="work_phone" {...form.register("work_phone")} />
               </div>
             </div>
           </AccordionContent>
