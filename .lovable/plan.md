@@ -1,43 +1,58 @@
 
+# Add Contract Template Manager to Settings
 
-## Employee Directory Page Improvements
+## What We're Building
+A new "Contract Templates" section in the Settings panel where admins can create, edit, and manage contract templates. These templates are then available when generating contracts for employees.
 
-### 1. Combine Bulk Import Buttons
-- Remove the standalone "Bulk Import" button from the header actions (lines 401-408)
-- In the "Add Employee" dropdown, merge "Bulk Upload" and "Bulk Import (XLSX)" into a single "Bulk Import" menu item that opens a combined dialog offering CSV or XLSX choice
-- Alternatively, simpler approach: keep one "Bulk Import" dropdown item that opens a dialog with format selection (CSV/XLSX tabs or radio)
+## Changes
 
-### 2. Collapsible Filters
-- Add a `showFilters` boolean state (default `false`)
-- Add a "Filter" toggle button (with `Filter` icon from lucide) in the header actions area
-- Wrap the entire filters section in a conditional render based on `showFilters`
-- Show active filter count badge on the filter button when filters are applied
-- Keep search bar always visible outside the collapsible section
+### 1. New Component: ContractTemplateManager
+- Location: `src/components/settings/ContractTemplateManager.tsx`
+- Features:
+  - List all active templates for the current organization (table with name, country, employment type, version)
+  - "New Template" button opening a dialog/form
+  - Edit existing templates
+  - Delete (soft-delete by setting `is_active = false`)
+- Template form fields:
+  - Name (required)
+  - Description
+  - Country code (optional dropdown)
+  - Employment type (optional dropdown: permanent, contract, intern, expatriate)
+  - Body HTML (rich text area with placeholder variable hints like `{{employee_name}}`, `{{start_date}}`, `{{job_title}}`, `{{salary}}`)
+  - Placeholders editor (add/remove placeholder keys with labels and default values)
+- Preview pane showing rendered HTML
 
-### 3. Columns Button — Icon Only
-- Remove the "Columns" text label, keep only the `Settings2` icon
-- Add a tooltip: "Column Visibility"
+### 2. Register in SettingsContent
+- Add a new menu item `"contracts"` with icon `FileText` (or `ScrollText`) in the `allMenuItems` array
+- Add the corresponding `case "contracts"` in `renderStandardContent()` rendering `<ContractTemplateManager />`
+- Role guard: `ORG_ADMIN` / `organization_configuration`
 
-### 4. Pagination
-- Add `currentPage` and `pageSize` state variables
-- Slice `sortedEmployees` for the current page: `sortedEmployees.slice((page-1)*pageSize, page*pageSize)`
-- Render pagination controls below the table using the existing `Pagination` components and `pagination.ts` utilities
-- Include page size selector (10/25/50) and "Showing X–Y of Z" text
+### 3. Service Layer
+- Reuse existing `ContractsService.getTemplates()`, `createTemplate()`, `updateTemplate()` from `src/lib/data/contracts.service.ts` (already built in Phase 2)
 
-### 5. Horizontal Scroll Fix
-- The `TableWrapper` uses `overflow-auto` — the issue is likely the outer `div.space-y-6` or the page container trapping horizontal scroll. Will add `overflow-x-auto` explicitly to the table container and ensure no parent has `overflow-hidden` clipping the scroll area. May need `overscroll-behavior-x: auto` on the scrollable container.
+## Technical Details
 
-### 6. Add Employee Button — On-Brand Color
-- Replace `bg-blue-600 hover:bg-blue-700` with the default Button variant (no className override) which uses `bg-primary text-primary-foreground` — matching the "Add Project" button style
+### ContractTemplateManager component structure
+```text
+ContractTemplateManager
+  +-- Templates Table (list view)
+  +-- CreateEditTemplateDialog
+       +-- Name, Description, Country, Employment Type fields
+       +-- Body HTML textarea with placeholder hints
+       +-- Placeholders JSONB editor (dynamic key/label/default rows)
+       +-- Preview tab
+```
 
-### 7. Responsive Header Layout
-- Update the `PageHeader` actions area and the button layout to use `flex-wrap` with proper responsive gaps
-- On small screens, stack buttons or use an overflow menu
-- Ensure the header uses `flex-wrap` and buttons have consistent sizing
-- The actions container in `PageHeader` already has `flex-wrap` but the buttons inside `EmployeesTab` need `shrink-0` and proper sizing
+### Placeholder system
+Templates use `{{key}}` syntax. The manager will show a sidebar with available variables:
+- `{{employee_name}}`, `{{employee_number}}`, `{{job_title}}`
+- `{{start_date}}`, `{{end_date}}`, `{{salary}}`
+- `{{company_name}}`, `{{department}}`
+- Plus any custom placeholders defined on the template
 
-### Files to Modify
-- **`src/components/payroll/EmployeesTab.tsx`** — All changes (filters toggle, pagination, button cleanup, bulk import merge, columns icon-only, brand color, scroll fix)
-- **`src/components/PageHeader.tsx`** — Minor responsive tweaks to actions container alignment
-- Possibly create a small **`BulkImportDialog.tsx`** that wraps both CSV and XLSX import with a format selector, or simplify by combining the two existing dialogs' triggers into one
+### Files to create
+- `src/components/contracts/ContractTemplateManager.tsx` -- main list + CRUD component
+- `src/components/contracts/ContractTemplateForm.tsx` -- create/edit form dialog
 
+### Files to modify
+- `src/components/settings/SettingsContent.tsx` -- add menu item + render case
