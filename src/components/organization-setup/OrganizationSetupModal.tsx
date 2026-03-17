@@ -19,6 +19,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmployeeCategoriesTab } from './EmployeeCategoriesTab';
 import { CompanyUnitsTab } from './CompanyUnitsTab';
+import { DesignationsManager } from './DesignationsManager';
 
 interface OrganizationSetupModalProps {
     open: boolean;
@@ -141,7 +142,7 @@ export const OrganizationSetupModal: React.FC<OrganizationSetupModalProps> = ({ 
                             </TabsContent>
 
                             {/* Coming Soon Fallback for other tabs */}
-                            {['locations', 'departments', 'designations', 'details', 'policy'].includes(activeTab) && (
+                            {['locations', 'departments', 'details', 'policy'].includes(activeTab) && (
                                 <TabsContent value={activeTab} className="mt-0">
                                     <div className="flex flex-col items-center justify-center p-16 bg-white rounded-xl shadow-sm border-2 border-dashed">
                                         <SettingsIcon className="h-12 w-12 text-slate-300 mb-4 animate-spin-slow" />
@@ -152,6 +153,10 @@ export const OrganizationSetupModal: React.FC<OrganizationSetupModalProps> = ({ 
                                     </div>
                                 </TabsContent>
                             )}
+
+                            <TabsContent value="designations" className="mt-0 focus-visible:outline-none">
+                                <DesignationsManager />
+                            </TabsContent>
                         </div>
                     </Tabs>
                 </div>

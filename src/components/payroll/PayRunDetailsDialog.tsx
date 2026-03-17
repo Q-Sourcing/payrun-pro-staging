@@ -10,7 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUpDown, Filter, Download, Globe, Flag, Settings, FileText, Gift, Calculator, FileSpreadsheet, Pencil, Check, X } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUpDown, Filter, Download, Globe, Flag, Settings, FileText, Gift, Calculator, FileSpreadsheet, Pencil, Check, X, Lock } from "lucide-react";
 import { getCountryDeductions, calculateDeduction } from "@/lib/constants/deductions";
 import { PayrollCalculationService, CalculationInput, CalculationResult } from "@/lib/types/payroll-calculations";
 import { getCurrencyByCode, getCurrencyCodeFromCountry } from "@/lib/constants/countries";
@@ -141,6 +142,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
   const [payItems, setPayItems] = useState<PayItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [currentUserStep, setCurrentUserStep] = useState<any>(null);
   const [editingItems, setEditingItems] = useState<Record<string, Partial<PayItem> & { pay_rate?: number }>>({});
   const [expandedEmployee, setExpandedEmployee] = useState<string | null>(null);
   const [newCustomDeduction, setNewCustomDeduction] = useState<Record<string, { name: string; amount: string; type: string }>>({});
@@ -168,6 +170,9 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
   const [expatriatePayGroup, setExpatriatePayGroup] = useState<any>(null);
   const [assignedExpatEmployees, setAssignedExpatEmployees] = useState<any[]>([]);
   const [payRunData, setPayRunData] = useState<any>(null);
+  // Derive read-only state from approval status
+  const isReadOnly = payRunData?.approval_status &&
+    !['draft', 'rejected'].includes(payRunData.approval_status);
   const { toast } = useToast();
   const { canExportBankSchedule } = useBankSchedulePermissions();
   // Approval Workflow State
@@ -285,6 +290,10 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       if (payRunError) throw payRunError;
 
       setPayRunData(payRunData);
+
+      // Fetch current user's pending step for this payrun (for button gating)
+      const myStep = await PayrunsService.getMyStepForPayrun(payRunId);
+      setCurrentUserStep(myStep);
 
       // Check if this is an expatriate pay run
       const isExpat = payRunData?.payroll_type === 'expatriate' ||
@@ -1319,6 +1328,15 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                   </div>
                 ) : (
                   <div className="flex-1 overflow-hidden flex flex-col gap-4">
+                    {/* Read-only banner when submitted for approval */}
+                    {isReadOnly && (
+                      <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700">
+                        <Lock className="h-4 w-4 text-amber-600" />
+                        <AlertDescription className="text-amber-800 dark:text-amber-200 font-medium">
+                          This pay run is {payRunData?.approval_status === 'pending_approval' ? 'pending approval' : payRunData?.approval_status} and cannot be edited.
+                        </AlertDescription>
+                      </Alert>
+                    )}
                     {/* Summary Cards */}
                     <div className="modern-dialog-content">
                       <div className="grid grid-cols-4 gap-4 flex-shrink-0">
@@ -1389,7 +1407,6 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              // If only one employee is selected, auto-select them for payslip
                               if (selectedItems.size === 1) {
                                 const selectedItem = payItems.find(item => selectedItems.has(item.id));
                                 if (selectedItem) {
@@ -1405,107 +1422,110 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                             <FileText className="h-4 w-4 mr-2" />
                             Generate Payslip{selectedItems.size > 1 ? 's' : ''}
                           </Button>
-                          <Select onValueChange={(value) => handleBulkStatusUpdate(value as any)}>
-                            <SelectTrigger className="w-48">
-                              <SelectValue placeholder="Bulk update status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pending">Mark as Pending</SelectItem>
-                              <SelectItem value="approved">Mark as Approved</SelectItem>
-                              <SelectItem value="paid">Mark as Paid</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          {!isReadOnly && (
+                            <Select onValueChange={(value) => handleBulkStatusUpdate(value as any)}>
+                              <SelectTrigger className="w-48">
+                                <SelectValue placeholder="Bulk update status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pending">Mark as Pending</SelectItem>
+                                <SelectItem value="approved">Mark as Approved</SelectItem>
+                                <SelectItem value="paid">Mark as Paid</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
                         </>
                       )}
 
                       <div className="ml-auto flex gap-2">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="default" size="sm">
-                              <Settings className="h-4 w-4 mr-2" />
-                              Bulk Actions
-                              <ChevronDown className="h-4 w-4 ml-2" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-64">
-                            <DropdownMenuItem onClick={() => setBulkAddDialogOpen(true)} className="gap-2">
-                              <Plus className="h-4 w-4 text-green-600" />
-                              <span>Add to All Employees</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setBulkDeductDialogOpen(true)} className="gap-2">
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                              <span>Deduct from All Employees</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setGeneratePayslipsDialogOpen(true)} className="gap-2">
-                              <FileText className="h-4 w-4 text-blue-600" />
-                              <span>Generate All Payslips</span>
-                            </DropdownMenuItem>
-                            {canExportBankSchedule && (
-                              <DropdownMenuItem onClick={() => setBankScheduleDialogOpen(true)} className="gap-2">
-                                <FileSpreadsheet className="h-4 w-4 text-green-600" />
-                                <span>Export Bank Schedule</span>
+                        {!isReadOnly && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="default" size="sm">
+                                <Settings className="h-4 w-4 mr-2" />
+                                Bulk Actions
+                                <ChevronDown className="h-4 w-4 ml-2" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-64">
+                              <DropdownMenuItem onClick={() => setBulkAddDialogOpen(true)} className="gap-2">
+                                <Plus className="h-4 w-4 text-green-600" />
+                                <span>Add to All Employees</span>
                               </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem onClick={() => setLstDialogOpen(true)} className="gap-2">
-                              <Flag className="h-4 w-4 text-green-700" />
-                              <span>Uganda LST Deductions</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={async () => {
-                              try {
-                                if (!payRunId) return;
-                                // Remove all LST custom deductions for items in this pay run only
-                                const { data: items } = await (supabase as any)
-                                  .from("pay_items")
-                                  .select("id")
-                                  .eq("pay_run_id", payRunId);
-                                const ids = (items || []).map(i => i.id);
-                                if (ids.length > 0) {
-                                  await (supabase as any)
-                                    .from("pay_item_custom_deductions")
-                                    .delete()
-                                    .in("pay_item_id", ids)
-                                    .eq("name", "LST");
+                              <DropdownMenuItem onClick={() => setBulkDeductDialogOpen(true)} className="gap-2">
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                                <span>Deduct from All Employees</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => setGeneratePayslipsDialogOpen(true)} className="gap-2">
+                                <FileText className="h-4 w-4 text-blue-600" />
+                                <span>Generate All Payslips</span>
+                              </DropdownMenuItem>
+                              {canExportBankSchedule && (
+                                <DropdownMenuItem onClick={() => setBankScheduleDialogOpen(true)} className="gap-2">
+                                  <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                                  <span>Export Bank Schedule</span>
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => setLstDialogOpen(true)} className="gap-2">
+                                <Flag className="h-4 w-4 text-green-700" />
+                                <span>Uganda LST Deductions</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={async () => {
+                                try {
+                                  if (!payRunId) return;
+                                  const { data: items } = await (supabase as any)
+                                    .from("pay_items")
+                                    .select("id")
+                                    .eq("pay_run_id", payRunId);
+                                  const ids = (items || []).map(i => i.id);
+                                  if (ids.length > 0) {
+                                    await (supabase as any)
+                                      .from("pay_item_custom_deductions")
+                                      .delete()
+                                      .in("pay_item_id", ids)
+                                      .eq("name", "LST");
+                                  }
+                                  await updatePayRunTotals();
+                                  fetchPayItems();
+                                  toast({ title: "LST Removed", description: "Removed LST deductions for this pay run." });
+                                } catch (e: any) {
+                                  toast({ title: "Failed to remove LST", description: e?.message || "", variant: "destructive" });
                                 }
-                                await updatePayRunTotals();
-                                fetchPayItems();
-                                toast({ title: "LST Removed", description: "Removed LST deductions for this pay run." });
-                              } catch (e: any) {
-                                toast({ title: "Failed to remove LST", description: e?.message || "", variant: "destructive" });
-                              }
-                            }} className="gap-2">
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                              <span>Remove LST Deductions</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setGeneratePayrollSummaryDialogOpen(true)} className="gap-2">
-                              <Download className="h-4 w-4 text-blue-600" />
-                              <span>Generate Payroll Summary</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setApplyBenefitsDialogOpen(true)} className="gap-2">
-                              <Gift className="h-4 w-4 text-purple-600" />
-                              <span>Apply Benefits Package</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setRecalculateTaxesDialogOpen(true)} className="gap-2">
-                              <Calculator className="h-4 w-4 text-orange-600" />
-                              <span>Recalculate All Taxes</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setRemoveCustomItemsDialogOpen(true)} className="gap-2">
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                              <span>Remove All Custom Items</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => setBulkSelectedDialogOpen(true)}
-                              disabled={selectedItems.size === 0}
-                              className="gap-2"
-                            >
-                              <Settings className="h-4 w-4" />
-                              <span>Apply to Selected ({selectedItems.size})</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                              }} className="gap-2">
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                                <span>Remove LST Deductions</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setGeneratePayrollSummaryDialogOpen(true)} className="gap-2">
+                                <Download className="h-4 w-4 text-blue-600" />
+                                <span>Generate Payroll Summary</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => setApplyBenefitsDialogOpen(true)} className="gap-2">
+                                <Gift className="h-4 w-4 text-purple-600" />
+                                <span>Apply Benefits Package</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setRecalculateTaxesDialogOpen(true)} className="gap-2">
+                                <Calculator className="h-4 w-4 text-orange-600" />
+                                <span>Recalculate All Taxes</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => setRemoveCustomItemsDialogOpen(true)} className="gap-2">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                                <span>Remove All Custom Items</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setBulkSelectedDialogOpen(true)}
+                                disabled={selectedItems.size === 0}
+                                className="gap-2"
+                              >
+                                <Settings className="h-4 w-4" />
+                                <span>Apply to Selected ({selectedItems.size})</span>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
 
                         <Button variant="outline" size="sm" onClick={exportToCSV}>
                           <Download className="h-4 w-4 mr-2" />
@@ -1714,64 +1734,72 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                   <TableCell>{formatCurrency(calculated.totalDeductions, payGroupCurrency)}</TableCell>
                                   <TableCell className="font-bold text-primary">{formatCurrency(calculated.netPay, payGroupCurrency)}</TableCell>
                                   <TableCell>
-                                    <Select
-                                      value={item.status}
-                                      onValueChange={(value) => handleStatusChange(item.id, value as any)}
-                                    >
-                                      <SelectTrigger className="w-32">
-                                        <SelectValue>
-                                          <span className={getStatusColor(item.status)}>
-                                            {(item.status || "").charAt(0).toUpperCase() + (item.status || "").slice(1)}
-                                          </span>
-                                        </SelectValue>
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="draft">Draft</SelectItem>
-                                        <SelectItem value="pending">Pending</SelectItem>
-                                        <SelectItem value="approved">Approved</SelectItem>
-                                        <SelectItem value="paid">Paid</SelectItem>
-                                      </SelectContent>
-                                    </Select>
+                                    {isReadOnly ? (
+                                      <Badge variant={getStatusBadgeVariant(item.status)} className={getStatusColor(item.status)}>
+                                        {(item.status || "").charAt(0).toUpperCase() + (item.status || "").slice(1)}
+                                      </Badge>
+                                    ) : (
+                                      <Select
+                                        value={item.status}
+                                        onValueChange={(value) => handleStatusChange(item.id, value as any)}
+                                      >
+                                        <SelectTrigger className="w-32">
+                                          <SelectValue>
+                                            <span className={getStatusColor(item.status)}>
+                                              {(item.status || "").charAt(0).toUpperCase() + (item.status || "").slice(1)}
+                                            </span>
+                                          </SelectValue>
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="draft">Draft</SelectItem>
+                                          <SelectItem value="pending">Pending</SelectItem>
+                                          <SelectItem value="approved">Approved</SelectItem>
+                                          <SelectItem value="paid">Paid</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    )}
                                   </TableCell>
                                   <TableCell>
                                     <div className="flex gap-2">
-                                      {!isEditing ? (
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => setEditingItems(prev => ({ ...prev, [item.id]: {} }))}
-                                          aria-label="Edit row"
-                                          title="Edit"
-                                        >
-                                          <Pencil className="h-4 w-4" />
-                                        </Button>
-                                      ) : (
-                                        <>
+                                      {!isReadOnly && (
+                                        !isEditing ? (
                                           <Button
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => handleSave(item)}
-                                            aria-label="Save row"
-                                            title="Save"
+                                            onClick={() => setEditingItems(prev => ({ ...prev, [item.id]: {} }))}
+                                            aria-label="Edit row"
+                                            title="Edit"
                                           >
-                                            <Check className="h-4 w-4 text-green-600" />
+                                            <Pencil className="h-4 w-4" />
                                           </Button>
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => {
-                                              setEditingItems(prev => {
-                                                const next = { ...prev };
-                                                delete next[item.id];
-                                                return next;
-                                              });
-                                            }}
-                                            aria-label="Cancel edit"
-                                            title="Cancel"
-                                          >
-                                            <X className="h-4 w-4 text-red-600" />
-                                          </Button>
-                                        </>
+                                        ) : (
+                                          <>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => handleSave(item)}
+                                              aria-label="Save row"
+                                              title="Save"
+                                            >
+                                              <Check className="h-4 w-4 text-green-600" />
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => {
+                                                setEditingItems(prev => {
+                                                  const next = { ...prev };
+                                                  delete next[item.id];
+                                                  return next;
+                                                });
+                                              }}
+                                              aria-label="Cancel edit"
+                                              title="Cancel"
+                                            >
+                                              <X className="h-4 w-4 text-red-600" />
+                                            </Button>
+                                          </>
+                                        )
                                       )}
                                       <Button
                                         variant="outline"
@@ -1971,18 +1999,21 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                                         <span className={deduction.type === 'deduction' ? 'text-orange-600' : 'text-green-600'}>
                                                           {deduction.type === 'deduction' ? '-' : '+'}{formatCurrency(deduction.amount, payGroupCurrency)}
                                                         </span>
-                                                        <Button
-                                                          variant="ghost"
-                                                          size="sm"
-                                                          onClick={() => handleDeleteCustomDeduction(deduction.id!)}
-                                                        >
-                                                          <Trash2 className="h-3 w-3" />
-                                                        </Button>
+                                                        {!isReadOnly && (
+                                                          <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleDeleteCustomDeduction(deduction.id!)}
+                                                          >
+                                                            <Trash2 className="h-3 w-3" />
+                                                          </Button>
+                                                        )}
                                                       </div>
                                                     </div>
                                                   ))}
                                                 </div>
                                               )}
+                                              {!isReadOnly && (
                                               <div className="space-y-2">
                                                 <Label>Add Custom Item</Label>
                                                 <Select
@@ -2033,6 +2064,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                                                   </Button>
                                                 </div>
                                               </div>
+                                              )}
                                             </CardContent>
                                           </Card>
                                         </div>
@@ -2072,22 +2104,22 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
             </TabsContent>
           </Tabs>
 
-          <div className="p-4 border-t flex justify-between bg-white z-20">
+          <div className="p-4 border-t flex justify-between bg-background z-20">
             <div className="flex gap-2">
-              {(isSuperAdmin || role === 'ORG_ADMIN') && (
-                (payRunData?.approval_status === "draft" || payRunData?.approval_status === "rejected" || !payRunData?.approval_status) && (
-                  <Button onClick={handleSubmitForApproval}>Submit for Approval</Button>
-                )
+              {/* Submit: available to any authenticated user when payrun is in draft/rejected */}
+              {(payRunData?.approval_status === "draft" || payRunData?.approval_status === "rejected" || !payRunData?.approval_status) && (
+                <Button onClick={handleSubmitForApproval}>Submit for Approval</Button>
               )}
+              {/* Return to draft: only for admins when rejected */}
               {(payRunData?.approval_status === "rejected" && (isSuperAdmin || role === 'ORG_ADMIN')) && (
                 <Button variant="outline" onClick={handleReturnToDraft}>Return to Draft</Button>
               )}
 
-              {payRunData?.approval_status === "pending_approval" && (
+              {/* Approve/Reject: only shown to the designated approver at the current level */}
+              {payRunData?.approval_status === "pending_approval" && currentUserStep && (
                 <>
                   <Button onClick={() => initApprovalAction('approve')}>Approve</Button>
                   <Button variant="destructive" onClick={() => initApprovalAction('reject')}>Reject</Button>
-                  <Button variant="outline" onClick={() => initApprovalAction('delegate')}>Delegate</Button>
                 </>
               )}
             </div>

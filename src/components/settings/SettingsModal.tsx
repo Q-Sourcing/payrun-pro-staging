@@ -1,6 +1,6 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SettingsContent } from "./SettingsContent";
-import { X } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 
 interface SettingsModalProps {
     open: boolean;
@@ -9,27 +9,48 @@ interface SettingsModalProps {
 }
 
 export const SettingsModal = ({ open, onOpenChange, onAdvancedModeChange }: SettingsModalProps) => {
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[1200px] w-[95vw] md:w-[75vw] max-h-[90vh] overflow-y-auto p-0 gap-0">
-                <DialogHeader className="p-6 pb-0 flex flex-row items-center justify-between sticky top-0 bg-background z-10">
-                    <div>
-                        <DialogTitle className="text-3xl font-bold">Settings</DialogTitle>
-                        <p className="text-muted-foreground mt-1">Manage your Q-Payroll preferences and configuration</p>
-                    </div>
-                    <button
-                        onClick={() => onOpenChange(false)}
-                        className="rounded-full p-2 hover:bg-slate-100 transition-colors"
-                        aria-label="Close"
-                    >
-                        <X className="h-5 w-5" />
-                    </button>
-                </DialogHeader>
+    if (!open) return null;
 
-                <div className="p-6">
-                    <SettingsContent onAdvancedModeChange={onAdvancedModeChange} />
-                </div>
-            </DialogContent>
-        </Dialog>
+    return (
+        <AnimatePresence>
+            {open && (
+                <motion.div
+                    className="fixed inset-0 z-50 bg-background flex flex-col"
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 12 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                >
+                    {/* Top Bar */}
+                    <header className="flex-shrink-0 h-14 border-b border-border bg-background flex items-center justify-between px-5">
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => onOpenChange(false)}
+                                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                <ArrowLeft className="h-4 w-4" />
+                                <span>Back</span>
+                            </button>
+                            <div className="h-5 w-px bg-border" />
+                            <div>
+                                <h1 className="text-lg font-semibold text-foreground">Settings</h1>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => onOpenChange(false)}
+                            className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                            aria-label="Close settings"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    </header>
+
+                    {/* Content - fills remaining space */}
+                    <div className="flex-1 overflow-hidden">
+                        <SettingsContent onAdvancedModeChange={onAdvancedModeChange} />
+                    </div>
+                </motion.div>
+            )}
+        </AnimatePresence>
     );
 };

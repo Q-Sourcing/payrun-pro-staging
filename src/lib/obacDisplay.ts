@@ -6,7 +6,9 @@ export type RoleKey =
   | "ORG_FINANCE_APPROVER"
   | "ORG_PROJECT_MANAGER"
   | "ORG_HEAD_OFFICE_PAYROLL"
-  | "ORG_VIEWER";
+  | "ORG_VIEWER"
+  | "ORG_DEPARTMENT_HEAD"
+  | "ORG_REPORTING_MANAGER";
 
 export type RoleCategory =
   | "Administration"
@@ -62,6 +64,16 @@ export const roleCatalog: Record<RoleKey, { label: string; category: RoleCategor
     label: "Project Manager",
     category: "Projects",
     description: "Manage Manpower, Expatriate, and IPPMS projects within scoped access.",
+  },
+  ORG_DEPARTMENT_HEAD: {
+    label: "Department Head",
+    category: "HR & People",
+    description: "Head of department — auto-resolved based on organizational hierarchy.",
+  },
+  ORG_REPORTING_MANAGER: {
+    label: "Reporting Manager",
+    category: "HR & People",
+    description: "Direct reporting manager — auto-resolved from the employee's reporting chain.",
   },
   ORG_VIEWER: {
     label: "Read-only Viewer",

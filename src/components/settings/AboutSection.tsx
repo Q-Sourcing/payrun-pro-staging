@@ -1,72 +1,86 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ExternalLink } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ExternalLink, Info, LifeBuoy, Scale } from "lucide-react";
 
 export const AboutSection = () => {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>About & Help</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-muted-foreground">SYSTEM INFORMATION</h3>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-muted-foreground">App Version:</span>
-              <span className="ml-2 font-medium">Q-Payroll v2.1.0</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Last Updated:</span>
-              <span className="ml-2 font-medium">October 5, 2025</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Database Version:</span>
-              <span className="ml-2 font-medium">v1.4.2</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Server Status:</span>
-              <span className="ml-2 font-medium text-green-600">✅ Operational</span>
-            </div>
-          </div>
-        </div>
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-xl font-semibold text-foreground">About & Help</h2>
+        <p className="text-sm text-muted-foreground">System information, support resources, and legal documents.</p>
+      </div>
 
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-muted-foreground">SUPPORT</h3>
-          <div className="space-y-2">
-            <Button variant="outline" className="w-full justify-between">
-              Help Center
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" className="w-full justify-between">
-              Contact Support
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" className="w-full justify-between">
-              Documentation
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+      <Tabs defaultValue="system" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="system" className="gap-1.5"><Info className="h-3.5 w-3.5" /> System</TabsTrigger>
+          <TabsTrigger value="support" className="gap-1.5"><LifeBuoy className="h-3.5 w-3.5" /> Support</TabsTrigger>
+          <TabsTrigger value="legal" className="gap-1.5"><Scale className="h-3.5 w-3.5" /> Legal</TabsTrigger>
+        </TabsList>
 
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-muted-foreground">LEGAL</h3>
-          <div className="space-y-2">
-            <Button variant="outline" className="w-full justify-between">
-              Terms of Service
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" className="w-full justify-between">
-              Privacy Policy
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" className="w-full justify-between">
-              Data Processing Agreement
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+        <TabsContent value="system" className="mt-0">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">System Information</CardTitle>
+              <CardDescription>Current application and server status</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="p-3 rounded-lg border border-border">
+                  <span className="text-muted-foreground text-xs uppercase tracking-wide">App Version</span>
+                  <p className="font-medium mt-1">Q-Payroll v2.1.0</p>
+                </div>
+                <div className="p-3 rounded-lg border border-border">
+                  <span className="text-muted-foreground text-xs uppercase tracking-wide">Last Updated</span>
+                  <p className="font-medium mt-1">October 5, 2025</p>
+                </div>
+                <div className="p-3 rounded-lg border border-border">
+                  <span className="text-muted-foreground text-xs uppercase tracking-wide">Database Version</span>
+                  <p className="font-medium mt-1">v1.4.2</p>
+                </div>
+                <div className="p-3 rounded-lg border border-border">
+                  <span className="text-muted-foreground text-xs uppercase tracking-wide">Server Status</span>
+                  <p className="font-medium mt-1 text-green-600">✅ Operational</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="support" className="mt-0">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Support</CardTitle>
+              <CardDescription>Get help and access documentation</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {["Help Center", "Contact Support", "Documentation"].map(label => (
+                <Button key={label} variant="outline" className="w-full justify-between">
+                  {label}
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="legal" className="mt-0">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Legal</CardTitle>
+              <CardDescription>Terms, privacy, and compliance documents</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {["Terms of Service", "Privacy Policy", "Data Processing Agreement"].map(label => (
+                <Button key={label} variant="outline" className="w-full justify-between">
+                  {label}
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 };

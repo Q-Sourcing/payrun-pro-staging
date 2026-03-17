@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+
 import { ThemeSettings } from "@/components/settings/ThemeSettings";
 import { EmployeeSettingsSection } from "@/components/settings/EmployeeSettingsSection";
 import { AboutSection } from "@/components/settings/AboutSection";
@@ -55,9 +56,49 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
     // Define menu items with role requirements
     const allMenuItems = [
         {
+            id: "about",
+            label: "About & Help",
+            icon: Info,
+            requiredRole: 'SELF_USER' as const
+        },
+        {
+            id: "attendance-settings",
+            label: "Attendance",
+            icon: Timer,
+            requiredRole: 'ORG_ADMIN' as const,
+            requiredPermission: 'organization_configuration'
+        },
+        {
             id: "company",
             label: "Company Settings",
             icon: Building2,
+            requiredRole: 'ORG_ADMIN' as const,
+            requiredPermission: 'organization_configuration'
+        },
+        {
+            id: "contracts",
+            label: "Contract Templates",
+            icon: ScrollText,
+            requiredRole: 'ORG_ADMIN' as const,
+            requiredPermission: 'organization_configuration'
+        },
+        {
+            id: "data",
+            label: "Data Management",
+            icon: Database,
+            requiredRole: 'ORG_ADMIN' as const,
+            requiredPermission: 'export_data'
+        },
+        {
+            id: "theme",
+            label: "Display & Theme",
+            icon: Palette,
+            requiredRole: 'SELF_USER' as const
+        },
+        {
+            id: "emails",
+            label: "Email & Logic",
+            icon: Mail,
             requiredRole: 'ORG_ADMIN' as const,
             requiredPermission: 'organization_configuration'
         },
@@ -67,6 +108,19 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
             icon: Users,
             requiredRole: 'ORG_HR_ADMIN' as const,
             requiredPermission: 'view_organization_employees'
+        },
+        {
+            id: "integrations",
+            label: "Integrations",
+            icon: RefreshCw,
+            requiredRole: 'ORG_ADMIN' as const,
+            requiredPermission: 'manage_integrations'
+        },
+        {
+            id: "notifications",
+            label: "Notifications",
+            icon: Bell,
+            requiredRole: 'SELF_USER' as const
         },
         {
             id: "payroll",
@@ -83,17 +137,11 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
             requiredPermission: 'process_payroll'
         },
         {
-            id: "contracts",
-            label: "Contract Templates",
-            icon: ScrollText,
+            id: "reminders",
+            label: "Reminders",
+            icon: AlarmClock,
             requiredRole: 'ORG_ADMIN' as const,
             requiredPermission: 'organization_configuration'
-        },
-        {
-            id: "theme",
-            label: "Display & Theme",
-            icon: Palette,
-            requiredRole: 'SELF_USER' as const // Everyone can access theme
         },
         {
             id: "security",
@@ -103,58 +151,11 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
             requiredPermission: 'organization_configuration'
         },
         {
-            id: "notifications",
-            label: "Notifications",
-            icon: Bell,
-            requiredRole: 'SELF_USER' as const // Everyone can access notifications
-        },
-        {
-            id: "integrations",
-            label: "Integrations",
-            icon: RefreshCw,
-            requiredRole: 'ORG_ADMIN' as const,
-            requiredPermission: 'manage_integrations'
-        },
-        {
-            id: "emails",
-            label: "Email & Logic",
-            icon: Mail,
-            requiredRole: 'ORG_ADMIN' as const,
-            requiredPermission: 'organization_configuration'
-        },
-        {
-            id: "reminders",
-            label: "Reminders",
-            icon: AlarmClock,
-            requiredRole: 'ORG_ADMIN' as const,
-            requiredPermission: 'organization_configuration'
-        },
-        {
             id: "system",
             label: "System Settings",
             icon: SettingsIcon,
             requiredRole: 'PLATFORM_SUPER_ADMIN' as const,
             requiredPermission: 'system_configuration'
-        },
-        {
-            id: "data",
-            label: "Data Management",
-            icon: Database,
-            requiredRole: 'ORG_ADMIN' as const,
-            requiredPermission: 'export_data'
-        },
-        {
-            id: "about",
-            label: "About & Help",
-            icon: Info,
-            requiredRole: 'SELF_USER' as const // Everyone can access about
-        },
-        {
-            id: "attendance-settings",
-            label: "Attendance",
-            icon: Timer,
-            requiredRole: 'ORG_ADMIN' as const,
-            requiredPermission: 'organization_configuration'
         },
     ];
 
@@ -311,42 +312,38 @@ export const SettingsContent = ({ onAdvancedModeChange }: { onAdvancedModeChange
     }
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="md:col-span-1">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">Navigation</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                        <nav className="space-y-1">
-                            {menuItems.map((item) => {
-                                const Icon = item.icon;
-                                return (
-                                    <button
-                                        key={item.id}
-                                        onClick={() => setActiveSection(item.id)}
-                                        className={`settings-nav-item ${activeSection === item.id
-                                            ? "settings-nav-item-selected"
-                                            : "settings-nav-item-unselected"
-                                            }`}
-                                        style={activeSection === item.id ? {
-                                            backgroundColor: 'hsl(192 78% 30%)',
-                                            color: 'white'
-                                        } : {}}
-                                    >
-                                        <Icon className="h-4 w-4" />
-                                        <span>{item.label}</span>
-                                    </button>
-                                );
-                            })}
-                        </nav>
-                    </CardContent>
-                </Card>
-            </div>
+        <div className="flex h-full">
+            {/* Sidebar */}
+            <nav className="w-64 flex-shrink-0 border-r border-border overflow-y-auto py-4 px-3">
+                <h3 className="text-sm font-semibold text-foreground mb-3 px-3">Navigation</h3>
+                <div className="space-y-0.5">
+                    {menuItems.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = activeSection === item.id;
+                        return (
+                            <button
+                                key={item.id}
+                                onClick={() => setActiveSection(item.id)}
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                                    isActive
+                                        ? "bg-primary text-primary-foreground shadow-sm"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                                }`}
+                            >
+                                <Icon className="h-4 w-4 flex-shrink-0" />
+                                <span className="text-left truncate">{item.label}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </nav>
 
-            <div className="md:col-span-3">
-                {renderStandardContent()}
-            </div>
+            {/* Content */}
+            <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+                <div className="max-w-5xl">
+                    {renderStandardContent()}
+                </div>
+            </main>
         </div>
     );
 };

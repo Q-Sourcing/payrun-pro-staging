@@ -6,7 +6,12 @@ import {
     ApprovalWorkflowStep,
     PayrollApprovalScope,
     ApproverType,
-    PayrollApprovalConfig
+    PayrollApprovalConfig,
+    ApprovalWorkflowCriteria,
+    ApprovalWorkflowFollowup,
+    ApprovalWorkflowMessage,
+    ApprovalGroup,
+    ApprovalGroupMember,
 } from '../types/workflow';
 
 export const workflowService = {
@@ -30,6 +35,7 @@ export const workflowService = {
         const { data, error } = await (supabase
             .from('org_settings') as any)
             .upsert({
+                org_id: settings.org_id,
                 organization_id: settings.org_id,
                 max_approval_levels: settings.max_approval_levels,
                 approvals_sequential: settings.approvals_sequential,
@@ -71,7 +77,6 @@ export const workflowService = {
 
         if (error) throw error;
 
-        // Fetch user info for each step
         const workflow = data as any;
         if (workflow && workflow.steps) {
             for (const step of workflow.steps) {
@@ -81,9 +86,7 @@ export const workflowService = {
                         .select('first_name, last_name, email')
                         .eq('id', step.approver_user_id)
                         .maybeSingle();
-                    if (userData) {
-                        step.approver_user = userData;
-                    }
+                    if (userData) step.approver_user = userData;
                 }
                 if (step.fallback_user_id) {
                     const { data: fallbackData } = await (supabase
@@ -91,9 +94,7 @@ export const workflowService = {
                         .select('first_name, last_name, email')
                         .eq('id', step.fallback_user_id)
                         .maybeSingle();
-                    if (fallbackData) {
-                        step.fallback_user = fallbackData;
-                    }
+                    if (fallbackData) step.fallback_user = fallbackData;
                 }
             }
             workflow.steps.sort((a: any, b: any) => (a.level || 0) - (b.level || 0));
@@ -112,7 +113,8 @@ export const workflowService = {
                 is_active: workflow.is_active,
                 is_default: workflow.is_default,
                 applies_to_scopes: workflow.applies_to_scopes || [],
-                version: 1
+                version: 1,
+                created_by: (await supabase.auth.getUser()).data.user?.id,
             })
             .select()
             .single();
@@ -129,7 +131,10 @@ export const workflowService = {
                 notify_in_app: step.notify_in_app,
                 approver_type: step.approver_type || 'role',
                 approver_role: step.approver_role,
-                fallback_user_id: step.fallback_user_id
+                fallback_user_id: step.fallback_user_id,
+                approver_designation_id: step.approver_designation_id,
+                approver_department_id: step.approver_department_id,
+                approver_group_id: step.approver_group_id,
             }));
 
             const { error: stepsError } = await (supabase
@@ -146,7 +151,6 @@ export const workflowService = {
     },
 
     async updateWorkflow(workflowId: string, updates: Partial<ApprovalWorkflow>) {
-        // Increment version on update
         const { data: currentWf } = await (supabase
             .from('approval_workflows') as any)
             .select('version')
@@ -160,7 +164,8 @@ export const workflowService = {
             .update({
                 ...updates,
                 version: nextVersion,
-                updated_at: new Date().toISOString()
+                updated_at: new Date().toISOString(),
+                updated_by: (await supabase.auth.getUser()).data.user?.id,
             })
             .eq('id', workflowId)
             .select()
@@ -188,7 +193,10 @@ export const workflowService = {
                 notify_in_app: step.notify_in_app,
                 approver_type: step.approver_type || 'role',
                 approver_role: step.approver_role,
-                fallback_user_id: step.fallback_user_id
+                fallback_user_id: step.fallback_user_id,
+                approver_designation_id: step.approver_designation_id,
+                approver_department_id: step.approver_department_id,
+                approver_group_id: step.approver_group_id,
             }));
 
             const { error: insError } = await (supabase
@@ -198,7 +206,6 @@ export const workflowService = {
             if (insError) throw insError;
         }
 
-        // Also trigger a version increment even if only steps changed
         const { data: currentWf } = await (supabase
             .from('approval_workflows') as any)
             .select('version')
@@ -209,17 +216,189 @@ export const workflowService = {
             .from('approval_workflows') as any)
             .update({
                 version: ((currentWf as any)?.version || 1) + 1,
-                updated_at: new Date().toISOString()
+                updated_at: new Date().toISOString(),
+                updated_by: (await supabase.auth.getUser()).data.user?.id,
             })
             .eq('id', workflowId);
     },
 
     async deleteWorkflow(workflowId: string) {
+        // Check if workflow is in use
+        const { data: configs } = await (supabase
+            .from('payroll_approval_configs') as any)
+            .select('id, name')
+            .eq('workflow_id', workflowId);
+
+        if (configs && configs.length > 0) {
+            throw new Error(`This workflow is assigned to: ${configs.map((c: any) => c.name).join(', ')}. Reassign before deleting.`);
+        }
+
         const { error } = await (supabase
             .from('approval_workflows') as any)
             .delete()
             .eq('id', workflowId);
         if (error) throw error;
+    },
+
+    async duplicateWorkflow(workflowId: string): Promise<ApprovalWorkflow> {
+        const wf = await this.getWorkflowWithSteps(workflowId);
+        if (!wf) throw new Error('Workflow not found');
+
+        const newWf = await this.createWorkflow(
+            {
+                org_id: wf.org_id,
+                name: `${wf.name} (Copy)`,
+                description: wf.description,
+                is_active: false,
+                is_default: false,
+                applies_to_scopes: wf.applies_to_scopes,
+            },
+            (wf.steps || []).map(s => ({
+                level: s.level,
+                sequence_number: s.sequence_number,
+                notify_email: s.notify_email,
+                notify_in_app: s.notify_in_app,
+                approver_type: s.approver_type,
+                approver_role: s.approver_role,
+                approver_user_id: s.approver_user_id,
+                fallback_user_id: s.fallback_user_id,
+                approver_designation_id: s.approver_designation_id,
+                approver_department_id: s.approver_department_id,
+                approver_group_id: s.approver_group_id,
+            }))
+        );
+
+        // Copy criteria
+        const { data: criteria } = await (supabase.from('approval_workflow_criteria') as any)
+            .select('*').eq('workflow_id', workflowId);
+        if (criteria?.length) {
+            await (supabase.from('approval_workflow_criteria') as any).insert(
+                criteria.map((c: any) => ({ workflow_id: newWf.id, field: c.field, operator: c.operator, value: c.value, sequence_number: c.sequence_number }))
+            );
+        }
+
+        // Copy followup
+        const { data: followup } = await (supabase.from('approval_workflow_followups') as any)
+            .select('*').eq('workflow_id', workflowId).maybeSingle();
+        if (followup) {
+            await (supabase.from('approval_workflow_followups') as any).insert({
+                workflow_id: newWf.id, is_enabled: followup.is_enabled, followup_type: followup.followup_type,
+                days_after: followup.days_after, repeat_interval_days: followup.repeat_interval_days, send_at_time: followup.send_at_time,
+            });
+        }
+
+        // Copy messages
+        const { data: messages } = await (supabase.from('approval_workflow_messages') as any)
+            .select('*').eq('workflow_id', workflowId);
+        if (messages?.length) {
+            await (supabase.from('approval_workflow_messages') as any).insert(
+                messages.map((m: any) => ({
+                    workflow_id: newWf.id, event_type: m.event_type, from_type: m.from_type,
+                    to_type: m.to_type, subject: m.subject, body_content: m.body_content, is_active: m.is_active,
+                }))
+            );
+        }
+
+        return newWf;
+    },
+
+    async setDefaultWorkflow(orgId: string, workflowId: string) {
+        // Unset all defaults for this org
+        await (supabase.from('approval_workflows') as any)
+            .update({ is_default: false })
+            .eq('org_id', orgId);
+        // Set the new default
+        await (supabase.from('approval_workflows') as any)
+            .update({ is_default: true })
+            .eq('id', workflowId);
+    },
+
+    // --- Criteria (Phase 4) ---
+
+    async getCriteria(workflowId: string): Promise<ApprovalWorkflowCriteria[]> {
+        const { data, error } = await (supabase.from('approval_workflow_criteria') as any)
+            .select('*')
+            .eq('workflow_id', workflowId)
+            .order('sequence_number');
+        if (error) throw error;
+        return (data || []) as ApprovalWorkflowCriteria[];
+    },
+
+    async saveCriteria(workflowId: string, criteria: Omit<ApprovalWorkflowCriteria, 'id' | 'workflow_id' | 'created_at'>[]) {
+        await (supabase.from('approval_workflow_criteria') as any).delete().eq('workflow_id', workflowId);
+        if (criteria.length > 0) {
+            const { error } = await (supabase.from('approval_workflow_criteria') as any).insert(
+                criteria.map((c, i) => ({ workflow_id: workflowId, field: c.field, operator: c.operator, value: c.value, sequence_number: i }))
+            );
+            if (error) throw error;
+        }
+    },
+
+    // --- Follow-ups (Phase 5) ---
+
+    async getFollowup(workflowId: string): Promise<ApprovalWorkflowFollowup | null> {
+        const { data, error } = await (supabase.from('approval_workflow_followups') as any)
+            .select('*')
+            .eq('workflow_id', workflowId)
+            .maybeSingle();
+        if (error) throw error;
+        return data as ApprovalWorkflowFollowup | null;
+    },
+
+    async saveFollowup(workflowId: string, followup: Omit<ApprovalWorkflowFollowup, 'id' | 'workflow_id' | 'created_at' | 'updated_at'>) {
+        const { error } = await (supabase.from('approval_workflow_followups') as any)
+            .upsert({
+                workflow_id: workflowId,
+                is_enabled: followup.is_enabled,
+                followup_type: followup.followup_type,
+                days_after: followup.days_after,
+                repeat_interval_days: followup.repeat_interval_days,
+                send_at_time: followup.send_at_time,
+            }, { onConflict: 'workflow_id' });
+        if (error) throw error;
+    },
+
+    // --- Messages (Phase 6) ---
+
+    async getMessages(workflowId: string): Promise<ApprovalWorkflowMessage[]> {
+        const { data, error } = await (supabase.from('approval_workflow_messages') as any)
+            .select('*')
+            .eq('workflow_id', workflowId);
+        if (error) throw error;
+        return (data || []) as ApprovalWorkflowMessage[];
+    },
+
+    async saveMessage(workflowId: string, message: Omit<ApprovalWorkflowMessage, 'id' | 'workflow_id' | 'created_at' | 'updated_at'>) {
+        const { error } = await (supabase.from('approval_workflow_messages') as any)
+            .upsert({
+                workflow_id: workflowId,
+                event_type: message.event_type,
+                from_type: message.from_type,
+                to_type: message.to_type,
+                subject: message.subject,
+                body_content: message.body_content,
+                is_active: message.is_active,
+            }, { onConflict: 'workflow_id,event_type' });
+        if (error) throw error;
+    },
+
+    async deleteMessage(workflowId: string, eventType: string) {
+        await (supabase.from('approval_workflow_messages') as any)
+            .delete()
+            .eq('workflow_id', workflowId)
+            .eq('event_type', eventType);
+    },
+
+    // --- Approval Groups ---
+
+    async getGroups(orgId: string): Promise<ApprovalGroup[]> {
+        const { data, error } = await (supabase.from('approval_groups') as any)
+            .select('*')
+            .eq('organization_id', orgId)
+            .eq('is_active', true)
+            .order('name');
+        if (error) throw error;
+        return (data || []) as ApprovalGroup[];
     },
 
     // --- Approval Actions ---
@@ -233,16 +412,14 @@ export const workflowService = {
             const role = step.approver_role;
             if (!role) return [];
 
-            // Fetch users with this role in the organization
             const { data: users, error } = await (supabase
                 .from('user_profiles') as any)
                 .select('id')
                 .eq('is_active', true)
-                .filter('role', 'eq', role); // simplified, assuming role column exists in user_profiles or mapped
+                .filter('role', 'eq', role);
 
             if (error) {
                 console.error('Error resolving role approvers:', error);
-                // Fallback to individual if hybrid
                 if (step.approver_type === 'hybrid' && step.fallback_user_id) {
                     return [step.fallback_user_id];
                 }
@@ -251,7 +428,6 @@ export const workflowService = {
 
             const userIds = users?.map((u: any) => u.id) || [];
 
-            // If no users found for role and it's hybrid, use fallback
             if (userIds.length === 0 && step.approver_type === 'hybrid' && step.fallback_user_id) {
                 return [step.fallback_user_id];
             }
@@ -263,7 +439,6 @@ export const workflowService = {
     },
 
     async triggerApprovals(payrunId: string, orgId: string, scope: PayrollApprovalScope): Promise<boolean> {
-        // 1. Find active workflow for this scope
         const { data: workflows, error: wfError } = await (supabase
             .from('approval_workflows') as any)
             .select('*')
@@ -276,13 +451,10 @@ export const workflowService = {
             return false;
         }
 
-        // Use the first matching workflow or a default one
         const workflow = workflows[0] as any;
 
-        // 2. Clear existing stages if any
         await (supabase.from('payrun_approval_steps') as any).delete().eq('payrun_id', payrunId);
 
-        // 3. Get steps
         const { data: steps, error: stepsError } = await (supabase
             .from('approval_workflow_steps') as any)
             .select('*')
@@ -291,12 +463,10 @@ export const workflowService = {
 
         if (stepsError || !steps || steps.length === 0) return false;
 
-        // 4. Create action instances
         const stepsToInsert = [];
         for (const step of steps) {
             const potentialApprovers = await this.resolveApproversForStep(step as any, orgId);
 
-            // Simple implementation: level 1 pending.
             stepsToInsert.push({
                 payrun_id: payrunId,
                 workflow_step_id: step.id,
@@ -322,7 +492,6 @@ export const workflowService = {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Unauthorized");
 
-        // 1. Update the step
         const { error } = await (supabase
             .from('payrun_approval_steps') as any)
             .update({
@@ -338,10 +507,6 @@ export const workflowService = {
 
         if (error) throw error;
 
-        // 2. Clear pending status for this level if any other records exist
-        // (usually there's only one record per level in my simple implementation)
-
-        // 3. Trigger next level if exists
         const { data: nextSteps } = await (supabase
             .from('payrun_approval_steps') as any)
             .select('id')
@@ -356,7 +521,6 @@ export const workflowService = {
                 .eq('level', level + 1);
         }
 
-        // 4. Audit Log
         await this.logAudit({
             user_id: user.id,
             action: 'OVERRIDE_APPROVAL',
@@ -411,7 +575,6 @@ export const workflowService = {
     async updateApprovalConfig(orgId: string, config: Partial<PayrollApprovalConfig> & { name: string, categories: string[] }): Promise<void> {
         const isNew = !config.id;
 
-        // 1. Upsert config
         const { data: configData, error: configError } = await (supabase
             .from('payroll_approval_configs') as any)
             .upsert({
@@ -429,7 +592,6 @@ export const workflowService = {
 
         const configId = configData.id;
 
-        // 2. Update categories (delete then insert for simplicity)
         if (!isNew) {
             await (supabase
                 .from('payroll_approval_categories') as any)
@@ -463,8 +625,6 @@ export const workflowService = {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return [];
 
-        // Fetch templates where org_id is NULL (system defaults) OR org_id matches user's org
-        // Note: RLS handles the filtering, so we just select *
         const { data, error } = await (supabase as any)
             .from('notification_templates')
             .select('*')
@@ -472,7 +632,6 @@ export const workflowService = {
 
         if (error) {
             console.error('Error fetching templates:', error);
-            // Return empty array if table doesn't exist yet to prevent crash
             return [];
         }
         return data || [];
@@ -499,10 +658,6 @@ export const workflowService = {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return [];
 
-        // Fetch steps assigned to user directly
-        // TO DO: Also fetch steps assigned to roles the user has (requires more complex query or stored proc)
-        // For compliance simplicity, we might only support direct assignment or resolved role assignment at creation
-
         let query = (supabase as any)
             .from('payrun_approval_steps')
             .select(`
@@ -512,7 +667,10 @@ export const workflowService = {
                     pay_period_start,
                     pay_period_end,
                     pay_run_date,
-                    status
+                    status,
+                    approval_status,
+                    total_gross,
+                    pay_group_id
                 )
             `)
             .eq('approver_user_id', user.id)
@@ -531,20 +689,19 @@ export const workflowService = {
         return data || [];
     },
 
-    async approvePayrunStep(stepId: string, comments?: string): Promise<void> {
+    async approvePayrunStep(payrunId: string, comments?: string): Promise<void> {
         const { error } = await (supabase.rpc as any)('approve_payrun_step', {
-            step_id: stepId,
-            comments_text: comments || null
+            payrun_id_input: payrunId,
+            comments_input: comments || null
         });
         if (error) throw error;
     },
 
-    async rejectPayrunStep(stepId: string, comments: string): Promise<void> {
+    async rejectPayrunStep(payrunId: string, comments: string): Promise<void> {
         const { error } = await (supabase.rpc as any)('reject_payrun_step', {
-            step_id: stepId,
-            comments_text: comments
+            payrun_id_input: payrunId,
+            comments_input: comments
         });
         if (error) throw error;
     }
 };
-
