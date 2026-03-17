@@ -328,17 +328,23 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
     const loadProbationPeriod = async () => {
       if (!organizationId) return;
       try {
-        const { data: orgSettings } = await supabase
-          .from("org_settings")
-          .select("probation_period_days")
-          .eq("organization_id", organizationId)
-          .limit(1)
-          .maybeSingle();
+        try {
+          const { data: orgSettings, error: orgSettingsError } = await (supabase as any)
+            .from("org_settings")
+            .select("probation_period_days")
+            .eq("organization_id", organizationId)
+            .limit(1)
+            .maybeSingle();
 
-        const orgValue = Number((orgSettings as any)?.probation_period_days);
-        if (!Number.isNaN(orgValue) && orgValue > 0) {
-          setProbationPeriodDays(orgValue);
-          return;
+          if (orgSettingsError) throw orgSettingsError;
+
+          const orgValue = Number((orgSettings as any)?.probation_period_days);
+          if (!Number.isNaN(orgValue) && orgValue > 0) {
+            setProbationPeriodDays(orgValue);
+            return;
+          }
+        } catch {
+          // Some staging environments do not expose this column yet.
         }
 
         const { data: fallback } = await supabase

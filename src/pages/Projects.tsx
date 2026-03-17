@@ -40,7 +40,6 @@ const Projects = () => {
                 .select("*") as any;
             
             if (organizationId) query = query.eq('organization_id', organizationId);
-            if (companyId) query = query.eq('company_id', companyId);
             
             const { data, error } = await query.order("created_at", { ascending: false });
 

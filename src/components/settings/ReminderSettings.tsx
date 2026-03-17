@@ -44,16 +44,33 @@ export function ReminderSettings() {
       setLoading(true);
       try {
         // Load probation period
-        const { data: orgSettings } = await supabase
-          .from("org_settings")
-          .select("id, probation_period_days")
-          .eq("organization_id", organizationId)
-          .limit(1)
-          .maybeSingle();
+        try {
+          const { data: orgSettings, error: orgSettingsError } = await (supabase as any)
+            .from("org_settings")
+            .select("id, probation_period_days")
+            .eq("organization_id", organizationId)
+            .limit(1)
+            .maybeSingle();
 
-        const orgValue = getNumberField(orgSettings, "probation_period_days");
-        if (orgValue && orgValue > 0) {
-          setProbationPeriodDays(orgValue);
+          if (orgSettingsError) throw orgSettingsError;
+
+          const orgValue = getNumberField(orgSettings, "probation_period_days");
+          if (orgValue && orgValue > 0) {
+            setProbationPeriodDays(orgValue);
+          }
+        } catch {
+          const { data: fallback } = await supabase
+            .from("settings")
+            .select("value")
+            .eq("category", "organization")
+            .eq("key", "probation_period_days")
+            .limit(1)
+            .maybeSingle();
+
+          const fallbackValue = getNumberField(fallback, "value");
+          if (fallbackValue && fallbackValue > 0) {
+            setProbationPeriodDays(fallbackValue);
+          }
         }
 
         // Load reminder rules
@@ -113,17 +130,35 @@ export function ReminderSettings() {
     setLoading(true);
     try {
       // Update org_settings probation period
-      const { data: orgSettings } = await supabase
-        .from("org_settings")
-        .select("id")
-        .eq("organization_id", organizationId)
-        .limit(1)
-        .maybeSingle();
+      let savedToOrgSettings = false;
+      try {
+        const { data: orgSettings, error: orgSettingsError } = await supabase
+          .from("org_settings")
+          .select("id")
+          .eq("organization_id", organizationId)
+          .limit(1)
+          .maybeSingle();
 
-      if (orgSettings?.id) {
-        await (supabase as any).from("org_settings").update({ probation_period_days: probationPeriodDays }).eq("id", orgSettings.id);
-      } else {
-        await supabase.from("settings").upsert({ category: "organization", key: "probation_period_days", value: probationPeriodDays });
+        if (orgSettingsError) throw orgSettingsError;
+
+        if (orgSettings?.id) {
+          const { error: updateError } = await (supabase as any)
+            .from("org_settings")
+            .update({ probation_period_days: probationPeriodDays })
+            .eq("id", orgSettings.id);
+
+          if (!updateError) {
+            savedToOrgSettings = true;
+          }
+        }
+      } catch {
+        // Fall back to the generic settings table when org_settings is missing the field.
+      }
+
+      if (!savedToOrgSettings) {
+        await supabase
+          .from("settings")
+          .upsert({ category: "organization", key: "probation_period_days", value: probationPeriodDays });
       }
 
       // Save probation reminder rules

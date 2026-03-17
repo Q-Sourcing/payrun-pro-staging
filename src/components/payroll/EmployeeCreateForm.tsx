@@ -31,7 +31,15 @@ export const EmployeeCreateForm = ({ onSuccess, onCancel }: EmployeeCreateFormPr
 
     const handleCreate = useCallback(async (values: EmployeeFormValues) => {
         try {
-            const finalOrgId = organizationId || localStorage.getItem('active_organization_id') || '00000000-0000-0000-0000-000000000001';
+            const finalOrgId = organizationId || localStorage.getItem('active_organization_id');
+            if (!finalOrgId) {
+                toast({
+                    title: "Missing organization",
+                    description: "Select an active organization before creating an employee.",
+                    variant: "destructive"
+                });
+                return;
+            }
             const parsedPayRate = Number(values.pay_rate);
             const safePayRate = Number.isFinite(parsedPayRate) ? parsedPayRate : 0;
             const recordStatus = mapEmploymentStatusToRecordStatus(values.employment_status);

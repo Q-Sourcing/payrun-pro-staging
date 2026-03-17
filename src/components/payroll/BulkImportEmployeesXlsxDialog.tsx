@@ -32,8 +32,8 @@ type TemplateProject = {
   project_type: string | null;
   supports_all_pay_types: boolean | null;
   allowed_pay_types: string[] | null;
-  country: string | null;
-  currency: string | null;
+  country?: string | null;
+  currency?: string | null;
 };
 
 type ParsedImportRow = {
@@ -159,7 +159,7 @@ const BulkImportEmployeesXlsxDialog = ({ open, onOpenChange, onEmployeesAdded }:
 
       const { data: projectsData, error: projectsError } = await supabase
         .from("projects")
-        .select("id, name, code, status, project_type, supports_all_pay_types, allowed_pay_types, country, currency")
+        .select("id, name, code, status, project_type, supports_all_pay_types, allowed_pay_types")
         .eq("organization_id", orgId)
         .order("name");
       if (!projectsError) {
