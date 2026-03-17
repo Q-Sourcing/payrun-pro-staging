@@ -150,7 +150,7 @@ export default function MainLayout() {
               onSettingsClick={() => setIsSettingsOpen(true)}
               pendingPayRuns={2}
               pendingApprovals={1}
-              anomaliesCount={anomalyCounts.total}
+              anomaliesCount={anomalyCounts?.total ?? 0}
             />
 
             {/* Super Admin Link */}
