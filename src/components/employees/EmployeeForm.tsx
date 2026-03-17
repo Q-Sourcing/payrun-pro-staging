@@ -852,29 +852,18 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
                   <Input id="last_name" {...form.register("last_name")} />
                 </div>
               </div>
-              {/* Row 2: Middle Name, Work Email */}
+              {/* Row 2: Middle Name, Personal Email */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
                 <div className="space-y-2 min-w-0">
                   <Label htmlFor="middle_name">Middle Name</Label>
                   <Input id="middle_name" {...form.register("middle_name")} />
                 </div>
                 <div className="space-y-2 min-w-0">
-                  <Label htmlFor="email">Work Email *</Label>
-                  <Input id="email" type="email" {...form.register("email")} />
-                </div>
-              </div>
-              {/* Row 3: Personal Email, Work Phone */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
-                <div className="space-y-2 min-w-0">
                   <Label htmlFor="personal_email">Personal Email</Label>
                   <Input id="personal_email" type="email" {...form.register("personal_email")} />
                 </div>
-                <div className="space-y-2 min-w-0">
-                  <Label htmlFor="work_phone">Work Phone</Label>
-                  <Input id="work_phone" {...form.register("work_phone")} />
-                </div>
               </div>
-              {/* Row 4: Mobile, Country */}
+              {/* Row 3: Mobile, Country */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
                 <div className="space-y-2 min-w-0">
                   <Label htmlFor="phone">Mobile</Label>
