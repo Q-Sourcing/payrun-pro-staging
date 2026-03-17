@@ -4281,6 +4281,7 @@ export type Database = {
         Row: {
           account_number: string | null
           account_type: string | null
+          allow_multiple_entries_per_day: boolean | null
           bank_branch: string | null
           bank_name: string | null
           category: string | null
@@ -4306,6 +4307,7 @@ export type Database = {
           gender: string | null
           id: string
           last_name: string | null
+          max_units_per_day: number | null
           middle_name: string | null
           national_id: string | null
           nationality: string | null
@@ -4331,6 +4333,7 @@ export type Database = {
           sub_department: string | null
           sub_department_id: string | null
           sub_type: string | null
+          timesheet_approval_required: boolean | null
           tin: string | null
           updated_at: string
           user_id: string | null
@@ -4340,6 +4343,7 @@ export type Database = {
         Insert: {
           account_number?: string | null
           account_type?: string | null
+          allow_multiple_entries_per_day?: boolean | null
           bank_branch?: string | null
           bank_name?: string | null
           category?: string | null
@@ -4365,6 +4369,7 @@ export type Database = {
           gender?: string | null
           id?: string
           last_name?: string | null
+          max_units_per_day?: number | null
           middle_name?: string | null
           national_id?: string | null
           nationality?: string | null
@@ -4390,6 +4395,7 @@ export type Database = {
           sub_department?: string | null
           sub_department_id?: string | null
           sub_type?: string | null
+          timesheet_approval_required?: boolean | null
           tin?: string | null
           updated_at?: string
           user_id?: string | null
@@ -4399,6 +4405,7 @@ export type Database = {
         Update: {
           account_number?: string | null
           account_type?: string | null
+          allow_multiple_entries_per_day?: boolean | null
           bank_branch?: string | null
           bank_name?: string | null
           category?: string | null
@@ -4424,6 +4431,7 @@ export type Database = {
           gender?: string | null
           id?: string
           last_name?: string | null
+          max_units_per_day?: number | null
           middle_name?: string | null
           national_id?: string | null
           nationality?: string | null
@@ -4449,6 +4457,7 @@ export type Database = {
           sub_department?: string | null
           sub_department_id?: string | null
           sub_type?: string | null
+          timesheet_approval_required?: boolean | null
           tin?: string | null
           updated_at?: string
           user_id?: string | null
@@ -5633,6 +5642,128 @@ export type Database = {
             columns: ["pay_run_id"]
             isOneToOne: false
             referencedRelation: "pay_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ippms_daily_timesheet_entries: {
+        Row: {
+          amount: number | null
+          approved_by: string | null
+          created_at: string
+          employee_id: string
+          id: string
+          organization_id: string
+          project_id: string
+          rate_snapshot: number
+          rejection_reason: string | null
+          status: string
+          task_description: string
+          units: number
+          updated_at: string
+          work_date: string
+        }
+        Insert: {
+          amount?: number | null
+          approved_by?: string | null
+          created_at?: string
+          employee_id: string
+          id?: string
+          organization_id: string
+          project_id: string
+          rate_snapshot?: number
+          rejection_reason?: string | null
+          status?: string
+          task_description?: string
+          units?: number
+          updated_at?: string
+          work_date: string
+        }
+        Update: {
+          amount?: number | null
+          approved_by?: string | null
+          created_at?: string
+          employee_id?: string
+          id?: string
+          organization_id?: string
+          project_id?: string
+          rate_snapshot?: number
+          rejection_reason?: string | null
+          status?: string
+          task_description?: string
+          units?: number
+          updated_at?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ippms_daily_timesheet_entries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ippms_daily_timesheet_entries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "ippms_daily_timesheet_entries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ippms_daily_timesheet_entries_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ippms_daily_timesheet_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ippms_project_tasks: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          project_id: string
+          task_name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          project_id: string
+          task_name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          project_id?: string
+          task_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ippms_project_tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]

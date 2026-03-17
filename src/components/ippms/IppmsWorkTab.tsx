@@ -8,7 +8,8 @@ import { IppmsHolidayPanel } from './IppmsHolidayPanel';
 import { IppmsShiftPanel } from './IppmsShiftPanel';
 import { IppmsPieceWorkTable } from './IppmsPieceWorkTable';
 import { IppmsPieceRatesPanel } from './IppmsPieceRatesPanel';
-import { CalendarDays, Hammer, Clock, Palmtree, PartyPopper, ArrowLeftRight, Info } from 'lucide-react';
+import { IppmsDailyTimesheetGrid } from './IppmsDailyTimesheetGrid';
+import { CalendarDays, Hammer, Clock, Palmtree, PartyPopper, ArrowLeftRight, Info, ClipboardList } from 'lucide-react';
 
 interface Props {
   projectId: string;
@@ -28,7 +29,7 @@ export function IppmsWorkTab({ projectId }: Props) {
             <div>
               <CardTitle className="text-base">IPPMS Workboard</CardTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Manage daily-rate attendance or piece-rate entries
+                Manage daily-rate attendance, timesheets, or piece-rate entries
               </p>
             </div>
           </div>
@@ -67,6 +68,10 @@ export function IppmsWorkTab({ projectId }: Props) {
                 <Clock className="h-3.5 w-3.5" />
                 Attendance
               </TabsTrigger>
+              <TabsTrigger value="timesheet" className="gap-1.5 text-xs">
+                <ClipboardList className="h-3.5 w-3.5" />
+                Timesheet
+              </TabsTrigger>
               <TabsTrigger value="leave" className="gap-1.5 text-xs">
                 <Palmtree className="h-3.5 w-3.5" />
                 Leave
@@ -82,6 +87,9 @@ export function IppmsWorkTab({ projectId }: Props) {
             </TabsList>
             <TabsContent value="attendance">
               <IppmsAttendanceGrid projectId={projectId} />
+            </TabsContent>
+            <TabsContent value="timesheet">
+              <IppmsDailyTimesheetGrid projectId={projectId} />
             </TabsContent>
             <TabsContent value="leave">
               <IppmsLeavePanel projectId={projectId} />
@@ -120,11 +128,12 @@ export function IppmsWorkTab({ projectId }: Props) {
           <div>
             <p className="text-xs font-medium text-foreground mb-1">Work-Day Engine</p>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Each attendance or piece entry updates the unified work-day ledger, preventing double pay and enabling
-              mid-period switches. Payrun selection honors the active work type per day.
+              Each attendance, timesheet, or piece entry updates the unified work-day ledger, preventing double pay and enabling
+              mid-period switches. Daily rate employees can log multiple tasks per day via the Timesheet tab.
             </p>
             <div className="flex gap-1.5 mt-2.5 flex-wrap">
               <Badge variant="outline" className="text-[10px] font-medium border-primary/20 text-primary bg-primary/5">Daily Lane</Badge>
+              <Badge variant="outline" className="text-[10px] font-medium border-primary/20 text-primary bg-primary/5">Timesheet</Badge>
               <Badge variant="outline" className="text-[10px] font-medium border-primary/20 text-primary bg-primary/5">Piece Lane</Badge>
               <Badge variant="outline" className="text-[10px] font-medium border-primary/20 text-primary bg-primary/5">Leave / Holiday</Badge>
             </div>
