@@ -454,7 +454,6 @@ export function IppmsDailyTimesheetGrid({ projectId }: Props) {
               <span className="text-xs text-muted-foreground">Amount: </span>
               <span className="text-sm font-semibold">{money(newEntry.units * newEntry.rate_snapshot)}</span>
             </div>
-          </div>
             {anomalyWarnings.length > 0 && (
               <div className="space-y-1.5">
                 {anomalyWarnings.map((a, i) => (
