@@ -136,6 +136,7 @@ const employeeFormSchema = z.object({
   pay_frequency: z.enum(["daily", "bi_weekly", "monthly"]).optional().or(z.literal("")),
   project_id: z.string().optional().or(z.literal("")),
   probation_end_date: z.string().optional().nullable(),
+  probation_start_date: z.string().optional().nullable(),
   probation_status: z.enum(["on_probation", "confirmed", "extended"]).optional().or(z.literal("")).or(z.null()),
 }).superRefine((data, ctx) => {
   if (data.employee_type === "manpower" && !data.pay_frequency) {
@@ -150,6 +151,13 @@ const employeeFormSchema = z.object({
       code: z.ZodIssueCode.custom,
       message: "Project is required for Projects category",
       path: ["project_id"],
+    });
+  }
+  if (data.category === "head_office" && (!data.email || data.email.trim() === "")) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Work Email is required for Head Office employees",
+      path: ["email"],
     });
   }
 });
