@@ -138,7 +138,7 @@ const EmployeesTab = () => {
       if (organizationId) empQuery = empQuery.eq('organization_id', organizationId);
       if (companyId) empQuery = empQuery.eq('company_id', companyId);
 
-      const { data: employeesData, error } = await empQuery.order("first_name");
+      const { data: employeesData, error } = await empQuery.order("created_at", { ascending: false });
       if (error) throw error;
 
       if (!employeesData || employeesData.length === 0) {
