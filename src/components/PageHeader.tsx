@@ -15,7 +15,7 @@ export default function PageHeader({ title, subtitle, actions, filters }: PageHe
           <h1 className="text-xl font-semibold text-slate-800">{title}</h1>
           {subtitle && <p className="text-slate-500 text-sm mt-0.5">{subtitle}</p>}
         </div>
-        {actions && <div className="w-full flex flex-wrap items-center justify-center gap-2">{actions}</div>}
+        {actions && <div className="flex-shrink-0">{actions}</div>}
       </div>
       {filters && <div className="mt-4">{filters}</div>}
     </div>
