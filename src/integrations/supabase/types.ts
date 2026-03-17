@@ -4321,6 +4321,7 @@ export type Database = {
           phone: string | null
           probation_end_date: string | null
           probation_notes: string | null
+          probation_start_date: string | null
           probation_status: string | null
           project: string | null
           project_id: string | null
@@ -4379,6 +4380,7 @@ export type Database = {
           phone?: string | null
           probation_end_date?: string | null
           probation_notes?: string | null
+          probation_start_date?: string | null
           probation_status?: string | null
           project?: string | null
           project_id?: string | null
@@ -4437,6 +4439,7 @@ export type Database = {
           phone?: string | null
           probation_end_date?: string | null
           probation_notes?: string | null
+          probation_start_date?: string | null
           probation_status?: string | null
           project?: string | null
           project_id?: string | null
