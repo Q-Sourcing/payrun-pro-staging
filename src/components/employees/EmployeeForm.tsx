@@ -1138,9 +1138,9 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
                     <SelectValue placeholder="Select designation" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none">— None —</SelectItem>
+                      <SelectItem value="__none">— None —</SelectItem>
                     {designationsList.map((d) => (
-                      <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>
+                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

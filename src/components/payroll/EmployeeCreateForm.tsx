@@ -70,7 +70,7 @@ export const EmployeeCreateForm = ({ onSuccess, onCancel }: EmployeeCreateFormPr
                     company_unit_id: values.company_unit_id || null,
                     sub_department_id: values.sub_department_id || null,
                     date_joined: values.date_joined || null,
-                    designation: values.designation || null,
+                    designation_id: values.designation || null,
                     work_location: values.work_location || null,
                     number_prefix_override: values.employee_prefix || null,
                     category: values.category || undefined,
