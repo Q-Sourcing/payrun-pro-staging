@@ -44,6 +44,7 @@ function ThemeToggleButton() {
 export default function MainLayout() {
   const { user, profile, logout } = useSupabaseAuth();
   const { role, isSuperAdmin } = useUserRole();
+  const { counts: anomalyCounts } = useAnomalyCounts();
   const navigate = useNavigate();
 
   // Initialize pinned state from localStorage
