@@ -385,9 +385,24 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
     void loadProbationPeriod();
   }, [organizationId]);
 
+  // Auto-set probation fields when employment status changes to "Probation"
+  useEffect(() => {
+    if (watchEmploymentStatus === "Probation") {
+      if (!watchProbationStatus) {
+        form.setValue("probation_status", "on_probation", { shouldDirty: true });
+      }
+      // Default probation_start_date to date_joined if not set
+      const currentStart = form.getValues("probation_start_date");
+      if (!currentStart && watchDateJoined) {
+        form.setValue("probation_start_date", watchDateJoined, { shouldDirty: true });
+      }
+    }
+  }, [watchEmploymentStatus, watchDateJoined]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Auto-suggest probation end date when onboarding probation employees.
   useEffect(() => {
     if (!watchDateJoined) return;
+    if (watchEmploymentStatus !== "Probation") return;
     if (watchProbationStatus && !["on_probation", "extended", ""].includes(String(watchProbationStatus))) return;
     if (watchProbationEndDate) return;
 
@@ -401,7 +416,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
     if (!watchProbationStatus) {
       form.setValue("probation_status", "on_probation", { shouldDirty: true });
     }
-  }, [watchDateJoined, watchProbationStatus, watchProbationEndDate, probationPeriodDays, form]);
+  }, [watchDateJoined, watchEmploymentStatus, watchProbationStatus, watchProbationEndDate, probationPeriodDays, form]);
 
   // Experience calculator
   const calculateExperienceFromDateJoined = (dateJoined?: string | null): string => {
