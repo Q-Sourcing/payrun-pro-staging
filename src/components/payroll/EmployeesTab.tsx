@@ -531,7 +531,7 @@ const EmployeesTab = () => {
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto" style={{ overscrollBehaviorX: 'auto' }}>
+          <div>
             <TableWrapper>
               <thead className="bg-muted/50 sticky top-0 z-10">
                 <tr>
