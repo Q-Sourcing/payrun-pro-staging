@@ -2311,7 +2311,10 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         currency={payGroupCurrency}
         onApply={(benefits, applicationScope) => {
           debug("Applying benefits:", benefits, applicationScope);
-          handleApplyBenefitsPackage(benefits, applicationScope);
+          handleApplyBenefitsPackage(
+            benefits.map(b => ({ id: b.id, name: b.name, cost: b.cost, cost_type: b.cost_type as 'fixed' | 'percentage' })),
+            applicationScope
+          );
         }}
       />
 
