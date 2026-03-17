@@ -14,6 +14,8 @@ import { useOrg } from '@/lib/tenant/OrgContext';
 import { Plus, RefreshCw, Loader2, Save, Send, Trash2, CheckCircle, XCircle, ClipboardList, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '@/lib/constants/countries';
 import { supabase } from '@/integrations/supabase/client';
+import { AnomalyService, type TimesheetAnomalyCheck } from '@/lib/services/anomaly.service';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface Props {
   projectId: string;
