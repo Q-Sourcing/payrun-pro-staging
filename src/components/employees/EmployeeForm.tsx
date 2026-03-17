@@ -786,9 +786,48 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
     });
   };
 
-  return (
-    <form onSubmit={form.handleSubmit(submit, submitInvalid)} className="space-y-4 w-full max-w-full min-w-0 overflow-x-hidden">
-      <Accordion type="single" collapsible defaultValue="personal" className="w-full max-w-full min-w-0 overflow-x-hidden">
+  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [activeSection, setActiveSection] = useState("personal");
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToSection = (value: string) => {
+    const el = sectionRefs.current[value];
+    if (el && scrollContainerRef.current) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    setActiveSection(value);
+  };
+
+  // Track active section on scroll in maximized mode
+  useEffect(() => {
+    if (!maximized) return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const handler = () => {
+      for (const s of SECTIONS) {
+        const el = sectionRefs.current[s.value];
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          const containerRect = container.getBoundingClientRect();
+          if (rect.top >= containerRect.top - 10 && rect.top <= containerRect.top + containerRect.height / 2) {
+            setActiveSection(s.value);
+            break;
+          }
+        }
+      }
+    };
+    container.addEventListener("scroll", handler, { passive: true });
+    return () => container.removeEventListener("scroll", handler);
+  }, [maximized]);
+
+  const accordionContent = (
+    <Accordion
+      type={maximized ? "multiple" : "single"}
+      collapsible={!maximized}
+      defaultValue={maximized ? SECTIONS.map(s => s.value) : "personal" as any}
+      value={maximized ? SECTIONS.map(s => s.value) : undefined}
+      className="w-full max-w-full min-w-0 overflow-x-hidden"
+    >
         <AccordionItem value="personal">
           <AccordionTrigger>
             <div className="font-medium">Personal Information</div>
