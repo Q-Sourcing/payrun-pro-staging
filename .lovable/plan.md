@@ -1,58 +1,78 @@
 
-# Add Contract Template Manager to Settings
 
-## What We're Building
-A new "Contract Templates" section in the Settings panel where admins can create, edit, and manage contract templates. These templates are then available when generating contracts for employees.
+## Employee Form & Directory Improvements
 
-## Changes
+This is a large set of changes across the employee creation form, employee profile page, employee directory sorting, bank seeding, and employee number prefix logic. Here's the breakdown:
 
-### 1. New Component: ContractTemplateManager
-- Location: `src/components/settings/ContractTemplateManager.tsx`
-- Features:
-  - List all active templates for the current organization (table with name, country, employment type, version)
-  - "New Template" button opening a dialog/form
-  - Edit existing templates
-  - Delete (soft-delete by setting `is_active = false`)
-- Template form fields:
-  - Name (required)
-  - Description
-  - Country code (optional dropdown)
-  - Employment type (optional dropdown: permanent, contract, intern, expatriate)
-  - Body HTML (rich text area with placeholder variable hints like `{{employee_name}}`, `{{start_date}}`, `{{job_title}}`, `{{salary}}`)
-  - Placeholders editor (add/remove placeholder keys with labels and default values)
-- Preview pane showing rendered HTML
+---
 
-### 2. Register in SettingsContent
-- Add a new menu item `"contracts"` with icon `FileText` (or `ScrollText`) in the `allMenuItems` array
-- Add the corresponding `case "contracts"` in `renderStandardContent()` rendering `<ContractTemplateManager />`
-- Role guard: `ORG_ADMIN` / `organization_configuration`
+### 1. Move Work Email & Work Phone to Employment Information section
+**File:** `src/components/employees/EmployeeForm.tsx`
+- Remove the Work Email (`email`) field from the Personal Information accordion (currently Row 2, ~line 849-852)
+- Remove the Work Phone field from Personal Information (currently Row 3, ~line 860-863)  
+- Add them to the top of the Employment Information section (before Company row)
+- Make Work Email mandatory when category is `head_office` — add a `superRefine` rule in the zod schema
 
-### 3. Service Layer
-- Reuse existing `ContractsService.getTemplates()`, `createTemplate()`, `updateTemplate()` from `src/lib/data/contracts.service.ts` (already built in Phase 2)
+### 2. Fix Nationality & Citizenship dropdowns not updating
+**File:** `src/components/employees/EmployeeForm.tsx`
+- **Bug:** Lines 933 and 944 use `form.getValues("nationality")` and `form.getValues("citizenship")` instead of watched values. These don't trigger re-renders, so the displayed value doesn't update when selected.
+- **Fix:** Use `form.watch("nationality")` and `form.watch("citizenship")` (or use the existing watched variables pattern) so the `value` prop is reactive.
 
-## Technical Details
+### 3. Make National ID, NSSF Number, TIN mandatory
+**File:** `src/components/employees/EmployeeForm.tsx`
+- Update the zod schema: change `national_id`, `nssf_number`, and `tin` from `.optional().nullable()` to `.min(1, "Required")`
+- Update labels in the form to show `*` indicator
 
-### ContractTemplateManager component structure
-```text
-ContractTemplateManager
-  +-- Templates Table (list view)
-  +-- CreateEditTemplateDialog
-       +-- Name, Description, Country, Employment Type fields
-       +-- Body HTML textarea with placeholder hints
-       +-- Placeholders JSONB editor (dynamic key/label/default rows)
-       +-- Preview tab
-```
+### 4. Make Designation field searchable
+**File:** `src/components/employees/EmployeeForm.tsx`
+- Replace the `<Select>` component for designation (~lines 1183-1196) with `<SearchableSelect>` using the same `designationsList` data
 
-### Placeholder system
-Templates use `{{key}}` syntax. The manager will show a sidebar with available variables:
-- `{{employee_name}}`, `{{employee_number}}`, `{{job_title}}`
-- `{{start_date}}`, `{{end_date}}`, `{{salary}}`
-- `{{company_name}}`, `{{department}}`
-- Plus any custom placeholders defined on the template
+### 5. Conditional Probation fields (show only when Employment Status = "Probation")
+**File:** `src/components/employees/EmployeeForm.tsx`
+- Add a `probation_start_date` field to the form values type and schema
+- Wrap the probation fields block (~lines 1205-1229) in a conditional: only render when `watchEmploymentStatus === "Probation"`
+- When "Probation" is selected, auto-set `probation_status` to `"on_probation"` if not already set
+- Add `probation_start_date` field (defaults to `date_joined`)
+- Probation end date auto-calculation already exists; the 30-day-before notification is already handled by the `probation-reminders` edge function
 
-### Files to create
-- `src/components/contracts/ContractTemplateManager.tsx` -- main list + CRUD component
-- `src/components/contracts/ContractTemplateForm.tsx` -- create/edit form dialog
+### 6. Head office interns/trainees: allow daily_rate pay type
+**File:** `src/components/employees/EmployeeForm.tsx`
+- Update `getAllowedPayTypes` function (~line 196): change `case "interns"` from `["salary"]` to `["salary", "daily_rate"]`
 
-### Files to modify
-- `src/components/settings/SettingsContent.tsx` -- add menu item + render case
+### 7. Employee number prefix: follow ORG-COUNTRY-BUSINESSUNIT-SEQ format
+**File:** `src/components/employees/EmployeeForm.tsx`
+- Update `prefixOptions` logic (~lines 697-710) to generate prefix as `{org_short_code}-{country_code}-{business_unit_code}` (e.g., `QS-UG-QSSU`)
+- The org prefix and business unit codes should come from company settings / company short_code
+- Update the `useEffect` that sets `employee_prefix` on category change to use this new format
+- The sequential number (`0001`) is already appended by the DB trigger
+
+### 8. Update Uganda bank list with missing banks
+**New migration file** to INSERT missing banks:
+- Absa Bank Uganda, Bank of Baroda Uganda, Diamond Trust Bank, Finance Trust Bank, Global Trust Bank (GTBank Uganda), Orient Bank, Pride Microfinance, Standard Chartered Uganda, Top Finance Bank, Opportunity Bank Uganda
+
+### 9. Default sort: most recently created first
+**File:** `src/components/payroll/EmployeesTab.tsx`
+- Change default `sortBy` state from `"name"` to `"created_at_desc"` (~line 70)
+- Change `fetchEmployees` query from `.order("first_name")` to `.order("created_at", { ascending: false })` (~line 141)
+- Update the sort logic in `sortedEmployees` to default to reverse `created_at` order
+
+### 10. Employee Profile Overview: show all info in editable sections
+**File:** `src/pages/EmployeeProfile.tsx`
+- Expand the Overview tab to show ALL employee fields organized in cards: Personal Info, Employment Info, Pay Info, Bank Details, IDs & Documents
+- Add inline edit capability: each card gets an "Edit" button that opens the relevant section in an `EditEmployeeDialog` or switches to inline editable fields
+- Add missing fields: National ID, TIN, NSSF, Passport, Gender, DOB, Marital Status, Date Joined, Sub-Department, etc.
+- Make HR Records and Documents tabs editable (they likely already have add/edit; will verify and ensure CRUD is fully functional)
+
+### 11. Add `probation_start_date` column to DB
+**New migration:** `ALTER TABLE employees ADD COLUMN IF NOT EXISTS probation_start_date DATE`
+
+---
+
+### Files to modify:
+- `src/components/employees/EmployeeForm.tsx` — Items 1-7 (form restructure, validations, field fixes)
+- `src/components/payroll/EmployeesTab.tsx` — Item 9 (default sort order)
+- `src/pages/EmployeeProfile.tsx` — Item 10 (expanded overview with edit capability)
+- `src/components/payroll/EmployeeCreateForm.tsx` — Pass new `probation_start_date` field to insert
+- New migration for bank seeding (Item 8)
+- New migration for `probation_start_date` column (Item 11)
+
