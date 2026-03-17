@@ -576,15 +576,7 @@ export default function ProjectDetailPage() {
         {/* Workboard Tab (IPPMS only) */}
         {isIppms && (
           <TabsContent value="workboard" className="mt-4">
-            <Card>
-              <CardContent className="pt-5">
-                <IppmsWorkboardEnhanced
-                  projectId={projectId as string}
-                  projectName={project.name}
-                  invoiceAmount={project.contract_value ?? 0}
-                />
-              </CardContent>
-            </Card>
+            <IppmsWorkTab projectId={projectId as string} />
           </TabsContent>
         )}
 
