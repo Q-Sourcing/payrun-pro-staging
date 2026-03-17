@@ -1,4 +1,5 @@
 import { NavigationSidebar } from "@/components/Sidebar";
+import { useAnomalyCounts } from "@/hooks/use-anomaly-counts";
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { useTheme } from "@/components/ui/theme-provider";
