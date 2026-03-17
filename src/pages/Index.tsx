@@ -18,6 +18,7 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("employees");
   const { theme, setTheme } = useTheme();
   const { logout, profile } = useSupabaseAuth();
+  const { counts: anomalyCounts } = useAnomalyCounts();
 
   const menuItems = [
     { id: "employees", label: "Employees", icon: Users },
