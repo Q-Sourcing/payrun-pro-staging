@@ -202,7 +202,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
       case "expatriate":
         return ["daily_rate", "salary"];
       case "interns":
-        return ["salary"];
+        return ["salary", "daily_rate"];
       case "manpower":
         if (payFrequency === "daily") return ["daily_rate"];
         return ["salary", "daily_rate"];
