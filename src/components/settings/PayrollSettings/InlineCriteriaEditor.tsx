@@ -68,7 +68,7 @@ export const InlineCriteriaEditor = ({
     setLoading(true);
     try {
       const [pgRes, catRes, deptRes, desRes] = await Promise.all([
-        (supabase as any).from("pay_group_master").select("id, name").eq("is_active", true),
+        (supabase as any).from("pay_group_master").select("id, name").eq("active", true),
         (supabase as any).from("employee_categories").select("id, label").eq("organization_id", organizationId).eq("active", true),
         (supabase as any).from("company_units").select("id, name").eq("active", true),
         (supabase as any).from("designations").select("id, name").eq("organization_id", organizationId).eq("is_active", true),
