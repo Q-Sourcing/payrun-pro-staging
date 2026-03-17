@@ -6,13 +6,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ALL_COUNTRIES } from "@/lib/constants/countries";
 import { useOrg } from "@/lib/tenant/OrgContext";
 import { useOrgNames } from "@/lib/tenant/useOrgNames";
 import { useUserRole } from "@/hooks/use-user-role";
-import { Pencil, Settings as GearIcon, Building2, MapPin, Globe2, Phone, Mail, CalendarDays } from "lucide-react";
+import { Pencil, Settings as GearIcon, Building2, MapPin, Globe2, Phone, Mail, CalendarDays, Hash } from "lucide-react";
 import { OrganizationSetupModal } from "../organization-setup/OrganizationSetupModal";
 
 export const CompanySettingsSection = ({ onOpenAdvanced }: { onOpenAdvanced?: () => void }) => {
@@ -41,8 +42,22 @@ export const CompanySettingsSection = ({ onOpenAdvanced }: { onOpenAdvanced?: ()
   });
   const [showOrgSetup, setShowOrgSetup] = useState(false);
 
+  // Employee number prefix settings
+  const [numberFormat, setNumberFormat] = useState("PREFIX-SEQUENCE");
+  const [defaultPrefix, setDefaultPrefix] = useState("EMP");
+  const [sequenceDigits, setSequenceDigits] = useState(4);
+  const [nextSequence, setNextSequence] = useState(1);
+  const [useSubDeptPrefix, setUseSubDeptPrefix] = useState(false);
+  const [includeCountryCode, setIncludeCountryCode] = useState(true);
+  const [useEmploymentType, setUseEmploymentType] = useState(false);
+  const [orgShortCode, setOrgShortCode] = useState("QS");
+  const [hoUnitCode, setHoUnitCode] = useState("QSSU");
+  const [projectUnitCode, setProjectUnitCode] = useState("PR");
+  const [prefixLoading, setPrefixLoading] = useState(false);
+
   useEffect(() => {
     loadSettings();
+    loadNumberingSettings();
   }, [organizationId, resolvedCompanyId]);
 
   const loadSettings = async () => {
@@ -50,9 +65,12 @@ export const CompanySettingsSection = ({ onOpenAdvanced }: { onOpenAdvanced?: ()
     let nameFromCompany = formData.companyName;
 
     if (effectiveCompanyId) {
-      const { data: comp } = await supabase.from('companies').select('name').eq('id', effectiveCompanyId).maybeSingle();
+      const { data: comp } = await supabase.from('companies').select('name, short_code').eq('id', effectiveCompanyId).maybeSingle();
       if (comp?.name) {
         nameFromCompany = comp.name;
+      }
+      if (comp?.short_code) {
+        setOrgShortCode(comp.short_code);
       }
     }
 
@@ -73,6 +91,32 @@ export const CompanySettingsSection = ({ onOpenAdvanced }: { onOpenAdvanced?: ()
       taxId: settingsRow?.tax_id || "",
     }));
     setEditingName(false);
+  };
+
+  const loadNumberingSettings = async () => {
+    try {
+      const { data, error } = await (supabase as any)
+        .from("employee_number_settings")
+        .select("*")
+        .limit(1)
+        .single();
+      if (error && error.code !== "PGRST116") throw error;
+      if (data) {
+        setNumberFormat(data.number_format || "PREFIX-SEQUENCE");
+        setDefaultPrefix(data.default_prefix || "EMP");
+        setSequenceDigits(data.sequence_digits || 4);
+        setNextSequence(data.next_sequence || 1);
+        setUseSubDeptPrefix(!!data.use_sub_department_prefix);
+        setIncludeCountryCode(!!data.include_country_code);
+        setUseEmploymentType(!!data.use_employment_type);
+        // Load custom prefix codes from sub_department_rules if stored there
+        const rules = data.sub_department_rules || {};
+        if (rules._ho_unit_code) setHoUnitCode(rules._ho_unit_code);
+        if (rules._project_unit_code) setProjectUnitCode(rules._project_unit_code);
+      }
+    } catch (err) {
+      console.error("Error fetching numbering settings:", err);
+    }
   };
 
   const getEffectiveOrgId = () => {
@@ -107,7 +151,7 @@ export const CompanySettingsSection = ({ onOpenAdvanced }: { onOpenAdvanced?: ()
       if (orgError) throw orgError;
 
       if (effectiveCompanyId) {
-        await supabase.from('companies').update({ name: formData.companyName }).eq('id', effectiveCompanyId);
+        await supabase.from('companies').update({ name: formData.companyName, short_code: orgShortCode }).eq('id', effectiveCompanyId);
       }
 
       const { error } = await supabase.from('company_settings').upsert({
@@ -131,6 +175,67 @@ export const CompanySettingsSection = ({ onOpenAdvanced }: { onOpenAdvanced?: ()
       setLoading(false);
     }
   };
+
+  const handleSavePrefixSettings = async () => {
+    if (!isSuperAdmin) {
+      toast({ title: "Insufficient permissions", variant: "destructive" });
+      return;
+    }
+    setPrefixLoading(true);
+    try {
+      const { data: existing } = await (supabase as any)
+        .from("employee_number_settings")
+        .select("id, sub_department_rules")
+        .limit(1)
+        .single();
+
+      const updatedRules = {
+        ...(existing?.sub_department_rules || {}),
+        _ho_unit_code: hoUnitCode,
+        _project_unit_code: projectUnitCode,
+      };
+
+      const numberingData = {
+        number_format: numberFormat,
+        default_prefix: defaultPrefix,
+        sequence_digits: sequenceDigits,
+        next_sequence: nextSequence,
+        use_sub_department_prefix: useSubDeptPrefix,
+        include_country_code: includeCountryCode,
+        use_employment_type: useEmploymentType,
+        sub_department_rules: updatedRules,
+      };
+
+      if (existing) {
+        const { error } = await (supabase as any)
+          .from("employee_number_settings")
+          .update(numberingData)
+          .eq("id", existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await (supabase as any)
+          .from("employee_number_settings")
+          .insert([numberingData]);
+        if (error) throw error;
+      }
+
+      // Also update the company short_code
+      const effectiveCompanyId = getEffectiveCompanyId();
+      if (effectiveCompanyId) {
+        await supabase.from('companies').update({ short_code: orgShortCode }).eq('id', effectiveCompanyId);
+      }
+
+      toast({ title: "Prefix settings saved", description: "Employee number prefix configuration has been updated." });
+    } catch (error) {
+      console.error("Error saving prefix settings:", error);
+      toast({ title: "Error saving prefix settings", variant: "destructive" });
+    } finally {
+      setPrefixLoading(false);
+    }
+  };
+
+  const previewHoPrefix = `${orgShortCode}-${formData.country}-${hoUnitCode}-0001`;
+  const previewPrPrefix = `${orgShortCode}-${formData.country}-${projectUnitCode}-0001`;
 
   return (
     <div className="space-y-4">
@@ -168,6 +273,10 @@ export const CompanySettingsSection = ({ onOpenAdvanced }: { onOpenAdvanced?: ()
           <TabsTrigger value="localization" className="gap-1.5">
             <CalendarDays className="h-3.5 w-3.5" />
             Localization
+          </TabsTrigger>
+          <TabsTrigger value="prefix" className="gap-1.5">
+            <Hash className="h-3.5 w-3.5" />
+            Employee ID Prefix
           </TabsTrigger>
         </TabsList>
 
@@ -291,6 +400,134 @@ export const CompanySettingsSection = ({ onOpenAdvanced }: { onOpenAdvanced?: ()
               </div>
               <div className="flex items-center gap-3 pt-2">
                 <Button onClick={handleSave} disabled={loading || readOnly}>{loading ? "Saving..." : "Save"}</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="prefix" className="mt-0">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Employee Number Prefix Configuration</CardTitle>
+              <CardDescription>
+                Configure the prefix pattern for auto-generated employee numbers. Format: ORG-COUNTRY-UNIT-SEQUENCE
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Preview */}
+              <div className="rounded-lg border border-border bg-muted/50 p-4 space-y-2">
+                <p className="text-sm font-medium text-foreground">Preview</p>
+                <div className="flex flex-wrap gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Head Office: </span>
+                    <code className="rounded bg-primary/10 px-2 py-0.5 font-mono text-primary">{previewHoPrefix}</code>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Projects: </span>
+                    <code className="rounded bg-primary/10 px-2 py-0.5 font-mono text-primary">{previewPrPrefix}</code>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Organization Short Code</Label>
+                  <Input
+                    value={orgShortCode}
+                    onChange={(e) => setOrgShortCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+                    disabled={readOnly}
+                    className="h-10 font-mono"
+                    placeholder="QS"
+                    maxLength={6}
+                  />
+                  <p className="text-xs text-muted-foreground">e.g. QS for QSourcing</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Head Office Unit Code</Label>
+                  <Input
+                    value={hoUnitCode}
+                    onChange={(e) => setHoUnitCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+                    disabled={readOnly}
+                    className="h-10 font-mono"
+                    placeholder="QSSU"
+                    maxLength={8}
+                  />
+                  <p className="text-xs text-muted-foreground">e.g. QSSU for QSS Uganda</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Projects Unit Code</Label>
+                  <Input
+                    value={projectUnitCode}
+                    onChange={(e) => setProjectUnitCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+                    disabled={readOnly}
+                    className="h-10 font-mono"
+                    placeholder="PR"
+                    maxLength={8}
+                  />
+                  <p className="text-xs text-muted-foreground">e.g. PR for Projects staff</p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Number Format</Label>
+                  <Select value={numberFormat} onValueChange={setNumberFormat} disabled={readOnly}>
+                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PREFIX-SEQUENCE">Prefix + Sequence (e.g. QS-UG-QSSU-0001)</SelectItem>
+                      <SelectItem value="SEQUENCE">Sequence Only (e.g. 0001)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Sequence Digits</Label>
+                  <Select value={String(sequenceDigits)} onValueChange={(v) => setSequenceDigits(Number(v))} disabled={readOnly}>
+                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="3">3 digits (001)</SelectItem>
+                      <SelectItem value="4">4 digits (0001)</SelectItem>
+                      <SelectItem value="5">5 digits (00001)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="includeCountryCode"
+                    checked={includeCountryCode}
+                    onCheckedChange={(c) => setIncludeCountryCode(!!c)}
+                    disabled={readOnly}
+                  />
+                  <Label htmlFor="includeCountryCode" className="text-sm">Include country code in prefix</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="useSubDeptPrefix"
+                    checked={useSubDeptPrefix}
+                    onCheckedChange={(c) => setUseSubDeptPrefix(!!c)}
+                    disabled={readOnly}
+                  />
+                  <Label htmlFor="useSubDeptPrefix" className="text-sm">Use sub-department as prefix (overrides default)</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="useEmploymentType"
+                    checked={useEmploymentType}
+                    onCheckedChange={(c) => setUseEmploymentType(!!c)}
+                    disabled={readOnly}
+                  />
+                  <Label htmlFor="useEmploymentType" className="text-sm">Include employment type in prefix</Label>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <Button onClick={handleSavePrefixSettings} disabled={prefixLoading || readOnly}>
+                  {prefixLoading ? "Saving..." : "Save Prefix Settings"}
+                </Button>
               </div>
             </CardContent>
           </Card>
