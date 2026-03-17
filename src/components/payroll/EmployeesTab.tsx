@@ -67,7 +67,7 @@ const EmployeesTab = () => {
   const [employeeTypeFilter, setEmployeeTypeFilter] = useState("all");
   const [dateFromFilter, setDateFromFilter] = useState("");
   const [dateToFilter, setDateToFilter] = useState("");
-  const [sortBy, setSortBy] = useState("name");
+  const [sortBy, setSortBy] = useState("created_at_desc");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showBulkImportDialog, setShowBulkImportDialog] = useState(false);
