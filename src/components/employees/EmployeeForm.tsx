@@ -157,11 +157,19 @@ export type EmployeeFormProps = {
   mode: "create" | "edit";
   defaultValues?: Partial<EmployeeFormValues>;
   onSubmit: (data: EmployeeFormValues) => Promise<void> | void;
+  maximized?: boolean;
 };
+
+const SECTIONS = [
+  { value: "personal", label: "Personal Information" },
+  { value: "employment", label: "Employment Information" },
+  { value: "pay", label: "Pay Information" },
+  { value: "bank", label: "Bank Details" },
+] as const;
 
 type PayGroupOption = { id: string; name: string };
 
-export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProps) => {
+export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: EmployeeFormProps) => {
   const { toast } = useToast();
   const { organizationId, companyId } = useOrg();
   const { userContext, profile } = useSupabaseAuth(); // Use auth context for roles
