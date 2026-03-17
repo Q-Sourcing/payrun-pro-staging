@@ -1444,8 +1444,28 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
           </AccordionContent>
         </AccordionItem>
         </div>
-      </Accordion>
-    );
+    </>
+  );
+
+  const accordionContent = maximized ? (
+    <Accordion
+      type="multiple"
+      defaultValue={SECTIONS.map(s => s.value)}
+      value={SECTIONS.map(s => s.value)}
+      className="w-full max-w-full min-w-0 overflow-x-hidden"
+    >
+      {accordionItems}
+    </Accordion>
+  ) : (
+    <Accordion
+      type="single"
+      collapsible
+      defaultValue="personal"
+      className="w-full max-w-full min-w-0 overflow-x-hidden"
+    >
+      {accordionItems}
+    </Accordion>
+  );
 
   const actionBar = (
     <div className={maximized ? "shrink-0 border-t border-border bg-background px-6 py-3 flex justify-end gap-3" : ""}>
