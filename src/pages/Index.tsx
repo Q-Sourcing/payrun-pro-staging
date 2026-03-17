@@ -68,7 +68,7 @@ const Index = () => {
             onNavigate={setActiveTab}
             pendingPayRuns={2}
             pendingApprovals={1}
-            anomaliesCount={4}
+            anomaliesCount={anomalyCounts.total}
           />
         </div>
 
