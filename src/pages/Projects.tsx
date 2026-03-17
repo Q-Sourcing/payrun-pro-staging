@@ -34,14 +34,16 @@ const Projects = () => {
     const navigate = useNavigate();
 
     const fetchProjects = async () => {
+        if (!organizationId) {
+            setLoading(false);
+            return;
+        }
         try {
-            let query = supabase
+            const { data, error } = await supabase
                 .from("projects")
-                .select("*") as any;
-            
-            if (organizationId) query = query.eq('organization_id', organizationId);
-            
-            const { data, error } = await query.order("created_at", { ascending: false });
+                .select("*")
+                .eq('organization_id', organizationId)
+                .order("created_at", { ascending: false });
 
             if (error) throw error;
             setProjects(data || []);
