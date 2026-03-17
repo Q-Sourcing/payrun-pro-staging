@@ -455,6 +455,17 @@ export function IppmsDailyTimesheetGrid({ projectId }: Props) {
               <span className="text-sm font-semibold">{money(newEntry.units * newEntry.rate_snapshot)}</span>
             </div>
           </div>
+            {anomalyWarnings.length > 0 && (
+              <div className="space-y-1.5">
+                {anomalyWarnings.map((a, i) => (
+                  <Alert key={i} variant={a.severity === 'critical' ? 'destructive' : 'default'} className="py-2">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    <AlertDescription className="text-xs">{a.message}</AlertDescription>
+                  </Alert>
+                ))}
+              </div>
+            )}
+          </div>
           <DialogFooter>
             <Button onClick={handleAddEntry} disabled={saving}>{saving ? 'Saving...' : 'Add Entry'}</Button>
           </DialogFooter>
