@@ -737,28 +737,28 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
     void load();
   }, [watchCategory, watchEmployeeType, watchPayType, watchProjectId]);
 
-  // Build prefix options: ORG-COUNTRY-BUSINESSUNIT format
+  // Build prefix options: ORG-COUNTRY-BUSINESSUNIT format using configurable unit codes
   const prefixOptions = useMemo(() => {
     const orgCode = activeCompanyShortCode || "QS";
     const countryCode = form.getValues("country") || "UG";
     if (watchCategory === "head_office") {
-      return [`${orgCode}-${countryCode}-${orgCode}${countryCode.substring(0, 1)}U`];
+      return [`${orgCode}-${countryCode}-${prefixHoCode}`];
     } else if (watchCategory === "projects") {
-      return [`${orgCode}-${countryCode}-PR`];
+      return [`${orgCode}-${countryCode}-${prefixPrCode}`];
     }
-    return [`${orgCode}-${countryCode}-${orgCode}${countryCode.substring(0, 1)}U`, `${orgCode}-${countryCode}-PR`];
-  }, [activeCompanyShortCode, watchCategory, form.watch("country")]);
+    return [`${orgCode}-${countryCode}-${prefixHoCode}`, `${orgCode}-${countryCode}-${prefixPrCode}`];
+  }, [activeCompanyShortCode, watchCategory, form.watch("country"), prefixHoCode, prefixPrCode]);
 
   // When category changes, default the employee_prefix accordingly
   useEffect(() => {
     const orgCode = activeCompanyShortCode || "QS";
     const countryCode = form.getValues("country") || "UG";
     if (watchCategory === "head_office") {
-      form.setValue("employee_prefix", `${orgCode}-${countryCode}-${orgCode}${countryCode.substring(0, 1)}U`, { shouldDirty: true });
+      form.setValue("employee_prefix", `${orgCode}-${countryCode}-${prefixHoCode}`, { shouldDirty: true });
     } else if (watchCategory === "projects") {
-      form.setValue("employee_prefix", `${orgCode}-${countryCode}-PR`, { shouldDirty: true });
+      form.setValue("employee_prefix", `${orgCode}-${countryCode}-${prefixPrCode}`, { shouldDirty: true });
     }
-  }, [watchCategory, activeCompanyShortCode, form.watch("country")]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [watchCategory, activeCompanyShortCode, form.watch("country"), prefixHoCode, prefixPrCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Edit-mode default bootstrapping
   useEffect(() => {
