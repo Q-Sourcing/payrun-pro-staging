@@ -9,6 +9,9 @@ import {
 } from "lucide-react";
 import { EmployeeCategoriesTab } from './EmployeeCategoriesTab';
 import { CompanyUnitsTab } from './CompanyUnitsTab';
+import { LocationsManager } from './LocationsManager';
+import { DepartmentsManager } from './DepartmentsManager';
+import { DesignationsManager } from './DesignationsManager';
 
 interface OrganizationSetupLayoutProps {
     onBack: () => void;
