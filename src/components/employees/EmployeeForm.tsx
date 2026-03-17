@@ -931,7 +931,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
                   <Label htmlFor="nationality">Nationality</Label>
                   <SearchableSelect
                     options={nationalities.map((item) => ({ value: item.name, label: item.name }))}
-                    value={String(form.getValues("nationality") || "")}
+                    value={String(watchNationality || "")}
                     onValueChange={(value) => form.setValue("nationality", value)}
                     placeholder={nationalities.length ? "Select nationality" : "No nationalities available"}
                     searchPlaceholder="Search nationality..."
@@ -942,7 +942,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
                   <Label htmlFor="citizenship">Citizenship</Label>
                   <SearchableSelect
                     options={nationalities.map((item) => ({ value: item.name, label: item.name }))}
-                    value={String(form.getValues("citizenship") || "")}
+                    value={String(watchCitizenship || "")}
                     onValueChange={(value) => form.setValue("citizenship", value)}
                     placeholder={nationalities.length ? "Select citizenship" : "No nationalities available"}
                     searchPlaceholder="Search citizenship..."
@@ -953,7 +953,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
               {/* Row 7: National ID, Passport Number */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
                 <div className="space-y-2 min-w-0">
-                  <Label htmlFor="national_id">National ID</Label>
+                  <Label htmlFor="national_id">National ID *</Label>
                   <Input id="national_id" {...form.register("national_id")} />
                 </div>
                 <div className="space-y-2 min-w-0">
@@ -964,11 +964,11 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
               {/* Row 8: NSSF Number, TIN */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
                 <div className="space-y-2 min-w-0">
-                  <Label htmlFor="nssf_number">NSSF Number</Label>
+                  <Label htmlFor="nssf_number">NSSF Number *</Label>
                   <Input id="nssf_number" {...form.register("nssf_number")} />
                 </div>
                 <div className="space-y-2 min-w-0">
-                  <Label htmlFor="tin">TIN</Label>
+                  <Label htmlFor="tin">TIN *</Label>
                   <Input id="tin" {...form.register("tin")} />
                 </div>
               </div>
