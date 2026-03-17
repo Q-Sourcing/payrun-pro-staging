@@ -266,7 +266,9 @@ const EmployeesTab = () => {
 
   const sortedEmployees = [...filteredEmployees].sort((a, b) => {
     if (sortBy === "employee_number") return (a.employee_number || "").localeCompare(b.employee_number || "");
-    return getFullName(a).localeCompare(getFullName(b));
+    if (sortBy === "name") return getFullName(a).localeCompare(getFullName(b));
+    // Default: created_at_desc — data is already sorted by created_at desc from the query
+    return 0;
   });
 
   // Reset to page 1 when filters change

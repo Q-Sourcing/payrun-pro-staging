@@ -94,7 +94,7 @@ const employeeFormSchema = z.object({
   first_name: z.string().min(1, "First name is required"),
   middle_name: z.string().optional().nullable(),
   last_name: z.string().optional().nullable(),
-  email: z.string().email("Invalid email"),
+  email: z.string().email("Invalid email").or(z.literal("")),
   personal_email: z.string().email("Invalid personal email").optional().nullable().or(z.literal("")),
   phone: z.string().optional().nullable(),
   work_phone: z.string().optional().nullable(),
