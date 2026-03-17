@@ -20,6 +20,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmployeeCategoriesTab } from './EmployeeCategoriesTab';
 import { CompanyUnitsTab } from './CompanyUnitsTab';
 import { DesignationsManager } from './DesignationsManager';
+import { LocationsManager } from './LocationsManager';
+import { DepartmentsManager } from './DepartmentsManager';
 
 interface OrganizationSetupModalProps {
     open: boolean;
@@ -142,13 +144,21 @@ export const OrganizationSetupModal: React.FC<OrganizationSetupModalProps> = ({ 
                             </TabsContent>
 
                             {/* Coming Soon Fallback for other tabs */}
-                            {['locations', 'departments', 'details', 'policy'].includes(activeTab) && (
+                            <TabsContent value="locations" className="mt-0 focus-visible:outline-none">
+                                <LocationsManager />
+                            </TabsContent>
+
+                            <TabsContent value="departments" className="mt-0 focus-visible:outline-none">
+                                <DepartmentsManager />
+                            </TabsContent>
+
+                            {['details', 'policy'].includes(activeTab) && (
                                 <TabsContent value={activeTab} className="mt-0">
                                     <div className="flex flex-col items-center justify-center p-16 bg-white rounded-xl shadow-sm border-2 border-dashed">
                                         <SettingsIcon className="h-12 w-12 text-slate-300 mb-4 animate-spin-slow" />
                                         <h3 className="text-xl font-bold text-slate-900 mb-2">Coming Soon</h3>
                                         <p className="text-slate-500 text-center max-w-sm">
-                                            The <span className="font-semibold text-slate-700 capitalize">{activeTab.replace('_', ' ')}</span> module is currently under development to improve your organization management experience.
+                                            The <span className="font-semibold text-slate-700 capitalize">{activeTab.replace('_', ' ')}</span> module is currently under development.
                                         </p>
                                     </div>
                                 </TabsContent>
