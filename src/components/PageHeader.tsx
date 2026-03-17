@@ -9,7 +9,7 @@ interface PageHeaderProps {
 
 export default function PageHeader({ title, subtitle, actions, filters }: PageHeaderProps) {
   return (
-    <div className="z-20 bg-slate-50 pb-4 mb-4 border-b border-slate-200 overflow-hidden shrink-0">
+    <div className="z-20 bg-slate-50 pb-4 mb-4 border-b border-slate-200 shrink-0">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-xl font-semibold text-slate-800">{title}</h1>
