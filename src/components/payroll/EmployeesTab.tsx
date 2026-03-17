@@ -67,7 +67,7 @@ const EmployeesTab = () => {
   const [employeeTypeFilter, setEmployeeTypeFilter] = useState("all");
   const [dateFromFilter, setDateFromFilter] = useState("");
   const [dateToFilter, setDateToFilter] = useState("");
-  const [sortBy, setSortBy] = useState("name");
+  const [sortBy, setSortBy] = useState("created_at_desc");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showBulkImportDialog, setShowBulkImportDialog] = useState(false);
@@ -138,7 +138,7 @@ const EmployeesTab = () => {
       if (organizationId) empQuery = empQuery.eq('organization_id', organizationId);
       if (companyId) empQuery = empQuery.eq('company_id', companyId);
 
-      const { data: employeesData, error } = await empQuery.order("first_name");
+      const { data: employeesData, error } = await empQuery.order("created_at", { ascending: false });
       if (error) throw error;
 
       if (!employeesData || employeesData.length === 0) {
@@ -266,7 +266,9 @@ const EmployeesTab = () => {
 
   const sortedEmployees = [...filteredEmployees].sort((a, b) => {
     if (sortBy === "employee_number") return (a.employee_number || "").localeCompare(b.employee_number || "");
-    return getFullName(a).localeCompare(getFullName(b));
+    if (sortBy === "name") return getFullName(a).localeCompare(getFullName(b));
+    // Default: created_at_desc — data is already sorted by created_at desc from the query
+    return 0;
   });
 
   // Reset to page 1 when filters change

@@ -8,11 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, User, Mail, Phone, Briefcase, MapPin, DollarSign, Clock, ToggleLeft } from "lucide-react";
+import { ArrowLeft, ToggleLeft } from "lucide-react";
 import { EmployeeContractsPanel } from "@/components/contracts/EmployeeContractsPanel";
 import { ProbationSection } from "@/components/employees/ProbationSection";
 import { EmployeeHrRecordsTab } from "@/components/employees/EmployeeHrRecordsTab";
 import { EmployeeDocumentsTab } from "@/components/employees/EmployeeDocumentsTab";
+import { EmployeeProfileOverview } from "@/components/employees/EmployeeProfileOverview";
 import LoadingSkeleton from "@/components/LoadingSkeleton";
 import { useToast } from "@/hooks/use-toast";
 
@@ -33,7 +34,6 @@ export default function EmployeeProfile() {
       .single();
     if (error) console.error(error);
 
-    // Enrich with project data for data reusability in contracts
     let enriched = data;
     if (data?.project_id) {
       const { data: projectData } = await supabase
@@ -48,7 +48,6 @@ export default function EmployeeProfile() {
           project_code: projectData.code,
           project_client: projectData.client_name,
           project_location: projectData.location,
-          // Data reusability: surface client_name and location for contract template rendering
           client_name: data.client_name || projectData.client_name,
           location: data.location || projectData.location,
         };
@@ -110,83 +109,51 @@ export default function EmployeeProfile() {
           <TabsTrigger value="contracts">Contracts</TabsTrigger>
         </TabsList>
 
-        {/* Overview Tab */}
+        {/* Overview Tab — all info in editable cards */}
         <TabsContent value="overview">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Personal Info</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <InfoRow icon={User} label="Full Name" value={fullName} />
-                <InfoRow icon={Mail} label="Work Email" value={employee.email} />
-                <InfoRow icon={Mail} label="Personal Email" value={employee.personal_email || "—"} />
-                <InfoRow icon={Phone} label="Mobile" value={employee.phone || "—"} />
-                <InfoRow icon={Phone} label="Work Phone" value={employee.work_phone || "—"} />
-                <InfoRow icon={MapPin} label="Country" value={employee.country} />
-                <InfoRow icon={MapPin} label="Nationality" value={employee.nationality || "—"} />
-                <InfoRow icon={MapPin} label="Citizenship" value={employee.citizenship || "—"} />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Employment Info</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <InfoRow icon={Briefcase} label="Type" value={employee.employee_type} />
-                <InfoRow icon={Briefcase} label="Engagement" value={employee.engagement_type || "—"} />
-                <InfoRow icon={Briefcase} label="Status" value={employee.employment_status || "—"} />
-                <InfoRow icon={Briefcase} label="Designation" value={employee.designation || "—"} />
-                <InfoRow icon={MapPin} label="Work Location" value={employee.work_location || "—"} />
-                <InfoRow icon={Briefcase} label="Pay Group" value={employee.pay_groups?.name || "Unassigned"} />
-                <InfoRow icon={DollarSign} label="Pay Rate" value={`${employee.currency || ""} ${employee.pay_rate?.toLocaleString()}`} />
-                <InfoRow icon={Briefcase} label="Pay Type" value={employee.pay_type} />
-                {employee.date_joined && <InfoRow icon={Briefcase} label="Date Joined" value={employee.date_joined} />}
-              </CardContent>
-            </Card>
+          <EmployeeProfileOverview employee={employee} onUpdated={fetchEmployee} />
 
-            {/* Contract Type Selector */}
-            <Card className="md:col-span-2">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <ToggleLeft className="h-4 w-4 text-primary" />
-                  Payroll Contract Type
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-4">
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Select whether this employee is paid a <strong>fixed monthly salary</strong> or a{" "}
-                      <strong>variable pay-on-performance</strong> rate (daily attendance × rate + piece-rate items + allowances).
-                    </p>
-                    <Select value={contractType} onValueChange={updateContractType} disabled={savingContractType}>
-                      <SelectTrigger className="w-72">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="monthly">
-                          <div className="flex flex-col">
-                            <span className="font-medium">Fixed Monthly Salary</span>
-                            <span className="text-xs text-muted-foreground">Standard payroll with fixed gross pay per cycle</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="variable">
-                          <div className="flex flex-col">
-                            <span className="font-medium">Variable Pay-on-Performance</span>
-                            <span className="text-xs text-muted-foreground">Daily attendance × rate + piece-rate items + allowances</span>
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className={`rounded-lg px-4 py-3 text-sm font-medium border ${contractType === "variable" ? "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800" : "bg-muted border-border text-muted-foreground"}`}>
-                    {contractType === "variable" ? "⚡ Variable contract — payroll requires work log verification" : "📅 Monthly contract — standard payroll processing"}
-                  </div>
+          {/* Contract Type Selector */}
+          <Card className="mt-4">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <ToggleLeft className="h-4 w-4 text-primary" />
+                Payroll Contract Type
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Select whether this employee is paid a <strong>fixed monthly salary</strong> or a{" "}
+                    <strong>variable pay-on-performance</strong> rate.
+                  </p>
+                  <Select value={contractType} onValueChange={updateContractType} disabled={savingContractType}>
+                    <SelectTrigger className="w-72">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="monthly">
+                        <div className="flex flex-col">
+                          <span className="font-medium">Fixed Monthly Salary</span>
+                          <span className="text-xs text-muted-foreground">Standard payroll with fixed gross pay per cycle</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="variable">
+                        <div className="flex flex-col">
+                          <span className="font-medium">Variable Pay-on-Performance</span>
+                          <span className="text-xs text-muted-foreground">Daily attendance × rate + piece-rate items + allowances</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+                <div className={`rounded-lg px-4 py-3 text-sm font-medium border ${contractType === "variable" ? "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800" : "bg-muted border-border text-muted-foreground"}`}>
+                  {contractType === "variable" ? "⚡ Variable contract — payroll requires work log verification" : "📅 Monthly contract — standard payroll processing"}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="hr-records">
@@ -197,7 +164,6 @@ export default function EmployeeProfile() {
           <EmployeeDocumentsTab employeeId={employee.id} />
         </TabsContent>
 
-        {/* Probation Tab */}
         <TabsContent value="probation">
           <ProbationSection
             employeeId={employee.id}
@@ -208,7 +174,6 @@ export default function EmployeeProfile() {
           />
         </TabsContent>
 
-        {/* Contracts Tab */}
         <TabsContent value="contracts">
           <EmployeeContractsPanel
             employeeId={employee.id}
@@ -218,16 +183,6 @@ export default function EmployeeProfile() {
           />
         </TabsContent>
       </Tabs>
-    </div>
-  );
-}
-
-function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
-      <span className="text-muted-foreground w-24">{label}</span>
-      <span className="font-medium">{value}</span>
     </div>
   );
 }

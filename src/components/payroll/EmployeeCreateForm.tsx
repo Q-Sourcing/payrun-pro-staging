@@ -86,6 +86,7 @@ export const EmployeeCreateForm = ({ onSuccess, onCancel, maximized }: EmployeeC
                     employee_type: values.employee_type || undefined,
                     pay_frequency: values.pay_frequency || null,
                     probation_end_date: values.probation_end_date || null,
+                    probation_start_date: values.probation_start_date || null,
                     probation_status: values.probation_status || null,
                     organization_id: finalOrgId,
                     project_id: values.category === "projects" ? (values.project_id || null) : null,

@@ -86,6 +86,7 @@ export type EmployeeFormValues = {
   pay_frequency?: ManpowerFrequency | "";
   project_id?: string | "";
   probation_end_date?: string | null;
+  probation_start_date?: string | null;
   probation_status?: "on_probation" | "confirmed" | "extended" | "" | null;
 };
 
@@ -93,18 +94,18 @@ const employeeFormSchema = z.object({
   first_name: z.string().min(1, "First name is required"),
   middle_name: z.string().optional().nullable(),
   last_name: z.string().optional().nullable(),
-  email: z.string().email("Invalid email"),
+  email: z.string().email("Invalid email").or(z.literal("")),
   personal_email: z.string().email("Invalid personal email").optional().nullable().or(z.literal("")),
   phone: z.string().optional().nullable(),
   work_phone: z.string().optional().nullable(),
   phone_country_code: z.string().optional(),
   gender: z.string().optional().nullable(),
   date_of_birth: z.string().optional().nullable(),
-  national_id: z.string().optional().nullable(),
+  national_id: z.string().min(1, "National ID is required"),
   nationality: z.string().optional().nullable(),
   citizenship: z.string().optional().nullable(),
-  tin: z.string().optional().nullable(),
-  nssf_number: z.string().optional().nullable(),
+  tin: z.string().min(1, "TIN is required"),
+  nssf_number: z.string().min(1, "NSSF Number is required"),
   passport_number: z.string().optional().nullable(),
   marital_status: z.enum(["Single", "Married", "Divorced", "Widowed"]).optional().or(z.literal("")).or(z.null()),
   pay_type: z.enum(["hourly", "salary", "piece_rate", "daily_rate"]),
@@ -135,6 +136,7 @@ const employeeFormSchema = z.object({
   pay_frequency: z.enum(["daily", "bi_weekly", "monthly"]).optional().or(z.literal("")),
   project_id: z.string().optional().or(z.literal("")),
   probation_end_date: z.string().optional().nullable(),
+  probation_start_date: z.string().optional().nullable(),
   probation_status: z.enum(["on_probation", "confirmed", "extended"]).optional().or(z.literal("")).or(z.null()),
 }).superRefine((data, ctx) => {
   if (data.employee_type === "manpower" && !data.pay_frequency) {
@@ -149,6 +151,13 @@ const employeeFormSchema = z.object({
       code: z.ZodIssueCode.custom,
       message: "Project is required for Projects category",
       path: ["project_id"],
+    });
+  }
+  if (data.category === "head_office" && (!data.email || data.email.trim() === "")) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Work Email is required for Head Office employees",
+      path: ["email"],
     });
   }
 });
@@ -193,7 +202,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
       case "expatriate":
         return ["daily_rate", "salary"];
       case "interns":
-        return ["salary"];
+        return ["salary", "daily_rate"];
       case "manpower":
         if (payFrequency === "daily") return ["daily_rate"];
         return ["salary", "daily_rate"];
@@ -252,6 +261,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
       pay_frequency: "" as ManpowerFrequency | "",
       project_id: "",
       probation_end_date: "",
+      probation_start_date: "",
       probation_status: "on_probation",
       ...defaultValues,
     },
@@ -276,6 +286,8 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
   const watchReportingManagerId = form.watch("reporting_manager_id");
   const watchProbationStatus = form.watch("probation_status");
   const watchProbationEndDate = form.watch("probation_end_date");
+  const watchNationality = form.watch("nationality");
+  const watchCitizenship = form.watch("citizenship");
 
   const watchDateJoined = form.watch("date_joined");
   const watchPayRate = form.watch("pay_rate");
@@ -373,9 +385,24 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
     void loadProbationPeriod();
   }, [organizationId]);
 
+  // Auto-set probation fields when employment status changes to "Probation"
+  useEffect(() => {
+    if (watchEmploymentStatus === "Probation") {
+      if (!watchProbationStatus) {
+        form.setValue("probation_status", "on_probation", { shouldDirty: true });
+      }
+      // Default probation_start_date to date_joined if not set
+      const currentStart = form.getValues("probation_start_date");
+      if (!currentStart && watchDateJoined) {
+        form.setValue("probation_start_date", watchDateJoined, { shouldDirty: true });
+      }
+    }
+  }, [watchEmploymentStatus, watchDateJoined]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Auto-suggest probation end date when onboarding probation employees.
   useEffect(() => {
     if (!watchDateJoined) return;
+    if (watchEmploymentStatus !== "Probation") return;
     if (watchProbationStatus && !["on_probation", "extended", ""].includes(String(watchProbationStatus))) return;
     if (watchProbationEndDate) return;
 
@@ -389,7 +416,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
     if (!watchProbationStatus) {
       form.setValue("probation_status", "on_probation", { shouldDirty: true });
     }
-  }, [watchDateJoined, watchProbationStatus, watchProbationEndDate, probationPeriodDays, form]);
+  }, [watchDateJoined, watchEmploymentStatus, watchProbationStatus, watchProbationEndDate, probationPeriodDays, form]);
 
   // Experience calculator
   const calculateExperienceFromDateJoined = (dateJoined?: string | null): string => {
@@ -693,21 +720,28 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
     void load();
   }, [watchCategory, watchEmployeeType, watchPayType, watchProjectId]);
 
-  // Build prefix options from active company's short code and category default
+  // Build prefix options: ORG-COUNTRY-BUSINESSUNIT format
   const prefixOptions = useMemo(() => {
-    const base = activeCompanyShortCode || "QSS";
-    return [`${base}-HO`, `${base}-PR`];
-  }, [activeCompanyShortCode]);
+    const orgCode = activeCompanyShortCode || "QS";
+    const countryCode = form.getValues("country") || "UG";
+    if (watchCategory === "head_office") {
+      return [`${orgCode}-${countryCode}-${orgCode}${countryCode.substring(0, 1)}U`];
+    } else if (watchCategory === "projects") {
+      return [`${orgCode}-${countryCode}-PR`];
+    }
+    return [`${orgCode}-${countryCode}-${orgCode}${countryCode.substring(0, 1)}U`, `${orgCode}-${countryCode}-PR`];
+  }, [activeCompanyShortCode, watchCategory, form.watch("country")]);
 
   // When category changes, default the employee_prefix accordingly
   useEffect(() => {
-    const base = activeCompanyShortCode || "QSS";
+    const orgCode = activeCompanyShortCode || "QS";
+    const countryCode = form.getValues("country") || "UG";
     if (watchCategory === "head_office") {
-      form.setValue("employee_prefix", `${base}-HO`, { shouldDirty: true });
+      form.setValue("employee_prefix", `${orgCode}-${countryCode}-${orgCode}${countryCode.substring(0, 1)}U`, { shouldDirty: true });
     } else if (watchCategory === "projects") {
-      form.setValue("employee_prefix", `${base}-PR`, { shouldDirty: true });
+      form.setValue("employee_prefix", `${orgCode}-${countryCode}-PR`, { shouldDirty: true });
     }
-  }, [watchCategory, activeCompanyShortCode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [watchCategory, activeCompanyShortCode, form.watch("country")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Edit-mode default bootstrapping
   useEffect(() => {
@@ -840,29 +874,18 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
                   <Input id="last_name" {...form.register("last_name")} />
                 </div>
               </div>
-              {/* Row 2: Middle Name, Work Email */}
+              {/* Row 2: Middle Name, Personal Email */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
                 <div className="space-y-2 min-w-0">
                   <Label htmlFor="middle_name">Middle Name</Label>
                   <Input id="middle_name" {...form.register("middle_name")} />
                 </div>
                 <div className="space-y-2 min-w-0">
-                  <Label htmlFor="email">Work Email *</Label>
-                  <Input id="email" type="email" {...form.register("email")} />
-                </div>
-              </div>
-              {/* Row 3: Personal Email, Work Phone */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
-                <div className="space-y-2 min-w-0">
                   <Label htmlFor="personal_email">Personal Email</Label>
                   <Input id="personal_email" type="email" {...form.register("personal_email")} />
                 </div>
-                <div className="space-y-2 min-w-0">
-                  <Label htmlFor="work_phone">Work Phone</Label>
-                  <Input id="work_phone" {...form.register("work_phone")} />
-                </div>
               </div>
-              {/* Row 4: Mobile, Country */}
+              {/* Row 3: Mobile, Country */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
                 <div className="space-y-2 min-w-0">
                   <Label htmlFor="phone">Mobile</Label>
@@ -930,7 +953,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
                   <Label htmlFor="nationality">Nationality</Label>
                   <SearchableSelect
                     options={nationalities.map((item) => ({ value: item.name, label: item.name }))}
-                    value={String(form.getValues("nationality") || "")}
+                    value={String(watchNationality || "")}
                     onValueChange={(value) => form.setValue("nationality", value)}
                     placeholder={nationalities.length ? "Select nationality" : "No nationalities available"}
                     searchPlaceholder="Search nationality..."
@@ -941,7 +964,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
                   <Label htmlFor="citizenship">Citizenship</Label>
                   <SearchableSelect
                     options={nationalities.map((item) => ({ value: item.name, label: item.name }))}
-                    value={String(form.getValues("citizenship") || "")}
+                    value={String(watchCitizenship || "")}
                     onValueChange={(value) => form.setValue("citizenship", value)}
                     placeholder={nationalities.length ? "Select citizenship" : "No nationalities available"}
                     searchPlaceholder="Search citizenship..."
@@ -952,7 +975,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
               {/* Row 7: National ID, Passport Number */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
                 <div className="space-y-2 min-w-0">
-                  <Label htmlFor="national_id">National ID</Label>
+                  <Label htmlFor="national_id">National ID *</Label>
                   <Input id="national_id" {...form.register("national_id")} />
                 </div>
                 <div className="space-y-2 min-w-0">
@@ -963,11 +986,11 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
               {/* Row 8: NSSF Number, TIN */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
                 <div className="space-y-2 min-w-0">
-                  <Label htmlFor="nssf_number">NSSF Number</Label>
+                  <Label htmlFor="nssf_number">NSSF Number *</Label>
                   <Input id="nssf_number" {...form.register("nssf_number")} />
                 </div>
                 <div className="space-y-2 min-w-0">
-                  <Label htmlFor="tin">TIN</Label>
+                  <Label htmlFor="tin">TIN *</Label>
                   <Input id="tin" {...form.register("tin")} />
                 </div>
               </div>
@@ -1002,6 +1025,17 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
             <div className="font-medium">Employment Information</div>
           </AccordionTrigger>
           <AccordionContent className="overflow-x-hidden">
+            {/* Work Email & Work Phone */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Work Email {watchCategory === "head_office" ? "*" : ""}</Label>
+                <Input id="email" type="email" {...form.register("email")} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="work_phone">Work Phone</Label>
+                <Input id="work_phone" {...form.register("work_phone")} />
+              </div>
+            </div>
             {/* Row 1: Company, Company Unit */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -1180,20 +1214,17 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div className="space-y-2">
                 <Label htmlFor="designation">Designation</Label>
-                <Select
+                <SearchableSelect
+                  options={[
+                    { value: "__none", label: "— None —" },
+                    ...designationsList.map((d) => ({ value: d.id, label: d.name })),
+                  ]}
                   value={form.watch("designation") || ""}
                   onValueChange={(val) => form.setValue("designation", val === "__none" ? null : val, { shouldDirty: true })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select designation" />
-                  </SelectTrigger>
-                  <SelectContent>
-                      <SelectItem value="__none">— None —</SelectItem>
-                    {designationsList.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Search designation..."
+                  searchPlaceholder="Search designations..."
+                  emptyMessage="No designations found"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="work_location">Work Location</Label>
@@ -1201,32 +1232,39 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
               </div>
             </div>
 
-            {/* Row 3b: Probation fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="probation_status">Probation Status</Label>
-                <Select
-                  value={String(watchProbationStatus || "")}
-                  onValueChange={(value) => form.setValue("probation_status", value as any)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select probation status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="on_probation">On Probation</SelectItem>
-                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                    <SelectItem value="extended">Extended</SelectItem>
-                  </SelectContent>
-                </Select>
+            {/* Row 3b: Probation fields — only show when Employment Status is "Probation" */}
+            {watchEmploymentStatus === "Probation" && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="probation_status">Probation Status</Label>
+                  <Select
+                    value={String(watchProbationStatus || "")}
+                    onValueChange={(value) => form.setValue("probation_status", value as any)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select probation status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="on_probation">On Probation</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="extended">Extended</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="probation_start_date">Probation Start Date</Label>
+                  <Input id="probation_start_date" type="date" {...form.register("probation_start_date")} />
+                  <p className="text-xs text-muted-foreground">Defaults to Date Joined.</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="probation_end_date">Probation End Date</Label>
+                  <Input id="probation_end_date" type="date" {...form.register("probation_end_date")} />
+                  <p className="text-xs text-muted-foreground">
+                    Auto-calculated from Date Joined + {probationPeriodDays} days (editable).
+                  </p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="probation_end_date">Probation End Date</Label>
-                <Input id="probation_end_date" type="date" {...form.register("probation_end_date")} />
-                <p className="text-xs text-muted-foreground">
-                  Auto-calculated from Date Joined + {probationPeriodDays} days (editable).
-                </p>
-              </div>
-            </div>
+            )}
 
             {/* Row 4: Sub-Department (with Quick Add), Reporting Manager */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
