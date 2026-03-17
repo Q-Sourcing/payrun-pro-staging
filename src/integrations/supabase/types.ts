@@ -205,6 +205,90 @@ export type Database = {
         }
         Relationships: []
       }
+      anomaly_logs: {
+        Row: {
+          affected_employee_id: string | null
+          affected_record_id: string | null
+          affected_record_type: string
+          anomaly_type: string
+          created_at: string
+          description: string
+          detected_at: string
+          detected_by: string | null
+          id: string
+          metadata: Json | null
+          organization_id: string | null
+          project_id: string | null
+          resolution_action: string | null
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          section: string
+          severity: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          affected_employee_id?: string | null
+          affected_record_id?: string | null
+          affected_record_type: string
+          anomaly_type: string
+          created_at?: string
+          description: string
+          detected_at?: string
+          detected_by?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id?: string | null
+          project_id?: string | null
+          resolution_action?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          section: string
+          severity: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          affected_employee_id?: string | null
+          affected_record_id?: string | null
+          affected_record_type?: string
+          anomaly_type?: string
+          created_at?: string
+          description?: string
+          detected_at?: string
+          detected_by?: string | null
+          id?: string
+          metadata?: Json | null
+          organization_id?: string | null
+          project_id?: string | null
+          resolution_action?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          section?: string
+          severity?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anomaly_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anomaly_logs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       approval_group_members: {
         Row: {
           created_at: string
@@ -10105,6 +10189,19 @@ export type Database = {
       check_is_org_admin: { Args: { user_id: string }; Returns: boolean }
       check_is_org_super_admin: { Args: { user_id: string }; Returns: boolean }
       check_is_super_admin: { Args: { user_id: string }; Returns: boolean }
+      check_payrun_anomalies: { Args: { p_payrun_id: string }; Returns: Json }
+      check_timesheet_anomalies: {
+        Args: {
+          p_employee_id: string
+          p_entry_id?: string
+          p_project_id: string
+          p_rate: number
+          p_task_description: string
+          p_units: number
+          p_work_date: string
+        }
+        Returns: Json
+      }
       cleanup_expired_permissions: { Args: never; Returns: number }
       cleanup_expired_sessions: { Args: never; Returns: number }
       complete_super_admin_setup: {
@@ -10137,6 +10234,7 @@ export type Database = {
             Returns: string
           }
       generate_temp_password: { Args: never; Returns: string }
+      get_anomaly_counts: { Args: { p_org_id: string }; Returns: Json }
       get_auth_org_id: { Args: never; Returns: string }
       get_org_total_payroll: { Args: { org_id: string }; Returns: number }
       get_super_admin_setup_status: { Args: never; Returns: Json }
