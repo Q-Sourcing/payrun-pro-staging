@@ -155,6 +155,35 @@ export function IppmsDailyTimesheetGrid({ projectId }: Props) {
       toast({ title: 'Validation Error', description: error, variant: 'destructive' });
       return;
     }
+
+    // Run server-side anomaly checks
+    try {
+      const anomalies = await AnomalyService.checkTimesheetAnomalies({
+        employeeId: newEntry.employee_id,
+        projectId,
+        workDate: newEntry.work_date,
+        taskDescription: newEntry.task_description,
+        units: newEntry.units,
+        rate: newEntry.rate_snapshot,
+      });
+
+      const criticals = anomalies.filter(a => a.severity === 'critical');
+      const warnings = anomalies.filter(a => a.severity !== 'critical');
+
+      if (criticals.length > 0) {
+        setAnomalyWarnings(anomalies);
+        toast({ title: 'Cannot save', description: criticals[0].message, variant: 'destructive' });
+        return;
+      }
+
+      if (warnings.length > 0) {
+        setAnomalyWarnings(anomalies);
+        // Warnings are shown but don't block
+      }
+    } catch {
+      // If anomaly check fails, proceed with save
+    }
+
     setSaving(true);
     try {
       await IppmsTimesheetService.upsertEntry({
@@ -169,6 +198,7 @@ export function IppmsDailyTimesheetGrid({ projectId }: Props) {
       });
       toast({ title: 'Entry added' });
       setAddDialog(false);
+      setAnomalyWarnings([]);
       setNewEntry({ employee_id: '', work_date: toISO(today), task_description: '', units: 1, rate_snapshot: 0 });
       qc.invalidateQueries({ queryKey: ['ippms-timesheet', projectId] });
     } catch (err: any) {
