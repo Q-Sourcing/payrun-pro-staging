@@ -20,6 +20,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmployeeCategoriesTab } from './EmployeeCategoriesTab';
 import { CompanyUnitsTab } from './CompanyUnitsTab';
 import { DesignationsManager } from './DesignationsManager';
+import { LocationsManager } from './LocationsManager';
+import { DepartmentsManager } from './DepartmentsManager';
 
 interface OrganizationSetupModalProps {
     open: boolean;
