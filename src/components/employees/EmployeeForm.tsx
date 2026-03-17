@@ -1323,7 +1323,9 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
             </div>
           </AccordionContent>
         </AccordionItem>
+        </div>
 
+        <div ref={(el) => { sectionRefs.current["pay"] = el; }}>
         <AccordionItem value="pay">
           <AccordionTrigger>
             <div className="font-medium">Pay Information</div>
