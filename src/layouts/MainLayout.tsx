@@ -1,5 +1,6 @@
 import { Outlet, useNavigate } from "react-router-dom";
 import { NavigationSidebar } from "@/components/Sidebar";
+import { useAnomalyCounts } from "@/hooks/use-anomaly-counts";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { LogOut, ChevronLeft, ChevronRight, Pin, PinOff, Sun, Moon, Plus } from "lucide-react";
