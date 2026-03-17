@@ -1,4 +1,5 @@
 import { NavigationSidebar } from "@/components/Sidebar";
+import { useAnomalyCounts } from "@/hooks/use-anomaly-counts";
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { useTheme } from "@/components/ui/theme-provider";
@@ -8,6 +9,7 @@ const Layout = () => {
   const [activeTab, setActiveTab] = useState("employees");
   const { theme, setTheme } = useTheme();
   const [pinned, setPinned] = useState(true);
+  const { counts: anomalyCounts } = useAnomalyCounts();
 
   const isDark = theme === "dark";
 
@@ -32,7 +34,7 @@ const Layout = () => {
             onNavigate={setActiveTab}
             pendingPayRuns={2}
             pendingApprovals={1}
-            anomaliesCount={4}
+            anomaliesCount={anomalyCounts.total}
           />
         </div>
 

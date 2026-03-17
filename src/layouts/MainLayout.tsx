@@ -1,5 +1,6 @@
 import { Outlet, useNavigate } from "react-router-dom";
 import { NavigationSidebar } from "@/components/Sidebar";
+import { useAnomalyCounts } from "@/hooks/use-anomaly-counts";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { LogOut, ChevronLeft, ChevronRight, Pin, PinOff, Sun, Moon, Plus } from "lucide-react";
@@ -43,6 +44,7 @@ function ThemeToggleButton() {
 export default function MainLayout() {
   const { user, profile, logout } = useSupabaseAuth();
   const { role, isSuperAdmin } = useUserRole();
+  const { counts: anomalyCounts } = useAnomalyCounts();
   const navigate = useNavigate();
 
   // Initialize pinned state from localStorage
@@ -148,7 +150,7 @@ export default function MainLayout() {
               onSettingsClick={() => setIsSettingsOpen(true)}
               pendingPayRuns={2}
               pendingApprovals={1}
-              anomaliesCount={4}
+              anomaliesCount={anomalyCounts.total}
             />
 
             {/* Super Admin Link */}

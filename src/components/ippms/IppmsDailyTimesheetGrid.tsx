@@ -14,6 +14,8 @@ import { useOrg } from '@/lib/tenant/OrgContext';
 import { Plus, RefreshCw, Loader2, Save, Send, Trash2, CheckCircle, XCircle, ClipboardList, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '@/lib/constants/countries';
 import { supabase } from '@/integrations/supabase/client';
+import { AnomalyService, type TimesheetAnomalyCheck } from '@/lib/services/anomaly.service';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface Props {
   projectId: string;
@@ -48,6 +50,7 @@ export function IppmsDailyTimesheetGrid({ projectId }: Props) {
   const [rangeEnd, setRangeEnd] = useState<string>(toISO(new Date(today.getFullYear(), today.getMonth() + 1, 0)));
   const [addDialog, setAddDialog] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [anomalyWarnings, setAnomalyWarnings] = useState<TimesheetAnomalyCheck[]>([]);
 
   // New entry form
   const [newEntry, setNewEntry] = useState({
@@ -152,6 +155,35 @@ export function IppmsDailyTimesheetGrid({ projectId }: Props) {
       toast({ title: 'Validation Error', description: error, variant: 'destructive' });
       return;
     }
+
+    // Run server-side anomaly checks
+    try {
+      const anomalies = await AnomalyService.checkTimesheetAnomalies({
+        employeeId: newEntry.employee_id,
+        projectId,
+        workDate: newEntry.work_date,
+        taskDescription: newEntry.task_description,
+        units: newEntry.units,
+        rate: newEntry.rate_snapshot,
+      });
+
+      const criticals = anomalies.filter(a => a.severity === 'critical');
+      const warnings = anomalies.filter(a => a.severity !== 'critical');
+
+      if (criticals.length > 0) {
+        setAnomalyWarnings(anomalies);
+        toast({ title: 'Cannot save', description: criticals[0].message, variant: 'destructive' });
+        return;
+      }
+
+      if (warnings.length > 0) {
+        setAnomalyWarnings(anomalies);
+        // Warnings are shown but don't block
+      }
+    } catch {
+      // If anomaly check fails, proceed with save
+    }
+
     setSaving(true);
     try {
       await IppmsTimesheetService.upsertEntry({
@@ -166,6 +198,7 @@ export function IppmsDailyTimesheetGrid({ projectId }: Props) {
       });
       toast({ title: 'Entry added' });
       setAddDialog(false);
+      setAnomalyWarnings([]);
       setNewEntry({ employee_id: '', work_date: toISO(today), task_description: '', units: 1, rate_snapshot: 0 });
       qc.invalidateQueries({ queryKey: ['ippms-timesheet', projectId] });
     } catch (err: any) {
@@ -421,6 +454,16 @@ export function IppmsDailyTimesheetGrid({ projectId }: Props) {
               <span className="text-xs text-muted-foreground">Amount: </span>
               <span className="text-sm font-semibold">{money(newEntry.units * newEntry.rate_snapshot)}</span>
             </div>
+            {anomalyWarnings.length > 0 && (
+              <div className="space-y-1.5">
+                {anomalyWarnings.map((a, i) => (
+                  <Alert key={i} variant={a.severity === 'critical' ? 'destructive' : 'default'} className="py-2">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    <AlertDescription className="text-xs">{a.message}</AlertDescription>
+                  </Alert>
+                ))}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button onClick={handleAddEntry} disabled={saving}>{saving ? 'Saving...' : 'Add Entry'}</Button>
