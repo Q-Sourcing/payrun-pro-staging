@@ -1449,17 +1449,59 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
             </div>
           </AccordionContent>
         </AccordionItem>
+        </div>
       </Accordion>
+    );
 
-      <Separator className="my-2" />
-
-      <div className="flex justify-end gap-3">
+  const actionBar = (
+    <div className={maximized ? "shrink-0 border-t border-border bg-background px-6 py-3 flex justify-end gap-3" : ""}>
+      <Separator className={maximized ? "hidden" : "my-2"} />
+      <div className={maximized ? "flex justify-end gap-3" : "flex justify-end gap-3"}>
         <Button type="submit" className="min-w-[120px]">
           {mode === "create" ? "Create Employee" : "Save Changes"}
         </Button>
       </div>
+    </div>
+  );
+
+  if (maximized) {
+    return (
+      <form onSubmit={form.handleSubmit(submit, submitInvalid)} className="h-full flex flex-col overflow-hidden">
+        <div className="flex flex-1 overflow-hidden">
+          {/* Sticky sidebar nav */}
+          <nav className="w-56 shrink-0 border-r border-border bg-muted/40 overflow-y-auto py-4 px-2">
+            {SECTIONS.map((s) => (
+              <button
+                key={s.value}
+                type="button"
+                onClick={() => scrollToSection(s.value)}
+                className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors mb-1 ${
+                  activeSection === s.value
+                    ? "bg-primary/10 text-primary font-medium"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </nav>
+
+          {/* Scrollable form content */}
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-6 py-6">
+            <div className="max-w-4xl mx-auto space-y-4">
+              {accordionContent}
+            </div>
+          </div>
+        </div>
+        {actionBar}
+      </form>
+    );
+  }
+
+  return (
+    <form onSubmit={form.handleSubmit(submit, submitInvalid)} className="space-y-4 w-full max-w-full min-w-0 overflow-x-hidden">
+      {accordionContent}
+      {actionBar}
     </form>
   );
 }
-
-
