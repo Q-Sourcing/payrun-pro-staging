@@ -146,6 +146,9 @@ export default function MainLayout() {
               onNavigate={() => { }}
               collapsed={sidebarCollapsed}
               onSettingsClick={() => setIsSettingsOpen(true)}
+              pendingPayRuns={2}
+              pendingApprovals={1}
+              anomaliesCount={4}
             />
 
             {/* Super Admin Link */}

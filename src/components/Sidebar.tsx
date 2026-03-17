@@ -24,9 +24,20 @@ interface SidebarProps {
   onNavigate: (tab: string) => void;
   collapsed?: boolean;
   onSettingsClick?: () => void;
+  pendingPayRuns: number;
+  pendingApprovals: number;
+  anomaliesCount: number;
 }
 
-export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigate, collapsed = false, onSettingsClick }) => {
+export const NavigationSidebar: React.FC<SidebarProps> = ({
+  activeTab,
+  onNavigate,
+  collapsed = false,
+  onSettingsClick,
+  pendingPayRuns = 0,
+  pendingApprovals = 0,
+  anomaliesCount = 0,
+}) => {
   const [localOpen, setLocalOpen] = useState(false);
   const [payGroupsOpen, setPayGroupsOpen] = useState(false);
   const [headOfficeOpen, setHeadOfficeOpen] = useState(false);
@@ -90,6 +101,8 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
       ? "bg-blue-50 text-blue-700 font-semibold"
       : "text-slate-700 hover:bg-slate-50 hover:text-blue-700";
 
+  const badgeBaseClasses = "ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-semibold";
+
   const SectionHeader = ({ title, sectionKey }: { title: string; sectionKey: string }) => {
     if (collapsed) return null;
     const isOpen = sectionOpen[sectionKey] !== false;
@@ -106,18 +119,38 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
     );
   };
 
-  const NavItem = ({ to, icon, label }: { to: string; icon: JSX.Element; label: string }) => (
-    <motion.div whileHover={{ x: collapsed ? 0 : 4 }}>
-      <Link
-        to={to}
-        className={`flex items-center gap-2 px-3.5 py-2.5 rounded-md ${isActive(to)} ${collapsed ? 'justify-center' : ''}`}
-        title={collapsed ? label : undefined}
-      >
-        {icon}
-        {!collapsed && <span>{label}</span>}
-      </Link>
-    </motion.div>
-  );
+  const NavItem = ({
+    to,
+    icon,
+    label,
+    badge,
+    inactiveClassName,
+  }: {
+    to: string;
+    icon: JSX.Element;
+    label: string;
+    badge?: JSX.Element | null;
+    inactiveClassName?: string;
+  }) => {
+    const isCurrent = location.pathname === to;
+    const navItemStateClass = isCurrent
+      ? isActive(to)
+      : inactiveClassName || isActive(to);
+
+    return (
+      <motion.div whileHover={{ x: collapsed ? 0 : 4 }}>
+        <Link
+          to={to}
+          className={`flex items-center gap-2 px-3.5 py-2.5 rounded-md ${navItemStateClass} ${collapsed ? 'justify-center' : ''}`}
+          title={collapsed ? label : undefined}
+        >
+          {icon}
+          {!collapsed && <span>{label}</span>}
+          {!collapsed && badge}
+        </Link>
+      </motion.div>
+    );
+  };
 
   // Load pay group types for dropdown
   useEffect(() => {
@@ -191,10 +224,31 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
         {sectionOpen.dashboard !== false && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
             <NavItem to="/dashboard" icon={<BarChart3 size={16} />} label="Overview" />
+            <NavItem
+              to="/anomalies"
+              icon={<AlertTriangle size={16} />}
+              label="Anomalies"
+              inactiveClassName={anomaliesCount > 0 ? "border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100" : undefined}
+              badge={anomaliesCount > 0 ? (
+                <span className={`${badgeBaseClasses} inline-flex items-center gap-1 bg-orange-100 text-orange-700`}>
+                  <span className="h-1.5 w-1.5 rounded-full bg-orange-500 animate-pulse" />
+                  <span>{anomaliesCount}</span>
+                </span>
+              ) : null}
+            />
             <NavItem to="/dashboard/employees" icon={<Users size={16} />} label="My Employees" />
             <NavItem to="/dashboard/paygroups" icon={<FolderKanban size={16} />} label="My Pay Groups" />
             <NavItem to="/dashboard/payruns" icon={<DollarSign size={16} />} label="My Pay Runs" />
-            <NavItem to="/my/approvals" icon={<CheckSquare size={16} />} label="My Approvals" />
+            <NavItem
+              to="/my/approvals"
+              icon={<CheckSquare size={16} />}
+              label="My Approvals"
+              badge={pendingApprovals > 0 ? (
+                <span className={`${badgeBaseClasses} bg-red-100 text-red-600`}>
+                  {pendingApprovals}
+                </span>
+              ) : null}
+            />
             <NavItem to="/dashboard/attendance" icon={<Clock3 size={16} />} label="My Time & Attendance" />
             <NavItem to="/timesheets" icon={<AlarmClock size={16} />} label="My Timesheets" />
           </motion.div>
@@ -347,7 +401,16 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({ activeTab, onNavigat
           <AnimatePresence initial={false}>
             {sectionOpen.payruns !== false && (
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-                <NavItem to="/payruns" icon={<DollarSign size={16} />} label="All Pay Runs" />
+                <NavItem
+                  to="/payruns"
+                  icon={<DollarSign size={16} />}
+                  label="All Pay Runs"
+                  badge={pendingPayRuns > 0 ? (
+                    <span className={`${badgeBaseClasses} bg-amber-100 text-amber-700`}>
+                      {pendingPayRuns}
+                    </span>
+                  ) : null}
+                />
 
                 {/* Head Office Pay Runs */}
                 {permissions.canViewPayRunsHeadOffice && (

@@ -64,6 +64,9 @@ const Index = () => {
           <NavigationSidebar 
             activeTab={activeTab}
             onNavigate={setActiveTab}
+            pendingPayRuns={2}
+            pendingApprovals={1}
+            anomaliesCount={4}
           />
         </div>
 

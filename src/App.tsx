@@ -85,6 +85,7 @@ import CompanyPicker from "./components/auth/CompanyPicker";
 import Diagnostics from "./pages/Diagnostics";
 import PayrollAdvancedSettings from "./pages/PayrollAdvancedSettings";
 import MyApprovals from "./pages/MyApprovals";
+import Anomalies from "./pages/Anomalies";
 import Timesheets from "./pages/Timesheets";
 import MyAttendance from "./pages/MyAttendance";
 import Attendance from "./pages/Attendance";
@@ -226,6 +227,7 @@ const App = () => {
                   <Route path="/my/paygroups" element={<Navigate to="/dashboard/paygroups" replace />} />
                   <Route path="/my/payruns" element={<Navigate to="/dashboard/payruns" replace />} />
 
+                  <Route path="/anomalies" element={<Anomalies />} />
                   <Route path="/my/approvals" element={<MyApprovals />} />
 
                   {/* Core Module Routes */}
