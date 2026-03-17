@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -157,11 +157,19 @@ export type EmployeeFormProps = {
   mode: "create" | "edit";
   defaultValues?: Partial<EmployeeFormValues>;
   onSubmit: (data: EmployeeFormValues) => Promise<void> | void;
+  maximized?: boolean;
 };
+
+const SECTIONS = [
+  { value: "personal", label: "Personal Information" },
+  { value: "employment", label: "Employment Information" },
+  { value: "pay", label: "Pay Information" },
+  { value: "bank", label: "Bank Details" },
+] as const;
 
 type PayGroupOption = { id: string; name: string };
 
-export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProps) => {
+export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: EmployeeFormProps) => {
   const { toast } = useToast();
   const { organizationId, companyId } = useOrg();
   const { userContext, profile } = useSupabaseAuth(); // Use auth context for roles
@@ -778,9 +786,43 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
     });
   };
 
-  return (
-    <form onSubmit={form.handleSubmit(submit, submitInvalid)} className="space-y-4 w-full max-w-full min-w-0 overflow-x-hidden">
-      <Accordion type="single" collapsible defaultValue="personal" className="w-full max-w-full min-w-0 overflow-x-hidden">
+  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [activeSection, setActiveSection] = useState("personal");
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToSection = (value: string) => {
+    const el = sectionRefs.current[value];
+    if (el && scrollContainerRef.current) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    setActiveSection(value);
+  };
+
+  // Track active section on scroll in maximized mode
+  useEffect(() => {
+    if (!maximized) return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const handler = () => {
+      for (const s of SECTIONS) {
+        const el = sectionRefs.current[s.value];
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          const containerRect = container.getBoundingClientRect();
+          if (rect.top >= containerRect.top - 10 && rect.top <= containerRect.top + containerRect.height / 2) {
+            setActiveSection(s.value);
+            break;
+          }
+        }
+      }
+    };
+    container.addEventListener("scroll", handler, { passive: true });
+    return () => container.removeEventListener("scroll", handler);
+  }, [maximized]);
+
+  const accordionItems = (
+    <>
+        <div ref={(el) => { sectionRefs.current["personal"] = el; }}>
         <AccordionItem value="personal">
           <AccordionTrigger>
             <div className="font-medium">Personal Information</div>
@@ -952,7 +994,9 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
             </div>
           </AccordionContent>
         </AccordionItem>
+        </div>
 
+        <div ref={(el) => { sectionRefs.current["employment"] = el; }}>
         <AccordionItem value="employment">
           <AccordionTrigger>
             <div className="font-medium">Employment Information</div>
@@ -1273,7 +1317,9 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
             </div>
           </AccordionContent>
         </AccordionItem>
+        </div>
 
+        <div ref={(el) => { sectionRefs.current["pay"] = el; }}>
         <AccordionItem value="pay">
           <AccordionTrigger>
             <div className="font-medium">Pay Information</div>
@@ -1345,7 +1391,9 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
             </div>
           </AccordionContent>
         </AccordionItem>
+        </div>
 
+        <div ref={(el) => { sectionRefs.current["bank"] = el; }}>
         <AccordionItem value="bank">
           <AccordionTrigger>
             <div className="font-medium">Bank Details</div>
@@ -1395,17 +1443,79 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit }: EmployeeFormProp
             </div>
           </AccordionContent>
         </AccordionItem>
-      </Accordion>
+        </div>
+    </>
+  );
 
-      <Separator className="my-2" />
+  const accordionContent = maximized ? (
+    <Accordion
+      type="multiple"
+      defaultValue={SECTIONS.map(s => s.value)}
+      value={SECTIONS.map(s => s.value)}
+      className="w-full max-w-full min-w-0 overflow-x-hidden"
+    >
+      {accordionItems}
+    </Accordion>
+  ) : (
+    <Accordion
+      type="single"
+      collapsible
+      defaultValue="personal"
+      className="w-full max-w-full min-w-0 overflow-x-hidden"
+    >
+      {accordionItems}
+    </Accordion>
+  );
 
-      <div className="flex justify-end gap-3">
+  const actionBar = (
+    <div className={maximized ? "shrink-0 border-t border-border bg-background px-6 py-3 flex justify-end gap-3" : ""}>
+      <Separator className={maximized ? "hidden" : "my-2"} />
+      <div className={maximized ? "flex justify-end gap-3" : "flex justify-end gap-3"}>
         <Button type="submit" className="min-w-[120px]">
           {mode === "create" ? "Create Employee" : "Save Changes"}
         </Button>
       </div>
+    </div>
+  );
+
+  if (maximized) {
+    return (
+      <form onSubmit={form.handleSubmit(submit, submitInvalid)} className="h-full flex flex-col overflow-hidden">
+        <div className="flex flex-1 overflow-hidden">
+          {/* Sticky sidebar nav */}
+          <nav className="w-56 shrink-0 border-r border-border bg-muted/40 overflow-y-auto py-4 px-2">
+            {SECTIONS.map((s) => (
+              <button
+                key={s.value}
+                type="button"
+                onClick={() => scrollToSection(s.value)}
+                className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors mb-1 ${
+                  activeSection === s.value
+                    ? "bg-primary/10 text-primary font-medium"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </nav>
+
+          {/* Scrollable form content */}
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-6 py-6">
+            <div className="max-w-4xl mx-auto space-y-4">
+              {accordionContent}
+            </div>
+          </div>
+        </div>
+        {actionBar}
+      </form>
+    );
+  }
+
+  return (
+    <form onSubmit={form.handleSubmit(submit, submitInvalid)} className="space-y-4 w-full max-w-full min-w-0 overflow-x-hidden">
+      {accordionContent}
+      {actionBar}
     </form>
   );
 }
-
-

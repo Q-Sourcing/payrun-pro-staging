@@ -7,6 +7,7 @@ import { EmployeeForm, type EmployeeFormValues } from "@/components/employees/Em
 interface EmployeeCreateFormProps {
     onSuccess: () => void;
     onCancel: () => void;
+    maximized?: boolean;
 }
 
 function mapEmploymentStatusToRecordStatus(
@@ -25,7 +26,7 @@ function mapEmploymentStatusToRecordStatus(
     }
 }
 
-export const EmployeeCreateForm = ({ onSuccess, onCancel }: EmployeeCreateFormProps) => {
+export const EmployeeCreateForm = ({ onSuccess, onCancel, maximized }: EmployeeCreateFormProps) => {
     const { toast } = useToast();
     const { organizationId } = useOrg();
 
@@ -99,13 +100,12 @@ export const EmployeeCreateForm = ({ onSuccess, onCancel }: EmployeeCreateFormPr
     }, [organizationId, onSuccess, toast]);
 
     return (
-        <div className="bg-muted/30 w-full max-w-full min-w-0 overflow-x-hidden">
-            <div className="px-3 sm:px-6 py-6 w-full max-w-full min-w-0 overflow-x-hidden">
-                <div className="max-w-3xl mx-auto w-full min-w-0 space-y-6">
-                    <EmployeeForm mode="create" onSubmit={handleCreate} />
+        <div className={maximized ? "h-full flex flex-col overflow-hidden" : "bg-muted/30 w-full max-w-full min-w-0 overflow-x-hidden"}>
+            <div className={maximized ? "flex-1 overflow-hidden" : "px-3 sm:px-6 py-6 w-full max-w-full min-w-0 overflow-x-hidden"}>
+                <div className={maximized ? "h-full" : "max-w-3xl mx-auto w-full min-w-0 space-y-6"}>
+                    <EmployeeForm mode="create" onSubmit={handleCreate} maximized={maximized} />
                 </div>
             </div>
-
         </div>
     );
 };
