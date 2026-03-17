@@ -419,7 +419,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
           )
         `)
         .eq("pay_run_id", payRunId)
-        .order("employees(first_name)");
+        .order("created_at", { ascending: true });
 
       if (error) throw error;
 
@@ -527,7 +527,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
           )
         `)
         .eq("pay_run_id", payRunId)
-        .order("employees(first_name)");
+        .order("created_at", { ascending: true });
 
       if (error) throw error;
 
