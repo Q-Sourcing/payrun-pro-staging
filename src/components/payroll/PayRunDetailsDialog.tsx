@@ -46,6 +46,15 @@ interface CustomDeduction {
   type: string;
 }
 
+interface PayrollBenefitRecord {
+  benefit_id: string;
+  benefit_name: string;
+  cost: number;
+  cost_type: 'fixed' | 'percentage';
+  entry_type: 'benefit' | 'deduction';
+  employee_id: string;
+}
+
 type SortField = 'name' | 'pay_type' | 'gross_pay' | 'total_deductions' | 'net_pay' | 'status';
 type SortDirection = 'asc' | 'desc';
 
@@ -253,6 +262,69 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     }
   };
 
+  const resolvePayrollBenefitAmount = (benefit: PayrollBenefitRecord, baseAmount: number) => {
+    if (benefit.cost_type === 'percentage') {
+      return (baseAmount * benefit.cost) / 100;
+    }
+    return benefit.cost;
+  };
+
+  const getPayItemBaseAmount = (item: PayItem) => {
+    if (item.gross_pay && Number(item.gross_pay) > 0) {
+      return Number(item.gross_pay);
+    }
+    if (item.employees.pay_type === 'hourly') {
+      return Number(item.hours_worked || 0) * Number(item.employees.pay_rate || 0);
+    }
+    if (item.employees.pay_type === 'piece_rate') {
+      return Number(item.pieces_completed || 0) * Number(item.employees.pay_rate || 0);
+    }
+    return Number(item.employees.pay_rate || 0);
+  };
+
+  const fetchPayrollBenefitsMap = async (targetPayRunId: string) => {
+    const { data: rows, error: benefitsError } = await (supabase as any)
+      .from("payroll_benefits")
+      .select("benefit_id, benefit_name, cost, cost_type, entry_type, employee_id")
+      .eq("payrun_id", targetPayRunId);
+
+    if (benefitsError) throw benefitsError;
+
+    const byEmployee = new Map<string, PayrollBenefitRecord[]>();
+    for (const row of (rows || []) as PayrollBenefitRecord[]) {
+      const existing = byEmployee.get(row.employee_id) || [];
+      existing.push(row);
+      byEmployee.set(row.employee_id, existing);
+    }
+    return byEmployee;
+  };
+
+  const attachScopedBenefitsToPayItems = async (items: any[], targetPayRunId: string) => {
+    const payrollBenefitsByEmployee = await fetchPayrollBenefitsMap(targetPayRunId);
+
+    return Promise.all(
+      (items || []).map(async (item) => {
+        const { data: customDeductions } = await (supabase as any)
+          .from("pay_item_custom_deductions")
+          .select("*")
+          .eq("pay_item_id", item.id);
+
+        const baseAmount = getPayItemBaseAmount(item as PayItem);
+        const scopedBenefits = (payrollBenefitsByEmployee.get(item.employee_id) || []).map((benefit) => ({
+          id: `payroll-benefit-${benefit.benefit_id}`,
+          name: benefit.benefit_name,
+          amount: resolvePayrollBenefitAmount(benefit, baseAmount),
+          type: benefit.entry_type,
+        }));
+
+        return {
+          ...item,
+          customDeductions: [...(customDeductions || []), ...scopedBenefits],
+        };
+      })
+    );
+  };
+
 
   const loadData = async () => {
     if (!payRunId) return;
@@ -391,19 +463,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
             if (createError) throw createError;
 
-            const payItemsWithDeductions = await Promise.all(
-              (createdItems || []).map(async (item) => {
-                const { data: customDeductions } = await (supabase as any)
-                  .from("pay_item_custom_deductions")
-                  .select("*")
-                  .eq("pay_item_id", (item as any).id);
-
-                return {
-                  ...item,
-                  customDeductions: customDeductions || [],
-                };
-              })
-            );
+            const payItemsWithDeductions = await attachScopedBenefitsToPayItems(createdItems || [], payRunId);
             setPayItems(payItemsWithDeductions);
             return;
           }
@@ -412,20 +472,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         }
       }
 
-      // Fetch custom deductions for each pay item
-      const payItemsWithDeductions = await Promise.all(
-        (data || []).map(async (item) => {
-          const { data: customDeductions } = await (supabase as any)
-            .from("pay_item_custom_deductions")
-            .select("*")
-            .eq("pay_item_id", item.id);
-
-          return {
-            ...item,
-            customDeductions: customDeductions || [],
-          };
-        })
-      );
+      const payItemsWithDeductions = await attachScopedBenefitsToPayItems(data || [], payRunId);
 
       setPayItems(payItemsWithDeductions);
     } catch (err) {
@@ -484,20 +531,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
       if (error) throw error;
 
-      // Fetch custom deductions for each pay item
-      const payItemsWithDeductions = await Promise.all(
-        (data || []).map(async (item) => {
-          const { data: customDeductions } = await (supabase as any)
-            .from("pay_item_custom_deductions")
-            .select("*")
-            .eq("pay_item_id", item.id);
-
-          return {
-            ...item,
-            customDeductions: customDeductions || [],
-          };
-        })
-      );
+      const payItemsWithDeductions = await attachScopedBenefitsToPayItems(data || [], payRunId);
 
       setPayItems(payItemsWithDeductions);
     } catch (err) {
@@ -1063,14 +1097,89 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     }
   };
 
+  const handleApplyBenefitsPackage = async (
+    benefits: Array<{ id: string; name: string; cost: number; cost_type: 'fixed' | 'percentage' }>,
+    applicationScope: "all" | "sub_department" | "individual" | "type"
+  ) => {
+    if (!payRunId) {
+      toast({
+        title: "Error",
+        description: "No pay run selected",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const createdBy = authData?.user?.id || null;
+
+      const scopedPayItems =
+        applicationScope === "all" || selectedItems.size === 0
+          ? payItems
+          : payItems.filter((item) => selectedItems.has(item.id));
+
+      const targetItems = scopedPayItems.filter((item) => item.pay_run_id === payRunId);
+
+      if (targetItems.length === 0) {
+        toast({
+          title: "No employees in scope",
+          description: "No pay-run employees matched the selected scope.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const rows = targetItems.flatMap((item) =>
+        benefits.map((benefit) => ({
+          payrun_id: payRunId,
+          employee_id: item.employee_id,
+          benefit_id: benefit.id,
+          benefit_name: benefit.name,
+          cost: benefit.cost,
+          cost_type: benefit.cost_type,
+          entry_type: "benefit",
+          created_by: createdBy,
+        }))
+      );
+
+      const { error: upsertError } = await (supabase as any)
+        .from("payroll_benefits")
+        .upsert(rows, {
+          onConflict: "payrun_id,employee_id,benefit_id",
+          ignoreDuplicates: false,
+        });
+
+      if (upsertError) throw upsertError;
+
+      toast({
+        title: "Benefits Applied",
+        description: `Applied ${benefits.length} benefit(s) to ${targetItems.length} employee(s) in this pay run.`,
+      });
+
+      setSelectedItems(new Set());
+      fetchPayItems();
+    } catch (err) {
+      error("Error applying benefits package:", err);
+      toast({
+        title: "Error",
+        description: "Failed to apply benefits package for this pay run",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Bulk Operations Handlers
   const handleBulkAdd = async (amount: number, description: string, isPercentage: boolean, addToGross: boolean) => {
     try {
-      const itemsToUpdate = Array.from(selectedItems.size > 0 ? selectedItems : new Set(payItems.map(p => p.id)));
+      const payRunScopedIds = payItems
+        .filter((p) => !payRunId || p.pay_run_id === payRunId)
+        .map((p) => p.id);
+      const itemsToUpdate = Array.from(selectedItems.size > 0 ? selectedItems : new Set(payRunScopedIds));
 
       for (const itemId of itemsToUpdate) {
         const item = payItems.find(p => p.id === itemId);
-        if (!item) continue;
+        if (!item || (payRunId && item.pay_run_id !== payRunId)) continue;
 
         const currentCalc = calculatePay(item);
         const finalAmount = isPercentage ? (currentCalc.grossPay * amount / 100) : amount;
@@ -1125,11 +1234,14 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
 
   const handleBulkDeduct = async (amount: number, description: string, isPercentage: boolean, deductionType: string) => {
     try {
-      const itemsToUpdate = Array.from(selectedItems.size > 0 ? selectedItems : new Set(payItems.map(p => p.id)));
+      const payRunScopedIds = payItems
+        .filter((p) => !payRunId || p.pay_run_id === payRunId)
+        .map((p) => p.id);
+      const itemsToUpdate = Array.from(selectedItems.size > 0 ? selectedItems : new Set(payRunScopedIds));
 
       for (const itemId of itemsToUpdate) {
         const item = payItems.find(p => p.id === itemId);
-        if (!item) continue;
+        if (!item || (payRunId && item.pay_run_id !== payRunId)) continue;
 
         const finalAmount = isPercentage ? (calculatePay(item).grossPay * amount / 100) : amount;
 
@@ -1172,7 +1284,7 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     try {
       for (const itemId of selectedItems) {
         const item = payItems.find(p => p.id === itemId);
-        if (!item) continue;
+        if (!item || (payRunId && item.pay_run_id !== payRunId)) continue;
 
         const isAdd = operationType.startsWith("add");
         const isPercentage = operationType.includes("percentage");
@@ -2197,9 +2309,9 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
         onOpenChange={setApplyBenefitsDialogOpen}
         employeeCount={payItems.length}
         currency={payGroupCurrency}
-        onApply={(benefits) => {
-          debug("Applying benefits:", benefits);
-          fetchPayItems();
+        onApply={(benefits, applicationScope) => {
+          debug("Applying benefits:", benefits, applicationScope);
+          handleApplyBenefitsPackage(benefits, applicationScope);
         }}
       />
 

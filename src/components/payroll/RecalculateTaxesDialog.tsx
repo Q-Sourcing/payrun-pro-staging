@@ -81,6 +81,20 @@ export const RecalculateTaxesDialog = ({ open, onOpenChange, employeeCount, payR
         throw new Error("No pay items found for this pay run");
       }
 
+      const { data: scopedPayrollBenefits, error: benefitsError } = await (supabase as any)
+        .from("payroll_benefits")
+        .select("employee_id, benefit_name, cost, cost_type, entry_type")
+        .eq("payrun_id", payRunId);
+
+      if (benefitsError) throw benefitsError;
+
+      const benefitsByEmployee = new Map<string, any[]>();
+      (scopedPayrollBenefits || []).forEach((row: any) => {
+        const existing = benefitsByEmployee.get(row.employee_id) || [];
+        existing.push(row);
+        benefitsByEmployee.set(row.employee_id, existing);
+      });
+
       // Recalculate each pay item
       const updatedPayItems = await Promise.all(
         payItems.map(async (item) => {
@@ -90,6 +104,18 @@ export const RecalculateTaxesDialog = ({ open, onOpenChange, employeeCount, payR
               .from("pay_item_custom_deductions" as any)
               .select("*")
               .eq("pay_item_id", item.id) as any);
+
+            const benefitRows = benefitsByEmployee.get(item.employee_id) || [];
+            const payrollRunBenefits = benefitRows.map((benefit: any) => {
+              const amount = benefit.cost_type === 'percentage'
+                ? (Number(item.gross_pay || 0) * Number(benefit.cost || 0)) / 100
+                : Number(benefit.cost || 0);
+              return {
+                name: benefit.benefit_name,
+                amount,
+                type: benefit.entry_type || 'benefit'
+              };
+            });
 
             const input: CalculationInput = {
               employee_id: item.employee_id,
@@ -101,11 +127,14 @@ export const RecalculateTaxesDialog = ({ open, onOpenChange, employeeCount, payR
               is_head_office: isHO,
               hours_worked: item.hours_worked,
               pieces_completed: item.pieces_completed,
-              custom_deductions: (customDeductions || []).map((d: any) => ({
-                name: d.name,
-                amount: d.amount,
-                type: d.type
-              })),
+              custom_deductions: [
+                ...((customDeductions || []).map((d: any) => ({
+                  name: d.name,
+                  amount: d.amount,
+                  type: d.type
+                }))),
+                ...payrollRunBenefits,
+              ],
               benefit_deductions: item.benefit_deductions || 0
             };
 

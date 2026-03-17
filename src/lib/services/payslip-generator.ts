@@ -84,6 +84,19 @@ export class PayslipGenerator {
         console.log('Custom deductions table not found, using empty array');
       }
 
+      let payrunScopedBenefits: Array<{ benefit_name: string; cost: number; cost_type: 'fixed' | 'percentage'; entry_type: 'benefit' | 'deduction' }> = [];
+      try {
+        const { data: benefitsData } = await (supabase as any)
+          .from('payroll_benefits')
+          .select('benefit_name, cost, cost_type, entry_type')
+          .eq('payrun_id', payRunId)
+          .eq('employee_id', employeeId);
+
+        payrunScopedBenefits = (benefitsData || []) as Array<{ benefit_name: string; cost: number; cost_type: 'fixed' | 'percentage'; entry_type: 'benefit' | 'deduction' }>;
+      } catch (error) {
+        console.log('Payroll benefits table not available, skipping payrun-scoped benefits');
+      }
+
       // Build earnings array
       const earnings = [
         {
@@ -119,6 +132,28 @@ export class PayslipGenerator {
             description: deduction.name,
             amount: Number(deduction.amount || 0)
           });
+        });
+      }
+
+      // Add payrun-scoped payroll benefits so payslips only include selected run benefits
+      if (payrunScopedBenefits.length > 0) {
+        payrunScopedBenefits.forEach((benefit) => {
+          const baseAmount = Number(payItem.gross_pay || payItem.employees?.pay_rate || 0);
+          const resolvedAmount = benefit.cost_type === 'percentage'
+            ? (baseAmount * Number(benefit.cost || 0)) / 100
+            : Number(benefit.cost || 0);
+
+          if (benefit.entry_type === 'benefit') {
+            earnings.push({
+              description: benefit.benefit_name,
+              amount: resolvedAmount,
+            });
+          } else {
+            deductions.push({
+              description: benefit.benefit_name,
+              amount: resolvedAmount,
+            });
+          }
         });
       }
 

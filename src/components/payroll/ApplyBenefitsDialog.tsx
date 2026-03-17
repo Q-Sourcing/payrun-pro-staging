@@ -22,7 +22,7 @@ interface ApplyBenefitsDialogProps {
   onOpenChange: (open: boolean) => void;
   employeeCount: number;
   currency: string;
-  onApply: (benefits: Benefit[]) => void;
+  onApply: (benefits: Benefit[], applicationScope: "all" | "sub_department" | "individual" | "type") => void;
 }
 
 export const ApplyBenefitsDialog = ({ open, onOpenChange, employeeCount, currency, onApply }: ApplyBenefitsDialogProps) => {
@@ -85,7 +85,7 @@ export const ApplyBenefitsDialog = ({ open, onOpenChange, employeeCount, currenc
       return;
     }
 
-    onApply(selected);
+    onApply(selected, applicationScope);
     toast({
       title: "Benefits Applied",
       description: `Applied ${selected.length} benefit(s) to ${employeeCount} employees`,

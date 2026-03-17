@@ -273,10 +273,35 @@ export const GeneratePayslipsDialog = ({ open, onOpenChange, employeeCount, payR
       .select("*")
       .in("pay_item_id", payItemIds) as any);
 
+    const { data: payrollBenefits } = await (supabase as any)
+      .from("payroll_benefits")
+      .select("employee_id, benefit_name, cost, cost_type, entry_type")
+      .eq("payrun_id", payRunId);
+
+    const payrollBenefitsByEmployee = new Map<string, any[]>();
+    (payrollBenefits || []).forEach((row: any) => {
+      const existing = payrollBenefitsByEmployee.get(row.employee_id) || [];
+      existing.push(row);
+      payrollBenefitsByEmployee.set(row.employee_id, existing);
+    });
+
     // Attach custom deductions to pay items
     payRunData.pay_items = payRunData.pay_items.map((item: any) => ({
       ...item,
-      custom_deductions: customDeductions?.filter((d: any) => d.pay_item_id === item.id) || []
+      custom_deductions: [
+        ...(customDeductions?.filter((d: any) => d.pay_item_id === item.id) || []),
+        ...((payrollBenefitsByEmployee.get(item.employee_id) || []).map((benefit: any) => {
+          const baseAmount = Number(item.gross_pay || item.employees?.pay_rate || 0);
+          const amount = benefit.cost_type === 'percentage'
+            ? (baseAmount * Number(benefit.cost || 0)) / 100
+            : Number(benefit.cost || 0);
+          return {
+            name: benefit.benefit_name,
+            amount,
+            type: benefit.entry_type || 'benefit',
+          };
+        })),
+      ]
     }));
 
     const currency = getCurrencyCodeFromCountry(payRunData.pay_group_master.country);
