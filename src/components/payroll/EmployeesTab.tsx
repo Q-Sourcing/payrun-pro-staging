@@ -396,7 +396,6 @@ const EmployeesTab = () => {
               </TooltipTrigger>
               <TooltipContent>Filters</TooltipContent>
             </Tooltip>
-            </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
