@@ -175,14 +175,16 @@ export function IppmsAttendanceGrid({ projectId }: Props) {
     setBatchInitializedFor(initKey);
   }, [batchDate, batchInitializedFor, employees, projectId, records]);
 
+  // Filter records by the selected batchDate for accurate stats display
+  const selectedDateRecords = useMemo(() => records.filter((r) => r.attendance_date === batchDate), [records, batchDate]);
+
   const stats = useMemo(() => {
-    const present = records.filter((r) => r.status === 'PRESENT').length;
-    const absent = records.filter((r) => r.status === 'ABSENT').length;
-    const leave = records.filter((r) => ['LEAVE', 'UNPAID_LEAVE', 'SICK'].includes(r.status)).length;
-    // For workboard outputs, only PRESENT hours contribute to totals.
-    const totalHours = records.reduce((sum, r) => sum + (r.status === 'PRESENT' ? (r.hours_worked || 0) : 0), 0);
-    return { present, absent, leave, totalHours, total: records.length };
-  }, [records]);
+    const present = selectedDateRecords.filter((r) => r.status === 'PRESENT').length;
+    const absent = selectedDateRecords.filter((r) => r.status === 'ABSENT').length;
+    const leave = selectedDateRecords.filter((r) => ['LEAVE', 'UNPAID_LEAVE', 'SICK'].includes(r.status)).length;
+    const totalHours = selectedDateRecords.reduce((sum, r) => sum + (r.status === 'PRESENT' ? (r.hours_worked || 0) : 0), 0);
+    return { present, absent, leave, totalHours, total: selectedDateRecords.length };
+  }, [selectedDateRecords]);
 
   const batchSummary = useMemo(() => {
     const presentRows = (batchRows || []).filter((r) => r.status === 'PRESENT');
