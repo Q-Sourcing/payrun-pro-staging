@@ -86,6 +86,7 @@ export type EmployeeFormValues = {
   pay_frequency?: ManpowerFrequency | "";
   project_id?: string | "";
   probation_end_date?: string | null;
+  probation_start_date?: string | null;
   probation_status?: "on_probation" | "confirmed" | "extended" | "" | null;
 };
 
