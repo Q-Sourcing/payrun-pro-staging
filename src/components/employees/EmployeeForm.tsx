@@ -261,6 +261,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
       pay_frequency: "" as ManpowerFrequency | "",
       project_id: "",
       probation_end_date: "",
+      probation_start_date: "",
       probation_status: "on_probation",
       ...defaultValues,
     },
