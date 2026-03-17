@@ -286,6 +286,8 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
   const watchReportingManagerId = form.watch("reporting_manager_id");
   const watchProbationStatus = form.watch("probation_status");
   const watchProbationEndDate = form.watch("probation_end_date");
+  const watchNationality = form.watch("nationality");
+  const watchCitizenship = form.watch("citizenship");
 
   const watchDateJoined = form.watch("date_joined");
   const watchPayRate = form.watch("pay_rate");
