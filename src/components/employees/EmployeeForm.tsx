@@ -720,21 +720,28 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
     void load();
   }, [watchCategory, watchEmployeeType, watchPayType, watchProjectId]);
 
-  // Build prefix options from active company's short code and category default
+  // Build prefix options: ORG-COUNTRY-BUSINESSUNIT format
   const prefixOptions = useMemo(() => {
-    const base = activeCompanyShortCode || "QSS";
-    return [`${base}-HO`, `${base}-PR`];
-  }, [activeCompanyShortCode]);
+    const orgCode = activeCompanyShortCode || "QS";
+    const countryCode = form.getValues("country") || "UG";
+    if (watchCategory === "head_office") {
+      return [`${orgCode}-${countryCode}-${orgCode}${countryCode.substring(0, 1)}U`];
+    } else if (watchCategory === "projects") {
+      return [`${orgCode}-${countryCode}-PR`];
+    }
+    return [`${orgCode}-${countryCode}-${orgCode}${countryCode.substring(0, 1)}U`, `${orgCode}-${countryCode}-PR`];
+  }, [activeCompanyShortCode, watchCategory, form.watch("country")]);
 
   // When category changes, default the employee_prefix accordingly
   useEffect(() => {
-    const base = activeCompanyShortCode || "QSS";
+    const orgCode = activeCompanyShortCode || "QS";
+    const countryCode = form.getValues("country") || "UG";
     if (watchCategory === "head_office") {
-      form.setValue("employee_prefix", `${base}-HO`, { shouldDirty: true });
+      form.setValue("employee_prefix", `${orgCode}-${countryCode}-${orgCode}${countryCode.substring(0, 1)}U`, { shouldDirty: true });
     } else if (watchCategory === "projects") {
-      form.setValue("employee_prefix", `${base}-PR`, { shouldDirty: true });
+      form.setValue("employee_prefix", `${orgCode}-${countryCode}-PR`, { shouldDirty: true });
     }
-  }, [watchCategory, activeCompanyShortCode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [watchCategory, activeCompanyShortCode, form.watch("country")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Edit-mode default bootstrapping
   useEffect(() => {
