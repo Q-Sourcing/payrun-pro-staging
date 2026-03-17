@@ -29,11 +29,12 @@ const Layout = () => {
 
         {/* Main Navigation */}
         <div className="nav-section">
-          <NavigationSidebarWithAnomalies 
+          <NavigationSidebar 
             activeTab={activeTab}
             onNavigate={setActiveTab}
             pendingPayRuns={2}
             pendingApprovals={1}
+            anomaliesCount={anomalyCounts.total}
           />
         </div>
 
