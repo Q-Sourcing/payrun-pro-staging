@@ -1,55 +1,58 @@
 
-Goal: make payroll submission fail less often and show the real reason when it does fail.
+# Add Contract Template Manager to Settings
 
-What I found
-- The frontend calls `submit_payrun_for_approval` from `src/lib/services/payruns.service.ts`.
-- The currently deployed database function already uses `v_payrun.payroll_type`, so the earlier `v_payrun.type` bug has been fixed in the live DB.
-- Recent database logs show these approval-related failures:
-  - `record "v_payrun" has no field "type"` (historical, already fixed in current function)
-  - `Payrun must be in draft or rejected status to submit`
-  - `column payrun_approval_steps.workflow_id does not exist`
-  - `column pay_group_master.is_active does not exist`
-- The schema confirms:
-  - `pay_runs` has `payroll_type`
-  - `payrun_approval_steps` does not have `workflow_id`
-  - `pay_group_master` uses `active`, not `is_active`
+## What We're Building
+A new "Contract Templates" section in the Settings panel where admins can create, edit, and manage contract templates. These templates are then available when generating contracts for employees.
 
-Implementation plan
-1. Harden the `submit_payrun_for_approval` RPC
-- Recreate the function in a fresh migration as the single source of truth.
-- Keep the `payroll_type` fix.
-- Add safer handling for nullable fields like `approval_status` and missing `org_settings`.
-- Improve error messages so they clearly say whether the failure is:
-  - wrong payrun status
-  - no matching workflow
-  - no resolvable approver at a given level
-  - missing org/config data
+## Changes
 
-2. Fix approval-builder schema mismatches
-- Update approval criteria UI queries that use `pay_group_master.is_active` to use `active`.
-- This is currently breaking parts of the workflow configuration screen and may prevent admins from configuring valid routing.
+### 1. New Component: ContractTemplateManager
+- Location: `src/components/settings/ContractTemplateManager.tsx`
+- Features:
+  - List all active templates for the current organization (table with name, country, employment type, version)
+  - "New Template" button opening a dialog/form
+  - Edit existing templates
+  - Delete (soft-delete by setting `is_active = false`)
+- Template form fields:
+  - Name (required)
+  - Description
+  - Country code (optional dropdown)
+  - Employment type (optional dropdown: permanent, contract, intern, expatriate)
+  - Body HTML (rich text area with placeholder variable hints like `{{employee_name}}`, `{{start_date}}`, `{{job_title}}`, `{{salary}}`)
+  - Placeholders editor (add/remove placeholder keys with labels and default values)
+- Preview pane showing rendered HTML
 
-3. Fix step-query schema mismatches
-- Find and remove any usage expecting `payrun_approval_steps.workflow_id`.
-- Align those reads with the actual table shape so approval history/detail screens don’t break after submission.
+### 2. Register in SettingsContent
+- Add a new menu item `"contracts"` with icon `FileText` (or `ScrollText`) in the `allMenuItems` array
+- Add the corresponding `case "contracts"` in `renderStandardContent()` rendering `<ContractTemplateManager />`
+- Role guard: `ORG_ADMIN` / `organization_configuration`
 
-4. Improve frontend error reporting
-- In `PayrunsService.submitForApproval` and the payrun dialog, surface the actual Supabase/Postgres error message in the toast instead of only showing a generic failed submission.
-- This will make future approval issues immediately diagnosable from the UI.
+### 3. Service Layer
+- Reuse existing `ContractsService.getTemplates()`, `createTemplate()`, `updateTemplate()` from `src/lib/data/contracts.service.ts` (already built in Phase 2)
 
-5. Validate the full submission path
-- Test these cases after the fixes:
-  - draft payrun with valid workflow and resolvable approver
-  - draft payrun with no workflow match
-  - draft payrun with unresolved dynamic approver
-  - already-submitted payrun
-- Confirm the result is either:
-  - successful submission with created `payrun_approval_steps`
-  - or a precise, user-readable validation error
+## Technical Details
 
-Technical notes
-- The 400 is coming from a Postgres exception inside the RPC, not from the Supabase client itself.
-- Based on the live function, the most likely current blockers are no matching workflow, unresolved approver resolution, or stale code elsewhere assuming old schema columns.
-- There are two additional approval-related bugs worth fixing in the same pass because they will keep causing confusing failures:
-  - `pay_group_master.is_active` should be `active`
-  - `payrun_approval_steps.workflow_id` should not be queried
+### ContractTemplateManager component structure
+```text
+ContractTemplateManager
+  +-- Templates Table (list view)
+  +-- CreateEditTemplateDialog
+       +-- Name, Description, Country, Employment Type fields
+       +-- Body HTML textarea with placeholder hints
+       +-- Placeholders JSONB editor (dynamic key/label/default rows)
+       +-- Preview tab
+```
+
+### Placeholder system
+Templates use `{{key}}` syntax. The manager will show a sidebar with available variables:
+- `{{employee_name}}`, `{{employee_number}}`, `{{job_title}}`
+- `{{start_date}}`, `{{end_date}}`, `{{salary}}`
+- `{{company_name}}`, `{{department}}`
+- Plus any custom placeholders defined on the template
+
+### Files to create
+- `src/components/contracts/ContractTemplateManager.tsx` -- main list + CRUD component
+- `src/components/contracts/ContractTemplateForm.tsx` -- create/edit form dialog
+
+### Files to modify
+- `src/components/settings/SettingsContent.tsx` -- add menu item + render case
