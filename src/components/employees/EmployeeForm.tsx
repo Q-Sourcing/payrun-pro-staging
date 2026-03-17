@@ -1003,6 +1003,17 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
             <div className="font-medium">Employment Information</div>
           </AccordionTrigger>
           <AccordionContent className="overflow-x-hidden">
+            {/* Work Email & Work Phone */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Work Email {watchCategory === "head_office" ? "*" : ""}</Label>
+                <Input id="email" type="email" {...form.register("email")} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="work_phone">Work Phone</Label>
+                <Input id="work_phone" {...form.register("work_phone")} />
+              </div>
+            </div>
             {/* Row 1: Company, Company Unit */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
