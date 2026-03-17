@@ -7091,6 +7091,48 @@ export type Database = {
           },
         ]
       }
+      payroll_benefits: {
+        Row: {
+          benefit_id: string | null
+          benefit_name: string
+          cost: number
+          cost_type: string
+          created_at: string
+          created_by: string | null
+          employee_id: string
+          entry_type: string
+          id: string
+          payrun_id: string
+          updated_at: string
+        }
+        Insert: {
+          benefit_id?: string | null
+          benefit_name: string
+          cost?: number
+          cost_type?: string
+          created_at?: string
+          created_by?: string | null
+          employee_id: string
+          entry_type?: string
+          id?: string
+          payrun_id: string
+          updated_at?: string
+        }
+        Update: {
+          benefit_id?: string | null
+          benefit_name?: string
+          cost?: number
+          cost_type?: string
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string
+          entry_type?: string
+          id?: string
+          payrun_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payroll_configurations: {
         Row: {
           id: string
