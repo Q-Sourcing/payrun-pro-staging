@@ -828,6 +828,7 @@ export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: Emplo
       value={maximized ? SECTIONS.map(s => s.value) : undefined}
       className="w-full max-w-full min-w-0 overflow-x-hidden"
     >
+        <div ref={(el) => { sectionRefs.current["personal"] = el; }}>
         <AccordionItem value="personal">
           <AccordionTrigger>
             <div className="font-medium">Personal Information</div>
