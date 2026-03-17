@@ -1,58 +1,19 @@
 
-# Add Contract Template Manager to Settings
 
-## What We're Building
-A new "Contract Templates" section in the Settings panel where admins can create, edit, and manage contract templates. These templates are then available when generating contracts for employees.
+## Fix: `submit_payrun_for_approval` RPC — invalid field reference
 
-## Changes
+### Root Cause
+The `submit_payrun_for_approval` function references `v_payrun.type` on line 174 of migration `20260316191742`, but the `pay_runs` table has no `type` column. The correct column is `payroll_type`.
 
-### 1. New Component: ContractTemplateManager
-- Location: `src/components/settings/ContractTemplateManager.tsx`
-- Features:
-  - List all active templates for the current organization (table with name, country, employment type, version)
-  - "New Template" button opening a dialog/form
-  - Edit existing templates
-  - Delete (soft-delete by setting `is_active = false`)
-- Template form fields:
-  - Name (required)
-  - Description
-  - Country code (optional dropdown)
-  - Employment type (optional dropdown: permanent, contract, intern, expatriate)
-  - Body HTML (rich text area with placeholder variable hints like `{{employee_name}}`, `{{start_date}}`, `{{job_title}}`, `{{salary}}`)
-  - Placeholders editor (add/remove placeholder keys with labels and default values)
-- Preview pane showing rendered HTML
+### Fix
+Create a migration that replaces the function, changing `v_payrun.type` → `v_payrun.payroll_type` in the criteria matching block:
 
-### 2. Register in SettingsContent
-- Add a new menu item `"contracts"` with icon `FileText` (or `ScrollText`) in the `allMenuItems` array
-- Add the corresponding `case "contracts"` in `renderStandardContent()` rendering `<ContractTemplateManager />`
-- Role guard: `ORG_ADMIN` / `organization_configuration`
-
-### 3. Service Layer
-- Reuse existing `ContractsService.getTemplates()`, `createTemplate()`, `updateTemplate()` from `src/lib/data/contracts.service.ts` (already built in Phase 2)
-
-## Technical Details
-
-### ContractTemplateManager component structure
-```text
-ContractTemplateManager
-  +-- Templates Table (list view)
-  +-- CreateEditTemplateDialog
-       +-- Name, Description, Country, Employment Type fields
-       +-- Body HTML textarea with placeholder hints
-       +-- Placeholders JSONB editor (dynamic key/label/default rows)
-       +-- Preview tab
+```sql
+COALESCE(v_payrun.payroll_type, '') = ANY(SELECT jsonb_array_elements_text(v_step.value))
 ```
 
-### Placeholder system
-Templates use `{{key}}` syntax. The manager will show a sidebar with available variables:
-- `{{employee_name}}`, `{{employee_number}}`, `{{job_title}}`
-- `{{start_date}}`, `{{end_date}}`, `{{salary}}`
-- `{{company_name}}`, `{{department}}`
-- Plus any custom placeholders defined on the template
+This is a single-line fix inside the `CREATE OR REPLACE FUNCTION` for `submit_payrun_for_approval`. The full function body will be re-deployed with only that one reference corrected.
 
-### Files to create
-- `src/components/contracts/ContractTemplateManager.tsx` -- main list + CRUD component
-- `src/components/contracts/ContractTemplateForm.tsx` -- create/edit form dialog
+### Files
+- New migration SQL (re-creates `submit_payrun_for_approval` with the fix)
 
-### Files to modify
-- `src/components/settings/SettingsContent.tsx` -- add menu item + render case
