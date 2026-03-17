@@ -50,6 +50,7 @@ export function IppmsDailyTimesheetGrid({ projectId }: Props) {
   const [rangeEnd, setRangeEnd] = useState<string>(toISO(new Date(today.getFullYear(), today.getMonth() + 1, 0)));
   const [addDialog, setAddDialog] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [anomalyWarnings, setAnomalyWarnings] = useState<TimesheetAnomalyCheck[]>([]);
 
   // New entry form
   const [newEntry, setNewEntry] = useState({
