@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Users, DollarSign, Calendar, FileText, Settings, Moon, Sun, Palette, Search, Bell, LogOut } from "lucide-react";
 import { useTheme } from "@/components/ui/theme-provider";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { useAnomalyCounts } from "@/hooks/use-anomaly-counts";
 import EmployeesTab from "@/components/payroll/EmployeesTab";
 import PayGroupsTab from "@/components/payroll/PayGroupsTab";
 import PayRunsTab from "@/components/payroll/PayRunsTab";
