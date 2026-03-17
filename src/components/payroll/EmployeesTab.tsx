@@ -378,19 +378,24 @@ const EmployeesTab = () => {
               <TooltipContent>Column Visibility</TooltipContent>
             </Tooltip>
 
-            <Button
-              variant={showFilters ? "secondary" : "outline"}
-              size="sm"
-              className="shrink-0 h-9 relative"
-              onClick={() => setShowFilters(v => !v)}
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Filters
-              {activeFilterCount > 0 && (
-                <Badge variant="destructive" className="ml-1.5 h-5 w-5 p-0 flex items-center justify-center text-[10px] rounded-full">
-                  {activeFilterCount}
-                </Badge>
-              )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={showFilters ? "secondary" : "outline"}
+                  size="icon"
+                  className="shrink-0 h-9 w-9 relative"
+                  onClick={() => setShowFilters(v => !v)}
+                >
+                  <Filter className="h-4 w-4" />
+                  {activeFilterCount > 0 && (
+                    <Badge variant="destructive" className="absolute -top-1.5 -right-1.5 h-4 w-4 p-0 flex items-center justify-center text-[10px] rounded-full">
+                      {activeFilterCount}
+                    </Badge>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Filters</TooltipContent>
+            </Tooltip>
             </Button>
 
             <DropdownMenu>
