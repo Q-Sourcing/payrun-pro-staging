@@ -1,5 +1,6 @@
 // @ts-nocheck
-// Static imports to avoid dynamic import timing issues with supabase client
+import { supabase } from "@/integrations/supabase/client";
+import { MultiTenantPayrollService } from "@/lib/services/multi-tenant-payroll";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
