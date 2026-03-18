@@ -27,26 +27,86 @@ import {
 
 const DEFAULT_TEMPLATES: Record<MessageEventType, { subject: string; body_content: string; from_type: MessageFromType; to_type: MessageToType }> = {
   submitted: {
-    subject: "Payrun {{pay_period}} requires your approval",
-    body_content: "Hi {{approver_name}},\n\nA payrun for {{pay_period}} totaling {{total_gross}} has been submitted for your approval.\n\nPlease review it at: {{action_url}}\n\nThanks,\n{{org_name}}",
+    subject: "Action Required: Payroll Approval — {{pay_group_name}} | {{pay_period}} | {{total_gross}}",
+    body_content: `Hi {{approver_name}},
+
+{{submitter_name}} has submitted a pay run for your approval. Please review the details below and take action.
+
+PAY RUN SUMMARY
+Pay Group: {{pay_group_name}}
+Pay Period: {{pay_period}}
+Pay Run Type: {{payrun_type}}
+Submitted By: {{submitter_name}}
+Submitted On: {{submitted_at}}
+Your Role: Level {{current_level}} Approver of {{total_levels}}
+
+FINANCIAL SUMMARY
+Total Employees: {{total_employees}}
+Total Gross Pay: {{total_gross}}
+Total Deductions: {{total_deductions}}
+Total Net Pay: {{total_net}}
+Total Employer NSSF: {{total_employer_nssf}}
+
+Review and take action: {{action_url}}
+
+Thanks,
+{{org_name}}`,
     from_type: 'system',
     to_type: 'current_approver',
   },
   approved: {
-    subject: "Payrun {{pay_period}} has been approved",
-    body_content: "Hi {{submitter_name}},\n\nThe payrun for {{pay_period}} totaling {{total_gross}} has been fully approved.\n\nYou can proceed to finalize it at: {{action_url}}\n\nThanks,\n{{org_name}}",
+    subject: "✓ Approved: {{pay_group_name}} | {{pay_period}} | {{total_gross}}",
+    body_content: `Hi {{submitter_name}},
+
+The pay run for {{pay_group_name}} ({{pay_period}}) totaling {{total_gross}} has been fully approved and is now ready for processing.
+
+FINANCIAL SUMMARY
+Total Employees: {{total_employees}}
+Total Gross Pay: {{total_gross}}
+Total Net Pay: {{total_net}}
+
+View the pay run: {{action_url}}
+
+Thanks,
+{{org_name}}`,
     from_type: 'system',
     to_type: 'submitter',
   },
   rejected: {
-    subject: "Payrun {{pay_period}} was rejected",
-    body_content: "Hi {{submitter_name}},\n\nThe payrun for {{pay_period}} was rejected.\n\nReason: {{rejection_reason}}\n\nPlease review and resubmit at: {{action_url}}\n\nThanks,\n{{org_name}}",
+    subject: "✗ Rejected: {{pay_group_name}} | {{pay_period}} | {{total_gross}}",
+    body_content: `Hi {{submitter_name}},
+
+The pay run for {{pay_group_name}} ({{pay_period}}) has been rejected.
+
+REJECTION REASON
+{{rejection_reason}}
+
+Rejected by: {{rejected_by}}
+
+Please review and resubmit at: {{action_url}}
+
+Thanks,
+{{org_name}}`,
     from_type: 'system',
     to_type: 'submitter',
   },
   followup: {
-    subject: "Reminder: Payrun {{pay_period}} is awaiting your approval",
-    body_content: "Hi {{approver_name}},\n\nA payrun for {{pay_period}} has been waiting for your approval.\n\nPlease take action at: {{action_url}}\n\nThanks,\n{{org_name}}",
+    subject: "⏰ Reminder: Approval Pending — {{pay_group_name}} | {{days_pending}} days overdue",
+    body_content: `Hi {{approver_name}},
+
+This approval has been pending for {{days_pending}} days and requires your action.
+
+{{submitter_name}} submitted a pay run for {{pay_group_name}} ({{pay_period}}) totaling {{total_gross}}.
+
+FINANCIAL SUMMARY
+Total Employees: {{total_employees}}
+Total Gross Pay: {{total_gross}}
+Total Net Pay: {{total_net}}
+
+Please take action: {{action_url}}
+
+Thanks,
+{{org_name}}`,
     from_type: 'system',
     to_type: 'current_approver',
   },
