@@ -471,6 +471,18 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
         // Use HeadOfficePayGroupsService for head office paygroups
         const { HeadOfficePayGroupsService } = await import('@/lib/services/headOfficePayGroups.service');
 
+        // Resolve company_id — fallback to first company in org if context has none
+        const effectiveCompanyId = await resolveEffectiveCompanyId();
+        if (!effectiveCompanyId) {
+          toast({
+            title: 'Missing Company',
+            description: 'Unable to resolve a company for this organization. Please select a company and try again.',
+            variant: 'destructive',
+          });
+          setLoading(false);
+          return;
+        }
+
         // Map employee_type to HeadOfficePayGroupRefType
         const typeMap: Record<string, 'regular' | 'intern' | 'expatriate'> = {
           'regular': 'regular',
@@ -487,7 +499,7 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
           default_tax_percentage: formData.default_tax_percentage,
           notes: formData.notes,
           organization_id: organizationId,
-          company_id: companyId,
+          company_id: effectiveCompanyId,
           status: 'active'
         } as any);
 
