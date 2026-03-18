@@ -143,7 +143,7 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [allowedPayTypes, setAllowedPayTypes] = useState<string[]>([]);
   const { toast } = useToast();
-  const { organizationId } = useOrg();
+  const { organizationId, companyId } = useOrg();
   const queryClient = useQueryClient();
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
 
@@ -467,6 +467,7 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
           default_tax_percentage: formData.default_tax_percentage,
           notes: formData.notes,
           organization_id: organizationId,
+          company_id: companyId,
           status: 'active'
         } as any);
 
