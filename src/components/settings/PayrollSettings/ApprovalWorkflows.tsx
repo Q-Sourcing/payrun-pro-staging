@@ -1,4 +1,6 @@
 // @ts-nocheck
+import { supabase } from "@/integrations/supabase/client";
+import { MultiTenantPayrollService } from "@/lib/services/multi-tenant-payroll";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -165,20 +167,18 @@ export const ApprovalWorkflows = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      let orgId = await import("@/lib/services/multi-tenant-payroll").then(m => m.MultiTenantPayrollService.getCurrentOrganizationId());
+      let orgId = await MultiTenantPayrollService.getCurrentOrganizationId();
       if (!orgId) {
-        const { data: { user } } = await import("@/integrations/supabase/client").then(m => m.supabase.auth.getUser());
+        const { data: { user } } = await supabase.auth.getUser();
         orgId = user?.user_metadata?.organization_id || (user?.app_metadata as any)?.organization_id;
         if (!orgId && user?.id) {
-          const { data: profile } = await import("@/integrations/supabase/client").then(m => m.supabase
-            .from('user_profiles').select('organization_id').eq('id', user.id).maybeSingle()
-          );
+          const { data: profile } = await supabase
+            .from('user_profiles').select('organization_id').eq('id', user.id).maybeSingle();
           if (profile?.organization_id) orgId = profile.organization_id;
         }
         if (!orgId && isSuperAdmin) {
-          const { data: defaultOrg } = await import("@/integrations/supabase/client").then(m => m.supabase
-            .from('pay_groups').select('organization_id').limit(1).maybeSingle()
-          );
+          const { data: defaultOrg } = await supabase
+            .from('pay_groups').select('organization_id').limit(1).maybeSingle();
           if (defaultOrg) orgId = defaultOrg.organization_id;
         }
       }
@@ -211,9 +211,8 @@ export const ApprovalWorkflows = () => {
       const [wfs, configs, { data: catData }] = await Promise.all([
         workflowService.getWorkflows(orgId),
         workflowService.getApprovalConfigs(orgId),
-        import("@/integrations/supabase/client").then(m => m.supabase
-          .from('employee_categories').select('*').eq('organization_id', orgId).is('active', true)
-        ),
+        supabase
+          .from('employee_categories').select('*').eq('organization_id', orgId).is('active', true),
       ]);
       setWorkflows(wfs);
       setPayrollConfigs(configs);
