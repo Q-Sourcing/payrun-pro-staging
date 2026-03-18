@@ -5185,6 +5185,7 @@ export type Database = {
           company_id: string
           created_at: string | null
           created_by: string | null
+          currency: string | null
           employee_type: string | null
           id: string
           name: string
@@ -5201,6 +5202,7 @@ export type Database = {
           company_id: string
           created_at?: string | null
           created_by?: string | null
+          currency?: string | null
           employee_type?: string | null
           id?: string
           name: string
@@ -5217,6 +5219,7 @@ export type Database = {
           company_id?: string
           created_at?: string | null
           created_by?: string | null
+          currency?: string | null
           employee_type?: string | null
           id?: string
           name?: string
@@ -5251,6 +5254,7 @@ export type Database = {
           company_id: string
           created_at: string | null
           created_by: string | null
+          currency: string | null
           employee_type: string | null
           id: string
           name: string
@@ -5267,6 +5271,7 @@ export type Database = {
           company_id: string
           created_at?: string | null
           created_by?: string | null
+          currency?: string | null
           employee_type?: string | null
           id?: string
           name: string
@@ -5283,6 +5288,7 @@ export type Database = {
           company_id?: string
           created_at?: string | null
           created_by?: string | null
+          currency?: string | null
           employee_type?: string | null
           id?: string
           name?: string
