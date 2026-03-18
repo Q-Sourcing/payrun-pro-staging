@@ -5,11 +5,13 @@ import { corsHeaders } from '../_shared/cors.ts'
 
 // Interface for request
 interface QueueEmailRequest {
-    org_id?: string; // Optional (system emails have no org)
+    org_id?: string;
     event_key: string;
     recipient_email: string;
     recipient_name?: string;
     variables: Record<string, string>;
+    subject_override?: string;
+    body_override?: string;
 }
 
 serve(async (req) => {
@@ -22,10 +24,44 @@ serve(async (req) => {
         const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
         const supabase = createClient(supabaseUrl, supabaseKey);
 
-        const { org_id, event_key, recipient_email, recipient_name, variables } = await req.json() as QueueEmailRequest;
+        const { org_id, event_key, recipient_email, recipient_name, variables, subject_override, body_override } = await req.json() as QueueEmailRequest;
 
         if (!event_key || !recipient_email) {
             throw new Error('Missing required fields: event_key, recipient_email');
+        }
+
+        // If caller already built the email (with overrides), skip template resolution
+        if (subject_override && body_override) {
+            const { data: outboxEntry, error: insertError } = await supabase
+                .from('email_outbox')
+                .insert({
+                    org_id: org_id || null,
+                    event_key,
+                    recipient_email,
+                    recipient_name: recipient_name || null,
+                    subject: subject_override,
+                    body_html: body_override,
+                    status: 'pending'
+                })
+                .select('id')
+                .single();
+            if (insertError) throw insertError;
+
+            EdgeRuntime.waitUntil(
+                fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-email`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ outbox_id: outboxEntry.id })
+                })
+            );
+
+            return new Response(JSON.stringify({ success: true, outbox_id: outboxEntry.id }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 200,
+            });
         }
 
         // 1. Check Triggers (if Org ID present)
