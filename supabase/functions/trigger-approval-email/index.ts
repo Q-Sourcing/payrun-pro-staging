@@ -501,9 +501,22 @@ serve(async (req) => {
 
       if (table === 'payrun_approval_steps') {
         if (record.status === 'pending') {
+          payrunId = record.payrun_id
+          // Only send email to the approver whose level matches the payrun's current level
+          const { data: pr } = await supabase
+            .from('pay_runs')
+            .select('approval_current_level')
+            .eq('id', payrunId)
+            .maybeSingle()
+          const currentLevel = pr?.approval_current_level || 1
+          if (record.level !== currentLevel) {
+            console.log(`Skipping email for level ${record.level} (current level is ${currentLevel})`)
+            return new Response(JSON.stringify({ skipped: true, reason: 'not_current_level' }), {
+              status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+          }
           eventKey = 'PAYRUN_SUBMITTED'
           recipientUserId = record.approver_user_id
-          payrunId = record.payrun_id
         } else {
           return new Response(JSON.stringify({ skipped: true, reason: 'status_ignored' }), {
             status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
