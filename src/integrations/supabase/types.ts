@@ -5111,10 +5111,12 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           currency: string
+          default_tax_percentage: number | null
           employee_type: string | null
           exchange_rate_to_local: number
           id: string
           name: string
+          notes: string | null
           organization_id: string
           pay_frequency: string | null
           period_end: string
@@ -5130,10 +5132,12 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           currency?: string
+          default_tax_percentage?: number | null
           employee_type?: string | null
           exchange_rate_to_local?: number
           id?: string
           name: string
+          notes?: string | null
           organization_id: string
           pay_frequency?: string | null
           period_end: string
@@ -5149,10 +5153,12 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           currency?: string
+          default_tax_percentage?: number | null
           employee_type?: string | null
           exchange_rate_to_local?: number
           id?: string
           name?: string
+          notes?: string | null
           organization_id?: string
           pay_frequency?: string | null
           period_end?: string
@@ -5186,15 +5192,19 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           currency: string | null
+          default_tax_percentage: number | null
           employee_type: string | null
+          exchange_rate_to_local: number | null
           id: string
           name: string
+          notes: string | null
           organization_id: string
           pay_frequency: string | null
           period_end: string
           period_start: string
           source_pay_group_id: string | null
           status: Database["public"]["Enums"]["head_office_status"] | null
+          tax_country: string | null
           updated_at: string | null
         }
         Insert: {
@@ -5203,15 +5213,19 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           currency?: string | null
+          default_tax_percentage?: number | null
           employee_type?: string | null
+          exchange_rate_to_local?: number | null
           id?: string
           name: string
+          notes?: string | null
           organization_id: string
           pay_frequency?: string | null
           period_end: string
           period_start: string
           source_pay_group_id?: string | null
           status?: Database["public"]["Enums"]["head_office_status"] | null
+          tax_country?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -5220,15 +5234,19 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           currency?: string | null
+          default_tax_percentage?: number | null
           employee_type?: string | null
+          exchange_rate_to_local?: number | null
           id?: string
           name?: string
+          notes?: string | null
           organization_id?: string
           pay_frequency?: string | null
           period_end?: string
           period_start?: string
           source_pay_group_id?: string | null
           status?: Database["public"]["Enums"]["head_office_status"] | null
+          tax_country?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -5257,8 +5275,10 @@ export type Database = {
           currency: string | null
           default_tax_percentage: number | null
           employee_type: string | null
+          exchange_rate_to_local: number | null
           id: string
           name: string
+          notes: string | null
           organization_id: string
           pay_frequency: string | null
           period_end: string
@@ -5276,8 +5296,10 @@ export type Database = {
           currency?: string | null
           default_tax_percentage?: number | null
           employee_type?: string | null
+          exchange_rate_to_local?: number | null
           id?: string
           name: string
+          notes?: string | null
           organization_id: string
           pay_frequency?: string | null
           period_end: string
@@ -5295,8 +5317,10 @@ export type Database = {
           currency?: string | null
           default_tax_percentage?: number | null
           employee_type?: string | null
+          exchange_rate_to_local?: number | null
           id?: string
           name?: string
+          notes?: string | null
           organization_id?: string
           pay_frequency?: string | null
           period_end?: string
