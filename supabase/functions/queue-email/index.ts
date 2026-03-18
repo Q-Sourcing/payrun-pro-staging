@@ -5,11 +5,13 @@ import { corsHeaders } from '../_shared/cors.ts'
 
 // Interface for request
 interface QueueEmailRequest {
-    org_id?: string; // Optional (system emails have no org)
+    org_id?: string;
     event_key: string;
     recipient_email: string;
     recipient_name?: string;
     variables: Record<string, string>;
+    subject_override?: string;
+    body_override?: string;
 }
 
 serve(async (req) => {
