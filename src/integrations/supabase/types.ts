@@ -5255,6 +5255,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           currency: string | null
+          default_tax_percentage: number | null
           employee_type: string | null
           id: string
           name: string
@@ -5264,6 +5265,7 @@ export type Database = {
           period_start: string
           source_pay_group_id: string | null
           status: Database["public"]["Enums"]["head_office_status"] | null
+          tax_country: string | null
           updated_at: string | null
         }
         Insert: {
@@ -5272,6 +5274,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           currency?: string | null
+          default_tax_percentage?: number | null
           employee_type?: string | null
           id?: string
           name: string
@@ -5281,6 +5284,7 @@ export type Database = {
           period_start: string
           source_pay_group_id?: string | null
           status?: Database["public"]["Enums"]["head_office_status"] | null
+          tax_country?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -5289,6 +5293,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           currency?: string | null
+          default_tax_percentage?: number | null
           employee_type?: string | null
           id?: string
           name?: string
@@ -5298,6 +5303,7 @@ export type Database = {
           period_start?: string
           source_pay_group_id?: string | null
           status?: Database["public"]["Enums"]["head_office_status"] | null
+          tax_country?: string | null
           updated_at?: string | null
         }
         Relationships: [
