@@ -1,5 +1,9 @@
 // @ts-nocheck
-import { supabase } from '@/integrations/supabase/client';
+// Lazy import to avoid undefined supabase during module initialization
+const getSupabase = () => {
+    const { supabase } = require('@/integrations/supabase/client');
+    return supabase;
+};
 import {
     OrgSettings,
     ApprovalWorkflow,
