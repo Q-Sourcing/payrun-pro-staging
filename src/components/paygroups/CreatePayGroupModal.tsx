@@ -143,8 +143,28 @@ export const CreatePayGroupModal: React.FC<CreatePayGroupModalProps> = ({
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [allowedPayTypes, setAllowedPayTypes] = useState<string[]>([]);
   const { toast } = useToast();
-  const { organizationId, companyId } = useOrg();
+  const { organizationId, companyId, setCompanyId } = useOrg();
   const queryClient = useQueryClient();
+
+  const resolveEffectiveCompanyId = async (): Promise<string | null> => {
+    if (companyId) return companyId;
+    if (!organizationId) return null;
+    const { data: companies } = await supabase
+      .from('companies')
+      .select('id')
+      .eq('organization_id', organizationId)
+      .order('created_at', { ascending: true })
+      .limit(1);
+    if (companies && companies.length > 0) {
+      const resolved = companies[0].id;
+      setCompanyId(resolved);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('active_company_id', resolved);
+      }
+      return resolved;
+    }
+    return null;
+  };
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
 
   // Reset form when modal opens/closes
