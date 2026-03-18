@@ -1,8 +1,12 @@
 // @ts-nocheck
-// Lazy import to avoid undefined supabase during module initialization
-const getSupabase = () => {
-    const { supabase } = require('@/integrations/supabase/client');
-    return supabase;
+import { supabase } from '@/integrations/supabase/client';
+
+// Lazy accessor to handle potential initialization timing issues
+const getClient = () => {
+    if (supabase) return supabase;
+    // Fallback: re-import at runtime
+    const mod = require('@/integrations/supabase/client');
+    return mod.supabase;
 };
 import {
     OrgSettings,
