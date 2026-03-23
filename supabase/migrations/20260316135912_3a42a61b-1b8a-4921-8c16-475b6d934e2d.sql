@@ -1,3 +1,8 @@
+-- Ensure APPROVAL_REMINDER exists in email_events before inserting template
+INSERT INTO public.email_events (key, description, category)
+VALUES ('APPROVAL_REMINDER', 'Payrun approval reminder notification', 'approval')
+ON CONFLICT (key) DO NOTHING;
+
 INSERT INTO public.email_templates (org_id, event_key, subject_template, body_html_template, is_active)
 VALUES (
   NULL,

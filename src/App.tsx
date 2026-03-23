@@ -85,10 +85,12 @@ import CompanyPicker from "./components/auth/CompanyPicker";
 import Diagnostics from "./pages/Diagnostics";
 import PayrollAdvancedSettings from "./pages/PayrollAdvancedSettings";
 import MyApprovals from "./pages/MyApprovals";
+import MyPayslips from "./pages/MyDashboard/MyPayslips";
 import Anomalies from "./pages/Anomalies";
 import Timesheets from "./pages/Timesheets";
 import MyAttendance from "./pages/MyAttendance";
 import Attendance from "./pages/Attendance";
+import AttendQr from "./pages/AttendQr";
 // EHS Module pages
 import EhsIndex from "./pages/ehs/Index";
 import EhsIncidents from "./pages/ehs/Incidents";
@@ -103,6 +105,10 @@ import EhsPermits from "./pages/ehs/Permits";
 import EhsEnvironmental from "./pages/ehs/Environmental";
 import EhsEmergencyDrills from "./pages/ehs/EmergencyDrills";
 import EhsCompliance from "./pages/ehs/Compliance";
+import ProjectStaffOnboarding from "./pages/onboarding/ProjectStaffOnboarding";
+import ProjectStaffBulkImport from "./pages/onboarding/ProjectStaffBulkImport";
+import AssetsPage from "./pages/assets/Index";
+import AssetDetailRoute from "./pages/assets/Detail";
 // Query client is now imported from optimized configuration
 
 // Protected route wrapper - uses real auth check
@@ -229,12 +235,17 @@ const App = () => {
 
                   <Route path="/anomalies" element={<Anomalies />} />
                   <Route path="/my/approvals" element={<MyApprovals />} />
+                  <Route path="/my/payslips" element={<MyPayslips />} />
 
                   {/* Core Module Routes */}
                   <Route path="employees" element={<EmployeesTab />} />
                   <Route path="employees/:employeeId" element={<EmployeeProfile />} />
                   <Route path="projects" element={<Projects />} />
                   <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+                  <Route path="projects/:projectId/onboard" element={<ProjectStaffOnboarding />} />
+                  <Route path="projects/:projectId/onboard/bulk" element={<ProjectStaffBulkImport />} />
+                  <Route path="onboarding/project-staff" element={<ProjectStaffOnboarding />} />
+                  <Route path="onboarding/project-staff/bulk" element={<ProjectStaffBulkImport />} />
                   <Route path="paygroups" element={<PayGroupsTab />} />
 
                   {/* Pay Groups Filtered Routes */}
@@ -280,6 +291,7 @@ const App = () => {
                   <Route path="timesheets" element={<Timesheets />} />
                   <Route path="dashboard/attendance" element={<MyAttendance />} />
                   <Route path="attendance" element={<Attendance />} />
+                  <Route path="attend" element={<AttendQr />} />
 
                   {/* EHS Module Routes */}
                   <Route path="ehs" element={<EhsIndex />} />
@@ -295,6 +307,10 @@ const App = () => {
                   <Route path="ehs/environmental" element={<EhsEnvironmental />} />
                   <Route path="ehs/emergency-drills" element={<EhsEmergencyDrills />} />
                   <Route path="ehs/compliance" element={<EhsCompliance />} />
+
+                  {/* Work Assets Module */}
+                  <Route path="assets" element={<AssetsPage />} />
+                  <Route path="assets/:assetId" element={<AssetDetailRoute />} />
                 </Route>
 
                 {/* Catch-all route */}

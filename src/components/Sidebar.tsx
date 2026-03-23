@@ -3,8 +3,9 @@ import {
   GraduationCap, UserSquare, Timer, FileText, Settings, ChevronRight, BarChart3,
   Building2, FolderTree, Calendar, Package, CheckSquare, AlarmClock, UserCog,
   ShieldAlert, AlertTriangle, ClipboardCheck, Shield, ListChecks, FileSearch,
-  HardHat, KeyRound, Leaf, Siren, Scale
+  HardHat, KeyRound, Leaf, Siren, Scale, Receipt, Monitor,
 } from "lucide-react";
+import { JWTClaimsService } from "@/lib/services/auth/jwt-claims";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useMemo } from "react";
@@ -51,8 +52,8 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({
   const [sectionOpen, setSectionOpen] = useState<Record<string, boolean>>(() => {
     try {
       const saved = localStorage.getItem('sidebar_sections');
-      return saved ? JSON.parse(saved) : { dashboard: true, employees: true, projects: true, paygroups: true, payruns: true, ehs: true, reports: true, settings: true };
-    } catch { return { dashboard: true, employees: true, projects: true, paygroups: true, payruns: true, ehs: true, reports: true, settings: true }; }
+      return saved ? JSON.parse(saved) : { dashboard: true, employees: true, attendance: true, assets: true, projects: true, paygroups: true, payruns: true, ehs: true, reports: true, settings: true };
+    } catch { return { dashboard: true, employees: true, attendance: true, assets: true, projects: true, paygroups: true, payruns: true, ehs: true, reports: true, settings: true }; }
   });
   
   const toggleSection = (key: string) => {
@@ -79,20 +80,25 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({
       canViewReports: false,
       canViewSettings: false,
       canViewEhs: false,
+      canViewAssets: false,
     };
 
+    const isSelfUser = JWTClaimsService.hasRole('SELF_USER') || JWTClaimsService.hasRole('SELF_CONTRACTOR');
+
     return {
-      canViewEmployees: RBACService.hasPermission('people.view'),
-      canViewProjects: RBACService.hasPermission('projects.view'),
-      canViewPayGroups: RBACService.hasPermission('paygroups.view'),
-      canViewPayGroupsHeadOffice: RBACService.hasScopedPermission('people.view', 'ORGANIZATION'),
-      canViewPayGroupsProjects: RBACService.hasScopedPermission('people.view', 'PROJECT'),
-      canViewPayRuns: RBACService.hasPermission('payroll.view'),
-      canViewPayRunsHeadOffice: RBACService.hasScopedPermission('payroll.view', 'ORGANIZATION'),
-      canViewPayRunsProjects: RBACService.hasScopedPermission('payroll.view', 'PROJECT'),
-      canViewReports: RBACService.hasPermission('reports.view'),
-      canViewSettings: RBACService.isPlatformAdmin() || RBACService.isOrgAdmin(),
-      canViewEhs: RBACService.hasPermission('ehs.view_dashboard') || RBACService.isPlatformAdmin() || RBACService.isOrgAdmin(),
+      isSelfUser,
+      canViewEmployees: !isSelfUser && RBACService.hasPermission('people.view'),
+      canViewProjects: !isSelfUser && RBACService.hasPermission('projects.view'),
+      canViewPayGroups: !isSelfUser && RBACService.hasPermission('paygroups.view'),
+      canViewPayGroupsHeadOffice: !isSelfUser && RBACService.hasScopedPermission('people.view', 'ORGANIZATION'),
+      canViewPayGroupsProjects: !isSelfUser && RBACService.hasScopedPermission('people.view', 'PROJECT'),
+      canViewPayRuns: !isSelfUser && RBACService.hasPermission('payroll.view'),
+      canViewPayRunsHeadOffice: !isSelfUser && RBACService.hasScopedPermission('payroll.view', 'ORGANIZATION'),
+      canViewPayRunsProjects: !isSelfUser && RBACService.hasScopedPermission('payroll.view', 'PROJECT'),
+      canViewReports: !isSelfUser && RBACService.hasPermission('reports.view'),
+      canViewSettings: !isSelfUser && (RBACService.isPlatformAdmin() || RBACService.isOrgAdmin()),
+      canViewEhs: !isSelfUser && (RBACService.hasPermission('ehs.view_dashboard') || RBACService.isPlatformAdmin() || RBACService.isOrgAdmin()),
+      canViewAssets: !isSelfUser && (RBACService.hasPermission('assets.view') || RBACService.isPlatformAdmin() || RBACService.isOrgAdmin()),
     };
   }, [userContext]);
 
@@ -251,6 +257,9 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({
             />
             <NavItem to="/dashboard/attendance" icon={<Clock3 size={16} />} label="My Time & Attendance" />
             <NavItem to="/timesheets" icon={<AlarmClock size={16} />} label="My Timesheets" />
+            {permissions.isSelfUser && (
+              <NavItem to="/my/payslips" icon={<Receipt size={16} />} label="My Payslips" />
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -282,6 +291,20 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({
         </>
       )}
 
+
+      {/* ASSETS */}
+      {permissions.canViewAssets && (
+        <>
+          <SectionHeader title="Assets" sectionKey="assets" />
+          <AnimatePresence initial={false}>
+            {sectionOpen.assets !== false && (
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                <NavItem to="/assets" icon={<Monitor size={16} />} label="Work Assets" />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </>
+      )}
 
       {permissions.canViewProjects && (
         <>

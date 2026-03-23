@@ -2,12 +2,12 @@ import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Upload, Globe, Flag, ChevronDown, UserPlus, Link as LinkIcon, Filter, Settings2 } from "lucide-react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Plus, Search, Pencil, Upload, Globe, Flag, ChevronDown, UserPlus, Link as LinkIcon, Filter, Settings2, HardHat } from "lucide-react";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useOrg } from "@/lib/tenant/OrgContext";
 import { getCurrencyByCode } from "@/lib/constants/countries";
@@ -55,6 +55,7 @@ interface Employee {
 
 const EmployeesTab = () => {
   const { organizationId, companyId } = useOrg();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -406,7 +407,8 @@ const EmployeesTab = () => {
                   <ChevronDown className="h-3 w-3 ml-1.5" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuLabel className="text-xs text-muted-foreground">Head Office</DropdownMenuLabel>
                 <DropdownMenuItem onClick={() => setShowAddDialog(true)}>
                   <UserPlus className="h-4 w-4 mr-2" />
                   Add Single Employee
@@ -414,6 +416,16 @@ const EmployeesTab = () => {
                 <DropdownMenuItem onClick={() => setShowBulkImportDialog(true)}>
                   <Upload className="h-4 w-4 mr-2" />
                   Bulk Import
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs text-muted-foreground">Project Staff</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => navigate('/onboarding/project-staff')}>
+                  <HardHat className="h-4 w-4 mr-2" />
+                  Onboard Single Staff
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/onboarding/project-staff/bulk')}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Bulk Import Staff
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

@@ -19,9 +19,11 @@ CREATE INDEX IF NOT EXISTS idx_pay_calculation_audit_calculated_at ON pay_calcul
 ALTER TABLE public.pay_calculation_audit_log ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policy for authenticated users
+CREATE POLICY "pay_calculation_audit_log_select" ON public.pay_calculation_audit_log
 FOR SELECT TO authenticated USING (true);
 
 -- Create RLS policy for service role to insert audit logs
+CREATE POLICY "pay_calculation_audit_log_insert" ON public.pay_calculation_audit_log
 FOR INSERT TO service_role WITH CHECK (true);
 
 -- Add comment

@@ -22,6 +22,7 @@ CREATE INDEX IF NOT EXISTS idx_umi_email ON public.user_management_invitations(e
 CREATE INDEX IF NOT EXISTS idx_umi_status ON public.user_management_invitations(status);
 
 -- RLS policy: admins/hr can view (uses user_profiles which has the role column)
+DROP POLICY IF EXISTS "Admins and HR can view invitations" ON public.user_management_invitations;
 CREATE POLICY "Admins and HR can view invitations"
   ON public.user_management_invitations
   FOR SELECT

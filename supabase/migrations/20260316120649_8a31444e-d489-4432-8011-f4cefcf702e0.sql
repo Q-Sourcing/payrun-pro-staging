@@ -29,19 +29,22 @@ BEGIN
 END;
 $$;
 
--- Phase 3: Create reminder_rules table (if not exists)
-CREATE TABLE IF NOT EXISTS public.reminder_rules (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  organization_id uuid NOT NULL,
-  rule_type text NOT NULL CHECK (rule_type IN ('probation_expiry', 'contract_expiry', 'approval_reminder')),
-  days_before int,
-  days_after int,
-  is_active boolean DEFAULT true,
-  notify_roles text[],
-  notification_template text,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
+-- Phase 3: Extend reminder_rules table with approval_reminder support
+ALTER TABLE public.reminder_rules ADD COLUMN IF NOT EXISTS days_after int;
+ALTER TABLE public.reminder_rules ALTER COLUMN days_before DROP NOT NULL;
+
+-- Drop old rule_type check and add expanded one
+ALTER TABLE public.reminder_rules DROP CONSTRAINT IF EXISTS reminder_rules_rule_type_check;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'reminder_rules_rule_type_check_v2'
+  ) THEN
+    ALTER TABLE public.reminder_rules
+      ADD CONSTRAINT reminder_rules_rule_type_check_v2
+      CHECK (rule_type IN ('probation_expiry', 'contract_expiry', 'approval_reminder'));
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_reminder_rules_org_type ON public.reminder_rules(organization_id, rule_type);
 

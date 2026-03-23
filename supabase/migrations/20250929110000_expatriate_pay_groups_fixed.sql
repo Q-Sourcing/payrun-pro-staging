@@ -16,19 +16,19 @@ CREATE TABLE IF NOT EXISTS expatriate_pay_groups (
 ALTER TABLE expatriate_pay_groups ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies
-AS permissive FOR SELECT
+CREATE POLICY "expatriate_pay_groups_select" ON expatriate_pay_groups AS PERMISSIVE FOR SELECT
 TO public
 USING (true);
 
-AS permissive FOR INSERT
+CREATE POLICY "expatriate_pay_groups_insert" ON expatriate_pay_groups AS PERMISSIVE FOR INSERT
 TO authenticated
 WITH CHECK (true);
 
-AS permissive FOR UPDATE
+CREATE POLICY "expatriate_pay_groups_update" ON expatriate_pay_groups AS PERMISSIVE FOR UPDATE
 TO authenticated
 USING (true);
 
-AS permissive FOR DELETE
+CREATE POLICY "expatriate_pay_groups_delete" ON expatriate_pay_groups AS PERMISSIVE FOR DELETE
 TO authenticated
 USING (true);
 
@@ -60,19 +60,19 @@ CREATE TABLE IF NOT EXISTS expatriate_pay_run_items (
 ALTER TABLE expatriate_pay_run_items ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies for expatriate_pay_run_items
-AS permissive FOR SELECT
+CREATE POLICY "expatriate_pay_run_items_select" ON expatriate_pay_run_items AS PERMISSIVE FOR SELECT
 TO public
 USING (true);
 
-AS permissive FOR INSERT
+CREATE POLICY "expatriate_pay_run_items_insert" ON expatriate_pay_run_items AS PERMISSIVE FOR INSERT
 TO authenticated
 WITH CHECK (true);
 
-AS permissive FOR UPDATE
+CREATE POLICY "expatriate_pay_run_items_update" ON expatriate_pay_run_items AS PERMISSIVE FOR UPDATE
 TO authenticated
 USING (true);
 
-AS permissive FOR DELETE
+CREATE POLICY "expatriate_pay_run_items_delete" ON expatriate_pay_run_items AS PERMISSIVE FOR DELETE
 TO authenticated
 USING (true);
 

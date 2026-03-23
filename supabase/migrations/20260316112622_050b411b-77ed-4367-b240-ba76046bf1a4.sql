@@ -1,4 +1,20 @@
 
+-- Stub for has_company_membership (defined here since it is not in any prior migration)
+CREATE OR REPLACE FUNCTION public.has_company_membership(p_company_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_profiles up
+    JOIN public.companies c ON c.organization_id = up.organization_id
+    WHERE up.id = auth.uid()
+      AND c.id = p_company_id
+  );
+$$;
+
 -- ============================================================
 -- PAYRUN APPROVAL WORKFLOW TABLES
 -- Migration: create_payrun_approval_workflow_tables

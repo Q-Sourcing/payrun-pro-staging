@@ -145,6 +145,10 @@ const AddProjectDialog = ({ open, onOpenChange, onProjectAdded }: AddProjectDial
         contract_value: "",
         country: "",
         currency: "",
+        // Expatriate-only fields
+        default_exchange_rate: "",
+        default_permit_class: "",
+        contract_period_months: "",
     });
     const [loading, setLoading] = useState(false);
     const { toast } = useToast();
@@ -418,6 +422,7 @@ const AddProjectDialog = ({ open, onOpenChange, onProjectAdded }: AddProjectDial
         }
 
         setLoading(true);
+        const orgId = organizationId || localStorage.getItem("active_organization_id");
         try {
             const basePayload: Record<string, unknown> = {
                 name: formData.name,
@@ -433,9 +438,14 @@ const AddProjectDialog = ({ open, onOpenChange, onProjectAdded }: AddProjectDial
                 responsible_manager_id: formData.responsible_manager_id || null,
                 client_name: formData.client_name || null,
                 location: formData.location || null,
+                organization_id: orgId || null,
                 contract_value: formData.contract_value ? parseFloat(formData.contract_value) : null,
-                country: formData.country || null,
-                currency: formData.currency || null,
+                // Expatriate-specific fields
+                ...(formData.project_type === "expatriate" && {
+                    default_exchange_rate: formData.default_exchange_rate ? parseFloat(formData.default_exchange_rate) : null,
+                    default_permit_class: formData.default_permit_class || null,
+                    contract_period_months: formData.contract_period_months ? parseInt(formData.contract_period_months) : null,
+                }),
             };
 
             let payload = { ...basePayload };
@@ -503,6 +513,9 @@ const AddProjectDialog = ({ open, onOpenChange, onProjectAdded }: AddProjectDial
                 contract_value: "",
                 country: "",
                 currency: "",
+                default_exchange_rate: "",
+                default_permit_class: "",
+                contract_period_months: "",
             });
             onProjectAdded();
             onOpenChange(false);
@@ -679,6 +692,59 @@ const AddProjectDialog = ({ open, onOpenChange, onProjectAdded }: AddProjectDial
                                     <SelectItem value="monthly">Monthly</SelectItem>
                                 </SelectContent>
                             </Select>
+                        </div>
+                    )}
+
+                    {formData.project_type === "expatriate" && (
+                        <div className="space-y-4 border rounded-lg p-4 bg-blue-50 dark:bg-blue-950/20">
+                            <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Expatriate Project Settings</p>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="default_permit_class">Default Work Permit Class</Label>
+                                <Select
+                                    value={formData.default_permit_class}
+                                    onValueChange={(value) => setFormData({ ...formData, default_permit_class: value })}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select permit class" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="G1">Class G1 – Missionaries / NGO Volunteers</SelectItem>
+                                        <SelectItem value="G2">Class G2 – Salaried Employees (USD 2,500/yr)</SelectItem>
+                                        <SelectItem value="G3">Class G3 – Agro / Manufacturing / Mining</SelectItem>
+                                        <SelectItem value="F">Class F – Prescribed Professions</SelectItem>
+                                        <SelectItem value="EAC_National">EAC National (no fee)</SelectItem>
+                                        <SelectItem value="Other">Other</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-xs text-muted-foreground">Default permit class for employees in this project. Can be overridden per employee.</p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="default_exchange_rate">Default Exchange Rate to UGX</Label>
+                                    <Input
+                                        id="default_exchange_rate"
+                                        type="number"
+                                        step="0.01"
+                                        value={formData.default_exchange_rate}
+                                        onChange={(e) => setFormData({ ...formData, default_exchange_rate: e.target.value })}
+                                        placeholder="e.g., 3700"
+                                    />
+                                    <p className="text-xs text-muted-foreground">1 unit of project currency = ? UGX</p>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="contract_period_months">Contract Period (months)</Label>
+                                    <Input
+                                        id="contract_period_months"
+                                        type="number"
+                                        value={formData.contract_period_months}
+                                        onChange={(e) => setFormData({ ...formData, contract_period_months: e.target.value })}
+                                        placeholder="e.g., 24"
+                                    />
+                                    <p className="text-xs text-muted-foreground">Contract duration — used for NSSF residency threshold</p>
+                                </div>
+                            </div>
                         </div>
                     )}
 

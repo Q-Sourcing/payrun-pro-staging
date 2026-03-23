@@ -5,8 +5,12 @@
 ALTER TABLE public.rbac_roles ADD COLUMN IF NOT EXISTS org_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE;
 
 -- 2. Ensure Platform Sentinel Org exists
-INSERT INTO public.organizations (id, name) 
+INSERT INTO public.organizations (id, name)
 VALUES ('00000000-0000-0000-0000-000000000000', 'Platform System')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.organizations (id, name)
+VALUES ('00000000-0000-0000-0000-000000000001', 'Default Organization')
 ON CONFLICT (id) DO NOTHING;
 
 -- 3. Populate org_ids

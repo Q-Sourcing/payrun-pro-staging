@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -12,14 +12,21 @@ import { PayGroupsService } from "@/lib/services/paygroups.service";
 import { formatProjectType } from "@/lib/types/projects";
 import { Button } from "@/components/ui/button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { X, UserPlus, MapPin, Building2, DollarSign, Pencil, Save, AlertTriangle } from "lucide-react";
+import { X, UserPlus, MapPin, Building2, DollarSign, Pencil, Save, AlertTriangle, Upload, ChevronDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import AddProjectEmployeesDialog from "./AddProjectEmployeesDialog";
 import { ProjectEhsTab } from "../ehs/ProjectEhsTab";
+import { ProjectAttendanceTab } from "./ProjectAttendanceTab";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { IppmsWorkTab } from "../ippms/IppmsWorkTab";
 import { IppmsWorkboardEnhanced } from "../ippms/IppmsWorkboardEnhanced";
 import ProjectOnboardingChecklist from "./ProjectOnboardingChecklist";
 import { VariablePayrollPage } from "@/components/payroll/variable/VariablePayrollPage";
+import { ExpatriateEmployeesTab } from "../expatriate/ExpatriateEmployeesTab";
+import { ExpatriatePayrollTab } from "../expatriate/ExpatriatePayrollTab";
+import { WorkPermitsTab } from "../expatriate/WorkPermitsTab";
+import { ComplianceTaxTab } from "../expatriate/ComplianceTaxTab";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,7 +38,9 @@ import { ALL_COUNTRIES, CURRENCIES } from "@/lib/constants/countries";
 export default function ProjectDetailPage() {
   const { projectId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { organizationId } = useOrg();
+  const { session } = useSupabaseAuth();
   const qc = useQueryClient();
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
@@ -113,21 +122,29 @@ export default function ProjectDetailPage() {
   }, [employees, project]);
 
   const isIppms = project?.project_type === "ippms";
+  const isExpatriate = project?.project_type === "expatriate";
   const progressPercent = onboardingProgress?.totalSteps
     ? Math.round((onboardingProgress.completedSteps / onboardingProgress.totalSteps) * 100)
     : 0;
   const isFullyOnboarded = onboardingProgress?.isFullyOnboarded === true;
 
+  // Resolve tax country name for expatriate projects
+  const expatTaxCountry = isExpatriate
+    ? (ALL_COUNTRIES.find((c) => c.code === project?.country)?.name || project?.country || "Uganda")
+    : undefined;
+
   useEffect(() => {
     const requestedTab = searchParams.get("tab");
     if (!requestedTab) return;
     const allowedTabs = isIppms
-      ? ["overview", "employees", "paygroups", "workboard", "ehs"]
-      : ["overview", "employees", "paygroups", "ehs"];
+      ? ["overview", "employees", "paygroups", "workboard", "attendance", "ehs"]
+      : isExpatriate
+        ? ["overview", "expat-employees", "expat-payroll", "work-permits", "compliance-tax", "ehs"]
+        : ["overview", "employees", "paygroups", "attendance", "ehs"];
     if (allowedTabs.includes(requestedTab) && requestedTab !== activeTab) {
       setActiveTab(requestedTab);
     }
-  }, [searchParams, isIppms, activeTab]);
+  }, [searchParams, isIppms, isExpatriate, activeTab]);
 
   useEffect(() => {
     if (searchParams.get("assign") !== "1") return;
@@ -240,6 +257,113 @@ export default function ProjectDetailPage() {
 
   const isManpower = project.project_type === "manpower";
   const hasVariablePay = isIppms || isManpower;
+
+  if (isExpatriate) {
+    return (
+      <div className="p-6 space-y-6">
+        {/* Header — same as regular projects */}
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">{project.name}</h1>
+            <p className="text-sm text-muted-foreground font-mono">{project.code}</p>
+            <div className="flex items-center gap-3 mt-2 flex-wrap">
+              <Badge variant="secondary">{project.status}</Badge>
+              <Badge>Expatriate</Badge>
+              {project.client_name && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Building2 className="h-3 w-3" /> {project.client_name}
+                </span>
+              )}
+              {project.location && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <MapPin className="h-3 w-3" /> {project.location}
+                </span>
+              )}
+              {project.contract_value != null && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <DollarSign className="h-3 w-3" /> {Number(project.contract_value).toLocaleString()}
+                </span>
+              )}
+              {project.currency && (
+                <Badge variant="outline">{project.currency}</Badge>
+              )}
+              {expatTaxCountry && (
+                <Badge variant="outline">Tax: {expatTaxCountry}</Badge>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="expat-employees">Employees ({totalEmployees})</TabsTrigger>
+            <TabsTrigger value="expat-payroll">Pay Groups & Payroll</TabsTrigger>
+            <TabsTrigger value="work-permits">Work Permits</TabsTrigger>
+            <TabsTrigger value="compliance-tax">Compliance & Tax</TabsTrigger>
+            <TabsTrigger value="ehs">EHS</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="mt-4">
+            <Card>
+              <CardHeader><CardTitle className="text-base">Project Information</CardTitle></CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <div className="grid grid-cols-2 gap-4">
+                  <div><Label className="text-xs text-muted-foreground">Tax Country</Label><div>{expatTaxCountry || "—"}</div></div>
+                  <div><Label className="text-xs text-muted-foreground">Payment Currency</Label><div>{project.currency || "—"}</div></div>
+                  <div><Label className="text-xs text-muted-foreground">Default Exchange Rate</Label><div>{(project as any).default_exchange_rate ? `1 ${project.currency} = ${(project as any).default_exchange_rate} UGX` : "—"}</div></div>
+                  <div><Label className="text-xs text-muted-foreground">Default Permit Class</Label><div>{(project as any).default_permit_class || "—"}</div></div>
+                  <div><Label className="text-xs text-muted-foreground">Contract Period</Label><div>{(project as any).contract_period_months ? `${(project as any).contract_period_months} months` : "—"}</div></div>
+                  <div><Label className="text-xs text-muted-foreground">Client</Label><div>{project.client_name || "—"}</div></div>
+                  <div><Label className="text-xs text-muted-foreground">Start Date</Label><div>{project.start_date || "—"}</div></div>
+                  <div><Label className="text-xs text-muted-foreground">End Date</Label><div>{project.end_date || "—"}</div></div>
+                </div>
+                {project.description && <div><Label className="text-xs text-muted-foreground">Description</Label><div className="text-muted-foreground">{project.description}</div></div>}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="expat-employees" className="mt-4">
+            <ExpatriateEmployeesTab projectId={projectId as string} onAssign={() => setShowAssignDialog(true)} />
+          </TabsContent>
+
+          <TabsContent value="expat-payroll" className="mt-4">
+            <ExpatriatePayrollTab
+              projectId={projectId as string}
+              taxCountry={expatTaxCountry}
+              currency={project.currency || undefined}
+              defaultExchangeRate={(project as any).default_exchange_rate}
+            />
+          </TabsContent>
+
+          <TabsContent value="work-permits" className="mt-4">
+            <WorkPermitsTab projectId={projectId as string} />
+          </TabsContent>
+
+          <TabsContent value="compliance-tax" className="mt-4">
+            <ComplianceTaxTab projectId={projectId as string} taxCountry={expatTaxCountry} />
+          </TabsContent>
+
+          <TabsContent value="ehs" className="mt-4">
+            <ProjectEhsTab projectId={projectId as string} />
+          </TabsContent>
+        </Tabs>
+
+        <AddProjectEmployeesDialog
+          project={project}
+          open={showAssignDialog}
+          onOpenChange={setShowAssignDialog}
+          onAssigned={() => {
+            qc.invalidateQueries({ queryKey: ["project", projectId] });
+            qc.invalidateQueries({ queryKey: ["project-employees", projectId] });
+            qc.invalidateQueries({ queryKey: ["project-employees-expat", projectId] });
+            qc.invalidateQueries({ queryKey: ["employees"] });
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -313,6 +437,7 @@ export default function ProjectDetailPage() {
           <TabsTrigger value="paygroups">Pay Groups ({payGroups.length})</TabsTrigger>
           {isIppms && <TabsTrigger value="workboard">IPPMS Workboard</TabsTrigger>}
           {hasVariablePay && <TabsTrigger value="variable-payroll">⚡ Variable Pay</TabsTrigger>}
+          <TabsTrigger value="attendance">Attendance</TabsTrigger>
           <TabsTrigger value="ehs">🛡️ EHS</TabsTrigger>
         </TabsList>
 
@@ -502,16 +627,34 @@ export default function ProjectDetailPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Assigned Employees</CardTitle>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button size="sm" onClick={() => setShowAssignDialog(true)}>
-                        <UserPlus className="h-4 w-4 mr-1" /> Assign
+                <div className="flex items-center gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="outline">
+                        <UserPlus className="h-4 w-4 mr-1" /> Onboard Staff
+                        <ChevronDown className="h-3 w-3 ml-1.5" />
                       </Button>
-                    </TooltipTrigger>
-                    <TooltipContent><p>Add Employees to Project</p></TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => navigate(`/projects/${projectId}/onboard`)}>
+                        <UserPlus className="h-4 w-4 mr-2" /> Onboard Single
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate(`/projects/${projectId}/onboard/bulk`)}>
+                        <Upload className="h-4 w-4 mr-2" /> Bulk Import
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button size="sm" onClick={() => setShowAssignDialog(true)}>
+                          <UserPlus className="h-4 w-4 mr-1" /> Assign
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent><p>Add existing employees to this project</p></TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="text-sm">
@@ -589,6 +732,16 @@ export default function ProjectDetailPage() {
             />
           </TabsContent>
         )}
+
+        {/* Attendance Tab */}
+        <TabsContent value="attendance" className="mt-4">
+          <ProjectAttendanceTab
+            projectId={projectId as string}
+            organizationId={organizationId || ""}
+            currentUserId={session?.user?.id || ""}
+            canManage={true}
+          />
+        </TabsContent>
 
         {/* EHS Tab */}
         <TabsContent value="ehs" className="mt-4">

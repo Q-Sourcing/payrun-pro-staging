@@ -4,9 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -14,13 +14,19 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
+  Accordion, AccordionContent, AccordionItem, AccordionTrigger,
+} from "@/components/ui/accordion";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
   Shield, Plus, Pencil, Trash2, Search, Lock, Users, CheckSquare,
-  Settings2, AlertTriangle, KeyRound,
+  Settings2, AlertTriangle, KeyRound, Save, ChevronRight,
+  DollarSign, FolderKanban, BarChart3, ShieldAlert, Settings,
+  UserCog, Clock, Calculator, FileText, LayoutGrid,
 } from "lucide-react";
 import {
   listRoles, createRole, deleteRole, listPermissions,
@@ -30,21 +36,9 @@ import {
 } from "@/lib/api/rbac";
 import { useOrg } from "@/lib/tenant/OrgContext";
 import { toast } from "sonner";
+import { SYSTEM_MODULES_REGISTRY, PERMISSION_CATEGORIES, type ModuleDef } from "@/lib/constants/permissions-registry";
 
 const PROTECTED_ROLES = ["PLATFORM_SUPER_ADMIN", "PLATFORM_AUDITOR", "ADMIN"];
-
-const PERMISSION_CATEGORIES = [
-  "User Management",
-  "Roles & Permissions",
-  "Employees",
-  "Pay Groups",
-  "Earnings & Deductions",
-  "Payroll Processing",
-  "Contracts",
-  "Reports",
-  "System Settings",
-  "Attendance",
-];
 
 const CATEGORY_COLORS: Record<string, string> = {
   "User Management":       "bg-primary/10 text-primary border-primary/20",
@@ -57,6 +51,22 @@ const CATEGORY_COLORS: Record<string, string> = {
   "Reports":               "bg-secondary/50 text-secondary-foreground border-secondary/50",
   "System Settings":       "bg-muted/80 text-muted-foreground border-border",
   "Attendance":            "bg-primary/5 text-primary border-primary/10",
+  "Projects":              "bg-primary/5 text-primary border-primary/10",
+  "EHS":                   "bg-destructive/5 text-destructive border-destructive/10",
+};
+
+const MODULE_ICONS: Record<string, React.ReactNode> = {
+  Users:       <Users className="h-4 w-4" />,
+  DollarSign:  <DollarSign className="h-4 w-4" />,
+  FolderKanban:<FolderKanban className="h-4 w-4" />,
+  BarChart3:   <BarChart3 className="h-4 w-4" />,
+  ShieldAlert: <ShieldAlert className="h-4 w-4" />,
+  Settings:    <Settings className="h-4 w-4" />,
+  UserCog:     <UserCog className="h-4 w-4" />,
+  Clock:       <Clock className="h-4 w-4" />,
+  Calculator:  <Calculator className="h-4 w-4" />,
+  FileText:    <FileText className="h-4 w-4" />,
+  LayoutGrid:  <LayoutGrid className="h-4 w-4" />,
 };
 
 // ─── Main Component ────────────────────────────────────────────────────────────
@@ -67,7 +77,6 @@ export function RolesPermissionsModule() {
 
   const [search, setSearch] = useState("");
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
-  const [activeTab, setActiveTab] = useState<"roles" | "permissions">("roles");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Role | null>(null);
 
@@ -114,134 +123,98 @@ export function RolesPermissionsModule() {
     onError: (err: any) => toast.error(err.message || "Failed to delete role"),
   });
 
-  const handleSelectRole = (role: Role) => {
-    setSelectedRole(role);
-    setActiveTab("permissions");
-  };
-
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-3 p-3 rounded-lg border bg-primary/5 border-primary/20">
-        <Shield className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-        <p className="text-xs text-muted-foreground">
-          <strong className="text-foreground">Workflow:</strong> Create a role in the{" "}
-          <strong>Roles</strong> tab → click{" "}
-          <span className="inline-flex items-center gap-1">
-            <Settings2 className="h-3 w-3" />Assign Permissions
-          </span>{" "}
-          → switch to the <strong>Permissions</strong> tab to assign or manage permissions.
-        </p>
-      </div>
+      {/* Two-panel layout on md+, stacked on mobile */}
+      <div className="grid md:grid-cols-[300px_1fr] gap-4 min-h-[600px]">
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-        <TabsList className="w-full">
-          <TabsTrigger value="roles" className="flex-1 gap-2">
-            <Users className="h-4 w-4" /> Roles
-            <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">{businessRoles.length}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="permissions" className="flex-1 gap-2">
-            <KeyRound className="h-4 w-4" /> Permissions
-            <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">{permissions.length}</Badge>
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ── ROLES TAB ── */}
-        <TabsContent value="roles" className="space-y-4 mt-4">
-          <div className="flex items-center gap-3">
+        {/* ── LEFT PANEL: Role List ── */}
+        <div className="flex flex-col gap-3 border rounded-lg p-3 bg-card">
+          <div className="flex items-center gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <Input
                 placeholder="Search roles…"
-                className="pl-9"
+                className="pl-8 h-8 text-sm"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <Button size="sm" className="gap-2 shrink-0" onClick={() => setIsCreateOpen(true)}>
-              <Plus className="h-4 w-4" /> New Role
+            <Button size="sm" className="gap-1.5 h-8 shrink-0 text-xs" onClick={() => setIsCreateOpen(true)}>
+              <Plus className="h-3.5 w-3.5" /> New
             </Button>
           </div>
 
-          {rolesLoading ? (
-            <div className="text-center py-10 text-sm text-muted-foreground">Loading roles…</div>
-          ) : (
-            <div className="grid gap-2">
-              {businessRoles.map((role) => (
-                <RoleCard
-                  key={role.code}
-                  role={role}
-                  orgId={orgId}
-                  isProtected={PROTECTED_ROLES.includes(role.code)}
-                  onAssignPermissions={() => handleSelectRole(role)}
-                  onDelete={() => setDeleteTarget(role)}
-                />
-              ))}
-              {businessRoles.length === 0 && (
-                <div className="text-center py-10 text-sm text-muted-foreground">No roles found.</div>
-              )}
-            </div>
-          )}
-        </TabsContent>
-
-        {/* ── UNIFIED PERMISSIONS TAB ── */}
-        <TabsContent value="permissions" className="mt-4 space-y-6">
-          {/* Role Permission Assignment Section */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <CheckSquare className="h-4 w-4 text-primary" />
-              <h3 className="text-sm font-semibold">Assign Permissions to Role</h3>
-            </div>
-            <Select
-              value={selectedRole?.code ?? ""}
-              onValueChange={(code) => {
-                const role = roles.find(r => r.code === code);
-                setSelectedRole(role ?? null);
-              }}
-            >
-              <SelectTrigger className="w-full sm:w-[300px]">
-                <SelectValue placeholder="Select a role to configure…" />
-              </SelectTrigger>
-              <SelectContent>
-                {businessRoles.map(r => (
-                  <SelectItem key={r.code} value={r.code}>{r.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {selectedRole ? (
-              <PermissionsEditor
-                role={selectedRole}
-                orgId={orgId}
-                permsByCategory={permsByCategory}
-                onSaved={() => {
-                  qc.invalidateQueries({ queryKey: ["role-permissions", selectedRole.code] });
-                  toast.success(`Permissions saved for ${selectedRole.name}`);
-                }}
-              />
+          <ScrollArea className="flex-1 -mx-1 px-1">
+            {rolesLoading ? (
+              <div className="text-center py-8 text-xs text-muted-foreground">Loading roles…</div>
             ) : (
-              <div className="text-center py-8 text-sm text-muted-foreground border rounded-lg bg-muted/10">
-                Select a role above to assign permissions.
+              <div className="space-y-1">
+                {businessRoles.map((role) => (
+                  <RoleListItem
+                    key={role.code}
+                    role={role}
+                    orgId={orgId}
+                    isProtected={PROTECTED_ROLES.includes(role.code)}
+                    isSelected={selectedRole?.code === role.code}
+                    onSelect={() => setSelectedRole(role)}
+                    onDelete={() => setDeleteTarget(role)}
+                  />
+                ))}
+                {businessRoles.length === 0 && (
+                  <div className="text-center py-8 text-xs text-muted-foreground">No roles found.</div>
+                )}
               </div>
             )}
-          </div>
+          </ScrollArea>
+        </div>
 
-          {/* Separator */}
-          <div className="border-t" />
-
-          {/* Permission Catalog Section */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <KeyRound className="h-4 w-4 text-primary" />
-              <h3 className="text-sm font-semibold">Permission Catalog</h3>
-              <span className="text-xs text-muted-foreground">— Add, edit or remove permissions</span>
+        {/* ── RIGHT PANEL: Permission Matrix ── */}
+        <div className="border rounded-lg bg-card overflow-hidden">
+          {selectedRole ? (
+            <PermissionMatrixPanel
+              role={selectedRole}
+              orgId={orgId}
+              permissions={permissions}
+              permsByCategory={permsByCategory}
+              onSaved={() => {
+                qc.invalidateQueries({ queryKey: ["role-permissions", selectedRole.code] });
+                toast.success(`Permissions saved for ${selectedRole.name}`);
+              }}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full py-20 text-center px-6">
+              <div className="p-4 rounded-full bg-muted/50 mb-4">
+                <Shield className="h-8 w-8 text-muted-foreground/50" />
+              </div>
+              <p className="text-sm font-medium text-muted-foreground">Select a role to configure permissions</p>
+              <p className="text-xs text-muted-foreground/70 mt-1">
+                Choose a role from the left panel to view and edit its module access.
+              </p>
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* Permission Catalog — collapsed by default to de-clutter */}
+      <Accordion type="single" collapsible className="border rounded-lg">
+        <AccordionItem value="catalog" className="border-none">
+          <AccordionTrigger className="px-4 py-3 text-sm font-semibold hover:no-underline">
+            <span className="flex items-center gap-2">
+              <KeyRound className="h-4 w-4 text-primary" />
+              Permission Catalog
+              <span className="text-xs font-normal text-muted-foreground">— add, edit or remove system permissions</span>
+            </span>
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pb-4">
             <PermissionCatalog
               permissions={permissions}
               permsByCategory={permsByCategory}
               onRefresh={() => qc.invalidateQueries({ queryKey: ["rbac-permissions"] })}
             />
-          </div>
-        </TabsContent>
-      </Tabs>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
 
       {/* Create Role Dialog */}
       <CreateRoleDialog
@@ -254,7 +227,6 @@ export function RolesPermissionsModule() {
           setIsCreateOpen(false);
           toast.success(`Role "${newRole.name}" created. Now assign permissions.`);
           setSelectedRole(newRole as Role);
-          setActiveTab("permissions");
         }}
       />
 
@@ -286,12 +258,12 @@ export function RolesPermissionsModule() {
   );
 }
 
-// ─── Role Card ─────────────────────────────────────────────────────────────────
-function RoleCard({
-  role, orgId, isProtected, onAssignPermissions, onDelete,
+// ─── Role List Item (left panel) ───────────────────────────────────────────────
+function RoleListItem({
+  role, orgId, isProtected, isSelected, onSelect, onDelete,
 }: {
   role: Role; orgId: string; isProtected: boolean;
-  onAssignPermissions: () => void; onDelete: () => void;
+  isSelected: boolean; onSelect: () => void; onDelete: () => void;
 }) {
   const { data: assignedPerms = [] } = useQuery({
     queryKey: ["role-permissions", role.code, orgId],
@@ -299,49 +271,40 @@ function RoleCard({
   });
 
   return (
-    <div className="flex items-center justify-between p-3 rounded-md border bg-card hover:bg-muted/20 transition-colors group">
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="p-2 rounded-md bg-muted/50 shrink-0">
-          <Users className="h-4 w-4 text-muted-foreground" />
+    <div
+      onClick={onSelect}
+      className={`group flex items-center justify-between p-2.5 rounded-md cursor-pointer transition-colors border ${
+        isSelected
+          ? "bg-primary/10 border-primary/30 text-primary"
+          : "bg-transparent border-transparent hover:bg-muted/40 hover:border-border"
+      }`}
+    >
+      <div className="flex items-center gap-2.5 min-w-0">
+        <div className={`p-1.5 rounded-md shrink-0 ${isSelected ? "bg-primary/15" : "bg-muted/50"}`}>
+          <Users className="h-3.5 w-3.5" />
         </div>
         <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-sm">{role.name}</span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-medium text-xs truncate">{role.name}</span>
             {isProtected && (
-              <Badge variant="outline" className="text-[9px] gap-1 px-1.5 py-0 border-warning/40 text-warning bg-warning/5">
-                <Lock className="h-2.5 w-2.5" /> Protected
+              <Badge variant="outline" className="text-[9px] gap-1 px-1 py-0 border-amber-400/40 text-amber-600 bg-amber-50 dark:bg-amber-950/20">
+                <Lock className="h-2 w-2" /> Protected
               </Badge>
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5 truncate">
-            {role.description || "No description"}
-          </p>
-          <div className="flex items-center gap-1.5 mt-1">
-            <code className="text-[10px] text-muted-foreground bg-muted px-1 rounded">{role.code}</code>
-            <span className="text-[10px] text-muted-foreground">•</span>
-            <span className="text-[10px] text-muted-foreground">
-              {assignedPerms.length} permission{assignedPerms.length !== 1 ? "s" : ""}
-            </span>
-          </div>
+          <span className="text-[10px] text-muted-foreground">{assignedPerms.length} permissions</span>
         </div>
       </div>
-      <div className="flex items-center gap-1 shrink-0 ml-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5 h-7 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={onAssignPermissions}
-        >
-          <Settings2 className="h-3.5 w-3.5" /> Assign Permissions
-        </Button>
+      <div className="flex items-center gap-0.5 shrink-0">
+        {isSelected && <ChevronRight className="h-3.5 w-3.5 text-primary" />}
         {!isProtected && (
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={onDelete}
+            className="h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 className="h-3 w-3" />
           </Button>
         )}
       </div>
@@ -349,11 +312,12 @@ function RoleCard({
   );
 }
 
-// ─── Permissions Editor ────────────────────────────────────────────────────────
-function PermissionsEditor({
-  role, orgId, permsByCategory, onSaved,
+// ─── Permission Matrix Panel (right panel) ─────────────────────────────────────
+function PermissionMatrixPanel({
+  role, orgId, permissions, permsByCategory, onSaved,
 }: {
   role: Role; orgId: string;
+  permissions: Permission[];
   permsByCategory: Record<string, Permission[]>;
   onSaved: () => void;
 }) {
@@ -363,6 +327,7 @@ function PermissionsEditor({
   });
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [filter, setFilter] = useState<"all" | "granted" | "denied">("all");
 
   useEffect(() => {
     setSelected(new Set(currentPerms));
@@ -382,7 +347,7 @@ function PermissionsEditor({
     });
   };
 
-  const toggleCategory = (perms: Permission[]) => {
+  const toggleModule = (perms: Permission[]) => {
     const allSelected = perms.every(p => selected.has(p.key));
     setSelected(prev => {
       const next = new Set(prev);
@@ -393,83 +358,244 @@ function PermissionsEditor({
     });
   };
 
-  const selectAll = () => setSelected(new Set(Object.values(permsByCategory).flat().map(p => p.key)));
-  const clearAll = () => setSelected(new Set());
-  const totalPerms = Object.values(permsByCategory).flat().length;
+  const isDirty = useMemo(() => {
+    const current = new Set(currentPerms);
+    if (current.size !== selected.size) return true;
+    for (const k of selected) if (!current.has(k)) return true;
+    return false;
+  }, [currentPerms, selected]);
+
+  // Build module cards from registry, supplemented by DB permissions not in registry
+  const registryKeySet = new Set(
+    SYSTEM_MODULES_REGISTRY.flatMap(m => m.permissions.map(p => p.key))
+  );
+  const uncategorizedPerms = permissions.filter(p => !registryKeySet.has(p.key));
+
+  // For each registry module, find matching DB permissions
+  const moduleCards: Array<{ module: ModuleDef; dbPerms: Permission[] }> =
+    SYSTEM_MODULES_REGISTRY.map(module => ({
+      module,
+      dbPerms: module.permissions
+        .map(pd => permissions.find(p => p.key === pd.key))
+        .filter((p): p is Permission => !!p),
+    })).filter(({ dbPerms }) => dbPerms.length > 0);
+
+  // Group uncategorized perms by their DB category
+  const extraByCategory = useMemo(() => {
+    const map: Record<string, Permission[]> = {};
+    for (const p of uncategorizedPerms) {
+      if (!map[p.category]) map[p.category] = [];
+      map[p.category].push(p);
+    }
+    return map;
+  }, [uncategorizedPerms]);
+
+  const totalPerms = permissions.length;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/20">
         <div>
           <h3 className="font-semibold text-sm">
             Permissions for <span className="text-primary">{role.name}</span>
           </h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {selected.size} of {totalPerms} permissions selected
+          <p className="text-xs text-muted-foreground">
+            {selected.size} of {totalPerms} permissions enabled
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={clearAll} className="text-xs h-7">Clear All</Button>
-          <Button variant="outline" size="sm" onClick={selectAll} className="text-xs h-7">Select All</Button>
+        <div className="flex items-center gap-2">
+          <ToggleGroup
+            type="single"
+            value={filter}
+            onValueChange={(v) => v && setFilter(v as any)}
+            className="h-7"
+          >
+            <ToggleGroupItem value="all" className="h-7 text-xs px-2">All</ToggleGroupItem>
+            <ToggleGroupItem value="granted" className="h-7 text-xs px-2">Granted</ToggleGroupItem>
+            <ToggleGroupItem value="denied" className="h-7 text-xs px-2">Denied</ToggleGroupItem>
+          </ToggleGroup>
+          <Button
+            size="sm"
+            className="gap-1.5 h-7 text-xs"
+            onClick={() => mutation.mutate([...selected])}
+            disabled={mutation.isPending || !isDirty}
+          >
+            <Save className="h-3.5 w-3.5" />
+            {mutation.isPending ? "Saving…" : "Save"}
+          </Button>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="text-center py-10 text-sm text-muted-foreground">Loading…</div>
+        <div className="flex items-center justify-center flex-1 text-sm text-muted-foreground">
+          Loading permissions…
+        </div>
       ) : (
-        <ScrollArea className="h-[480px] pr-3">
-          <div className="space-y-5 pb-2">
-            {Object.entries(permsByCategory).map(([category, perms]) => {
-              const allSel = perms.every(p => selected.has(p.key));
+        <ScrollArea className="flex-1">
+          <div className="p-4 space-y-3">
+            {/* Registry-based module cards */}
+            {moduleCards.map(({ module, dbPerms }) => (
+              <ModulePermissionCard
+                key={module.id}
+                module={module}
+                dbPerms={dbPerms}
+                selected={selected}
+                filter={filter}
+                onToggle={toggle}
+                onToggleAll={() => toggleModule(dbPerms)}
+              />
+            ))}
+
+            {/* Extra DB permissions not in registry */}
+            {Object.entries(extraByCategory).map(([category, perms]) => {
               const colorClass = CATEGORY_COLORS[category] ?? "bg-muted/50 text-muted-foreground border-border";
+              const filteredPerms = perms.filter(p =>
+                filter === "all" ? true :
+                filter === "granted" ? selected.has(p.key) :
+                !selected.has(p.key)
+              );
+              if (filteredPerms.length === 0) return null;
               return (
                 <div key={category} className="rounded-lg border overflow-hidden">
-                  <div
-                    className={`flex items-center gap-2 px-3 py-2 cursor-pointer border-b ${colorClass}`}
-                    onClick={() => toggleCategory(perms)}
-                  >
-                    <Checkbox
-                      checked={allSel}
-                      className="h-3.5 w-3.5"
-                      onCheckedChange={() => toggleCategory(perms)}
-                      aria-label={`Toggle all ${category}`}
-                    />
+                  <div className={`flex items-center gap-2 px-3 py-2 ${colorClass}`}>
+                    <KeyRound className="h-3.5 w-3.5 shrink-0" />
                     <span className="text-xs font-semibold flex-1">{category}</span>
-                    <span className="text-[10px] opacity-70">
-                      {perms.filter(p => selected.has(p.key)).length}/{perms.length}
-                    </span>
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">{filteredPerms.length}</Badge>
                   </div>
                   <div className="divide-y">
-                    {perms.map(p => (
-                      <div
+                    {filteredPerms.map(p => (
+                      <PermissionRow
                         key={p.key}
-                        className="flex items-start gap-3 px-3 py-2 hover:bg-muted/30 cursor-pointer"
-                        onClick={() => toggle(p.key)}
-                      >
-                        <Checkbox
-                          checked={selected.has(p.key)}
-                          className="h-3.5 w-3.5 mt-0.5 shrink-0"
-                          onCheckedChange={() => toggle(p.key)}
-                        />
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium leading-tight">{p.description}</p>
-                          <code className="text-[10px] text-muted-foreground">{p.key}</code>
-                        </div>
-                      </div>
+                        permKey={p.key}
+                        description={p.description || p.key}
+                        isSelected={selected.has(p.key)}
+                        onToggle={() => toggle(p.key)}
+                      />
                     ))}
                   </div>
                 </div>
               );
             })}
+
+            {moduleCards.length === 0 && Object.keys(extraByCategory).length === 0 && (
+              <div className="text-center py-12 text-sm text-muted-foreground">
+                No permissions found in the system.
+              </div>
+            )}
           </div>
         </ScrollArea>
       )}
+    </div>
+  );
+}
 
-      <div className="flex justify-end gap-2 pt-2 border-t">
-        <Button onClick={() => mutation.mutate([...selected])} disabled={mutation.isPending} className="gap-2">
-          <Shield className="h-4 w-4" />
-          {mutation.isPending ? "Saving…" : "Save Role Permissions"}
-        </Button>
+// ─── Module Permission Card ────────────────────────────────────────────────────
+function ModulePermissionCard({
+  module, dbPerms, selected, filter, onToggle, onToggleAll,
+}: {
+  module: ModuleDef;
+  dbPerms: Permission[];
+  selected: Set<string>;
+  filter: "all" | "granted" | "denied";
+  onToggle: (key: string) => void;
+  onToggleAll: () => void;
+}) {
+  const [open, setOpen] = useState(true);
+
+  const filteredPerms = dbPerms.filter(p =>
+    filter === "all" ? true :
+    filter === "granted" ? selected.has(p.key) :
+    !selected.has(p.key)
+  );
+
+  const enabledCount = dbPerms.filter(p => selected.has(p.key)).length;
+  const total = dbPerms.length;
+  const allEnabled = enabledCount === total && total > 0;
+  const progressPct = total > 0 ? (enabledCount / total) * 100 : 0;
+
+  const colorClass = CATEGORY_COLORS[module.category] ?? "bg-muted/50 text-muted-foreground border-border";
+  const icon = MODULE_ICONS[module.icon] ?? <Shield className="h-4 w-4" />;
+
+  if (filteredPerms.length === 0 && filter !== "all") return null;
+
+  return (
+    <div className="rounded-lg border overflow-hidden">
+      {/* Card Header */}
+      <div
+        className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer ${colorClass}`}
+        onClick={() => setOpen(!open)}
+      >
+        <div className="shrink-0">{icon}</div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold">{module.label}</span>
+            <span className="text-[10px] opacity-70">{enabledCount}/{total}</span>
+          </div>
+          <Progress value={progressPct} className="h-1 mt-1 w-32 opacity-60" />
+        </div>
+        <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <span className="text-[10px] opacity-70">Enable all</span>
+          <Switch
+            checked={allEnabled}
+            onCheckedChange={onToggleAll}
+            className="h-4 w-7 data-[state=checked]:bg-current"
+          />
+        </div>
+        <ChevronRight
+          className={`h-3.5 w-3.5 opacity-60 transition-transform ${open ? "rotate-90" : ""}`}
+        />
+      </div>
+
+      {/* Permission Rows */}
+      {open && filteredPerms.length > 0 && (
+        <div className="divide-y">
+          {filteredPerms.map(p => {
+            // Find enriched description from registry
+            const registryPerm = SYSTEM_MODULES_REGISTRY
+              .flatMap(m => m.permissions)
+              .find(pd => pd.key === p.key);
+            return (
+              <PermissionRow
+                key={p.key}
+                permKey={p.key}
+                description={registryPerm?.description || p.description || p.key}
+                isSelected={selected.has(p.key)}
+                onToggle={() => onToggle(p.key)}
+              />
+            );
+          })}
+        </div>
+      )}
+      {open && filteredPerms.length === 0 && filter !== "all" && (
+        <div className="px-3 py-2 text-xs text-muted-foreground italic">
+          No {filter} permissions in this module.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Permission Row ────────────────────────────────────────────────────────────
+function PermissionRow({
+  permKey, description, isSelected, onToggle,
+}: {
+  permKey: string; description: string; isSelected: boolean; onToggle: () => void;
+}) {
+  return (
+    <div
+      className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/20 cursor-pointer transition-colors"
+      onClick={onToggle}
+    >
+      <Switch
+        checked={isSelected}
+        onCheckedChange={onToggle}
+        className="h-4 w-7 shrink-0"
+        onClick={(e) => e.stopPropagation()}
+      />
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium leading-tight">{description}</p>
+        <code className="text-[10px] text-muted-foreground">{permKey}</code>
       </div>
     </div>
   );
@@ -534,7 +660,7 @@ function PermissionCatalog({
         </Button>
       </div>
 
-      <ScrollArea className="h-[500px] pr-3">
+      <ScrollArea className="h-[400px] pr-3">
         <div className="space-y-4 pb-2">
           {Object.entries(filteredByCategory).map(([category, perms]) => {
             const colorClass = CATEGORY_COLORS[category] ?? "bg-muted/50 text-muted-foreground border-border";
@@ -589,15 +715,12 @@ function PermissionCatalog({
         </div>
       </ScrollArea>
 
-      {/* Create Dialog */}
       <PermissionFormDialog
         open={isCreateOpen}
         onOpenChange={setIsCreateOpen}
         existingKeys={permissions.map(p => p.key)}
         onSaved={() => { onRefresh(); setIsCreateOpen(false); }}
       />
-
-      {/* Edit Dialog */}
       <PermissionFormDialog
         open={!!editTarget}
         onOpenChange={(o) => !o && setEditTarget(null)}
@@ -605,8 +728,6 @@ function PermissionCatalog({
         existingKeys={permissions.map(p => p.key).filter(k => k !== editTarget?.key)}
         onSaved={() => { onRefresh(); setEditTarget(null); }}
       />
-
-      {/* Delete Confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -635,7 +756,7 @@ function PermissionCatalog({
   );
 }
 
-// ─── Permission Form Dialog (Create / Edit) ────────────────────────────────────
+// ─── Permission Form Dialog ────────────────────────────────────────────────────
 function PermissionFormDialog({
   open, onOpenChange, permission, existingKeys, onSaved,
 }: {
@@ -688,9 +809,7 @@ function PermissionFormDialog({
       <DialogContent className="sm:max-w-[460px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {isEdit
-              ? <Pencil className="h-5 w-5 text-primary" />
-              : <Plus className="h-5 w-5 text-primary" />}
+            {isEdit ? <Pencil className="h-5 w-5 text-primary" /> : <Plus className="h-5 w-5 text-primary" />}
             {isEdit ? "Edit Permission" : "Create New Permission"}
           </DialogTitle>
           <DialogDescription>
@@ -701,7 +820,6 @@ function PermissionFormDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {/* Key */}
           <div className="space-y-1.5">
             <Label htmlFor="perm-key">
               Permission Key <span className="text-destructive">*</span>
@@ -727,7 +845,6 @@ function PermissionFormDialog({
             )}
           </div>
 
-          {/* Category */}
           <div className="space-y-1.5">
             <Label htmlFor="perm-category">
               Category <span className="text-destructive">*</span>
@@ -744,7 +861,6 @@ function PermissionFormDialog({
             </Select>
           </div>
 
-          {/* Description */}
           <div className="space-y-1.5">
             <Label htmlFor="perm-desc">Description</Label>
             <Textarea
@@ -818,8 +934,7 @@ function CreateRoleDialog({
             Create New Role
           </DialogTitle>
           <DialogDescription>
-            Define the role name and description. After creation you'll be taken to
-            the Permissions tab to assign what this role can access.
+            Define the role name and description. After creation, select it to assign permissions.
           </DialogDescription>
         </DialogHeader>
 
@@ -836,7 +951,9 @@ function CreateRoleDialog({
 
           <div className="space-y-1.5">
             <Label>Auto-generated Code</Label>
-            <div className={`px-3 py-2 rounded-md border text-sm font-mono ${codeConflict ? "border-destructive bg-destructive/5 text-destructive" : "bg-muted text-muted-foreground"}`}>
+            <div className={`px-3 py-2 rounded-md border text-sm font-mono ${
+              codeConflict ? "border-destructive bg-destructive/5 text-destructive" : "bg-muted text-muted-foreground"
+            }`}>
               {codePreview || "…"}
               {codeConflict && <span className="ml-2 text-xs font-sans">— already exists</span>}
             </div>

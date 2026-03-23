@@ -147,29 +147,33 @@ ALTER TABLE public.permission_cache ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_preferences ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for users table
-    FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "users_select_own"
+    ON public.users FOR SELECT USING (auth.uid() = id);
 
-    FOR ALL USING (
+CREATE POLICY "users_all_super_admin"
+    ON public.users FOR ALL USING (
         EXISTS (
-            SELECT 1 FROM public.users 
+            SELECT 1 FROM public.users
             WHERE id = auth.uid() AND role = 'super_admin'
         )
     );
 
-    FOR SELECT USING (
+CREATE POLICY "users_select_org_admin"
+    ON public.users FOR SELECT USING (
         EXISTS (
             SELECT 1 FROM public.users u1, public.users u2
-            WHERE u1.id = auth.uid() 
+            WHERE u1.id = auth.uid()
             AND u1.role = 'organization_admin'
             AND u2.id = public.users.id
             AND u1.organization_id = u2.organization_id
         )
     );
 
-    FOR SELECT USING (
+CREATE POLICY "users_select_payroll_manager"
+    ON public.users FOR SELECT USING (
         EXISTS (
             SELECT 1 FROM public.users u1, public.users u2
-            WHERE u1.id = auth.uid() 
+            WHERE u1.id = auth.uid()
             AND u1.role = 'payroll_manager'
             AND u2.id = public.users.id
             AND u1.department_id = u2.department_id
@@ -177,45 +181,54 @@ ALTER TABLE public.user_preferences ENABLE ROW LEVEL SECURITY;
     );
 
 -- RLS Policies for role assignments
-    FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "role_assignments_select_own"
+    ON public.role_assignments FOR SELECT USING (auth.uid() = user_id);
 
-    FOR ALL USING (
+CREATE POLICY "role_assignments_all_admins"
+    ON public.role_assignments FOR ALL USING (
         EXISTS (
-            SELECT 1 FROM public.users 
-            WHERE id = auth.uid() 
+            SELECT 1 FROM public.users
+            WHERE id = auth.uid()
             AND role IN ('super_admin', 'organization_admin')
         )
     );
 
 -- RLS Policies for user sessions
-    FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "user_sessions_select_own"
+    ON public.user_sessions FOR SELECT USING (auth.uid() = user_id);
 
-    FOR ALL USING (
+CREATE POLICY "user_sessions_all_admins"
+    ON public.user_sessions FOR ALL USING (
         EXISTS (
-            SELECT 1 FROM public.users 
-            WHERE id = auth.uid() 
+            SELECT 1 FROM public.users
+            WHERE id = auth.uid()
             AND role IN ('super_admin', 'organization_admin')
         )
     );
 
 -- RLS Policies for audit logs (handle data type compatibility)
-    FOR SELECT USING (auth.uid()::text = user_id);
+CREATE POLICY "audit_logs_select_own"
+    ON public.audit_logs FOR SELECT USING (auth.uid()::text = user_id);
 
-    FOR ALL USING (
+CREATE POLICY "audit_logs_all_admins"
+    ON public.audit_logs FOR ALL USING (
         EXISTS (
-            SELECT 1 FROM public.users 
-            WHERE id = auth.uid() 
+            SELECT 1 FROM public.users
+            WHERE id = auth.uid()
             AND role IN ('super_admin', 'organization_admin')
         )
     );
 
 -- RLS Policies for permission cache
-    FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "permission_cache_select_own"
+    ON public.permission_cache FOR SELECT USING (auth.uid() = user_id);
 
-    FOR ALL USING (true); -- Allow system operations
+CREATE POLICY "permission_cache_all_system"
+    ON public.permission_cache FOR ALL USING (true); -- Allow system operations
 
 -- RLS Policies for user preferences
-    FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "user_preferences_all_own"
+    ON public.user_preferences FOR ALL USING (auth.uid() = user_id);
 
 -- Functions for role-based access control
 CREATE OR REPLACE FUNCTION public.get_user_role(user_id UUID)

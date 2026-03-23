@@ -27,34 +27,34 @@ ALTER TABLE public.payslip_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payslip_generations ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies for payslip_templates
-ON public.payslip_templates FOR SELECT 
-TO authenticated 
+CREATE POLICY "payslip_templates_select" ON public.payslip_templates FOR SELECT
+TO authenticated
 USING (auth.uid() = user_id);
 
-ON public.payslip_templates FOR INSERT 
-TO authenticated 
+CREATE POLICY "payslip_templates_insert" ON public.payslip_templates FOR INSERT
+TO authenticated
 WITH CHECK (auth.uid() = user_id);
 
-ON public.payslip_templates FOR UPDATE 
-TO authenticated 
+CREATE POLICY "payslip_templates_update" ON public.payslip_templates FOR UPDATE
+TO authenticated
 USING (auth.uid() = user_id);
 
-ON public.payslip_templates FOR DELETE 
-TO authenticated 
+CREATE POLICY "payslip_templates_delete" ON public.payslip_templates FOR DELETE
+TO authenticated
 USING (auth.uid() = user_id);
 
 -- Create RLS policies for payslip_generations
-ON public.payslip_generations FOR SELECT 
-TO authenticated 
+CREATE POLICY "payslip_generations_select" ON public.payslip_generations FOR SELECT
+TO authenticated
 USING (
     EXISTS (
-        SELECT 1 FROM public.payslip_templates 
+        SELECT 1 FROM public.payslip_templates
         WHERE id = template_id AND user_id = auth.uid()
     )
 );
 
-ON public.payslip_generations FOR INSERT 
-TO authenticated 
+CREATE POLICY "payslip_generations_insert" ON public.payslip_generations FOR INSERT
+TO authenticated
 WITH CHECK (true);
 
 -- Create indexes for better performance

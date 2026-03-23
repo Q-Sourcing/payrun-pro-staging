@@ -1,8 +1,8 @@
--- START OF migration.sql -- Create schemas CREATE SCHEMA IF NOT EXISTS auth; CREATE SCHEMA IF NOT EXISTS storage; CREATE SCHEMA IF NOT EXISTS realtime; CREATE SCHEMA IF NOT EXISTS vault; CREATE SCHEMA IF NOT EXISTS graphql; CREATE SCHEMA IF NOT EXISTS graphql_public; CREATE SCHEMA IF NOT EXISTS public;
+-- START OF migration.sql
 
--- Extensions (may require superuser) CREATE EXTENSION IF NOT EXISTS plpgsql WITH SCHEMA pg_catalog; CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions; CREATE EXTENSION IF NOT EXISTS pg_stat_statements WITH SCHEMA extensions; CREATE EXTENSION IF NOT EXISTS uuid_ossp WITH SCHEMA extensions; CREATE EXTENSION IF NOT EXISTS postgis; CREATE EXTENSION IF NOT EXISTS postgis_raster; CREATE EXTENSION IF NOT EXISTS postgis_sfcgal; CREATE EXTENSION IF NOT EXISTS postgis_topology; CREATE EXTENSION IF NOT EXISTS pgsodium; CREATE EXTENSION IF NOT EXISTS pgjwt; CREATE EXTENSION IF NOT EXISTS citext; CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE EXTENSION IF NOT EXISTS ltree; CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS file_fdw; CREATE EXTENSION IF NOT EXISTS postgres_fdw; CREATE EXTENSION IF NOT EXISTS pgrowlocks; CREATE EXTENSION IF NOT EXISTS pg_repack; CREATE EXTENSION IF NOT EXISTS pg_stat_monitor; CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS rum; CREATE EXTENSION IF NOT EXISTS btree_gin; CREATE EXTENSION IF NOT EXISTS btree_gist; CREATE EXTENSION IF NOT EXISTS pg_buffercache; CREATE EXTENSION IF NOT EXISTS pg_prewarm; CREATE EXTENSION IF NOT EXISTS pg_cron; CREATE EXTENSION IF NOT EXISTS pgcrypto; -- repeated safe CREATE EXTENSION IF NOT EXISTS tablefunc; CREATE EXTENSION IF NOT EXISTS xml2; CREATE EXTENSION IF NOT EXISTS pgjwt; -- repeated safe
 
--- Create user-defined types (as observed). If a type already exists, these checks avoid error. DO 
+-- Create user-defined types (as observed). If a type already exists, these checks avoid error.
+DO $$
 BEGIN
 IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payrunstatus')
 THEN CREATE TYPE public.payrunstatus AS ENUM ('draft', 'pendingapproval', 'approved', 'processed');
@@ -22,83 +22,17 @@ END IF;
 IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'benefittype')
 THEN CREATE TYPE public.benefittype AS ENUM ('healthinsurance', 'retirement', 'dental', 'vision', 'other');
 END IF;
--- Auth schema enums
-IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'aallevel')
-THEN CREATE TYPE auth.aallevel AS ENUM ('aal1', 'aal2', 'aal3');
-END IF;
-IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'factortype')
-THEN CREATE TYPE auth.factortype AS ENUM ('totp', 'webauthn', 'phone');
-END IF;
-IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'factorstatus')
-THEN CREATE TYPE auth.factorstatus AS ENUM ('unverified', 'verified');
-END IF;
-IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'oauthresponsetype')
-THEN CREATE TYPE auth.oauthresponsetype AS ENUM ('code');
-END IF;
-IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'oauthclienttype')
-THEN CREATE TYPE auth.oauthclienttype AS ENUM ('public', 'confidential');
-END IF;
-IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'oauthregistrationtype')
-THEN CREATE TYPE auth.oauthregistrationtype AS ENUM ('dynamic', 'manual');
-END IF;
-IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'codechallengemethod')
-THEN CREATE TYPE auth.codechallengemethod AS ENUM ('s256', 'plain');
-END IF;
-IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'onetimetokentype')
-THEN CREATE TYPE auth.onetimetokentype AS ENUM ('confirmationtoken', 'reauthenticationtoken', 'recoverytoken', 'emailchangetokennew', 'emailchangetokencurrent', 'phonechangetoken');
-END IF;
 END;
+$$;
 
--- Sequences (ensure existence) DO 
-BEGIN
-IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relkind = 'S' AND relname = 'auth.refreshtokensidseq')
-THEN CREATE SEQUENCE auth.refreshtokensidseq;
-END IF;
-END;
 
--- Functions (stubs or recreated where necessary) -- vault.crypto_aead_det_noncegen used as default DO 
-BEGIN
-IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'cryptoaeaddetnoncegen' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'vault'))
-THEN CREATE OR REPLACE FUNCTION vault.cryptoaeaddetnoncegen() RETURNS bytea LANGUAGE sql SECURITY DEFINER AS SELECT gen_random_bytes(12); 
-;
-END IF;
-END;
 
--- storage.get_level used as default for storage.prefixes.level DO 
-BEGIN
-IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'getlevel' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'storage'))
-THEN CREATE OR REPLACE FUNCTION storage.getlevel(nametext) RETURNS integer LANGUAGE sql STABLE AS SELECT 0; 
-;
-END IF;
-END;
 
--- realtime.broadcast_changes exists in realtime schema in Supabase; create safe stub if missing DO 
-BEGIN
-IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'broadcastchanges' AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'realtime'))
-THEN CREATE OR REPLACE FUNCTION realtime.broadcastchanges(topictext,optext,eventtext,tablenametext,tableschematetext,newrowjsonb,oldrowjsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS BEGIN -- Stub: actual realtime.broadcast_changes is provided by Supabase realtime. This stub is no-op for local dev. RETURN; END; 
-;
-END IF;
-END;
-
--- Example helper used in default for storage.objects path tokens: string_to_array built-in used, so no helper needed.
 
 -- Tables: create in dependency order where possible
 
--- Schema: storage.prefixes CREATE TABLE IF NOT EXISTS storage.prefixes ( bucket_id text NOT NULL, name text NOT NULL, level integer NOT NULL DEFAULT storage.getlevel(name), created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now(), PRIMARY KEY (bucket_id, name, level) );
 
--- Schema: storage.buckets (referenced by storage.prefixes and storage.objects) CREATE TYPE IF NOT EXISTS storage.buckettype AS ENUM ('STANDARD','ANALYTICS'); CREATE TABLE IF NOT EXISTS storage.buckets ( id text PRIMARY KEY, name text, owner uuid, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now(), public boolean DEFAULT false, avif_autodetection boolean DEFAULT false, file_size_limit bigint, allowed_mime_types text[], owner_id text, type storage.buckettype DEFAULT 'STANDARD'::storage.buckettype );
-
--- storage.objects CREATE TABLE IF NOT EXISTS storage.objects ( id uuid DEFAULT gen_random_uuid() PRIMARY KEY, bucket_id text, name text, owner uuid, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now(), last_accessed_at timestamptz DEFAULT now(), metadata jsonb, path_tokens text[] DEFAULT string_to_array(name, '/'::text), version text, owner_id text, user_metadata jsonb, level integer );
-
--- storage.s3_multipart_uploads CREATE TABLE IF NOT EXISTS storage.s3_multipart_uploads ( id text PRIMARY KEY, in_progress_size bigint DEFAULT 0, upload_signature text, bucket_id text, key text, version text, owner_id text, created_at timestamptz DEFAULT now(), user_metadata jsonb );
-
--- storage.s3_multipart_uploads_parts CREATE TABLE IF NOT EXISTS storage.s3_multipart_uploads_parts ( id uuid DEFAULT gen_random_uuid() PRIMARY KEY, upload_id text, size bigint DEFAULT 0, part_number integer, bucket_id text, key text, etag text, owner_id text, version text, created_at timestamptz DEFAULT now() );
-
--- storage.buckets_analytics CREATE TABLE IF NOT EXISTS storage.buckets_analytics ( id text PRIMARY KEY, type storage.buckettype DEFAULT 'ANALYTICS'::storage.buckettype, format text DEFAULT 'ICEBERG'::text, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now() );
-
--- storage.migrations CREATE TABLE IF NOT EXISTS storage.migrations ( id integer, name character varying UNIQUE, hash character varying, executed_at timestamp DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (id) );
-
--- Schema: public (key tables) CREATE TABLE IF NOT EXISTS public.users ( id uuid DEFAULT gen_random_uuid() PRIMARY KEY, email character varying UNIQUE, first_name character varying, last_name character varying, role character varying NOT NULL CHECK (role::text = ANY (ARRAY['super_admin'::character varying, 'organization_admin'::character varying, 'ceo_executive'::character varying, 'payroll_manager'::character varying, 'employee'::character varying, 'hr_business_partner'::character varying, 'finance_controller'::character varying]::text[])), organization_id uuid, department_id character varying, manager_id uuid, is_active boolean DEFAULT true, last_login timestamptz, two_factor_enabled boolean DEFAULT false, session_timeout integer DEFAULT 480, permissions text[] DEFAULT '{}'::text[], restrictions text[] DEFAULT '{}'::text[], created_by uuid, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now() );
+CREATE TABLE IF NOT EXISTS public.users ( id uuid DEFAULT gen_random_uuid() PRIMARY KEY, email character varying UNIQUE, first_name character varying, last_name character varying, role character varying NOT NULL CHECK (role::text = ANY (ARRAY['super_admin'::character varying, 'organization_admin'::character varying, 'ceo_executive'::character varying, 'payroll_manager'::character varying, 'employee'::character varying, 'hr_business_partner'::character varying, 'finance_controller'::character varying]::text[])), organization_id uuid, department_id character varying, manager_id uuid, is_active boolean DEFAULT true, last_login timestamptz, two_factor_enabled boolean DEFAULT false, session_timeout integer DEFAULT 480, permissions text[] DEFAULT '{}'::text[], restrictions text[] DEFAULT '{}'::text[], created_by uuid, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now() );
 
 CREATE TABLE IF NOT EXISTS public.employee_number_settings ( id uuid DEFAULT gen_random_uuid() PRIMARY KEY, number_format text DEFAULT 'PREFIX-SEQUENCE'::text, default_prefix text DEFAULT 'EMP'::text, sequence_digits integer DEFAULT 3 CHECK (sequence_digits >= 1 AND sequence_digits <= 10), use_department_prefix boolean DEFAULT false, include_country_code boolean DEFAULT false, use_employment_type boolean DEFAULT false, custom_prefix_per_pay_group boolean DEFAULT false, custom_format text, next_sequence integer DEFAULT 1 CHECK (next_sequence > 0), department_rules jsonb DEFAULT '{}'::jsonb, country_rules jsonb DEFAULT '{}'::jsonb, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now() );
 
@@ -168,55 +102,15 @@ CREATE TABLE IF NOT EXISTS public.lst_employee_assignments ( id uuid DEFAULT gen
 
 CREATE TABLE IF NOT EXISTS public.user_roles ( id uuid DEFAULT gen_random_uuid() PRIMARY KEY, user_id uuid, role public.app_role, created_at timestamptz DEFAULT now() );
 
--- Note: public.app_role enum may be required — create if missing DO 
+-- Note: public.app_role enum may be required — create if missing
+DO $$
 BEGIN
 IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'approle')
 THEN CREATE TYPE public.approle AS ENUM ('superadmin', 'admin', 'manager', 'employee');
 END IF;
 END;
+$$;
 
--- Schema: auth CREATE TABLE IF NOT EXISTS auth.users ( instance_id uuid, id uuid PRIMARY KEY, aud character varying, role character varying, email character varying, encrypted_password character varying, email_confirmed_at timestamptz, invited_at timestamptz, confirmation_token character varying, confirmation_sent_at timestamptz, recovery_token character varying, recovery_sent_at timestamptz, email_change_token_new character varying, email_change character varying, email_change_sent_at timestamptz, last_sign_in_at timestamptz, raw_app_meta_data jsonb, raw_user_meta_data jsonb, is_super_admin boolean, created_at timestamptz, updated_at timestamptz, phone text UNIQUE DEFAULT NULL::character varying, phone_confirmed_at timestamptz, phone_change character varying DEFAULT ''::character varying, phone_change_token character varying DEFAULT ''::character varying, phone_change_sent_at timestamptz, confirmed_at timestamptz GENERATED ALWAYS AS (LEAST(email_confirmed_at, phone_confirmed_at)) STORED, email_change_token_current character varying DEFAULT ''::character varying, email_change_confirm_status smallint DEFAULT 0 CHECK (email_change_confirm_status >= 0 AND email_change_confirm_status <= 2), banned_until timestamptz, reauthentication_token character varying DEFAULT ''::character varying, reauthentication_sent_at timestamptz, is_sso_user boolean DEFAULT false, deleted_at timestamptz, is_anonymous boolean DEFAULT false );
 
-CREATE TABLE IF NOT EXISTS auth.sessions ( id uuid PRIMARY KEY, user_id uuid, created_at timestamptz, updated_at timestamptz, factor_id uuid, aal auth.aallevel, not_after timestamptz, refreshed_at timestamp, user_agent text, ip inet, tag text, oauth_client_id uuid );
-
-CREATE TABLE IF NOT EXISTS auth.identities ( provider_id text, user_id uuid, identity_data jsonb, provider text, last_sign_in_at timestamptz, created_at timestamptz, updated_at timestamptz, email text GENERATED ALWAYS AS (lower((identity_data ->> 'email'::text))) STORED, id uuid DEFAULT gen_random_uuid() PRIMARY KEY );
-
-CREATE TABLE IF NOT EXISTS auth.one_time_tokens ( id uuid PRIMARY KEY, user_id uuid, token_type auth.onetimetokentype, token_hash text NOT NULL CHECK (char_length(token_hash) > 0), relates_to text, created_at timestamp DEFAULT now(), updated_at timestamp DEFAULT now() );
-
-CREATE TABLE IF NOT EXISTS auth.refresh_tokens ( instance_id uuid, id bigint DEFAULT nextval('auth.refresh_tokens_id_seq'::regclass) PRIMARY KEY, token character varying UNIQUE, user_id character varying, revoked boolean, created_at timestamptz, updated_at timestamptz, parent character varying, session_id uuid );
-
-CREATE TABLE IF NOT EXISTS auth.sso_providers ( id uuid PRIMARY KEY, resource_id text, created_at timestamptz, updated_at timestamptz, disabled boolean );
-
-CREATE TABLE IF NOT EXISTS auth.saml_providers ( id uuid PRIMARY KEY, sso_provider_id uuid, entity_id text UNIQUE NOT NULL CHECK (char_length(entity_id) > 0), metadata_xml text NOT NULL CHECK (char_length(metadata_xml) > 0), metadata_url text CHECK (metadata_url = NULL::text OR char_length(metadata_url) > 0), attribute_mapping jsonb, created_at timestamptz, updated_at timestamptz, name_id_format text );
-
-CREATE TABLE IF NOT EXISTS auth.saml_relay_states ( id uuid PRIMARY KEY, sso_provider_id uuid, request_id text NOT NULL CHECK (char_length(request_id) > 0), for_email text, redirect_to text, created_at timestamptz, updated_at timestamptz, flow_state_id uuid );
-
-CREATE TABLE IF NOT EXISTS auth.flow_state ( id uuid PRIMARY KEY, user_id uuid, auth_code text, code_challenge_method auth.codechallengemethod, code_challenge text, provider_type text, provider_access_token text, provider_refresh_token text, created_at timestamptz, updated_at timestamptz, authentication_method text, auth_code_issued_at timestamptz );
-
-CREATE TABLE IF NOT EXISTS auth.mfa_factors ( id uuid PRIMARY KEY, user_id uuid, friendly_name text, factor_type auth.factortype, status auth.factorstatus, created_at timestamptz, updated_at timestamptz, secret text, phone text, last_challenged_at timestamptz UNIQUE, web_authn_credential jsonb, web_authn_aaguid uuid );
-
-CREATE TABLE IF NOT EXISTS auth.mfa_challenges ( id uuid PRIMARY KEY, factor_id uuid, created_at timestamptz, verified_at timestamptz, ip_address inet, otp_code text, web_authn_session_data jsonb );
-
-CREATE TABLE IF NOT EXISTS auth.mfa_amr_claims ( id uuid PRIMARY KEY, session_id uuid, created_at timestamptz, updated_at timestamptz, authentication_method text );
-
-CREATE TABLE IF NOT EXISTS auth.oauth_clients ( id uuid PRIMARY KEY, client_secret_hash text, registration_type auth.oauthregistrationtype, redirect_uris text, grant_types text, client_name text CHECK (char_length(client_name) <= 1024), client_uri text CHECK (char_length(client_uri) <= 2048), logo_uri text CHECK (char_length(logo_uri) <= 2048), created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now(), deleted_at timestamptz, client_type auth.oauthclienttype DEFAULT 'confidential'::auth.oauthclienttype );
-
-CREATE TABLE IF NOT EXISTS auth.oauth_authorizations ( id uuid PRIMARY KEY, authorization_id text UNIQUE, client_id uuid, user_id uuid, redirect_uri text CHECK (char_length(redirect_uri) <= 2048), scope text CHECK (char_length(scope) <= 4096), state text CHECK (char_length(state) <= 4096), resource text CHECK (char_length(resource) <= 2048), code_challenge text CHECK (char_length(code_challenge) <= 128), code_challenge_method auth.codechallengemethod, response_type auth.oauthresponsetype DEFAULT 'code'::auth.oauthresponsetype, status auth.oauth_authorization_status DEFAULT 'pending'::auth.oauth_authorization_status, authorization_code text UNIQUE CHECK (char_length(authorization_code) <= 255), created_at timestamptz DEFAULT now(), expires_at timestamptz DEFAULT (now() + '00:03:00'::interval), approved_at timestamptz );
-
--- auth.schema_migrations (tracks migrations in auth schema) CREATE TABLE IF NOT EXISTS auth.schema_migrations ( version character varying PRIMARY KEY );
-
--- auth.audit_log_entries CREATE TABLE IF NOT EXISTS auth.audit_log_entries ( instance_id uuid, id uuid PRIMARY KEY, payload json, created_at timestamptz, ip_address character varying DEFAULT ''::character varying );
-
-CREATE TABLE IF NOT EXISTS auth.instances ( id uuid PRIMARY KEY, uuid uuid, raw_base_config text, created_at timestamptz, updated_at timestamptz );
-
-CREATE TABLE IF NOT EXISTS auth.sso_domains ( id uuid PRIMARY KEY, sso_provider_id uuid, domain text NOT NULL CHECK (char_length(domain) > 0), created_at timestamptz, updated_at timestamptz );
-
-CREATE TABLE IF NOT EXISTS auth.oauth_consents ( id uuid PRIMARY KEY, user_id uuid, client_id uuid, scopes text CHECK (char_length(scopes) <= 2048), granted_at timestamptz DEFAULT now(), revoked_at timestamptz );
-
--- Schema: realtime CREATE TABLE IF NOT EXISTS realtime.subscription ( id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, subscription_id uuid, entity regclass, filters realtime.user_defined_filter[] DEFAULT '{}'::realtime.user_defined_filter[], claims jsonb, claims_role regrole DEFAULT realtime.to_regrole((claims ->> 'role'::text)), created_at timestamp DEFAULT timezone('utc'::text, now()) );
-
-CREATE TABLE IF NOT EXISTS realtime.schema_migrations ( version bigint PRIMARY KEY, inserted_at timestamp );
-
-CREATE TABLE IF NOT EXISTS realtime.messages ( topic text, extension text, payload jsonb, event text, private boolean DEFAULT false, updated_at timestamp DEFAULT now(), inserted_at timestamp DEFAULT now(), id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY );
 
 -- END OF migration.sql

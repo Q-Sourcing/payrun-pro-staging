@@ -124,6 +124,50 @@ serve(async (req) => {
             org_id: orgId,
           }, { onConflict: 'user_id,role_code,scope_type' })
           if (rbacErr) console.error('rbac_assignments upsert error on accept:', rbacErr)
+
+          // Apply additive module-access grants from role_data
+          const moduleAccess: Record<string, string> = inv.role_data?.module_access ?? {}
+          const MODULE_PERMISSION_MAP: Record<string, { view: string[]; full: string[] }> = {
+            employees:         { view: ['people.view'], full: ['people.view', 'people.create', 'people.edit', 'people.assign_project'] },
+            payroll:           { view: ['payroll.view'], full: ['payroll.view', 'payroll.prepare', 'payroll.submit', 'payroll.approve'] },
+            pay_groups:        { view: ['paygroups.view'], full: ['paygroups.view', 'paygroups.manage'] },
+            projects:          { view: ['projects.view'], full: ['projects.view', 'projects.manage'] },
+            earnings_deductions:{ view: ['earnings.view'], full: ['earnings.view', 'earnings.manage'] },
+            contracts:         { view: ['contracts.view'], full: ['contracts.view', 'contracts.manage'] },
+            reports:           { view: ['reports.view'], full: ['reports.view', 'finance.view_reports', 'reports.export'] },
+            ehs:               { view: ['ehs.view_dashboard'], full: ['ehs.view_dashboard', 'ehs.manage_incidents', 'ehs.manage_hazards'] },
+            settings:          { view: [], full: ['admin.manage_users', 'admin.assign_roles', 'admin.activity_logs.view'] },
+            user_management:   { view: ['users.view'], full: ['users.view', 'users.invite', 'users.edit'] },
+            attendance:        { view: ['attendance.view'], full: ['attendance.view', 'attendance.manage', 'attendance.approve'] },
+          }
+          for (const [moduleId, level] of Object.entries(moduleAccess)) {
+            if (level === 'none') continue
+            const perms = MODULE_PERMISSION_MAP[moduleId]?.[level as 'view' | 'full'] ?? []
+            for (const permKey of perms) {
+              await supabaseAdmin.from('rbac_grants').upsert({
+                user_id,
+                permission_key: permKey,
+                scope_type: 'ORGANIZATION',
+                scope_id: orgId,
+                effect: 'ALLOW',
+              }, { onConflict: 'user_id,permission_key,scope_type,scope_id' }).then(() => {}).catch(console.error)
+            }
+          }
+
+          // For SELF_USER invites: link the matching employee record
+          if (inv.role === 'SELF_USER' || inv.role === 'SELF_CONTRACTOR') {
+            const { data: empRecord } = await supabaseAdmin
+              .from('employees')
+              .select('id')
+              .ilike('email', inv.email)
+              .maybeSingle()
+            if (empRecord?.id) {
+              await supabaseAdmin.from('employees')
+                .update({ user_id })
+                .eq('id', empRecord.id)
+                .then(() => {}).catch(console.error)
+            }
+          }
         }
       }
 
@@ -287,6 +331,7 @@ serve(async (req) => {
           token: inviteToken,
           status: 'pending',
           expires_at: expiresAt,
+          role_data: body.role_data ?? {},
         })
         .select()
         .single()

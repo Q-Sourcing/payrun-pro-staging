@@ -80,6 +80,32 @@ export interface RegularizationRequest {
   status?: string;
 }
 
+export interface ProjectAttendancePolicy {
+  id?: string;
+  organization_id: string;
+  project_id: string;
+  attendance_required: boolean;
+  allow_self_checkin: boolean;
+  require_manager_checkin: boolean;
+  require_geolocation: boolean;
+  primary_geofence_id?: string | null;
+}
+
+export interface AttendanceQrCode {
+  id?: string;
+  organization_id: string;
+  project_id: string;
+  geofence_id?: string | null;
+  token?: string;
+  label?: string | null;
+  is_active: boolean;
+  expires_at?: string | null;
+  created_by?: string | null;
+  // joined
+  geofences?: { id: string; name: string } | null;
+  projects?: { id: string; name: string } | null;
+}
+
 // Haversine distance in meters
 export function haversineDistance(
   lat1: number, lon1: number,
@@ -421,6 +447,191 @@ export class AttendanceService {
     }
 
     return { valid: true }; // No geofences configured = allow
+  }
+
+  // ─── PROJECT GEOFENCES ─────────────────────────────
+  static async getProjectGeofences(projectId: string): Promise<Geofence[]> {
+    const { data, error } = await supabase
+      .from('project_geofences')
+      .select('geofences(*)')
+      .eq('project_id', projectId);
+    if (error) throw error;
+    return (data || []).map((r: any) => r.geofences).filter(Boolean);
+  }
+
+  static async setProjectGeofences(orgId: string, projectId: string, geofenceIds: string[]): Promise<void> {
+    const { error: delErr } = await supabase
+      .from('project_geofences')
+      .delete()
+      .eq('project_id', projectId);
+    if (delErr) throw delErr;
+    if (geofenceIds.length === 0) return;
+    const rows = geofenceIds.map(gid => ({
+      organization_id: orgId,
+      project_id: projectId,
+      geofence_id: gid,
+    }));
+    const { error: insErr } = await supabase.from('project_geofences').insert(rows);
+    if (insErr) throw insErr;
+  }
+
+  static async validateAgainstProjectGeofences(
+    projectId: string,
+    latitude: number,
+    longitude: number
+  ): Promise<{ valid: boolean; geofence?: Geofence; distance?: number }> {
+    const geofences = await AttendanceService.getProjectGeofences(projectId);
+    if (geofences.length === 0) return { valid: true }; // No geofences = allow
+    for (const geo of geofences) {
+      const dist = haversineDistance(latitude, longitude, geo.latitude, geo.longitude);
+      if (dist <= geo.radius_meters) {
+        return { valid: true, geofence: geo, distance: Math.round(dist) };
+      }
+    }
+    const closest = geofences.reduce((min: any, geo: any) => {
+      const dist = haversineDistance(latitude, longitude, geo.latitude, geo.longitude);
+      return dist < min.dist ? { geo, dist } : min;
+    }, { geo: null, dist: Infinity });
+    return { valid: false, distance: Math.round(closest.dist) };
+  }
+
+  // ─── PROJECT ATTENDANCE POLICY ─────────────────────
+  static async getProjectPolicy(projectId: string): Promise<ProjectAttendancePolicy | null> {
+    const { data, error } = await supabase
+      .from('project_attendance_policy')
+      .select('*')
+      .eq('project_id', projectId)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
+  static async upsertProjectPolicy(policy: ProjectAttendancePolicy): Promise<ProjectAttendancePolicy> {
+    const { data, error } = await supabase
+      .from('project_attendance_policy')
+      .upsert(policy, { onConflict: 'project_id' })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  // ─── MANAGER CLOCK-IN / CLOCK-OUT ──────────────────
+  static async managerClockIn(opts: {
+    organizationId: string;
+    employeeId: string;
+    projectId: string;
+    managerId: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    geofenceId?: string | null;
+    remarks?: string | null;
+  }): Promise<TimeLog> {
+    const now = new Date();
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const localNow = now.toLocaleString('sv-SE', { timeZone: timezone }).replace(' ', 'T');
+    return AttendanceService.clockIn({
+      organization_id: opts.organizationId,
+      employee_id: opts.employeeId,
+      project_id: opts.projectId,
+      clock_in_utc: now.toISOString(),
+      timezone,
+      local_clock_in: localNow,
+      attendance_mode: 'SUPERVISOR',
+      recorded_source: 'MANAGER_CHECKIN',
+      recorded_by: opts.managerId,
+      latitude: opts.latitude ?? null,
+      longitude: opts.longitude ?? null,
+      geofence_id: opts.geofenceId ?? null,
+      remarks: opts.remarks ?? null,
+    });
+  }
+
+  static async managerClockOut(employeeId: string, projectId: string, _managerId: string): Promise<TimeLog> {
+    const { data: active, error: findErr } = await supabase
+      .from('attendance_time_logs')
+      .select('*')
+      .eq('employee_id', employeeId)
+      .eq('project_id', projectId)
+      .is('clock_out_utc', null)
+      .order('clock_in_utc', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (findErr) throw findErr;
+    if (!active) throw new Error('No active clock-in found for this employee on this project');
+    const now = new Date();
+    const timezone = active.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const localNow = now.toLocaleString('sv-SE', { timeZone: timezone }).replace(' ', 'T');
+    return AttendanceService.clockOut(active.id, now.toISOString(), localNow);
+  }
+
+  // ─── QR CODES ───────────────────────────────────────
+  static async getProjectQrCodes(projectId: string): Promise<AttendanceQrCode[]> {
+    const { data, error } = await supabase
+      .from('attendance_qr_codes')
+      .select('*, geofences(id, name)')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  static async createQrCode(qr: Omit<AttendanceQrCode, 'id' | 'token'>): Promise<AttendanceQrCode> {
+    const { data, error } = await supabase
+      .from('attendance_qr_codes')
+      .insert(qr)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  static async deactivateQrCode(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('attendance_qr_codes')
+      .update({ is_active: false })
+      .eq('id', id);
+    if (error) throw error;
+  }
+
+  static async resolveQrToken(token: string): Promise<AttendanceQrCode | null> {
+    const { data, error } = await supabase
+      .from('attendance_qr_codes')
+      .select('*, projects(id, name), geofences(id, name)')
+      .eq('token', token)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
+  static async qrClockIn(opts: {
+    organizationId: string;
+    employeeId: string;
+    projectId: string;
+    geofenceId?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    qrCodeId: string;
+  }): Promise<TimeLog> {
+    const now = new Date();
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const localNow = now.toLocaleString('sv-SE', { timeZone: timezone }).replace(' ', 'T');
+    return AttendanceService.clockIn({
+      organization_id: opts.organizationId,
+      employee_id: opts.employeeId,
+      project_id: opts.projectId,
+      clock_in_utc: now.toISOString(),
+      timezone,
+      local_clock_in: localNow,
+      attendance_mode: 'QR_CODE',
+      recorded_source: 'QR_CHECKIN',
+      recorded_by: opts.employeeId,
+      latitude: opts.latitude ?? null,
+      longitude: opts.longitude ?? null,
+      geofence_id: opts.geofenceId ?? null,
+      remarks: `QR check-in (code: ${opts.qrCodeId})`,
+    });
   }
 
   // ─── DASHBOARD STATS ───────────────────────────────

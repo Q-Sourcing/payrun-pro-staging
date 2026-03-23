@@ -4,7 +4,7 @@
 -- ============================================================
 
 -- 1. Contract Templates
-CREATE TABLE public.contract_templates (
+CREATE TABLE IF NOT EXISTS public.contract_templates (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
@@ -22,6 +22,8 @@ CREATE TABLE public.contract_templates (
 
 ALTER TABLE public.contract_templates ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Org members can view templates" ON public.contract_templates;
+DROP POLICY IF EXISTS "Org admins can manage templates" ON public.contract_templates;
 CREATE POLICY "Org members can view templates"
   ON public.contract_templates FOR SELECT
   USING (organization_id = public.current_org_id());
@@ -36,7 +38,7 @@ CREATE TRIGGER update_contract_templates_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- 2. Employee Contracts
-CREATE TABLE public.employee_contracts (
+CREATE TABLE IF NOT EXISTS public.employee_contracts (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
@@ -60,6 +62,8 @@ CREATE TABLE public.employee_contracts (
 
 ALTER TABLE public.employee_contracts ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Org members can view contracts" ON public.employee_contracts;
+DROP POLICY IF EXISTS "Org admins can manage contracts" ON public.employee_contracts;
 CREATE POLICY "Org members can view contracts"
   ON public.employee_contracts FOR SELECT
   USING (organization_id = public.current_org_id());
@@ -74,7 +78,7 @@ CREATE TRIGGER update_employee_contracts_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- Indexes
-CREATE INDEX idx_contract_templates_org ON public.contract_templates(organization_id);
-CREATE INDEX idx_employee_contracts_org ON public.employee_contracts(organization_id);
-CREATE INDEX idx_employee_contracts_employee ON public.employee_contracts(employee_id);
-CREATE INDEX idx_employee_contracts_status ON public.employee_contracts(status);
+CREATE INDEX IF NOT EXISTS idx_contract_templates_org ON public.contract_templates(organization_id);
+CREATE INDEX IF NOT EXISTS idx_employee_contracts_org ON public.employee_contracts(organization_id);
+CREATE INDEX IF NOT EXISTS idx_employee_contracts_employee ON public.employee_contracts(employee_id);
+CREATE INDEX IF NOT EXISTS idx_employee_contracts_status ON public.employee_contracts(status);

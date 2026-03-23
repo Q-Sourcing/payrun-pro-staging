@@ -16,16 +16,19 @@ CREATE TABLE IF NOT EXISTS public.user_invites (
 ALTER TABLE public.user_invites ENABLE ROW LEVEL SECURITY;
 
 -- Policies
+    CREATE POLICY "user_invites_select"
     ON public.user_invites
     FOR SELECT
     TO authenticated
     USING (true); -- Simplified for now, refine later
 
+    CREATE POLICY "user_invites_insert"
     ON public.user_invites
     FOR INSERT
     TO authenticated
     WITH CHECK (true);
 
+    CREATE POLICY "user_invites_delete"
     ON public.user_invites
     FOR DELETE
     TO authenticated

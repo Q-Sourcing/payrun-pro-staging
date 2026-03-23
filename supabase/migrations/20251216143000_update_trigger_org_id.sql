@@ -1,4 +1,27 @@
 
+-- Ensure baseline tables exist (may have been created outside migrations)
+CREATE TABLE IF NOT EXISTS public.organizations (
+    id UUID DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    default_company_id UUID
+);
+
+CREATE TABLE IF NOT EXISTS public.user_profiles (
+    id UUID NOT NULL PRIMARY KEY,
+    organization_id UUID,
+    role TEXT DEFAULT 'user' NOT NULL,
+    first_name TEXT,
+    last_name TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    email TEXT,
+    activated_at TIMESTAMP WITH TIME ZONE
+);
+
 -- Update handle_new_user to capture organization_id from metadata
 CREATE OR REPLACE FUNCTION public.handle_new_user() 
 RETURNS TRIGGER AS $$

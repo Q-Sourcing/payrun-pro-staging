@@ -1,6 +1,6 @@
 
 -- Timesheet periods (one per submission cycle per employee)
-CREATE TABLE public.timesheets (
+CREATE TABLE IF NOT EXISTS public.timesheets (
   id              UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   employee_id     UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
@@ -20,7 +20,7 @@ CREATE TABLE public.timesheets (
 );
 
 -- Individual timesheet entry rows
-CREATE TABLE public.timesheet_entries (
+CREATE TABLE IF NOT EXISTS public.timesheet_entries (
   id              UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   timesheet_id    UUID NOT NULL REFERENCES public.timesheets(id) ON DELETE CASCADE,
   employee_id     UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
@@ -36,7 +36,7 @@ CREATE TABLE public.timesheet_entries (
 );
 
 -- Pre-defined departments list
-CREATE TABLE public.timesheet_departments (
+CREATE TABLE IF NOT EXISTS public.timesheet_departments (
   id              UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   name            TEXT NOT NULL,
@@ -47,12 +47,12 @@ CREATE TABLE public.timesheet_departments (
 );
 
 -- Indexes
-CREATE INDEX idx_timesheets_employee_id   ON public.timesheets(employee_id);
-CREATE INDEX idx_timesheets_organization  ON public.timesheets(organization_id);
-CREATE INDEX idx_timesheets_status        ON public.timesheets(status);
-CREATE INDEX idx_timesheet_entries_sheet  ON public.timesheet_entries(timesheet_id);
-CREATE INDEX idx_timesheet_entries_date   ON public.timesheet_entries(work_date);
-CREATE INDEX idx_timesheet_entries_emp    ON public.timesheet_entries(employee_id);
+CREATE INDEX IF NOT EXISTS idx_timesheets_employee_id   ON public.timesheets(employee_id);
+CREATE INDEX IF NOT EXISTS idx_timesheets_organization  ON public.timesheets(organization_id);
+CREATE INDEX IF NOT EXISTS idx_timesheets_status        ON public.timesheets(status);
+CREATE INDEX IF NOT EXISTS idx_timesheet_entries_sheet  ON public.timesheet_entries(timesheet_id);
+CREATE INDEX IF NOT EXISTS idx_timesheet_entries_date   ON public.timesheet_entries(work_date);
+CREATE INDEX IF NOT EXISTS idx_timesheet_entries_emp    ON public.timesheet_entries(employee_id);
 
 -- Updated_at triggers
 CREATE TRIGGER update_timesheets_updated_at
@@ -91,6 +91,13 @@ ALTER TABLE public.timesheet_entries    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.timesheet_departments ENABLE ROW LEVEL SECURITY;
 
 -- Timesheets: employee can CRUD their own
+DROP POLICY IF EXISTS "Employees can manage own timesheets" ON public.timesheets;
+DROP POLICY IF EXISTS "Org admins can view all timesheets" ON public.timesheets;
+DROP POLICY IF EXISTS "Org admins can update timesheets" ON public.timesheets;
+DROP POLICY IF EXISTS "Employees can manage own entries" ON public.timesheet_entries;
+DROP POLICY IF EXISTS "Org admins can view all entries" ON public.timesheet_entries;
+DROP POLICY IF EXISTS "Org members can read departments" ON public.timesheet_departments;
+DROP POLICY IF EXISTS "Org admins can manage departments" ON public.timesheet_departments;
 CREATE POLICY "Employees can manage own timesheets"
   ON public.timesheets FOR ALL
   USING (

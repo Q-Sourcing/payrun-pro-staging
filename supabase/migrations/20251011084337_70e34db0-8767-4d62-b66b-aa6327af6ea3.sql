@@ -41,32 +41,38 @@ AS $$
 $$;
 
 -- RLS Policies for profiles
+CREATE POLICY "profiles_select"
 ON public.profiles
 FOR SELECT
 TO authenticated
 USING (true);
 
+CREATE POLICY "profiles_update"
 ON public.profiles
 FOR UPDATE
 TO authenticated
 USING (auth.uid() = id);
 
+CREATE POLICY "profiles_insert"
 ON public.profiles
 FOR INSERT
 TO authenticated
 WITH CHECK (auth.uid() = id);
 
 -- RLS Policies for user_roles
+CREATE POLICY "user_roles_select_admin"
 ON public.user_roles
 FOR SELECT
 TO authenticated
 USING (public.has_role(auth.uid(), 'super_admin'));
 
+CREATE POLICY "user_roles_select_own"
 ON public.user_roles
 FOR SELECT
 TO authenticated
 USING (auth.uid() = user_id);
 
+CREATE POLICY "user_roles_all_admin"
 ON public.user_roles
 FOR ALL
 TO authenticated

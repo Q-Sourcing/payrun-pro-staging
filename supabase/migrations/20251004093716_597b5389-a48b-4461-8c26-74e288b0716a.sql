@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS public.company_settings (
 ALTER TABLE public.company_settings ENABLE ROW LEVEL SECURITY;
 
 -- Create policy for company settings
+CREATE POLICY "company_settings_all"
 ON public.company_settings
 FOR ALL
 USING (true)

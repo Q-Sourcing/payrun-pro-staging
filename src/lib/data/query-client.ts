@@ -98,4 +98,17 @@ export const queryKeys = {
     detail: (id: string) => [...queryKeys.users.details(), id] as const,
     byRole: (role: string) => [...queryKeys.users.all, 'byRole', role] as const,
   },
+
+  // Work Assets queries
+  workAssets: {
+    all: ['workAssets'] as const,
+    lists: () => [...queryKeys.workAssets.all, 'list'] as const,
+    list: (filters: Record<string, any>) => [...queryKeys.workAssets.lists(), filters] as const,
+    details: () => [...queryKeys.workAssets.all, 'detail'] as const,
+    detail: (id: string) => [...queryKeys.workAssets.details(), id] as const,
+    assignments: (assetId: string) => [...queryKeys.workAssets.all, 'assignments', assetId] as const,
+    logs: (assetId: string) => [...queryKeys.workAssets.all, 'logs', assetId] as const,
+    types: () => [...queryKeys.workAssets.all, 'types'] as const,
+    forEmployee: (employeeId: string) => [...queryKeys.workAssets.all, 'employee', employeeId] as const,
+  },
 } as const;

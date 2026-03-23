@@ -14,6 +14,8 @@ import { useOrgNames } from "@/lib/tenant/useOrgNames";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { JWTClaimsService } from "@/lib/services/auth/jwt-claims";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { useTheme } from "@/components/ui/theme-provider";
 import { CreateCompanyDialog } from "@/components/admin/CreateCompanyDialog";
@@ -64,12 +66,26 @@ export default function MainLayout() {
   const { organizationName, companyName } = useOrgNames();
   const [assignedCompanies, setAssignedCompanies] = useState<Array<{ id: string; name: string }>>([]);
 
+  const location = useLocation();
+
   // Redirect to company picker if needed
   useEffect(() => {
     if (needsCompanySelection) {
       navigate('/choose-company', { replace: true });
     }
   }, [needsCompanySelection, navigate]);
+
+  // Self-service portal guard: SELF_USER can only access /my/* and /dashboard/*
+  useEffect(() => {
+    const isSelfUser = JWTClaimsService.hasRole('SELF_USER') || JWTClaimsService.hasRole('SELF_CONTRACTOR');
+    if (!isSelfUser) return;
+
+    const allowed = ["/my/", "/dashboard", "/anomalies", "/timesheets", "/login"];
+    const isAllowed = allowed.some((prefix) => location.pathname.startsWith(prefix));
+    if (!isAllowed) {
+      navigate("/my/payslips", { replace: true });
+    }
+  }, [location.pathname, navigate]);
 
   const fetchCompanies = async () => {
     try {

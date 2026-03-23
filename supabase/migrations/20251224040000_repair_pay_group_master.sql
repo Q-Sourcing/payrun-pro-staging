@@ -2,12 +2,12 @@
 -- This migration backfills all missing pay groups from various source tables into pay_group_master
 -- with correct organization_id, category, and employee_type mapping.
 
--- 0. Ensure organization_id exists on pay_group_master
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='pay_group_master' AND column_name='organization_id') THEN
-    ALTER TABLE public.pay_group_master ADD COLUMN organization_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE;
-  END IF;
-END $$;
+-- 0. Ensure all required columns exist on pay_group_master
+ALTER TABLE public.pay_group_master ADD COLUMN IF NOT EXISTS organization_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE;
+ALTER TABLE public.pay_group_master ADD COLUMN IF NOT EXISTS category TEXT;
+ALTER TABLE public.pay_group_master ADD COLUMN IF NOT EXISTS employee_type TEXT;
+ALTER TABLE public.pay_group_master ADD COLUMN IF NOT EXISTS pay_frequency TEXT;
+ALTER TABLE public.pay_group_master ADD COLUMN IF NOT EXISTS pay_type TEXT;
 
 -- 1. Backfill from regular pay_groups (Projects Regular, Projects Daily/Monthly)
 INSERT INTO public.pay_group_master (

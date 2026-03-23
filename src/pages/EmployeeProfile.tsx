@@ -9,11 +9,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, ToggleLeft } from "lucide-react";
+import { InviteToSystemButton } from "@/components/employees/InviteToSystemButton";
 import { EmployeeContractsPanel } from "@/components/contracts/EmployeeContractsPanel";
 import { ProbationSection } from "@/components/employees/ProbationSection";
 import { EmployeeHrRecordsTab } from "@/components/employees/EmployeeHrRecordsTab";
 import { EmployeeDocumentsTab } from "@/components/employees/EmployeeDocumentsTab";
 import { EmployeeProfileOverview } from "@/components/employees/EmployeeProfileOverview";
+import { EmployeeWorkAssetsTab } from "@/components/assets/EmployeeWorkAssetsTab";
 import LoadingSkeleton from "@/components/LoadingSkeleton";
 import { useToast } from "@/hooks/use-toast";
 
@@ -97,6 +99,12 @@ export default function EmployeeProfile() {
             <ToggleLeft className="h-3 w-3" />
             {contractType === "variable" ? "Variable Pay" : "Monthly Salary"}
           </Badge>
+          {employee.email && (
+            <InviteToSystemButton
+              employeeName={fullName}
+              employeeEmail={employee.email}
+            />
+          )}
         </div>
       </div>
 
@@ -107,6 +115,7 @@ export default function EmployeeProfile() {
           <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="probation">Probation</TabsTrigger>
           <TabsTrigger value="contracts">Contracts</TabsTrigger>
+          <TabsTrigger value="work-assets">Work Assets</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab — all info in editable cards */}
@@ -180,6 +189,13 @@ export default function EmployeeProfile() {
             organizationId={employee.organization_id}
             employeeName={fullName}
             employeeData={employee}
+          />
+        </TabsContent>
+
+        <TabsContent value="work-assets">
+          <EmployeeWorkAssetsTab
+            employeeId={employee.id}
+            orgId={employee.organization_id}
           />
         </TabsContent>
       </Tabs>

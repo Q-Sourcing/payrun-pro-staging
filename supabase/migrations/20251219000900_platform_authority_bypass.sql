@@ -48,8 +48,8 @@ BEGIN
 END;
 $$;
 
--- 1. Explicit Platform Admin Helper
-CREATE OR REPLACE FUNCTION public.is_platform_admin(_user_id UUID DEFAULT auth.uid())
+-- 1. Explicit Platform Admin Helper (UUID version — no default to avoid ambiguity)
+CREATE OR REPLACE FUNCTION public.is_platform_admin(_user_id UUID)
 RETURNS BOOLEAN AS $$
 DECLARE
   v_is_admin BOOLEAN;
@@ -70,12 +70,21 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 2. Update has_permission with Short-Circuit
+-- Update no-arg wrapper to delegate to the UUID version
+CREATE OR REPLACE FUNCTION public.is_platform_admin()
+RETURNS BOOLEAN
+LANGUAGE SQL
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT public.is_platform_admin(auth.uid());
+$$;
+
+-- 2. Update has_permission with Short-Circuit (same 3-arg signature as core_obac_schema to replace it)
 CREATE OR REPLACE FUNCTION public.has_permission(
-  _permission_key TEXT,
-  _scope_type TEXT DEFAULT NULL,
-  _scope_id UUID DEFAULT NULL,
-  _user_id UUID DEFAULT auth.uid()
+  p_permission_key TEXT,
+  p_scope_type TEXT DEFAULT NULL,
+  p_scope_id UUID DEFAULT NULL
 ) RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -83,9 +92,10 @@ STABLE
 AS $$
 DECLARE
   v_has_perm BOOLEAN;
+  v_user_id UUID := auth.uid();
 BEGIN
   -- PLATFORM BYPASS: Explicitly required short-circuit
-  IF public.is_platform_admin(_user_id) THEN
+  IF public.is_platform_admin(v_user_id) THEN
     RETURN TRUE;
   END IF;
 
@@ -94,15 +104,15 @@ BEGIN
     SELECT 1
     FROM public.rbac_assignments ra
     JOIN public.rbac_role_permissions rrp ON ra.role_code = rrp.role_code AND ra.org_id = rrp.org_id
-    WHERE ra.user_id = _user_id
-      AND rrp.permission_key = _permission_key
+    WHERE ra.user_id = v_user_id
+      AND rrp.permission_key = p_permission_key
       AND (
         -- Scope Resolution Logic
-        _scope_type IS NULL
+        p_scope_type IS NULL
         OR ra.scope_type = 'GLOBAL'
-        OR (ra.scope_type = _scope_type AND (_scope_id IS NULL OR ra.scope_id = _scope_id))
-        OR (ra.scope_type = 'ORGANIZATION' AND _scope_type IN ('COMPANY', 'PROJECT'))
-        OR (ra.scope_type = 'COMPANY' AND _scope_type = 'PROJECT')
+        OR (ra.scope_type = p_scope_type AND (p_scope_id IS NULL OR ra.scope_id = p_scope_id))
+        OR (ra.scope_type = 'ORGANIZATION' AND p_scope_type IN ('COMPANY', 'PROJECT'))
+        OR (ra.scope_type = 'COMPANY' AND p_scope_type = 'PROJECT')
       )
   ) INTO v_has_perm;
 
@@ -120,6 +130,7 @@ UPDATE public.projects SET organization_id = '00000000-0000-0000-0000-0000000000
 
 -- Organizations
 DROP POLICY IF EXISTS "organizations_select_policy" ON public.organizations;
+CREATE POLICY "organizations_select_policy" ON public.organizations
 FOR SELECT TO authenticated
 USING (
     public.is_platform_admin() OR
@@ -128,28 +139,31 @@ USING (
 
 -- Companies
 DROP POLICY IF EXISTS "companies_select_policy" ON public.companies;
+CREATE POLICY "companies_select_policy" ON public.companies
 FOR SELECT TO authenticated
 USING (
     public.is_platform_admin() OR
-    (organization_id = (auth.jwt() -> 'app_metadata' ->> 'organization_id')::uuid 
+    (organization_id = (auth.jwt() -> 'app_metadata' ->> 'organization_id')::uuid
      AND public.has_permission('companies.view', 'COMPANY', id))
 );
 
 -- Projects
 DROP POLICY IF EXISTS "projects_select_policy" ON public.projects;
+CREATE POLICY "projects_select_policy" ON public.projects
 FOR SELECT TO authenticated
 USING (
     public.is_platform_admin() OR
-    (organization_id = (auth.jwt() -> 'app_metadata' ->> 'organization_id')::uuid 
+    (organization_id = (auth.jwt() -> 'app_metadata' ->> 'organization_id')::uuid
      AND public.has_permission('projects.view', 'PROJECT', id))
 );
 
 -- Employees
 DROP POLICY IF EXISTS "employees_select_policy" ON public.employees;
+CREATE POLICY "employees_select_policy" ON public.employees
 FOR SELECT TO authenticated
 USING (
     public.is_platform_admin() OR
-    (organization_id = (auth.jwt() -> 'app_metadata' ->> 'organization_id')::uuid 
+    (organization_id = (auth.jwt() -> 'app_metadata' ->> 'organization_id')::uuid
      AND (
        public.has_permission('people.view', 'ORGANIZATION', organization_id) OR
        (company_id IS NOT NULL AND public.has_permission('people.view', 'COMPANY', company_id))
@@ -159,10 +173,11 @@ USING (
 
 -- Pay Runs
 DROP POLICY IF EXISTS "pay_runs_select_policy" ON public.pay_runs;
+CREATE POLICY "pay_runs_select_policy" ON public.pay_runs
 FOR SELECT TO authenticated
 USING (
     public.is_platform_admin() OR
-    (organization_id = (auth.jwt() -> 'app_metadata' ->> 'organization_id')::uuid 
+    (organization_id = (auth.jwt() -> 'app_metadata' ->> 'organization_id')::uuid
      AND public.has_permission('payroll.view', 'ORGANIZATION', organization_id))
 );
 
@@ -170,6 +185,7 @@ USING (
 ALTER TABLE public.rbac_assignments ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can view their own role assignments" ON public.rbac_assignments;
 DROP POLICY IF EXISTS "rbac_assignments_select_policy" ON public.rbac_assignments;
+CREATE POLICY "rbac_assignments_select_policy" ON public.rbac_assignments
 FOR SELECT TO authenticated
 USING (
     public.is_platform_admin() OR

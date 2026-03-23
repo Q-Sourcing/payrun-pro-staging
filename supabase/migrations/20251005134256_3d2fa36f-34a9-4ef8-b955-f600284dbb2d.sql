@@ -14,15 +14,19 @@ CREATE TABLE IF NOT EXISTS public.settings (
 ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
+CREATE POLICY "settings_select"
   ON public.settings FOR SELECT
   USING (auth.uid() = user_id OR user_id IS NULL);
 
+CREATE POLICY "settings_insert"
   ON public.settings FOR INSERT
   WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
 
+CREATE POLICY "settings_update"
   ON public.settings FOR UPDATE
   USING (auth.uid() = user_id OR user_id IS NULL);
 
+CREATE POLICY "settings_delete"
   ON public.settings FOR DELETE
   USING (auth.uid() = user_id OR user_id IS NULL);
 

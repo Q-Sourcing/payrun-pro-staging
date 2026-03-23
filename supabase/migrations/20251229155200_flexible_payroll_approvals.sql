@@ -31,34 +31,38 @@ ALTER TABLE public.payroll_approval_configs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payroll_approval_categories ENABLE ROW LEVEL SECURITY;
 
 -- 4. RLS Policies for payroll_approval_configs
-    FOR SELECT USING (
-        organization_id IN (
-            SELECT organization_id FROM public.user_profiles WHERE id = auth.uid()
-        )
-    );
+CREATE POLICY "payroll_approval_configs_select"
+ON public.payroll_approval_configs FOR SELECT USING (
+    organization_id IN (
+        SELECT organization_id FROM public.user_profiles WHERE id = auth.uid()
+    )
+);
 
-    FOR ALL USING (
-        public.check_is_super_admin(auth.uid()) OR public.check_is_org_super_admin(auth.uid())
-    );
+CREATE POLICY "payroll_approval_configs_all"
+ON public.payroll_approval_configs FOR ALL USING (
+    public.check_is_super_admin(auth.uid()) OR public.check_is_org_super_admin(auth.uid())
+);
 
 -- 5. RLS Policies for payroll_approval_categories
-    FOR SELECT USING (
-        config_id IN (
-            SELECT id FROM public.payroll_approval_configs WHERE organization_id IN (
-                SELECT organization_id FROM public.user_profiles WHERE id = auth.uid()
-            )
+CREATE POLICY "payroll_approval_categories_select"
+ON public.payroll_approval_categories FOR SELECT USING (
+    config_id IN (
+        SELECT id FROM public.payroll_approval_configs WHERE organization_id IN (
+            SELECT organization_id FROM public.user_profiles WHERE id = auth.uid()
         )
-    );
+    )
+);
 
-    FOR ALL USING (
-        config_id IN (
-            SELECT id FROM public.payroll_approval_configs WHERE organization_id IN (
-                SELECT organization_id FROM public.user_profiles WHERE id = auth.uid()
-            )
-        ) AND (
-            public.check_is_super_admin(auth.uid()) OR public.check_is_org_super_admin(auth.uid())
+CREATE POLICY "payroll_approval_categories_all"
+ON public.payroll_approval_categories FOR ALL USING (
+    config_id IN (
+        SELECT id FROM public.payroll_approval_configs WHERE organization_id IN (
+            SELECT organization_id FROM public.user_profiles WHERE id = auth.uid()
         )
-    );
+    ) AND (
+        public.check_is_super_admin(auth.uid()) OR public.check_is_org_super_admin(auth.uid())
+    )
+);
 
 -- 6. Trigger for updated_at
 CREATE OR REPLACE FUNCTION public.handle_payroll_config_updated_at()

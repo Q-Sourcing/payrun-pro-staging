@@ -309,13 +309,14 @@ export class ExpatriatePayrollService {
   /**
    * Create a new allowance for a pay run item
    */
-  static async createAllowance(payRunItemId: string, name: string, amount: number): Promise<any> {
+  static async createAllowance(payRunItemId: string, name: string, amount: number, allowanceType: string = 'taxable'): Promise<any> {
     const { data, error } = await supabase
       .from('expatriate_pay_run_item_allowances')
       .insert([{
         expatriate_pay_run_item_id: payRunItemId,
         name: name.trim(),
-        amount: amount
+        amount: amount,
+        allowance_type: allowanceType,
       }])
       .select()
       .single();
@@ -358,9 +359,10 @@ export class ExpatriatePayrollService {
    * @param amounts Either a single number (same for all) or a Record mapping employee_id to amount
    */
   static async bulkCreateAllowances(
-    payRunItemIds: string[], 
-    name: string, 
-    amounts: number | Record<string, number>
+    payRunItemIds: string[],
+    name: string,
+    amounts: number | Record<string, number>,
+    allowanceType: string = 'taxable'
   ): Promise<any[]> {
     const isSameAmount = typeof amounts === 'number';
     const allowanceName = name.trim();
@@ -370,7 +372,8 @@ export class ExpatriatePayrollService {
       const allowancesToCreate = payRunItemIds.map(itemId => ({
         expatriate_pay_run_item_id: itemId,
         name: allowanceName,
-        amount: amounts as number
+        amount: amounts as number,
+        allowance_type: allowanceType,
       }));
 
       const { data, error } = await supabase
@@ -395,7 +398,8 @@ export class ExpatriatePayrollService {
         .map(item => ({
           expatriate_pay_run_item_id: item.id,
           name: allowanceName,
-          amount: amounts[item.employee_id]
+          amount: amounts[item.employee_id],
+          allowance_type: allowanceType,
         }));
 
       if (allowancesToCreate.length === 0) return [];

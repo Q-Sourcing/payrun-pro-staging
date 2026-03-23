@@ -15,6 +15,7 @@ import {
   type ZohoSyncSummary,
 } from "@/lib/services/zoho-integration.service";
 import { ZohoSyncPreviewDialog } from "@/components/settings/ZohoSyncPreviewDialog";
+import { ZohoBooksSection } from "@/components/settings/ZohoBooksSection";
 import { Users, Mail, Calculator, Landmark } from "lucide-react";
 
 export const IntegrationsSection = () => {
@@ -185,27 +186,7 @@ export const IntegrationsSection = () => {
         </TabsContent>
 
         <TabsContent value="accounting" className="mt-0">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Accounting Software</CardTitle>
-              <CardDescription>Connect your accounting platform</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {[
-                { label: "QuickBooks Online", status: quickbooksStatus, toggle: () => setQuickbooksStatus(quickbooksStatus === "connected" ? "disconnected" : "connected") },
-                { label: "Xero", status: xeroStatus, toggle: () => setXeroStatus(xeroStatus === "connected" ? "disconnected" : "connected") },
-                { label: "Custom API", status: "configure", toggle: () => {} },
-              ].map(item => (
-                <div key={item.label} className="flex items-center justify-between p-3 rounded-lg border border-border">
-                  <span className="text-sm font-medium">{item.label}</span>
-                  <Button variant="outline" size="sm" onClick={item.toggle}>
-                    {item.status === "connected" ? "Disconnect" : item.status === "configure" ? "Configure" : "Connect"}
-                  </Button>
-                </div>
-              ))}
-              <Button onClick={handleSave}>Save</Button>
-            </CardContent>
-          </Card>
+          <ZohoBooksSection />
         </TabsContent>
 
         <TabsContent value="banking" className="mt-0">

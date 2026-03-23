@@ -71,22 +71,7 @@ AS $$
   WHERE id = _user_id
 $$;
 
--- 5) Backfill data from profiles if it exists
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'profiles') THEN
-    UPDATE public.user_profiles up
-    SET 
-      failed_login_attempts = p.failed_login_attempts,
-      locked_at = p.locked_at,
-      locked_by = p.locked_by,
-      unlocked_at = p.unlocked_at,
-      unlocked_by = p.unlocked_by,
-      lockout_reason = p.lockout_reason
-    FROM public.profiles p
-    WHERE up.id = p.id;
-  END IF;
-END $$;
+-- 5) Backfill data from profiles if it exists (skipped — profiles table lacks lockout columns)
 
 -- 6) Comments
 COMMENT ON COLUMN public.user_profiles.failed_login_attempts IS 'Number of consecutive failed login attempts. Reset on successful login.';

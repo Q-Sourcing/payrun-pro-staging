@@ -33,9 +33,9 @@ CREATE TABLE public.expatriate_policies (
 ALTER TABLE public.expatriate_policies ENABLE ROW LEVEL SECURITY;
 
 -- Create policy for expatriate policies
-ON public.expatriate_policies 
-FOR ALL 
-USING (true) 
+CREATE POLICY "expatriate_policies_all" ON public.expatriate_policies
+FOR ALL
+USING (true)
 WITH CHECK (true);
 
 -- Add trigger for updated_at

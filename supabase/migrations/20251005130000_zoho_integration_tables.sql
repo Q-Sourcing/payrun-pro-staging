@@ -164,20 +164,12 @@ ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;
 
 -- Create policies for admin access (adjust based on your auth setup)
-    FOR ALL USING (true); -- Adjust this based on your authentication system
-
-    FOR ALL USING (true);
-
-    FOR ALL USING (true);
-
-    FOR ALL USING (true);
-
-    FOR ALL USING (true);
-
-    FOR ALL USING (true);
-
-    FOR ALL USING (true);
-
-    FOR ALL USING (true);
-
-    FOR ALL USING (true);
+CREATE POLICY "integration_tokens_all" ON public.integration_tokens FOR ALL USING (true);
+CREATE POLICY "sync_configurations_all" ON public.sync_configurations FOR ALL USING (true);
+CREATE POLICY "sync_logs_all" ON public.sync_logs FOR ALL USING (true);
+CREATE POLICY "integration_health_all" ON public.integration_health FOR ALL USING (true);
+CREATE POLICY "alert_rules_all" ON public.alert_rules FOR ALL USING (true);
+CREATE POLICY "notification_channels_all" ON public.notification_channels FOR ALL USING (true);
+CREATE POLICY "alert_logs_all" ON public.alert_logs FOR ALL USING (true);
+CREATE POLICY "audit_logs_all" ON public.audit_logs FOR ALL USING (true);
+CREATE POLICY "attendance_records_all" ON public.attendance_records FOR ALL USING (true);

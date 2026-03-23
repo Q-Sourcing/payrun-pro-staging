@@ -20,6 +20,9 @@ CREATE TABLE IF NOT EXISTS public.employee_number_settings (
 ALTER TABLE public.employee_number_settings ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for employee_number_settings
+DROP POLICY IF EXISTS employee_number_settings_all ON public.employee_number_settings;
+DROP POLICY IF EXISTS "employee_number_settings_all" ON public.employee_number_settings;
+CREATE POLICY "employee_number_settings_all"
   ON public.employee_number_settings FOR ALL
   USING (true)
   WITH CHECK (true);

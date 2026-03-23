@@ -1,12 +1,27 @@
 -- ─── Add missing unique constraints ─────────────────────────────────────────
-ALTER TABLE public.rbac_permissions
-  ADD CONSTRAINT rbac_permissions_key_unique UNIQUE (key);
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'rbac_permissions_key_unique'
+  ) THEN
+    ALTER TABLE public.rbac_permissions ADD CONSTRAINT rbac_permissions_key_unique UNIQUE (key);
+  END IF;
+END $$;
 
-ALTER TABLE public.rbac_roles
-  ADD CONSTRAINT rbac_roles_code_unique UNIQUE (code);
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'rbac_roles_code_unique'
+  ) THEN
+    ALTER TABLE public.rbac_roles ADD CONSTRAINT rbac_roles_code_unique UNIQUE (code);
+  END IF;
+END $$;
 
-ALTER TABLE public.rbac_role_permissions
-  ADD CONSTRAINT rbac_role_permissions_unique UNIQUE (role_code, permission_key, org_id);
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'rbac_role_permissions_unique'
+  ) THEN
+    ALTER TABLE public.rbac_role_permissions ADD CONSTRAINT rbac_role_permissions_unique UNIQUE (role_code, permission_key, org_id);
+  END IF;
+END $$;
 
 -- ─── Seed Predefined Permissions ─────────────────────────────────────────────
 INSERT INTO public.rbac_permissions (key, category, description)

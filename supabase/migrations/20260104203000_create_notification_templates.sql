@@ -27,6 +27,7 @@ ALTER TABLE public.notification_templates ENABLE ROW LEVEL SECURITY;
 
 -- READ: Authenticated users can read templates for their org OR global templates
 DROP POLICY IF EXISTS "Templates readable by Org Members" ON public.notification_templates;
+CREATE POLICY "Templates readable by Org Members"
 ON public.notification_templates FOR SELECT TO authenticated
 USING (
     org_id IS NULL OR
@@ -39,9 +40,10 @@ USING (
 
 -- WRITE: Admins can manage their org's templates
 DROP POLICY IF EXISTS "Templates managed by Org Admins" ON public.notification_templates;
+CREATE POLICY "Templates managed by Org Admins"
 ON public.notification_templates FOR ALL TO authenticated
 USING (
-    public.check_is_super_admin(auth.uid()) OR 
+    public.check_is_super_admin(auth.uid()) OR
     public.check_is_org_admin(auth.uid()) OR
     public.check_is_org_super_admin(auth.uid())
 );

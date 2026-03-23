@@ -39,9 +39,10 @@ CREATE TABLE IF NOT EXISTS public.platform_admins (
 ALTER TABLE public.platform_admins ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Platform admins readable by platform admins" ON public.platform_admins;
-ON public.platform_admins FOR SELECT TO authenticated 
+CREATE POLICY "platform_admins_select"
+ON public.platform_admins FOR SELECT TO authenticated
 USING (
-    auth_user_id = auth.uid() OR 
+    auth_user_id = auth.uid() OR
     EXISTS (SELECT 1 FROM public.platform_admins WHERE auth_user_id = auth.uid() AND allowed = true)
 );
 
@@ -119,18 +120,20 @@ END $$;
 -- Organizations
 DROP POLICY IF EXISTS "org_select_policy" ON public.organizations;
 DROP POLICY IF EXISTS "org_select_same_org_or_super_admin" ON public.organizations;
-FOR SELECT TO authenticated 
+CREATE POLICY "organizations_select"
+ON public.organizations FOR SELECT TO authenticated
 USING (
-    public.is_platform_admin() OR 
+    public.is_platform_admin() OR
     id = public.current_org_id()
 );
 
 -- Activity Logs (Multi-tenant check)
 DROP POLICY IF EXISTS "activity_logs_select_policy" ON public.activity_logs;
 DROP POLICY IF EXISTS "activity_logs_select_same_org_or_super_admin" ON public.activity_logs;
-FOR SELECT TO authenticated 
+CREATE POLICY "activity_logs_select"
+ON public.activity_logs FOR SELECT TO authenticated
 USING (
-    public.is_platform_admin() OR 
+    public.is_platform_admin() OR
     organization_id = public.current_org_id()
 );
 
@@ -141,28 +144,33 @@ BEGIN
         DROP POLICY IF EXISTS "Platform admins can view all auth events" ON public.auth_events;
         DROP POLICY IF EXISTS "Org super admins can view org auth events" ON public.auth_events;
         DROP POLICY IF EXISTS "Users can view own auth events" ON public.auth_events;
+        DROP POLICY IF EXISTS "auth_events_select" ON public.auth_events;
 
-        FOR SELECT TO authenticated 
-        USING (
-            public.is_platform_admin() OR 
-            (org_id = public.current_org_id() AND (
-                user_id = auth.uid() OR 
-                EXISTS (
-                    SELECT 1 FROM public.user_profiles 
-                    WHERE id = auth.uid() AND role IN ('super_admin', 'org_admin')
-                )
-            ))
-        );
+        EXECUTE $policy$
+            CREATE POLICY "auth_events_select"
+            ON public.auth_events FOR SELECT TO authenticated
+            USING (
+                public.is_platform_admin() OR
+                (org_id = public.current_org_id() AND (
+                    user_id = auth.uid() OR
+                    EXISTS (
+                        SELECT 1 FROM public.user_profiles
+                        WHERE id = auth.uid() AND role IN ('super_admin', 'org_admin')
+                    )
+                ))
+            )
+        $policy$;
     END IF;
 END $$;
 
 -- User Profiles
 DROP POLICY IF EXISTS "user_profiles_select_policy" ON public.user_profiles;
 DROP POLICY IF EXISTS "user_profiles_select_own_or_super_admin" ON public.user_profiles;
-FOR SELECT TO authenticated
+CREATE POLICY "user_profiles_select"
+ON public.user_profiles FOR SELECT TO authenticated
 USING (
-    public.is_platform_admin() OR 
-    id = auth.uid() OR 
+    public.is_platform_admin() OR
+    id = auth.uid() OR
     organization_id = public.current_org_id()
 );
 
@@ -171,12 +179,17 @@ DO $$
 BEGIN
     IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'user_invites') THEN
         DROP POLICY IF EXISTS "Users can view invites addressed to them" ON public.user_invites;
-        FOR SELECT TO authenticated
-        USING (
-            email = auth.jwt()->>'email' OR
-            inviter_id = auth.uid() OR
-            public.is_platform_admin()
-        );
+        DROP POLICY IF EXISTS "user_invites_select" ON public.user_invites;
+
+        EXECUTE $policy$
+            CREATE POLICY "user_invites_select"
+            ON public.user_invites FOR SELECT TO authenticated
+            USING (
+                email = auth.jwt()->>'email' OR
+                inviter_id = auth.uid() OR
+                public.is_platform_admin()
+            )
+        $policy$;
     END IF;
 END $$;
 

@@ -11,7 +11,7 @@ import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUpDown, Filter, Download, Globe, Flag, Settings, FileText, Gift, Calculator, FileSpreadsheet, Pencil, Check, X, Lock } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronRight, ArrowUpDown, Filter, Download, Globe, Flag, Settings, FileText, Gift, Calculator, FileSpreadsheet, Pencil, Check, X, Lock, BookOpen, Loader2 } from "lucide-react";
 import { getCountryDeductions, calculateDeduction } from "@/lib/constants/deductions";
 import { PayrollCalculationService, CalculationInput, CalculationResult } from "@/lib/types/payroll-calculations";
 import { getCurrencyByCode, getCurrencyCodeFromCountry } from "@/lib/constants/countries";
@@ -32,11 +32,13 @@ import { IndividualPayslipDialog } from "./IndividualPayslipDialog";
 import LstDeductionsDialog, { LstDialogEmployee } from "./LstDeductionsDialog";
 import BankScheduleExportDialog from "./BankScheduleExportDialog";
 import { ExpatriatePayRunDetails } from "./ExpatriatePayRunDetails";
+import { ZohoBooksService } from "@/lib/services/zoho-books.service";
 import { ExpatriatePayrollService } from '@/lib/services/expatriate-payroll';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApprovalTimeline } from "./ApprovalTimeline";
 import { PayrunsService } from "@/lib/services/payruns.service";
 import { useUserRole } from "@/hooks/use-user-role";
+import { useOrg } from "@/lib/tenant/OrgContext";
 import { Textarea } from "@/components/ui/textarea";
 
 interface CustomDeduction {
@@ -184,6 +186,9 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
     !['draft', 'rejected'].includes(payRunData.approval_status);
   const { toast } = useToast();
   const { canExportBankSchedule } = useBankSchedulePermissions();
+  const { companyId } = useOrg();
+  const [zohoBooksJournalRef, setZohoBooksJournalRef] = useState<{ status: string; zohoJournalId: string | null; pushedAt: string | null } | null>(null);
+  const [zohoBooksPushing, setZohoBooksPushing] = useState(false);
   // Approval Workflow State
   const { role, isSuperAdmin } = useUserRole();
   const [activeTab, setActiveTab] = useState("pay-details");
@@ -362,6 +367,16 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       if (payRunError) throw payRunError;
 
       setPayRunData(payRunData);
+
+      // Load Zoho Books journal ref if pay run is approved/processed
+      if (companyId && ["approved", "processed"].includes(payRunData?.status ?? "")) {
+        try {
+          const ref = await ZohoBooksService.getJournalRef(companyId, payRunId);
+          setZohoBooksJournalRef(ref);
+        } catch {
+          // non-critical — journal ref simply won't show
+        }
+      }
 
       // Fetch current user's pending step for this payrun (for button gating)
       const myStep = await PayrunsService.getMyStepForPayrun(payRunId);
@@ -817,6 +832,28 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
       newSelected.add(itemId);
     }
     setSelectedItems(newSelected);
+  };
+
+  const handlePushToZohoBooks = async () => {
+    if (!companyId || !payRunId) return;
+    if (zohoBooksJournalRef?.status === "pushed") {
+      toast({ title: "Already pushed", description: `This pay run was already posted to Zoho Books. Journal ID: ${zohoBooksJournalRef.zohoJournalId}` });
+      return;
+    }
+    setZohoBooksPushing(true);
+    try {
+      const result = await ZohoBooksService.pushJournal(companyId, payRunId);
+      if (result.success) {
+        setZohoBooksJournalRef({ status: "pushed", zohoJournalId: result.zohoJournalId ?? null, pushedAt: new Date().toISOString() });
+        toast({ title: result.alreadyPushed ? "Already in Zoho Books" : "Journal pushed", description: result.message });
+      } else {
+        toast({ title: "Push failed", description: result.message, variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Push failed", description: e?.message ?? "Could not push journal to Zoho Books.", variant: "destructive" });
+    } finally {
+      setZohoBooksPushing(false);
+    }
   };
 
   const handleBulkStatusUpdate = async (newStatus: 'draft' | 'pending' | 'approved' | 'paid') => {
@@ -2233,6 +2270,22 @@ const PayRunDetailsDialog = ({ open, onOpenChange, payRunId, payRunDate, payPeri
                   <Button onClick={() => initApprovalAction('approve')}>Approve</Button>
                   <Button variant="destructive" onClick={() => initApprovalAction('reject')}>Reject</Button>
                 </>
+              )}
+
+              {/* Zoho Books: push journal for approved/processed pay runs */}
+              {companyId && ["approved", "processed"].includes(payRunData?.status ?? "") && (
+                <Button
+                  variant={zohoBooksJournalRef?.status === "pushed" ? "outline" : "secondary"}
+                  size="sm"
+                  onClick={() => void handlePushToZohoBooks()}
+                  disabled={zohoBooksPushing || zohoBooksJournalRef?.status === "pushed"}
+                  title={zohoBooksJournalRef?.status === "pushed" ? `Journal ID: ${zohoBooksJournalRef.zohoJournalId}` : "Push payroll journal to Zoho Books"}
+                >
+                  {zohoBooksPushing
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                    : <BookOpen className="h-3.5 w-3.5 mr-1.5" />}
+                  {zohoBooksJournalRef?.status === "pushed" ? "Pushed to Books ✓" : "Push to Zoho Books"}
+                </Button>
               )}
             </div>
             <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>

@@ -324,6 +324,94 @@ serve(async (req) => {
       }
     }
 
+    // ── Work permit expiry reminders ──────────────────────────────────────
+    const PERMIT_ALERT_DAYS = [90, 30, 0]; // days before expiry to alert
+
+    for (const daysBeforeExpiry of PERMIT_ALERT_DAYS) {
+      const targetExpiryDate = toYyyyMmDdUtc(addDaysUtc(today, daysBeforeExpiry));
+
+      const { data: expiringPermits } = await supabaseAdmin
+        .from("work_permits")
+        .select("id, org_id, employee_id, permit_class, permit_number, expiry_date, employee:employees(id, first_name, last_name, email, project_id)")
+        .eq("status", "active")
+        .eq("expiry_date", targetExpiryDate);
+
+      if (!expiringPermits || expiringPermits.length === 0) continue;
+
+      for (const permit of expiringPermits as any[]) {
+        const emp = permit.employee || {};
+        const employeeName = [emp.first_name, emp.last_name].filter(Boolean).join(" ").trim() || emp.email || permit.employee_id;
+
+        // Get project manager if employee is on a project
+        let projectManagerId: string | null = null;
+        if (emp.project_id) {
+          const { data: proj } = await supabaseAdmin
+            .from("projects")
+            .select("responsible_manager_id")
+            .eq("id", emp.project_id)
+            .maybeSingle();
+          projectManagerId = proj?.responsible_manager_id || null;
+        }
+
+        // Get HR/Admin users for this org
+        const { data: hrRoles } = await supabaseAdmin
+          .from("org_roles")
+          .select("id")
+          .eq("org_id", permit.org_id)
+          .in("key", ["ORG_HR", "ORG_ADMIN", "ORG_OWNER"]);
+        const hrRoleIds = (hrRoles || []).map((r: any) => r.id);
+        let hrUserIds: string[] = [];
+        if (hrRoleIds.length > 0) {
+          const { data: our } = await supabaseAdmin
+            .from("org_user_roles")
+            .select("org_user_id")
+            .in("role_id", hrRoleIds);
+          const orgUserIds = Array.from(new Set((our || []).map((x: any) => x.org_user_id)));
+          if (orgUserIds.length > 0) {
+            const { data: orgUsers } = await supabaseAdmin
+              .from("org_users")
+              .select("user_id, status")
+              .eq("org_id", permit.org_id)
+              .in("id", orgUserIds);
+            hrUserIds = (orgUsers || []).filter((ou: any) => ou.status === "active").map((ou: any) => ou.user_id);
+          }
+        }
+
+        const recipients = new Set<string>(hrUserIds);
+        if (projectManagerId) recipients.add(projectManagerId);
+
+        let title: string;
+        let message: string;
+        if (daysBeforeExpiry === 0) {
+          title = "Work Permit Expired";
+          message = `Work permit (${permit.permit_class}) for ${employeeName} expired today (${permit.expiry_date}). Immediate renewal required.`;
+        } else if (daysBeforeExpiry <= 30) {
+          title = "Work Permit Expiring Soon";
+          message = `Work permit (${permit.permit_class}) for ${employeeName} expires in ${daysBeforeExpiry} days on ${permit.expiry_date}. Please initiate renewal.`;
+        } else {
+          title = "Work Permit Expiry Notice";
+          message = `Work permit (${permit.permit_class}) for ${employeeName} expires in ${daysBeforeExpiry} days on ${permit.expiry_date}.`;
+        }
+
+        for (const recipientId of recipients) {
+          notificationInserts.push({
+            user_id: recipientId,
+            type: "work_permit_expiry",
+            title,
+            message,
+            metadata: {
+              rule_type: "work_permit_expiry",
+              days_before: daysBeforeExpiry,
+              permit_id: permit.id,
+              employee_id: permit.employee_id,
+              organization_id: permit.org_id,
+              expiry_date: permit.expiry_date,
+            },
+          });
+        }
+      }
+    }
+
     // ── Insert notifications (with dedup) ─────────────────────────────────
     let inserted = 0;
     if (notificationInserts.length > 0) {

@@ -1,6 +1,15 @@
 
+-- Alias for update_updated_at_column (referenced as handle_updated_at in triggers below)
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
 -- Anomaly logs table for unified anomaly detection system
-CREATE TABLE public.anomaly_logs (
+CREATE TABLE IF NOT EXISTS public.anomaly_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
   project_id uuid REFERENCES public.projects(id) ON DELETE SET NULL,

@@ -1,3 +1,18 @@
+-- Stubs for functions defined in later migration (20251229170000_fix_rls_recursion)
+CREATE OR REPLACE FUNCTION public.check_is_super_admin(user_id uuid)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  RETURN EXISTS (SELECT 1 FROM public.users WHERE id = user_id AND role = 'super_admin');
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.check_is_org_super_admin(user_id uuid)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  RETURN EXISTS (SELECT 1 FROM public.users WHERE id = user_id AND role IN ('super_admin', 'organization_admin'));
+END;
+$$;
+
 -- ==========================================================
 -- PAYROLL APPROVAL ENHANCEMENTS MIGRATION
 -- Extends existing approval workflow infrastructure with:
@@ -166,6 +181,7 @@ ALTER TABLE public.approval_workflow_versions ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policy: Read by org members
 DROP POLICY IF EXISTS "Workflow Versions Readable by Org Members" ON public.approval_workflow_versions;
+CREATE POLICY "Workflow Versions Readable by Org Members"
 ON public.approval_workflow_versions FOR SELECT TO authenticated
 USING (
     workflow_id IN (
@@ -178,6 +194,7 @@ USING (
 
 -- RLS Policy: Insert by admins (created via trigger)
 DROP POLICY IF EXISTS "Workflow Versions Managed by Admins" ON public.approval_workflow_versions;
+CREATE POLICY "Workflow Versions Managed by Admins"
 ON public.approval_workflow_versions FOR INSERT TO authenticated
 WITH CHECK (
     public.check_is_super_admin(auth.uid()) OR public.check_is_org_super_admin(auth.uid())

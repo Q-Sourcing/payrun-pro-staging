@@ -3,16 +3,27 @@
 -- Purpose: Rename Departments to Sub-Departments for terminological consistency.
 -- ==========================================================
 
--- 1. Rename the main table
+-- 1. Rename the main table (or create if departments never existed)
 ALTER TABLE IF EXISTS public.departments RENAME TO sub_departments;
+CREATE TABLE IF NOT EXISTS public.sub_departments (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    organization_id uuid,
+    company_id uuid,
+    name text NOT NULL,
+    description text,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
 
 -- 2. Rename references in other tables
 -- Employees table
 DO $$ BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'employees' AND column_name = 'department_id') THEN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'employees' AND column_name = 'department_id')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'employees' AND column_name = 'sub_department_id') THEN
     ALTER TABLE public.employees RENAME COLUMN department_id TO sub_department_id;
   END IF;
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'employees' AND column_name = 'department') THEN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'employees' AND column_name = 'department')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'employees' AND column_name = 'sub_department') THEN
     ALTER TABLE public.employees RENAME COLUMN department TO sub_department;
   END IF;
 END $$;
@@ -58,12 +69,16 @@ DROP POLICY IF EXISTS "Enable insert access for authenticated users" ON public.s
 DROP POLICY IF EXISTS "Enable update access for authenticated users" ON public.sub_departments;
 DROP POLICY IF EXISTS "Enable delete access for authenticated users" ON public.sub_departments;
 
+CREATE POLICY "sub_departments_select" ON public.sub_departments
     FOR SELECT TO authenticated USING (true);
 
+CREATE POLICY "sub_departments_insert" ON public.sub_departments
     FOR INSERT TO authenticated WITH CHECK (true);
 
+CREATE POLICY "sub_departments_update" ON public.sub_departments
     FOR UPDATE TO authenticated USING (true);
 
+CREATE POLICY "sub_departments_delete" ON public.sub_departments
     FOR DELETE TO authenticated USING (true);
 
 -- 5. Update Functions to use new terminology
@@ -93,7 +108,11 @@ CREATE POLICY "Sub-Department managers can view sub-department users" ON public.
     );
 
 -- 7. Update Triggers
-ALTER TRIGGER set_updated_at ON public.sub_departments RENAME TO set_sub_departments_updated_at;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid WHERE t.tgname = 'set_updated_at' AND c.relname = 'sub_departments') THEN
+    ALTER TRIGGER set_updated_at ON public.sub_departments RENAME TO set_sub_departments_updated_at;
+  END IF;
+END $$;
 
 -- Update generate_employee_number
 DROP FUNCTION IF EXISTS public.generate_employee_number(text, text, text, uuid, text);

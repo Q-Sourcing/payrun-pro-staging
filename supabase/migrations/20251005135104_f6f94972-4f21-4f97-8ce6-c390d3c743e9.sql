@@ -21,8 +21,11 @@ ALTER TABLE public.employee_number_settings ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policy if it exists
 DROP POLICY IF EXISTS "Allow all access to employee_number_settings" ON public.employee_number_settings;
+DROP POLICY IF EXISTS employee_number_settings_all ON public.employee_number_settings;
+DROP POLICY IF EXISTS "employee_number_settings_all" ON public.employee_number_settings;
 
 -- RLS Policies for employee_number_settings
+CREATE POLICY "employee_number_settings_all"
   ON public.employee_number_settings FOR ALL
   USING (true)
   WITH CHECK (true);

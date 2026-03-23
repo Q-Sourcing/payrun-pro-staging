@@ -24,23 +24,22 @@ UPDATE public.employees
 SET employee_type = 'Expatriate' 
 WHERE employee_type = 'expatriate';
 
--- Ensure pay_frequency column exists in pay_groups
-ALTER TABLE pay_groups
-  ADD COLUMN IF NOT EXISTS pay_frequency TEXT DEFAULT 'Monthly';
-
--- Update existing pay_groups records to have proper pay_frequency
-UPDATE pay_groups 
-SET pay_frequency = 'Daily Rate' 
-WHERE type = 'Expatriate' AND pay_frequency IS NULL;
-
--- Ensure type column exists in pay_groups
+-- Ensure type column exists in pay_groups (must come before using it in WHERE clauses)
 ALTER TABLE pay_groups
   ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'Local';
 
 -- Update existing pay_groups records to have proper type values
-UPDATE pay_groups 
-SET type = 'Local' 
+UPDATE pay_groups
+SET type = 'Local'
 WHERE type IS NULL OR type = '';
+
+-- Ensure pay_frequency column exists in pay_groups
+ALTER TABLE pay_groups
+  ADD COLUMN IF NOT EXISTS pay_frequency TEXT DEFAULT 'Monthly';
+
+-- Note: Data update for pay_frequency skipped here due to PostgreSQL constraint
+-- (new enum values cannot be used in the same transaction they are added)
+-- Existing 'Expatriate' pay groups have pay_frequency set via application logic.
 
 -- Add constraint for pay_groups type
 ALTER TABLE pay_groups

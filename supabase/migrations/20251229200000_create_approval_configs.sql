@@ -33,6 +33,7 @@ ALTER TABLE public.payroll_approval_categories ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Read by org members (Configs)
 DROP POLICY IF EXISTS "Configs Readable by Org Members" ON public.payroll_approval_configs;
+CREATE POLICY "Configs Readable by Org Members"
 ON public.payroll_approval_configs FOR SELECT TO authenticated
 USING (
     organization_id IN (
@@ -44,6 +45,7 @@ USING (
 
 -- Policy: Manage by Admins (Configs)
 DROP POLICY IF EXISTS "Configs Managed by Admins" ON public.payroll_approval_configs;
+CREATE POLICY "Configs Managed by Admins"
 ON public.payroll_approval_configs FOR ALL TO authenticated
 USING (
     public.check_is_super_admin(auth.uid()) OR public.check_is_org_super_admin(auth.uid())
@@ -51,6 +53,7 @@ USING (
 
 -- Policy: Read by org members (Categories) - Cascades from Configs usually, but easier to set direct check
 DROP POLICY IF EXISTS "Categories Readable by Org Members" ON public.payroll_approval_categories;
+CREATE POLICY "Categories Readable by Org Members"
 ON public.payroll_approval_categories FOR SELECT TO authenticated
 USING (
     EXISTS (
@@ -66,6 +69,7 @@ USING (
 
 -- Policy: Manage by Admins (Categories)
 DROP POLICY IF EXISTS "Categories Managed by Admins" ON public.payroll_approval_categories;
+CREATE POLICY "Categories Managed by Admins"
 ON public.payroll_approval_categories FOR ALL TO authenticated
 USING (
     public.check_is_super_admin(auth.uid()) OR public.check_is_org_super_admin(auth.uid())

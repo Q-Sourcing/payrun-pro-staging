@@ -11,6 +11,7 @@ import { Loader2, Download, Eye, FileSpreadsheet, Users, DollarSign, AlertCircle
 import { useToast } from '@/hooks/use-toast';
 import { BankScheduleService, BankScheduleResult } from '@/lib/services/bank-schedule-service';
 import { BankScheduleExporter } from '@/lib/services/bank-schedule-exporter';
+import { isPayRunUncalculated, runPayrollCalculation } from '@/lib/services/payroll-calculation-runner';
 
 interface BankScheduleExportDialogProps {
   open: boolean;
@@ -41,6 +42,7 @@ export const BankScheduleExportDialog: React.FC<BankScheduleExportDialogProps> =
   payPeriod,
 }) => {
   const [loading, setLoading] = useState(false);
+  const [calculatingPayroll, setCalculatingPayroll] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [bankScheduleData, setBankScheduleData] = useState<BankScheduleResult | null>(null);
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
@@ -58,6 +60,17 @@ export const BankScheduleExportDialog: React.FC<BankScheduleExportDialogProps> =
   const loadBankScheduleData = async () => {
     setLoading(true);
     try {
+      // Auto-calculate if the pay run hasn't been calculated yet
+      const needsCalculation = await isPayRunUncalculated(payRunId);
+      if (needsCalculation) {
+        setCalculatingPayroll(true);
+        try {
+          await runPayrollCalculation(payRunId);
+        } finally {
+          setCalculatingPayroll(false);
+        }
+      }
+
       const data = await BankScheduleService.generateBankSchedule(payRunId);
       setBankScheduleData(data);
 
@@ -81,11 +94,11 @@ export const BankScheduleExportDialog: React.FC<BankScheduleExportDialogProps> =
           variant: "destructive",
         });
       }
-    } catch (error) {
-      error('Error loading bank schedule data:', error);
+    } catch (err) {
+      error('Error loading bank schedule data:', err);
       toast({
         title: "Error loading data",
-        description: error instanceof Error ? error.message : 'Failed to load bank schedule data',
+        description: err instanceof Error ? err.message : 'Failed to load bank schedule data',
         variant: "destructive",
       });
     } finally {
@@ -113,11 +126,11 @@ export const BankScheduleExportDialog: React.FC<BankScheduleExportDialogProps> =
       });
 
       onOpenChange(false);
-    } catch (error) {
-      error('Error exporting bank schedule:', error);
+    } catch (err) {
+      error('Error exporting bank schedule:', err);
       toast({
         title: "Export failed",
-        description: error instanceof Error ? error.message : 'Failed to export bank schedule',
+        description: err instanceof Error ? err.message : 'Failed to export bank schedule',
         variant: "destructive",
       });
     } finally {
@@ -153,11 +166,11 @@ export const BankScheduleExportDialog: React.FC<BankScheduleExportDialogProps> =
         title: "CSV Export successful",
         description: `${bankName.toUpperCase()} bank schedule exported to ${fileName}`,
       });
-    } catch (error) {
-      error('Error exporting CSV:', error);
+    } catch (err) {
+      error('Error exporting CSV:', err);
       toast({
         title: "CSV Export failed",
-        description: error instanceof Error ? error.message : 'Failed to export CSV',
+        description: err instanceof Error ? err.message : 'Failed to export CSV',
         variant: "destructive",
       });
     }
@@ -370,7 +383,7 @@ export const BankScheduleExportDialog: React.FC<BankScheduleExportDialogProps> =
           {loading && (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin mr-2" />
-              <span>Loading bank schedule data...</span>
+              <span>{calculatingPayroll ? 'Calculating payroll...' : 'Loading bank schedule data...'}</span>
             </div>
           )}
         </div>

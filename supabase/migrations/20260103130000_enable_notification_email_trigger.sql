@@ -1,6 +1,14 @@
 -- Enable pg_net if not already enabled
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
+-- Stub for trigger_email_handler (fully defined in 20260103160000_wrap_email_trigger.sql)
+CREATE OR REPLACE FUNCTION public.trigger_email_handler()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  RETURN NEW;
+END;
+$$;
+
 -- Enable trigger on notifications table for email delivery
 DROP TRIGGER IF EXISTS tr_email_notification ON public.notifications;
 

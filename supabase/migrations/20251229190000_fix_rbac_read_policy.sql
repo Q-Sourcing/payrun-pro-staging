@@ -12,12 +12,14 @@ ALTER TABLE public.rbac_assignments ENABLE ROW LEVEL SECURITY;
 
 -- 2. Policy: Users can read own assignments
 DROP POLICY IF EXISTS "Users can read own rbac assignments" ON public.rbac_assignments;
+CREATE POLICY "Users can read own rbac assignments" ON public.rbac_assignments
     FOR SELECT TO authenticated
     USING (user_id = auth.uid());
 
 -- 3. Policy: Super Admins can view all assignments
 -- We use the safe PL/PGSQL helper we defined earlier.
 DROP POLICY IF EXISTS "Super admins can view all rbac assignments" ON public.rbac_assignments;
+CREATE POLICY "Super admins can view all rbac assignments" ON public.rbac_assignments
     FOR ALL TO authenticated
     USING (public.check_is_super_admin(auth.uid()));
 
@@ -29,5 +31,6 @@ DROP POLICY IF EXISTS "Super admins can view all rbac assignments" ON public.rba
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can read own legacy role" ON public.user_roles;
+CREATE POLICY "Users can read own legacy role" ON public.user_roles
     FOR SELECT TO authenticated
     USING (user_id = auth.uid());

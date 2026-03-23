@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS public.user_invites (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT NOT NULL,
     inviter_id UUID REFERENCES auth.users(id),
-    tenant_id UUID REFERENCES public.organizations(id), -- Optional: If invite is scoped to a specific tenant
+    tenant_id UUID, -- Optional: If invite is scoped to a specific tenant
     role_data JSONB NOT NULL DEFAULT '{}'::jsonb, -- Store intended roles/orgs: { orgs: [], platformRoles: [] }
     status invite_status NOT NULL DEFAULT 'pending',
     token_hash TEXT, -- Optional: Store hash of the invite token for verification if needed
@@ -23,50 +23,14 @@ CREATE INDEX IF NOT EXISTS idx_user_invites_inviter ON public.user_invites(invit
 -- RLS Policies
 ALTER TABLE public.user_invites ENABLE ROW LEVEL SECURITY;
 
--- Allow platform admins to view all invites (or strict RLS if needed)
--- For now, let's allow authenticated users to view invites they sent OR invites for their email.
-
-    ON public.user_invites
-    FOR SELECT
-    TO authenticated
-    USING (
-        EXISTS (
-            SELECT 1 FROM public.platform_admins 
-            WHERE auth_user_id = auth.uid() AND allowed = true
-        )
-    );
-
-    ON public.user_invites
-    FOR SELECT
-    TO authenticated
+-- Temporary open policies — will be replaced by 20251219000200_tighten_obac.sql
+CREATE POLICY "user_invites_select_inviter"
+    ON public.user_invites FOR SELECT TO authenticated
     USING (inviter_id = auth.uid());
 
-    ON public.user_invites
-    FOR SELECT
-    TO authenticated
+CREATE POLICY "user_invites_select_own_email"
+    ON public.user_invites FOR SELECT TO authenticated
     USING (email = (select email from auth.users where id = auth.uid()));
-
--- Only Service Role (Edge Functions) should insert/update universally.
--- Admins can update status (revoke) via Edge Functions or direct if policy allows.
--- Let's restrict modification to Service Role for now to force usage of our controlled Edge Functions.
--- But wait, Platform Admins might need to Revoke directly from UI if we don't build an API for it?
--- Better to use functions. But for now, let's allow Platform Admins to update 'status' to 'revoked'.
-
-    ON public.user_invites
-    FOR UPDATE
-    TO authenticated
-    USING (
-        EXISTS (
-            SELECT 1 FROM public.platform_admins 
-            WHERE auth_user_id = auth.uid() AND allowed = true
-        )
-    )
-    WITH CHECK (
-        EXISTS (
-             SELECT 1 FROM public.platform_admins 
-             WHERE auth_user_id = auth.uid() AND allowed = true
-        )
-    );
 
 -- Grant permissions
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_invites TO service_role;

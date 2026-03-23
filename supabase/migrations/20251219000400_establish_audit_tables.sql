@@ -42,13 +42,14 @@ ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
 
 -- Auth Events Select
 DROP POLICY IF EXISTS "auth_events_select_policy" ON public.auth_events;
+CREATE POLICY "auth_events_select_policy" ON public.auth_events
 FOR SELECT TO authenticated
 USING (
-    public.is_platform_admin() OR 
+    public.is_platform_admin() OR
     (org_id = public.current_org_id() AND (
-        user_id = auth.uid() OR 
+        user_id = auth.uid() OR
         EXISTS (
-            SELECT 1 FROM public.user_profiles 
+            SELECT 1 FROM public.user_profiles
             WHERE id = auth.uid() AND role IN ('super_admin', 'org_admin')
         )
     ))
@@ -56,19 +57,22 @@ USING (
 
 -- Auth Events Insert (Allow anyone to log their own events)
 DROP POLICY IF EXISTS "auth_events_insert_policy" ON public.auth_events;
+CREATE POLICY "auth_events_insert_policy" ON public.auth_events
 FOR INSERT TO authenticated
 WITH CHECK (user_id = auth.uid());
 
 -- Activity Logs Select
 DROP POLICY IF EXISTS "activity_logs_select_policy" ON public.activity_logs;
+CREATE POLICY "activity_logs_select_policy" ON public.activity_logs
 FOR SELECT TO authenticated
 USING (
-    public.is_platform_admin() OR 
+    public.is_platform_admin() OR
     organization_id = public.current_org_id()
 );
 
 -- Activity Logs Insert
 DROP POLICY IF EXISTS "activity_logs_insert_policy" ON public.activity_logs;
+CREATE POLICY "activity_logs_insert_policy" ON public.activity_logs
 FOR INSERT TO authenticated
 WITH CHECK (user_id = auth.uid());
 

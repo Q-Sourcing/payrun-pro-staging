@@ -27,6 +27,7 @@ import {
   UserCheck, Loader2, RefreshCw, Mail, Send, Ban, Clock, CheckCircle2, XCircle,
   Power, PowerOff,
 } from "lucide-react";
+import { InviteUserDialog, useOrgRoles } from "@/components/settings/InviteUserDialog";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -45,6 +46,8 @@ interface ManagedUser {
   department: string | null;
   status: "active" | "inactive" | "pending";
   created_at: string;
+  /** true when the account was created via an accepted invitation */
+  via_invite?: boolean;
 }
 
 interface Invitation {
@@ -60,15 +63,7 @@ interface Invitation {
   accepted_at: string | null;
 }
 
-// ─── Validation schemas — role is now a free string (pulled from DB) ──────────
-const inviteSchema = z.object({
-  full_name: z.string().min(2, "Full name must be at least 2 characters").max(200).trim(),
-  email: z.string().email("Invalid email address").max(255),
-  role: z.string().min(1, "Role is required"),
-  phone: z.string().max(30).optional().or(z.literal("")),
-  department: z.string().max(100).optional().or(z.literal("")),
-});
-
+// ─── Validation schemas ───────────────────────────────────────────────────────
 const editSchema = z.object({
   username: z.string().min(2, "Username must be at least 2 characters").max(50).trim(),
   full_name: z.string().min(2, "Full name must be at least 2 characters").max(200).trim(),
@@ -78,7 +73,6 @@ const editSchema = z.object({
   status: z.enum(["active", "inactive"]),
 });
 
-type InviteFormValues = z.infer<typeof inviteSchema>;
 type EditFormValues = z.infer<typeof editSchema>;
 
 // ─── Status badge config ──────────────────────────────────────────────────────
@@ -128,27 +122,6 @@ async function callInviteUser(action: string, body?: unknown) {
   return res.json();
 }
 
-// ─── Hook: fetch org roles live from rbac_roles ───────────────────────────────
-function useOrgRoles() {
-  const [roles, setRoles] = useState<OrgRole[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    supabase
-      .from("rbac_roles")
-      .select("code, name, description")
-      .eq("tier", "ORGANIZATION")
-      .not("code", "in", '("PLATFORM_SUPER_ADMIN","PLATFORM_AUDITOR")')
-      .order("name")
-      .then(({ data }) => {
-        setRoles(data ?? []);
-        setLoading(false);
-      });
-  }, []);
-
-  return { roles, loading };
-}
-
 // ─── Role select component ────────────────────────────────────────────────────
 function RoleSelect({
   value, onChange, roles, placeholder = "Select role",
@@ -174,115 +147,7 @@ function RoleSelect({
   );
 }
 
-// ─── Invite User Dialog ───────────────────────────────────────────────────────
-function InviteUserDialog({
-  open, onClose, onSent, roles,
-}: {
-  open: boolean; onClose: () => void; onSent: () => void; roles: OrgRole[];
-}) {
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-
-  const form = useForm<InviteFormValues>({
-    resolver: zodResolver(inviteSchema),
-    defaultValues: { full_name: "", email: "", role: "", phone: "", department: "" },
-  });
-
-  useEffect(() => {
-    if (open) form.reset({ full_name: "", email: "", role: roles[0]?.code ?? "", phone: "", department: "" });
-  }, [open, roles]);
-
-  async function onSubmit(values: InviteFormValues) {
-    setLoading(true);
-    try {
-      const result = await callInviteUser("invite", {
-        ...values,
-        phone: values.phone || null,
-        department: values.department || null,
-      });
-      if (!result.success) throw new Error(result.message);
-      toast({ title: "Invitation sent!", description: `An invitation email has been sent to ${values.email}.` });
-      onSent();
-      onClose();
-    } catch (err: unknown) {
-      toast({ title: "Failed to send invitation", description: err instanceof Error ? err.message : "Unknown error occurred.", variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Send className="h-5 w-5" /> Invite New User
-          </DialogTitle>
-          <DialogDescription>
-            An invitation email will be sent. The user creates their own password via the link.
-            Invitations expire after 48 hours. The role you choose here maps directly to the
-            permissions configured in <strong>Roles &amp; Permissions</strong>.
-          </DialogDescription>
-        </DialogHeader>
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField control={form.control} name="full_name" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Full Name <span className="text-destructive">*</span></FormLabel>
-                <FormControl><Input placeholder="Jane Doe" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-
-            <FormField control={form.control} name="email" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email Address <span className="text-destructive">*</span></FormLabel>
-                <FormControl><Input type="email" placeholder="user@company.com" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control} name="role" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Role <span className="text-destructive">*</span></FormLabel>
-                  <FormControl>
-                    <RoleSelect value={field.value} onChange={field.onChange} roles={roles} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="department" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Department</FormLabel>
-                  <FormControl><Input placeholder="e.g. Finance" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-            </div>
-
-            <FormField control={form.control} name="phone" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Phone Number</FormLabel>
-                <FormControl><Input placeholder="+1 555 000 0000" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-
-            <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
-              <Button type="submit" disabled={loading || roles.length === 0} className="gap-2">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Send Invitation
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  );
-}
+// InviteUserDialog is imported from @/components/settings/InviteUserDialog
 
 // ─── View User Dialog ─────────────────────────────────────────────────────────
 function ViewUserDialog({ user, roles, onClose }: { user: ManagedUser | null; roles: OrgRole[]; onClose: () => void }) {
@@ -751,9 +616,43 @@ export function UserManagementTab() {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await callManageUsers("GET");
+      const [result, { data: acceptedInvites }] = await Promise.all([
+        callManageUsers("GET"),
+        supabase
+          .from("user_management_invitations")
+          .select("email, full_name, role, department, phone, created_at")
+          .eq("status", "accepted"),
+      ]);
       if (!result.success) throw new Error(result.message);
-      setUsers(result.users ?? []);
+
+      const apiUsers: ManagedUser[] = result.users ?? [];
+      const apiEmails = new Set(apiUsers.map((u: ManagedUser) => u.email.toLowerCase()));
+
+      // Mark existing users that came via invite
+      const markedUsers: ManagedUser[] = apiUsers.map((u: ManagedUser) => ({
+        ...u,
+        via_invite: (acceptedInvites ?? []).some(
+          (inv) => inv.email.toLowerCase() === u.email.toLowerCase()
+        ),
+      }));
+
+      // Add accepted invites whose accounts aren't yet in the manage-users list
+      const extraFromInvites: ManagedUser[] = (acceptedInvites ?? [])
+        .filter((inv) => !apiEmails.has(inv.email.toLowerCase()))
+        .map((inv) => ({
+          id: `invite-${inv.email}`,
+          username: null,
+          full_name: inv.full_name,
+          email: inv.email,
+          role: inv.role ?? "",
+          phone: inv.phone ?? null,
+          department: inv.department ?? null,
+          status: "active" as const,
+          created_at: inv.created_at,
+          via_invite: true,
+        }));
+
+      setUsers([...markedUsers, ...extraFromInvites]);
     } catch (err: unknown) {
       toast({ title: "Failed to load users", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
     } finally {
@@ -909,7 +808,16 @@ export function UserManagementTab() {
                       const roleName = roles.find(r => r.code === user.role)?.name ?? user.role;
                       return (
                         <TableRow key={user.id}>
-                          <TableCell className="font-medium">{user.full_name}</TableCell>
+                          <TableCell className="font-medium">
+                            <span className="flex items-center gap-2">
+                              {user.full_name}
+                              {user.via_invite && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-300 text-blue-600 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-700 dark:text-blue-400">
+                                  Via Invite
+                                </Badge>
+                              )}
+                            </span>
+                          </TableCell>
                           <TableCell className="text-muted-foreground text-sm">{user.email}</TableCell>
                           <TableCell>
                             <Badge variant="outline" className="text-xs">{roleName}</Badge>

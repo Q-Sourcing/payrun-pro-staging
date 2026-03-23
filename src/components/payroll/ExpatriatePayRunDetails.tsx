@@ -14,8 +14,8 @@ import { GeneratePayslipsDialog } from "./GeneratePayslipsDialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ExpatriatePayrollService } from "@/lib/services/expatriate-payroll";
-import type { ExpatriateCalculationInput, ExpatriateCalculationResult, ExpatriateAllowance, ExpatriatePayGroupFormData } from "@/lib/types/expatriate-payroll";
-import { EXPATRIATE_CURRENCIES, SUPPORTED_TAX_COUNTRIES } from "@/lib/types/expatriate-payroll";
+import type { ExpatriateCalculationInput, ExpatriateCalculationResult, ExpatriateAllowance, ExpatriatePayGroupFormData, AllowanceType } from "@/lib/types/expatriate-payroll";
+import { EXPATRIATE_CURRENCIES, SUPPORTED_TAX_COUNTRIES, ALLOWANCE_TYPE_DEFAULTS, ALLOWANCE_TYPE_LABELS, ALLOWANCE_TYPE_DESCRIPTIONS } from "@/lib/types/expatriate-payroll";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -91,15 +91,17 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
   const [editingAllowances, setEditingAllowances] = useState<Record<string, Record<string, number>>>({});
   const { toast } = useToast();
 
-  // Generate dynamic columns for allowances
+  // Generate dynamic columns for allowances, with their type
   const customAllowanceColumns = useMemo(() => {
-    const columnNames = new Set<string>();
+    const columnMap = new Map<string, AllowanceType>();
     payRunItems.forEach(item => {
       (item.allowances || []).forEach(allowance => {
-        columnNames.add(allowance.name);
+        if (!columnMap.has(allowance.name)) {
+          columnMap.set(allowance.name, allowance.allowance_type || 'taxable');
+        }
       });
     });
-    return Array.from(columnNames).sort();
+    return Array.from(columnMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [payRunItems]);
 
   const daysWorked = payRunData?.days_worked ?? 0;
@@ -768,9 +770,20 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
                   <TableHead>Days Worked</TableHead>
                   <TableHead>Base Earnings ({expatriatePayGroup.currency})</TableHead>
                   {/* Dynamic Allowance Columns */}
-                  {customAllowanceColumns.map(columnName => (
+                  {customAllowanceColumns.map(([columnName, columnType]) => (
                     <TableHead key={columnName} className="text-center">
-                      {columnName}
+                      <div>{columnName}</div>
+                      <div className="mt-0.5">
+                        {columnType === 'tax_exempt' && (
+                          <span className="text-xs font-normal text-green-600">Tax Exempt</span>
+                        )}
+                        {columnType === 'social_tax_exempt' && (
+                          <span className="text-xs font-normal text-blue-600">Social Exempt</span>
+                        )}
+                        {(!columnType || columnType === 'taxable') && (
+                          <span className="text-xs font-normal text-amber-600">Taxable</span>
+                        )}
+                      </div>
                     </TableHead>
                   ))}
                   <TableHead>Exchange Rate</TableHead>
@@ -881,7 +894,7 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
                         </TableCell>
 
                         {/* Dynamic Allowance Columns */}
-                        {customAllowanceColumns.map(columnName => {
+                        {customAllowanceColumns.map(([columnName, columnType]) => {
                           const allowance = (item.allowances || []).find(a => a.name === columnName);
                           const allowanceId = allowance?.id;
                           const hasAllowance = !!allowance;
@@ -1098,7 +1111,7 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
             selectedItems={Array.from(selectedItems)}
             payRunItems={payRunItems}
             currency={expatriatePayGroup.currency}
-            onApply={async (name: string, amounts: number | Record<string, number>) => {
+            onApply={async (name: string, amounts: number | Record<string, number>, allowanceType: AllowanceType) => {
               try {
                 // Get pay run item IDs for selected employees
                 const selectedPayRunItemIds = payRunItems
@@ -1115,7 +1128,7 @@ export const ExpatriatePayRunDetails: React.FC<ExpatriatePayRunDetailsProps> = (
                   return;
                 }
 
-                await ExpatriatePayrollService.bulkCreateAllowances(selectedPayRunItemIds, name, amounts);
+                await ExpatriatePayrollService.bulkCreateAllowances(selectedPayRunItemIds, name, amounts, allowanceType);
                 
                 // Reload items to show new allowances
                 await loadExpatriatePayRunItems();
@@ -1344,9 +1357,10 @@ const BulkAddAllowanceDialog: React.FC<{
   selectedItems: string[];
   payRunItems: ExpatriatePayRunItem[];
   currency: string;
-  onApply: (name: string, amounts: number | Record<string, number>) => void;
+  onApply: (name: string, amounts: number | Record<string, number>, allowanceType: AllowanceType) => void;
 }> = ({ open, onOpenChange, selectedItems, payRunItems, currency, onApply }) => {
   const [allowanceName, setAllowanceName] = useState('');
+  const [allowanceType, setAllowanceType] = useState<AllowanceType>('taxable');
   const [amountMode, setAmountMode] = useState<'same' | 'individual'>('same');
   const [sameAmount, setSameAmount] = useState('');
   const [individualAmounts, setIndividualAmounts] = useState<Record<string, string>>({});
@@ -1368,12 +1382,12 @@ const BulkAddAllowanceDialog: React.FC<{
     if (amountMode === 'same') {
       const parsedAmount = parseFloat(sameAmount);
       if (isNaN(parsedAmount) || parsedAmount < 0) return;
-      onApply(allowanceName.trim(), parsedAmount);
+      onApply(allowanceName.trim(), parsedAmount, allowanceType);
     } else {
       // Individual amounts
       const amounts: Record<string, number> = {};
       let hasValidAmount = false;
-      
+
       selectedItems.forEach(employeeId => {
         const amountStr = individualAmounts[employeeId] || '';
         const parsedAmount = parseFloat(amountStr);
@@ -1387,7 +1401,7 @@ const BulkAddAllowanceDialog: React.FC<{
         return; // At least one amount must be provided
       }
 
-      onApply(allowanceName.trim(), amounts);
+      onApply(allowanceName.trim(), amounts, allowanceType);
     }
 
     // Reset form
@@ -1395,6 +1409,7 @@ const BulkAddAllowanceDialog: React.FC<{
     setSameAmount('');
     setIndividualAmounts({});
     setAmountMode('same');
+    setAllowanceType('taxable');
   };
 
   const selectedEmployees = payRunItems.filter(item => selectedItems.includes(item.employee_id));
@@ -1408,8 +1423,30 @@ const BulkAddAllowanceDialog: React.FC<{
             type="text"
             placeholder="e.g., Housing, Transport, Medical"
             value={allowanceName}
-            onChange={(e) => setAllowanceName(e.target.value)}
+            onChange={(e) => {
+              const name = e.target.value;
+              setAllowanceName(name);
+              // Auto-suggest allowance type based on name
+              const key = name.trim().toLowerCase().replace(/\s+/g, '_');
+              const autoType = ALLOWANCE_TYPE_DEFAULTS[key] || ALLOWANCE_TYPE_DEFAULTS[name.trim().toLowerCase()] || null;
+              if (autoType) setAllowanceType(autoType);
+            }}
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Allowance Type (Tax Treatment)</Label>
+          <Select value={allowanceType} onValueChange={(v) => setAllowanceType(v as AllowanceType)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="taxable">Taxable — included in PAYE base</SelectItem>
+              <SelectItem value="tax_exempt">Tax Exempt — excluded from PAYE &amp; NSSF</SelectItem>
+              <SelectItem value="social_tax_exempt">Social Tax Exempt — excluded from NSSF only</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">{ALLOWANCE_TYPE_DESCRIPTIONS[allowanceType]}</p>
         </div>
 
         <div className="space-y-2">

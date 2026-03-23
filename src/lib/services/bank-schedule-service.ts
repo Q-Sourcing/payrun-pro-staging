@@ -49,20 +49,24 @@ export class BankScheduleService {
         throw new Error(`Pay run not found: ${payRunError?.message || 'Unknown error'}`);
       }
 
-      // Fetch pay items separately
-      const { data: payItems, error: payItemsError } = await supabase
+      // Fetch all pay items for this run first to distinguish "no employees" from "not calculated"
+      const { data: allPayItems, error: payItemsError } = await supabase
         .from('pay_items')
         .select('*')
-        .eq('pay_run_id', payRunId)
-        .not('net_pay', 'is', null)
-        .gt('net_pay', 0);
+        .eq('pay_run_id', payRunId);
 
       if (payItemsError) {
         throw new Error(`Failed to fetch pay items: ${payItemsError.message}`);
       }
 
-      if (!payItems || payItems.length === 0) {
-        throw new Error('No active employees found in this pay run');
+      if (!allPayItems || allPayItems.length === 0) {
+        throw new Error('No employees found in this pay run');
+      }
+
+      const payItems = allPayItems.filter(item => item.net_pay != null && item.net_pay > 0);
+
+      if (payItems.length === 0) {
+        throw new Error('Pay run has not been calculated yet. Please calculate payroll before generating a bank schedule.');
       }
 
       // Get unique employee IDs

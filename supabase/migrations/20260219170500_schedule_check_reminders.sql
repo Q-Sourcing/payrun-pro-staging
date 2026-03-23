@@ -26,7 +26,7 @@ BEGIN
     PERFORM cron.schedule(
       'check-reminders-daily',
       '0 7 * * *',
-      $$select public.invoke_check_reminders();$$
+      $cmd$select public.invoke_check_reminders();$cmd$
     );
   END IF;
 EXCEPTION WHEN OTHERS THEN

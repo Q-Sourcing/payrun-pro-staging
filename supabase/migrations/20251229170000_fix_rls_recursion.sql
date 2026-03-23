@@ -56,16 +56,18 @@ $$;
 -- We drop and recreate them to use the safe helpers.
 
 DROP POLICY IF EXISTS "Super admins can view all users" ON public.users;
+CREATE POLICY "Super admins can view all users" ON public.users
     FOR ALL TO authenticated
     USING (public.check_is_super_admin(auth.uid()));
 
 DROP POLICY IF EXISTS "Organization admins can view organization users" ON public.users;
+CREATE POLICY "Organization admins can view organization users" ON public.users
     FOR SELECT TO authenticated
     USING (
         EXISTS (
-            SELECT 1 
+            SELECT 1
             FROM public.users u1
-            WHERE u1.id = auth.uid() 
+            WHERE u1.id = auth.uid()
             AND u1.role = 'organization_admin'
             AND u1.organization_id = public.users.organization_id
         )
@@ -85,18 +87,20 @@ END;
 $$;
 
 DROP POLICY IF EXISTS "Organization admins can view organization users" ON public.users;
+CREATE POLICY "Organization admins can view organization users" ON public.users
     FOR SELECT TO authenticated
     USING (
         (public.check_is_org_super_admin(auth.uid()) AND organization_id = public.get_user_organization_id(auth.uid()))
     );
 
 DROP POLICY IF EXISTS "Department managers can view department users" ON public.users;
+CREATE POLICY "Department managers can view department users" ON public.users
     FOR SELECT TO authenticated
     USING (
         EXISTS (
-            SELECT 1 
+            SELECT 1
             FROM public.users u1
-            WHERE u1.id = auth.uid() 
+            WHERE u1.id = auth.uid()
             AND u1.role = 'payroll_manager'
             AND u1.department_id = public.users.department_id
         )
@@ -115,6 +119,7 @@ END;
 $$;
 
 DROP POLICY IF EXISTS "Department managers can view department users" ON public.users;
+CREATE POLICY "Department managers can view department users" ON public.users
     FOR SELECT TO authenticated
     USING (
         (public.check_is_org_admin(auth.uid()) AND department_id = public.get_user_department_id(auth.uid()))
