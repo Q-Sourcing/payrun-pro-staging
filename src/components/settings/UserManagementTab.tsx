@@ -25,9 +25,17 @@ import {
 import {
   UserPlus, Search, MoreHorizontal, Edit, Trash2, Eye, Users, ShieldCheck,
   UserCheck, Loader2, RefreshCw, Mail, Send, Ban, Clock, CheckCircle2, XCircle,
-  Power, PowerOff,
+  Power, PowerOff, Pencil,
 } from "lucide-react";
-import { InviteUserDialog, useOrgRoles } from "@/components/settings/InviteUserDialog";
+import {
+  InviteUserDialog, useOrgRoles, ModuleAccessSection, DepartmentCombobox,
+  type ModuleAccess,
+} from "@/components/settings/InviteUserDialog";
+import {
+  getUserModuleGrants, setUserModuleGrants, grantsToModuleAccess,
+} from "@/lib/api/rbac";
+import { useOrgDepartments } from "@/hooks/use-org-departments";
+import { useOrg } from "@/lib/tenant/OrgContext";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -61,6 +69,7 @@ interface Invitation {
   expires_at: string;
   created_at: string;
   accepted_at: string | null;
+  role_data?: { module_access?: Record<string, string> };
 }
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
@@ -190,7 +199,12 @@ function EditUserDialog({
   onClose: () => void; onSaved: () => void;
 }) {
   const { toast } = useToast();
+  const { organizationId } = useOrg();
+  const orgId = organizationId ?? "00000000-0000-0000-0000-000000000001";
+  const { departments } = useOrgDepartments();
   const [loading, setLoading] = useState(false);
+  const [moduleAccess, setModuleAccess] = useState<Record<string, ModuleAccess>>({});
+  const [grantsLoading, setGrantsLoading] = useState(false);
 
   const form = useForm<EditFormValues>({
     resolver: zodResolver(editSchema),
@@ -214,8 +228,18 @@ function EditUserDialog({
         department: user.department ?? "",
         status: (user.status === "active" || user.status === "inactive") ? user.status : "active",
       });
+      // Load existing module grants
+      if (!user.id.startsWith("invite-")) {
+        setGrantsLoading(true);
+        getUserModuleGrants(user.id, orgId)
+          .then((grants) => setModuleAccess(grantsToModuleAccess(grants)))
+          .catch(console.error)
+          .finally(() => setGrantsLoading(false));
+      } else {
+        setModuleAccess({});
+      }
     }
-  }, [user]);
+  }, [user, orgId]);
 
   async function onSubmit(values: EditFormValues) {
     if (!user) return;
@@ -228,6 +252,10 @@ function EditUserDialog({
         department: values.department || null,
       });
       if (!result.success) throw new Error(result.message);
+      // Update module grants (only for real users, not invite-prefixed IDs)
+      if (!user.id.startsWith("invite-")) {
+        await setUserModuleGrants(user.id, orgId, moduleAccess);
+      }
       toast({ title: "User updated", description: `${values.full_name} has been updated.` });
       onSaved();
       onClose();
@@ -243,7 +271,7 @@ function EditUserDialog({
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Edit className="h-5 w-5" /> Edit User</DialogTitle>
-          <DialogDescription>Update the user's details and role.</DialogDescription>
+          <DialogDescription>Update the user's details, role, and module access grants.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -306,11 +334,28 @@ function EditUserDialog({
               <FormField control={form.control} name="department" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Department</FormLabel>
-                  <FormControl><Input placeholder="e.g. Finance" {...field} /></FormControl>
+                  <FormControl>
+                    <DepartmentCombobox
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      departments={departments}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
             </div>
+
+            {/* Module access — only for real (non-invite-placeholder) users */}
+            {!user?.id.startsWith("invite-") && (
+              grantsLoading ? (
+                <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading module access…
+                </div>
+              ) : (
+                <ModuleAccessSection value={moduleAccess} onChange={setModuleAccess} />
+              )
+            )}
 
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
@@ -368,6 +413,104 @@ function DeleteConfirmDialog({ user, onClose, onDeleted }: { user: ManagedUser |
   );
 }
 
+// ─── Edit Invite Dialog ────────────────────────────────────────────────────────
+function EditInviteDialog({
+  invitation,
+  roles,
+  onClose,
+  onSaved,
+}: {
+  invitation: Invitation | null;
+  roles: OrgRole[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [role, setRole] = useState("");
+  const [moduleAccess, setModuleAccess] = useState<Record<string, ModuleAccess>>({});
+
+  useEffect(() => {
+    if (invitation) {
+      setRole(invitation.role);
+      setModuleAccess(
+        (invitation.role_data?.module_access as Record<string, ModuleAccess>) ?? {}
+      );
+    }
+  }, [invitation]);
+
+  async function handleSave() {
+    if (!invitation) return;
+    setLoading(true);
+    try {
+      const nonNone = Object.fromEntries(
+        Object.entries(moduleAccess).filter(([, v]) => v !== "none")
+      );
+      const { error } = await supabase
+        .from("user_management_invitations" as any)
+        .update({ role, role_data: { module_access: nonNone } })
+        .eq("id", invitation.id);
+      if (error) throw error;
+      toast({ title: "Invitation updated", description: "Role and module access have been updated." });
+      onSaved();
+      onClose();
+    } catch (err: unknown) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to update invitation.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Dialog open={!!invitation} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Pencil className="h-5 w-5" /> Edit Invitation
+          </DialogTitle>
+          <DialogDescription>
+            Update the role and module access for{" "}
+            <strong>{invitation?.full_name}</strong> ({invitation?.email}).
+            Changes take effect when the invitee accepts.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">
+              Role <span className="text-destructive">*</span>
+            </label>
+            <Select value={role} onValueChange={setRole}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
+              <SelectContent>
+                {roles.map((r) => (
+                  <SelectItem key={r.code} value={r.code}>{r.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <ModuleAccessSection value={moduleAccess} onChange={setModuleAccess} />
+        </div>
+
+        <DialogFooter className="pt-2">
+          <Button variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
+          <Button onClick={handleSave} disabled={loading || !role} className="gap-2">
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            Save Changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Invitations Table ────────────────────────────────────────────────────────
 function InvitationsTable({ roles }: { roles: OrgRole[] }) {
   const { toast } = useToast();
@@ -375,6 +518,7 @@ function InvitationsTable({ roles }: { roles: OrgRole[] }) {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [deleteInviteTarget, setDeleteInviteTarget] = useState<Invitation | null>(null);
+  const [editInviteTarget, setEditInviteTarget] = useState<Invitation | null>(null);
 
   const fetchInvitations = useCallback(async () => {
     setLoading(true);
@@ -531,6 +675,11 @@ function InvitationsTable({ roles }: { roles: OrgRole[] }) {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setEditInviteTarget(inv)}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit Invitation
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => handleResend(inv)} disabled={actionLoading === inv.id}>
                                 {actionLoading === inv.id
                                   ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -568,6 +717,14 @@ function InvitationsTable({ roles }: { roles: OrgRole[] }) {
           </CardContent>
         </Card>
       )}
+
+      {/* Edit Invitation Dialog */}
+      <EditInviteDialog
+        invitation={editInviteTarget}
+        roles={roles}
+        onClose={() => setEditInviteTarget(null)}
+        onSaved={fetchInvitations}
+      />
 
       {/* Delete Invitation Confirmation */}
       <Dialog open={!!deleteInviteTarget} onOpenChange={(open) => !open && setDeleteInviteTarget(null)}>

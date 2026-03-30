@@ -176,6 +176,108 @@ export async function deleteGrant(id: string) {
     if (error) throw error;
 }
 
+// ─── User Module Grants (for invite/edit dialogs) ────────────────────────────
+
+/**
+ * Permission keys for each module at each access level.
+ * Mirrors MODULE_PERMISSION_MAP in the invite-user edge function.
+ */
+export const MODULE_PERMISSION_MAP: Record<string, { view: string[]; full: string[] }> = {
+  employees:           { view: ['people.view'], full: ['people.view', 'people.create', 'people.edit', 'people.assign_project'] },
+  payroll:             { view: ['payroll.view'], full: ['payroll.view', 'payroll.prepare', 'payroll.submit', 'payroll.approve'] },
+  pay_groups:          { view: ['paygroups.view'], full: ['paygroups.view', 'paygroups.manage'] },
+  projects:            { view: ['projects.view'], full: ['projects.view', 'projects.manage'] },
+  earnings_deductions: { view: ['earnings.view'], full: ['earnings.view', 'earnings.manage'] },
+  contracts:           { view: ['contracts.view'], full: ['contracts.view', 'contracts.manage'] },
+  reports:             { view: ['reports.view'], full: ['reports.view', 'finance.view_reports', 'reports.export'] },
+  ehs:                 { view: ['ehs.view_dashboard'], full: ['ehs.view_dashboard', 'ehs.manage_incidents', 'ehs.manage_hazards'] },
+  settings:            { view: [], full: ['admin.manage_users', 'admin.assign_roles', 'admin.activity_logs.view'] },
+  user_management:     { view: ['users.view'], full: ['users.view', 'users.invite', 'users.edit'] },
+  attendance:          { view: ['attendance.view'], full: ['attendance.view', 'attendance.manage', 'attendance.approve'] },
+};
+
+/**
+ * Fetch a user's current ALLOW grants at org scope (for displaying module access).
+ */
+export async function getUserModuleGrants(userId: string, orgId: string): Promise<Grant[]> {
+    const { data, error } = await supabase
+        .from("rbac_grants")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("scope_type", "ORGANIZATION")
+        .eq("scope_id", orgId)
+        .eq("effect", "ALLOW");
+    if (error) throw error;
+    return (data ?? []) as unknown as Grant[];
+}
+
+/**
+ * Derives a { moduleId: 'view'|'full'|'none' } map from a list of ALLOW grants.
+ * Used to pre-populate the ModuleAccessSection when editing a user.
+ */
+export function grantsToModuleAccess(
+    grants: Grant[]
+): Record<string, 'view' | 'full' | 'none'> {
+    const grantedKeys = new Set(grants.map((g) => g.permission_key));
+    const result: Record<string, 'view' | 'full' | 'none'> = {};
+    for (const [moduleId, { view, full }] of Object.entries(MODULE_PERMISSION_MAP)) {
+        const hasAll = full.length > 0 && full.every((k) => grantedKeys.has(k));
+        const hasView = view.length > 0 && view.every((k) => grantedKeys.has(k));
+        result[moduleId] = hasAll ? 'full' : hasView ? 'view' : 'none';
+    }
+    return result;
+}
+
+/**
+ * Replace all ALLOW grants for a user at org scope with the provided module access map.
+ * Deletes existing org-scope ALLOW grants, then inserts new ones.
+ */
+export async function setUserModuleGrants(
+    userId: string,
+    orgId: string,
+    moduleAccess: Record<string, 'view' | 'full' | 'none'>
+): Promise<void> {
+    // Remove existing ALLOW grants at this scope
+    const { error: delErr } = await supabase
+        .from("rbac_grants")
+        .delete()
+        .eq("user_id", userId)
+        .eq("scope_type", "ORGANIZATION")
+        .eq("scope_id", orgId)
+        .eq("effect", "ALLOW");
+    if (delErr) throw delErr;
+
+    // Insert new grants
+    const rows: Array<{
+        user_id: string;
+        permission_key: string;
+        scope_type: string;
+        scope_id: string;
+        effect: string;
+    }> = [];
+
+    for (const [moduleId, level] of Object.entries(moduleAccess)) {
+        if (level === 'none') continue;
+        const perms = MODULE_PERMISSION_MAP[moduleId]?.[level] ?? [];
+        for (const permKey of perms) {
+            rows.push({
+                user_id: userId,
+                permission_key: permKey,
+                scope_type: 'ORGANIZATION',
+                scope_id: orgId,
+                effect: 'ALLOW',
+            });
+        }
+    }
+
+    if (rows.length > 0) {
+        const { error: insErr } = await supabase
+            .from("rbac_grants")
+            .upsert(rows as any[], { onConflict: 'user_id,permission_key,scope_type,scope_id' });
+        if (insErr) throw insErr;
+    }
+}
+
 // ─── Audit ────────────────────────────────────────────────────────────────────
 
 export async function listAuditLogs(orgId: string) {

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -32,11 +32,14 @@ import {
   listRoles, createRole, deleteRole, listPermissions,
   listRolePermissions, setRolePermissions,
   createPermission, updatePermission, deletePermission,
-  type Role, type Permission,
+  getUserModuleGrants, setUserModuleGrants, grantsToModuleAccess,
+  type Role, type Permission, type Grant,
 } from "@/lib/api/rbac";
 import { useOrg } from "@/lib/tenant/OrgContext";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { SYSTEM_MODULES_REGISTRY, PERMISSION_CATEGORIES, type ModuleDef } from "@/lib/constants/permissions-registry";
+import { ModuleAccessSection, type ModuleAccess } from "@/components/settings/InviteUserDialog";
 
 const PROTECTED_ROLES = ["PLATFORM_SUPER_ADMIN", "PLATFORM_AUDITOR", "ADMIN"];
 
@@ -328,6 +331,7 @@ function PermissionMatrixPanel({
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<"all" | "granted" | "denied">("all");
+  const [activeTab, setActiveTab] = useState("permissions");
 
   useEffect(() => {
     setSelected(new Set(currentPerms));
@@ -404,89 +408,309 @@ function PermissionMatrixPanel({
             {selected.size} of {totalPerms} permissions enabled
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <ToggleGroup
-            type="single"
-            value={filter}
-            onValueChange={(v) => v && setFilter(v as any)}
-            className="h-7"
-          >
-            <ToggleGroupItem value="all" className="h-7 text-xs px-2">All</ToggleGroupItem>
-            <ToggleGroupItem value="granted" className="h-7 text-xs px-2">Granted</ToggleGroupItem>
-            <ToggleGroupItem value="denied" className="h-7 text-xs px-2">Denied</ToggleGroupItem>
-          </ToggleGroup>
-          <Button
-            size="sm"
-            className="gap-1.5 h-7 text-xs"
-            onClick={() => mutation.mutate([...selected])}
-            disabled={mutation.isPending || !isDirty}
-          >
-            <Save className="h-3.5 w-3.5" />
-            {mutation.isPending ? "Saving…" : "Save"}
-          </Button>
-        </div>
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center flex-1 text-sm text-muted-foreground">
-          Loading permissions…
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b gap-3">
+          <TabsList className="h-8">
+            <TabsTrigger value="permissions" className="text-xs h-7 px-3">Permissions</TabsTrigger>
+            <TabsTrigger value="user-overrides" className="text-xs h-7 px-3">User Overrides</TabsTrigger>
+          </TabsList>
+          {activeTab === "permissions" && (
+            <div className="flex items-center gap-2">
+              <ToggleGroup
+                type="single"
+                value={filter}
+                onValueChange={(v) => v && setFilter(v as any)}
+                className="h-7"
+              >
+                <ToggleGroupItem value="all" className="h-7 text-xs px-2.5">All</ToggleGroupItem>
+                <ToggleGroupItem value="granted" className="h-7 text-xs px-2.5">Granted</ToggleGroupItem>
+                <ToggleGroupItem value="denied" className="h-7 text-xs px-2.5">Denied</ToggleGroupItem>
+              </ToggleGroup>
+              <Button
+                size="sm"
+                className="gap-1.5 h-7 text-xs"
+                onClick={() => mutation.mutate([...selected])}
+                disabled={mutation.isPending || !isDirty}
+              >
+                <Save className="h-3.5 w-3.5" />
+                {mutation.isPending ? "Saving…" : "Save"}
+              </Button>
+            </div>
+          )}
         </div>
-      ) : (
-        <ScrollArea className="flex-1">
-          <div className="p-4 space-y-3">
-            {/* Registry-based module cards */}
-            {moduleCards.map(({ module, dbPerms }) => (
-              <ModulePermissionCard
-                key={module.id}
-                module={module}
-                dbPerms={dbPerms}
-                selected={selected}
-                filter={filter}
-                onToggle={toggle}
-                onToggleAll={() => toggleModule(dbPerms)}
-              />
-            ))}
 
-            {/* Extra DB permissions not in registry */}
-            {Object.entries(extraByCategory).map(([category, perms]) => {
-              const colorClass = CATEGORY_COLORS[category] ?? "bg-muted/50 text-muted-foreground border-border";
-              const filteredPerms = perms.filter(p =>
-                filter === "all" ? true :
-                filter === "granted" ? selected.has(p.key) :
-                !selected.has(p.key)
-              );
-              if (filteredPerms.length === 0) return null;
-              return (
-                <div key={category} className="rounded-lg border overflow-hidden">
-                  <div className={`flex items-center gap-2 px-3 py-2 ${colorClass}`}>
-                    <KeyRound className="h-3.5 w-3.5 shrink-0" />
-                    <span className="text-xs font-semibold flex-1">{category}</span>
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">{filteredPerms.length}</Badge>
-                  </div>
-                  <div className="divide-y">
-                    {filteredPerms.map(p => (
-                      <PermissionRow
-                        key={p.key}
-                        permKey={p.key}
-                        description={p.description || p.key}
-                        isSelected={selected.has(p.key)}
-                        onToggle={() => toggle(p.key)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+        <TabsContent value="permissions" className="flex-1 overflow-hidden mt-0">
+          {isLoading ? (
+            <div className="flex items-center justify-center flex-1 text-sm text-muted-foreground py-12">
+              Loading permissions…
+            </div>
+          ) : (
+            <ScrollArea className="h-full">
+              <div className="p-4 space-y-3">
+                {/* Registry-based module cards */}
+                {moduleCards.map(({ module, dbPerms }) => (
+                  <ModulePermissionCard
+                    key={module.id}
+                    module={module}
+                    dbPerms={dbPerms}
+                    selected={selected}
+                    filter={filter}
+                    onToggle={toggle}
+                    onToggleAll={() => toggleModule(dbPerms)}
+                  />
+                ))}
 
-            {moduleCards.length === 0 && Object.keys(extraByCategory).length === 0 && (
-              <div className="text-center py-12 text-sm text-muted-foreground">
-                No permissions found in the system.
+                {/* Extra DB permissions not in registry */}
+                {Object.entries(extraByCategory).map(([category, perms]) => {
+                  const filteredPerms = perms.filter(p =>
+                    filter === "all" ? true :
+                    filter === "granted" ? selected.has(p.key) :
+                    !selected.has(p.key)
+                  );
+                  if (filteredPerms.length === 0) return null;
+                  return (
+                    <div key={category} className="rounded-lg border bg-card shadow-sm overflow-hidden">
+                      <div className="flex items-center gap-3 px-4 py-3 border-b bg-muted/40">
+                        <div className="p-1.5 rounded-md bg-background border shrink-0 text-muted-foreground">
+                          <KeyRound className="h-3.5 w-3.5" />
+                        </div>
+                        <span className="text-sm font-semibold text-foreground flex-1">{category}</span>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">{filteredPerms.length}</Badge>
+                      </div>
+                      <div className="divide-y">
+                        {filteredPerms.map(p => (
+                          <PermissionRow
+                            key={p.key}
+                            permKey={p.key}
+                            description={p.description || p.key}
+                            isSelected={selected.has(p.key)}
+                            onToggle={() => toggle(p.key)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {moduleCards.length === 0 && Object.keys(extraByCategory).length === 0 && (
+                  <div className="text-center py-12 text-sm text-muted-foreground">
+                    No permissions found in the system.
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </ScrollArea>
-      )}
+            </ScrollArea>
+          )}
+        </TabsContent>
+
+        <TabsContent value="user-overrides" className="flex-1 overflow-hidden mt-0">
+          <UserOverridesPanel role={role} orgId={orgId} />
+        </TabsContent>
+      </Tabs>
     </div>
+  );
+}
+
+// ─── User Overrides Panel ──────────────────────────────────────────────────────
+function UserOverridesPanel({ role, orgId }: { role: Role; orgId: string }) {
+  const [editTarget, setEditTarget] = useState<{ id: string; full_name: string; email: string } | null>(null);
+  const [editAccess, setEditAccess] = useState<Record<string, ModuleAccess>>({});
+  const [saving, setSaving] = useState(false);
+
+  // Users assigned to this role
+  const { data: assignments = [] } = useQuery({
+    queryKey: ["role-assignments", role.code],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("rbac_assignments" as any)
+        .select("user_id")
+        .eq("role_code", role.code);
+      return (data ?? []) as { user_id: string }[];
+    },
+  });
+
+  const userIds = assignments.map((a) => a.user_id);
+
+  // Profiles for those users
+  const { data: profiles = [] } = useQuery({
+    queryKey: ["profiles-for-role", role.code, userIds.join(",")],
+    queryFn: async () => {
+      if (!userIds.length) return [];
+      const { data } = await supabase
+        .from("user_management_profiles" as any)
+        .select("id, full_name, email")
+        .in("id", userIds);
+      return (data ?? []) as { id: string; full_name: string; email: string }[];
+    },
+    enabled: userIds.length > 0,
+  });
+
+  // All ALLOW grants for these users at this org
+  const { data: allGrants = [], refetch: refetchGrants } = useQuery({
+    queryKey: ["user-grants-for-role", role.code, orgId],
+    queryFn: async () => {
+      if (!userIds.length) return [];
+      const { data } = await supabase
+        .from("rbac_grants" as any)
+        .select("*")
+        .in("user_id", userIds)
+        .eq("scope_type", "ORGANIZATION")
+        .eq("scope_id", orgId)
+        .eq("effect", "ALLOW");
+      return (data ?? []) as Grant[];
+    },
+    enabled: userIds.length > 0,
+  });
+
+  const grantsByUser = useMemo(() => {
+    const map: Record<string, Grant[]> = {};
+    for (const g of allGrants) {
+      if (!g.user_id) continue;
+      if (!map[g.user_id]) map[g.user_id] = [];
+      map[g.user_id].push(g);
+    }
+    return map;
+  }, [allGrants]);
+
+  const openEdit = (profile: { id: string; full_name: string; email: string }) => {
+    const grants = grantsByUser[profile.id] ?? [];
+    setEditAccess(grantsToModuleAccess(grants));
+    setEditTarget(profile);
+  };
+
+  async function handleSaveGrants() {
+    if (!editTarget) return;
+    setSaving(true);
+    try {
+      await setUserModuleGrants(editTarget.id, orgId, editAccess);
+      toast.success(`Module access updated for ${editTarget.full_name}`);
+      refetchGrants();
+      setEditTarget(null);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update grants");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!userIds.length && profiles.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+        <Users className="h-8 w-8 text-muted-foreground/30 mb-3" />
+        <p className="text-sm text-muted-foreground">No users have this role yet.</p>
+        <p className="text-xs text-muted-foreground/70 mt-1">
+          Assign this role to users via the User Management tab.
+        </p>
+      </div>
+    );
+  }
+
+  const MODULE_LABELS: Record<string, string> = Object.fromEntries(
+    SYSTEM_MODULES_REGISTRY.map((m) => [m.id, m.label])
+  );
+
+  return (
+    <ScrollArea className="h-full">
+      <div className="p-4 space-y-3">
+        <p className="text-xs text-muted-foreground">
+          Users with the <strong>{role.name}</strong> role. Module access overrides are{" "}
+          <strong>additive</strong> — they grant extra permissions on top of the base role.
+        </p>
+
+        {profiles.length === 0 ? (
+          <div className="text-center py-8 text-sm text-muted-foreground border rounded-lg">
+            No user profiles found for this role.
+          </div>
+        ) : (
+          <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/30">
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">User</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Module Access Overrides</th>
+                  <th className="px-4 py-2.5 w-10" />
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {profiles.map((profile) => {
+                  const grants = grantsByUser[profile.id] ?? [];
+                  const access = grantsToModuleAccess(grants);
+                  const activeModules = Object.entries(access).filter(([, v]) => v !== "none");
+                  return (
+                    <tr key={profile.id} className="hover:bg-muted/20 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-sm">{profile.full_name}</div>
+                        <div className="text-xs text-muted-foreground">{profile.email}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {activeModules.length === 0 ? (
+                          <span className="text-xs text-muted-foreground italic">No overrides</span>
+                        ) : (
+                          <div className="flex flex-wrap gap-1">
+                            {activeModules.map(([moduleId, level]) => (
+                              <Badge
+                                key={moduleId}
+                                variant="outline"
+                                className={`text-[10px] px-1.5 py-0 ${
+                                  level === "full"
+                                    ? "border-primary/40 text-primary bg-primary/5"
+                                    : "border-blue-400/40 text-blue-600 bg-blue-50 dark:bg-blue-950/20"
+                                }`}
+                              >
+                                {MODULE_LABELS[moduleId] ?? moduleId}: {level === "full" ? "Full" : "View"}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => openEdit(profile)}
+                        >
+                          <Settings2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Edit User Module Access Dialog */}
+      <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings2 className="h-5 w-5" /> Edit Module Access
+            </DialogTitle>
+            <DialogDescription>
+              Configure additional permission grants for{" "}
+              <strong>{editTarget?.full_name}</strong> on top of their{" "}
+              <strong>{role.name}</strong> role.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <ModuleAccessSection value={editAccess} onChange={setEditAccess} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTarget(null)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveGrants} disabled={saving} className="gap-2">
+              {saving && <CheckSquare className="h-4 w-4 animate-spin" />}
+              Save Grants
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </ScrollArea>
   );
 }
 
@@ -512,38 +736,38 @@ function ModulePermissionCard({
   const enabledCount = dbPerms.filter(p => selected.has(p.key)).length;
   const total = dbPerms.length;
   const allEnabled = enabledCount === total && total > 0;
-  const progressPct = total > 0 ? (enabledCount / total) * 100 : 0;
-
-  const colorClass = CATEGORY_COLORS[module.category] ?? "bg-muted/50 text-muted-foreground border-border";
   const icon = MODULE_ICONS[module.icon] ?? <Shield className="h-4 w-4" />;
 
   if (filteredPerms.length === 0 && filter !== "all") return null;
 
   return (
-    <div className="rounded-lg border overflow-hidden">
+    <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
       {/* Card Header */}
       <div
-        className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer ${colorClass}`}
+        className="flex items-center gap-3 px-4 py-3 cursor-pointer border-b bg-muted/40 hover:bg-muted/60 transition-colors"
         onClick={() => setOpen(!open)}
       >
-        <div className="shrink-0">{icon}</div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold">{module.label}</span>
-            <span className="text-[10px] opacity-70">{enabledCount}/{total}</span>
-          </div>
-          <Progress value={progressPct} className="h-1 mt-1 w-32 opacity-60" />
+        <div className="p-1.5 rounded-md bg-background border shrink-0 text-muted-foreground">
+          {icon}
+        </div>
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <span className="text-sm font-semibold text-foreground">{module.label}</span>
+          <Badge
+            variant={enabledCount > 0 ? "default" : "secondary"}
+            className="text-[10px] px-1.5 py-0 font-normal"
+          >
+            {enabledCount} / {total}
+          </Badge>
         </div>
         <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-          <span className="text-[10px] opacity-70">Enable all</span>
+          <span className="text-xs text-muted-foreground">Enable all</span>
           <Switch
             checked={allEnabled}
             onCheckedChange={onToggleAll}
-            className="h-4 w-7 data-[state=checked]:bg-current"
           />
         </div>
         <ChevronRight
-          className={`h-3.5 w-3.5 opacity-60 transition-transform ${open ? "rotate-90" : ""}`}
+          className={`h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0 ${open ? "rotate-90" : ""}`}
         />
       </div>
 
@@ -551,7 +775,6 @@ function ModulePermissionCard({
       {open && filteredPerms.length > 0 && (
         <div className="divide-y">
           {filteredPerms.map(p => {
-            // Find enriched description from registry
             const registryPerm = SYSTEM_MODULES_REGISTRY
               .flatMap(m => m.permissions)
               .find(pd => pd.key === p.key);
@@ -568,7 +791,7 @@ function ModulePermissionCard({
         </div>
       )}
       {open && filteredPerms.length === 0 && filter !== "all" && (
-        <div className="px-3 py-2 text-xs text-muted-foreground italic">
+        <div className="px-4 py-3 text-xs text-muted-foreground italic">
           No {filter} permissions in this module.
         </div>
       )}
@@ -584,19 +807,25 @@ function PermissionRow({
 }) {
   return (
     <div
-      className="flex items-center gap-3 px-3 py-2.5 hover:bg-muted/20 cursor-pointer transition-colors"
+      className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-muted/30 ${
+        isSelected ? "bg-primary/5" : ""
+      }`}
       onClick={onToggle}
     >
+      <div className="flex-1 min-w-0">
+        <p className={`text-xs font-medium leading-tight ${!isSelected ? "opacity-60" : ""}`}>
+          {description}
+        </p>
+        <code className="text-[10px] text-muted-foreground bg-muted px-1 py-0.5 rounded mt-0.5 inline-block">
+          {permKey}
+        </code>
+      </div>
       <Switch
         checked={isSelected}
         onCheckedChange={onToggle}
         className="h-4 w-7 shrink-0"
         onClick={(e) => e.stopPropagation()}
       />
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium leading-tight">{description}</p>
-        <code className="text-[10px] text-muted-foreground">{permKey}</code>
-      </div>
     </div>
   );
 }
