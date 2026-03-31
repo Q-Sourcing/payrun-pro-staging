@@ -25,7 +25,7 @@ import {
 import {
   UserPlus, Search, MoreHorizontal, Edit, Trash2, Eye, Users, ShieldCheck,
   UserCheck, Loader2, RefreshCw, Mail, Send, Ban, Clock, CheckCircle2, XCircle,
-  Power, PowerOff, Pencil,
+  Power, PowerOff, Pencil, Copy, Link2,
 } from "lucide-react";
 import {
   InviteUserDialog, useOrgRoles, ModuleAccessSection, DepartmentCombobox,
@@ -69,6 +69,7 @@ interface Invitation {
   expires_at: string;
   created_at: string;
   accepted_at: string | null;
+  token?: string;
   role_data?: { module_access?: Record<string, string> };
 }
 
@@ -554,6 +555,19 @@ function InvitationsTable({ roles }: { roles: OrgRole[] }) {
     }
   }
 
+  function handleCopyLink(invitation: Invitation) {
+    if (!invitation.token) {
+      toast({ title: "Link unavailable", description: "Reload the page and try again.", variant: "destructive" });
+      return;
+    }
+    const link = `${window.location.origin}/set-password?token=${invitation.token}`;
+    navigator.clipboard.writeText(link).then(() => {
+      toast({ title: "Invite link copied", description: `Paste it into an email or message to send to ${invitation.email}.` });
+    }).catch(() => {
+      toast({ title: "Could not copy automatically", description: link, variant: "destructive" });
+    });
+  }
+
   async function handleCancel(invitation: Invitation) {
     setActionLoading(invitation.id + "-cancel");
     try {
@@ -685,6 +699,10 @@ function InvitationsTable({ roles }: { roles: OrgRole[] }) {
                                   ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                                   : <Send className="h-4 w-4 mr-2" />}
                                 Resend Invitation
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleCopyLink(inv)}>
+                                <Link2 className="h-4 w-4 mr-2" />
+                                Copy Invite Link
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
