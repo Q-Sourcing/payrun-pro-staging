@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, session } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -24,6 +24,21 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Detect a fresh invite session that hasn't completed the set-password flow.
+  // This handles the case where Supabase auto-logs the user in via the magic link
+  // but the redirect_to URL wasn't followed (e.g. not yet in the Supabase allowlist).
+  // Guard: skip redirect if RBAC roles already exist (user previously completed onboarding).
+  const meta = session?.user?.user_metadata;
+  const rbacRoles: unknown[] = (session?.user?.app_metadata as Record<string, unknown>)?.rbac_roles as unknown[] ?? [];
+  const isIncompleteInvite =
+    meta?.invitation_token &&
+    !meta?.invite_accepted &&
+    rbacRoles.length === 0;
+
+  if (isIncompleteInvite) {
+    return <Navigate to={`/set-password?token=${meta.invitation_token}`} replace />;
   }
 
   return <>{children}</>;

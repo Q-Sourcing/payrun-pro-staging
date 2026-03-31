@@ -47,7 +47,8 @@ serve(async (req) => {
     if (action === 'accept') {
       if (req.method !== 'POST') return json({ success: false, message: 'Method not allowed' }, 405)
       const body = await req.json()
-      const { token: invToken, user_id } = body
+      const { token: invToken, user_id, password: bodyPassword } = body
+      let effectiveUserId: string | undefined = user_id as string | undefined
       if (!invToken) return json({ success: false, message: 'token is required' }, 400)
 
       const { data: inv, error: fetchError } = await supabaseAdmin
@@ -72,10 +73,31 @@ serve(async (req) => {
 
       if (acceptError) return json({ success: false, message: acceptError.message }, 500)
 
+      // Path B: password provided but no Supabase session / user_id.
+      // Happens when a corporate email scanner consumed the single-use magic link
+      // before the real user clicked it. We look up the auth user by email and
+      // set their password server-side so the custom-token flow still works.
+      if (!effectiveUserId && bodyPassword && inv.email) {
+        const { data: { users: userList } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
+        const matchedUser = (userList ?? []).find(
+          (u: { email: string }) => u.email?.toLowerCase() === inv.email.toLowerCase()
+        )
+        if (matchedUser) {
+          effectiveUserId = matchedUser.id
+          const { error: pwErr } = await supabaseAdmin.auth.admin.updateUserById(matchedUser.id, {
+            password: bodyPassword,
+            email_confirm: true,
+          })
+          if (pwErr) return json({ success: false, message: 'Failed to set password: ' + pwErr.message }, 500)
+        } else {
+          return json({ success: false, message: 'Could not find account for this email address. Please contact your administrator.' }, 404)
+        }
+      }
+
       // Always upsert the user profile as active — handles both cases:
       // 1. Profile was pre-created at invite time (update status to active)
       // 2. Profile was never created (insert it now)
-      if (user_id) {
+      if (effectiveUserId) {
         const nameParts = (inv.full_name || '').trim().split(/\s+/)
         const firstName = nameParts[0] || ''
         const lastName = nameParts.slice(1).join(' ') || ''
@@ -86,13 +108,13 @@ serve(async (req) => {
           const ORG_ID = '00000000-0000-0000-0000-000000000001'
           let orgId = ORG_ID
           const { data: existingProfile } = await supabaseAdmin
-            .from('user_profiles').select('organization_id').eq('id', user_id).maybeSingle()
+            .from('user_profiles').select('organization_id').eq('id', effectiveUserId).maybeSingle()
           if (existingProfile?.organization_id) orgId = existingProfile.organization_id
 
           // Ensure user_profiles has the correct org_id set BEFORE rbac_assignment
           // (validate_rbac_assignment trigger requires user.organization_id = assignment.org_id)
           const { error: upErr } = await supabaseAdmin.from('user_profiles').upsert({
-            id: user_id,
+            id: effectiveUserId,
             email: inv.email,
             first_name: firstName,
             last_name: lastName,
@@ -107,10 +129,10 @@ serve(async (req) => {
 
           // Remove old org-level assignments, then insert fresh one
           await supabaseAdmin.from('rbac_assignments').delete()
-            .eq('user_id', user_id).eq('org_id', orgId).neq('role_code', 'PLATFORM_SUPER_ADMIN')
+            .eq('user_id', effectiveUserId).eq('org_id', orgId).neq('role_code', 'PLATFORM_SUPER_ADMIN')
 
           const { error: rbacErr } = await supabaseAdmin.from('rbac_assignments').insert({
-            user_id,
+            user_id: effectiveUserId,
             role_code: inv.role,
             scope_type: 'GLOBAL',
             scope_id: null,
@@ -140,7 +162,7 @@ serve(async (req) => {
             const perms = MODULE_PERMISSION_MAP[moduleId]?.[level as 'view' | 'full'] ?? []
             for (const permKey of perms) {
               await supabaseAdmin.from('rbac_grants').insert({
-                user_id,
+                user_id: effectiveUserId,
                 permission_key: permKey,
                 scope_type: 'ORGANIZATION',
                 scope_id: orgId,
@@ -158,7 +180,7 @@ serve(async (req) => {
               .maybeSingle()
             if (empRecord?.id) {
               await supabaseAdmin.from('employees')
-                .update({ user_id })
+                .update({ user_id: effectiveUserId })
                 .eq('id', empRecord.id)
                 .then(() => {}).catch(console.error)
             }
@@ -166,10 +188,18 @@ serve(async (req) => {
         }
       }
 
+      // Mark invite_accepted in user metadata so ProtectedRoute doesn't redirect
+      // the user to /set-password again on future logins.
+      if (effectiveUserId) {
+        await supabaseAdmin.auth.admin.updateUserById(effectiveUserId, {
+          user_metadata: { invite_accepted: true },
+        }).catch(err => console.error('updateUserById invite_accepted error:', err))
+      }
+
       await supabaseAdmin.from('audit_logs').insert({
         integration_name: 'user_management',
         action: 'invitation.accepted',
-        user_id: user_id || null,
+        user_id: effectiveUserId || null,
         resource: 'user_management_invitations',
         details: { email: inv.email, full_name: inv.full_name, role: inv.role },
         timestamp: new Date().toISOString(),
