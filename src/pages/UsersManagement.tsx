@@ -50,8 +50,10 @@ import {
   RefreshCw,
   ShieldCheck,
   Mail,
+  KeyRound,
 } from "lucide-react";
 import { UserManagementTab } from "@/components/settings/UserManagementTab";
+import { usePermission } from "@/lib/auth/usePermission";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -383,6 +385,126 @@ function UserFormDialog({
   );
 }
 
+function ResetPasswordDialog({
+  open,
+  user,
+  onClose,
+}: {
+  open: boolean;
+  user: ManagedUser | null;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [showPwd, setShowPwd] = useState(false);
+
+  const minLen   = newPassword.length >= 8;
+  const hasUpper = /[A-Z]/.test(newPassword);
+  const hasNum   = /[0-9]/.test(newPassword);
+  const matches  = newPassword.length > 0 && newPassword === confirm;
+  const valid    = minLen && hasUpper && hasNum && matches;
+
+  function handleClose() {
+    setNewPassword("");
+    setConfirm("");
+    setShowPwd(false);
+    onClose();
+  }
+
+  async function handleReset() {
+    if (!user || !valid) return;
+    setLoading(true);
+    try {
+      const result = await callManageUsers("PATCH", { id: user.id, new_password: newPassword });
+      if (!result.success) throw new Error(result.message || "Failed to reset password.");
+      toast({ title: "Password reset", description: `Password for ${user.full_name} has been updated.` });
+      handleClose();
+    } catch (err: unknown) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to reset password.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <KeyRound className="h-5 w-5" /> Reset Password
+          </DialogTitle>
+          <DialogDescription>
+            Set a new password for <strong>{user?.full_name}</strong> ({user?.email}).
+            They will be able to log in immediately with this new password.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3 py-1">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">New Password</label>
+            <div className="relative">
+              <Input
+                type={showPwd ? "text" : "password"}
+                placeholder="Minimum 8 characters"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="pr-10"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => setShowPwd((v) => !v)}
+                tabIndex={-1}
+              >
+                {showPwd ? "🙈" : "👁"}
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Confirm Password</label>
+            <Input
+              type="password"
+              placeholder="Re-enter password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              autoComplete="new-password"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-1 text-xs pt-1">
+            {[
+              { label: "8+ characters",    ok: minLen },
+              { label: "Uppercase letter", ok: hasUpper },
+              { label: "Contains number",  ok: hasNum },
+              { label: "Passwords match",  ok: matches },
+            ].map(({ label, ok }) => (
+              <span key={label} className={ok ? "text-primary" : "text-muted-foreground"}>
+                {ok ? "✓" : "○"} {label}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={handleClose} disabled={loading}>Cancel</Button>
+          <Button onClick={handleReset} disabled={loading || !valid}>
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Reset Password
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function DeleteConfirmDialog({
   open,
   user,
@@ -479,6 +601,8 @@ function RolesPermissionsSection({ roles }: { roles: RoleWithPermissions[] }) {
 export default function UsersManagement() {
   const { toast } = useToast();
   const { profile } = useAuth();
+  const perm = usePermission();
+  const canResetPassword = perm.hasPermission("users.reset_password") || perm.isSuperAdmin;
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [roles, setRoles] = useState<RoleWithPermissions[]>([]);
   const [loading, setLoading] = useState(true);
@@ -488,6 +612,7 @@ export default function UsersManagement() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState<ManagedUser | null>(null);
   const [deleteUser, setDeleteUser] = useState<ManagedUser | null>(null);
+  const [resetPasswordUser, setResetPasswordUser] = useState<ManagedUser | null>(null);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -770,6 +895,14 @@ export default function UsersManagement() {
                                     </>
                                   )}
                                 </DropdownMenuItem>
+                                {canResetPassword && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => setResetPasswordUser(user)}>
+                                      <KeyRound className="mr-2 h-4 w-4" /> Reset Password
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   className="text-destructive focus:text-destructive"
@@ -809,6 +942,11 @@ export default function UsersManagement() {
         user={deleteUser}
         onClose={() => setDeleteUser(null)}
         onDeleted={fetchUsers}
+      />
+      <ResetPasswordDialog
+        open={!!resetPasswordUser}
+        user={resetPasswordUser}
+        onClose={() => setResetPasswordUser(null)}
       />
     </div>
   );

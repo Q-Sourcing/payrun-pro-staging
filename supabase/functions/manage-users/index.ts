@@ -219,10 +219,24 @@ serve(async (req) => {
     // ── PATCH: update user ─────────────────────────────────────────────────────
     if (req.method === 'PATCH') {
       const body = await req.json()
-      const { id, username, full_name, role, role_code, phone, department, status } = body
+      const { id, username, full_name, role, role_code, phone, department, status, new_password } = body
       const resolvedRole = role_code || role
 
       if (!id) return json({ success: false, message: 'User ID is required' }, 400)
+
+      // ── Password reset (separate action, no profile update needed) ─────────
+      if (new_password !== undefined) {
+        if (new_password.length < 8) {
+          return json({ success: false, message: 'Password must be at least 8 characters' }, 400)
+        }
+        const { error: pwErr } = await supabaseAdmin.auth.admin.updateUserById(id, { password: new_password })
+        if (pwErr) {
+          console.error('Error resetting password:', pwErr)
+          return json({ success: false, message: pwErr.message }, 400)
+        }
+        console.log(`Password reset for user ${id} by ${currentUser.email}`)
+        return json({ success: true, message: 'Password reset successfully' })
+      }
 
       const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
       if (full_name !== undefined) {
