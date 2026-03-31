@@ -23,20 +23,40 @@ serve(async (req) => {
     if (action === 'verify-token') {
       if (req.method !== 'POST') return json({ success: false, message: 'Method not allowed' }, 405)
       const body = await req.json()
-      const { token: invToken } = body
-      if (!invToken) return json({ success: false, message: 'token is required' }, 400)
+      const { token: invToken, email: lookupEmail } = body
+      if (!invToken && !lookupEmail) return json({ success: false, message: 'token or email is required' }, 400)
 
-      const { data: inv, error: fetchError } = await supabaseAdmin
-        .from('user_management_invitations')
-        .select('id, email, full_name, role, department, status, expires_at')
-        .eq('token', invToken)
-        .maybeSingle()
+      // Always include `token` in SELECT so the frontend can recover it for Path B
+      // (email-scanner scenario: magic link consumed, user looks up invite by email)
+      let inv: Record<string, unknown> | null = null
+      let fetchError: unknown = null
+
+      if (invToken) {
+        const { data, error } = await supabaseAdmin
+          .from('user_management_invitations')
+          .select('id, email, full_name, role, department, status, expires_at, token')
+          .eq('token', invToken)
+          .maybeSingle()
+        inv = data; fetchError = error
+      } else {
+        // Email-based lookup — returns the most recent pending invitation for that address
+        const { data, error } = await supabaseAdmin
+          .from('user_management_invitations')
+          .select('id, email, full_name, role, department, status, expires_at, token')
+          .eq('email', (lookupEmail as string).toLowerCase())
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        inv = data; fetchError = error
+        if (!fetchError && !inv) return json({ success: false, message: 'No pending invitation found for that email address.' }, 404)
+      }
 
       if (fetchError || !inv) return json({ success: false, message: 'Invalid invitation token' }, 404)
       if (inv.status === 'cancelled') return json({ success: false, message: 'This invitation has been cancelled', status: 'cancelled' }, 410)
       if (inv.status === 'accepted') return json({ success: false, message: 'This invitation has already been accepted', status: 'accepted' }, 409)
 
-      if (new Date(inv.expires_at) < new Date()) {
+      if (new Date(inv.expires_at as string) < new Date()) {
         await supabaseAdmin.from('user_management_invitations').update({ status: 'expired' }).eq('id', inv.id)
         return json({ success: false, message: 'This invitation has expired', status: 'expired', expired: true }, 410)
       }

@@ -171,12 +171,22 @@ export function ModernLoginForm() {
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-muted-foreground">
+          <div className="mt-6 text-center text-sm text-muted-foreground space-y-2">
             <p>
               Don't have an account?{' '}
               <a href="/register" className="text-primary hover:underline font-medium">
                 Contact your administrator
               </a>
+            </p>
+            <p>
+              Got an invite but the link didn't work?{' '}
+              <button
+                type="button"
+                onClick={() => navigate('/set-password')}
+                className="text-primary hover:underline font-medium"
+              >
+                Set up your account here
+              </button>
             </p>
           </div>
 

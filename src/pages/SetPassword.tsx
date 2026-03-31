@@ -21,7 +21,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import {
-  Loader2, Eye, EyeOff, CheckCircle2, XCircle, ShieldCheck, KeyRound,
+  Loader2, Eye, EyeOff, CheckCircle2, XCircle, ShieldCheck, KeyRound, Mail,
 } from 'lucide-react';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ const ANON_KEY = (
 
 // ── component ────────────────────────────────────────────────────────────────
 
-type Stage = 'loading' | 'form' | 'success' | 'error';
+type Stage = 'loading' | 'email' | 'form' | 'success' | 'error';
 
 interface Check { label: string; ok: boolean }
 
@@ -75,6 +75,12 @@ export default function SetPassword() {
   const [confirm, setConfirm] = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const [showConf, setShowConf] = useState(false);
+
+  // Email-fallback mode: when the Supabase magic link was consumed by a
+  // corporate email scanner, the user enters their email to recover their invite.
+  const [lookupEmail, setLookupEmail] = useState('');
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [emailLookupToken, setEmailLookupToken] = useState<string | null>(null);
 
   const inviteToken = searchParams.get('token');   // custom DB token
   const pkceCode    = searchParams.get('code');    // PKCE flow code
@@ -181,10 +187,10 @@ export default function SetPassword() {
         }
       }
 
-      // If we have neither a session nor a custom token this is a cold/invalid URL
+      // No session, no token, no hash — the magic link was likely consumed by a
+      // corporate email scanner. Show the email-lookup fallback instead of an error.
       if (!session && !inviteToken && hashType !== 'invite') {
-        setErrorMsg('No valid invitation found. Please use the link from your invitation email.');
-        setStage('error');
+        setStage('email');
         return;
       }
 
@@ -208,7 +214,39 @@ export default function SetPassword() {
   // update goes through a server-side call via the accept action after we
   // exchange the token. Allow form submission regardless of sessionReady when
   // an inviteToken is present so the user is never blocked.
-  const canSubmit = valid && (sessionReady || !!inviteToken);
+  const activeToken = inviteToken || emailLookupToken;
+  const canSubmit = valid && (sessionReady || !!activeToken);
+
+  // ── email lookup (fallback for consumed magic links) ─────────────────────
+  const handleEmailLookup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lookupEmail) return;
+    setLookupLoading(true);
+    try {
+      const res = await fetch(`${INVITE_FN_URL}?action=verify-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ANON_KEY}`, apikey: ANON_KEY },
+        body: JSON.stringify({ email: lookupEmail }),
+      });
+      const result = await res.json();
+      if (result.success && result.invitation) {
+        setEmailLookupToken(result.invitation.token);
+        setUserEmail(result.invitation.email ?? lookupEmail);
+        setUserName(result.invitation.full_name ?? '');
+        setStage('form');
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'No invitation found',
+          description: result.message ?? 'No pending invitation was found for that email address.',
+        });
+      }
+    } catch {
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not look up invitation. Please try again.' });
+    } finally {
+      setLookupLoading(false);
+    }
+  };
 
   // ── submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
@@ -225,12 +263,12 @@ export default function SetPassword() {
         if (pwErr) throw pwErr;
 
         // Mark invite accepted (best-effort)
-        if (inviteToken) {
+        if (activeToken) {
           try {
             await fetch(`${INVITE_FN_URL}?action=accept`, {
               method : 'POST',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}`, apikey: ANON_KEY },
-              body   : JSON.stringify({ token: inviteToken, user_id: session.user.id }),
+              body   : JSON.stringify({ token: activeToken, user_id: session.user.id }),
             });
           } catch (e) {
             console.warn('[SetPassword] accept call failed (non-fatal):', e);
@@ -238,12 +276,14 @@ export default function SetPassword() {
         }
 
         await supabase.auth.signOut();
-      } else if (inviteToken) {
-        // ── Path B: Token-only flow → call accept which sets status to active ─
+      } else if (activeToken) {
+        // ── Path B: Token-only flow (no Supabase session) ─────────────────
+        // Covers both: private domain users whose magic link was scanner-consumed,
+        // and users who went through the email-lookup fallback.
         const res = await fetch(`${INVITE_FN_URL}?action=accept`, {
           method : 'POST',
           headers: { 'Content-Type': 'application/json', apikey: ANON_KEY },
-          body   : JSON.stringify({ token: inviteToken, password }),
+          body   : JSON.stringify({ token: activeToken, password }),
         });
         const result = await res.json();
         if (!result.success) throw new Error(result.message || 'Failed to activate account');
@@ -268,6 +308,7 @@ export default function SetPassword() {
   // ── render ────────────────────────────────────────────────────────────────
   const stageTitle: Record<Stage, string> = {
     loading: 'Verifying Invitation…',
+    email  : 'Find Your Invitation',
     form   : 'Create Your Password',
     success: 'Account Activated!',
     error  : 'Invitation Issue',
@@ -275,6 +316,7 @@ export default function SetPassword() {
 
   const stageDesc: Record<Stage, string> = {
     loading: 'Please wait while we verify your invitation link.',
+    email  : 'Enter the email address you were invited with to continue.',
     form   : `You've been invited to Q-Payroll. Set a password to activate your account.`,
     success: 'Your password has been set. Redirecting you to the login page…',
     error  : 'There was a problem with your invitation link.',
@@ -301,6 +343,7 @@ export default function SetPassword() {
           <CardHeader className="pt-6 pb-3">
             <CardTitle className="flex items-center gap-2 text-xl">
               {stage === 'loading' && <Loader2 className="h-5 w-5 text-primary animate-spin" />}
+              {stage === 'email'   && <Mail className="h-5 w-5 text-primary" />}
               {stage === 'form'    && <ShieldCheck className="h-5 w-5 text-primary" />}
               {stage === 'success' && <CheckCircle2 className="h-5 w-5 text-primary" />}
               {stage === 'error'   && <XCircle className="h-5 w-5 text-destructive" />}
@@ -315,6 +358,45 @@ export default function SetPassword() {
             {stage === 'loading' && (
               <div className="flex justify-center py-10">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
+
+            {/* Email fallback — magic link was consumed by email scanner */}
+            {stage === 'email' && (
+              <div className="space-y-4">
+                <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-950/20 p-4">
+                  <Mail className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <div className="text-sm leading-relaxed space-y-1">
+                    <p className="font-medium text-amber-800 dark:text-amber-300">Invite link issue</p>
+                    <p className="text-amber-700 dark:text-amber-400/80">
+                      Your email security system may have pre-scanned the link, making it single-use before you clicked it.
+                      Enter your work email below to continue setting up your account.
+                    </p>
+                  </div>
+                </div>
+                <form onSubmit={handleEmailLookup} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="lookup-email">Your invited email address</Label>
+                    <Input
+                      id="lookup-email"
+                      type="email"
+                      placeholder="you@company.com"
+                      value={lookupEmail}
+                      onChange={(e) => setLookupEmail(e.target.value)}
+                      disabled={lookupLoading}
+                      autoFocus
+                      required
+                    />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={lookupLoading || !lookupEmail}>
+                    {lookupLoading
+                      ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Looking up…</>
+                      : 'Find My Invitation'}
+                  </Button>
+                </form>
+                <Button variant="outline" className="w-full" onClick={() => navigate('/login')}>
+                  Back to Login
+                </Button>
               </div>
             )}
 
@@ -366,7 +448,7 @@ export default function SetPassword() {
                     <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
                     <p className="text-xs font-medium text-primary">Identity verified — set your password below.</p>
                   </div>
-                ) : inviteToken ? (
+                ) : activeToken ? (
                   <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5">
                     <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
                     <p className="text-xs font-medium text-primary">Invitation verified — set your password below.</p>
@@ -391,7 +473,7 @@ export default function SetPassword() {
                         placeholder="Minimum 8 characters"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        disabled={(!sessionReady && !inviteToken) || submitting}
+                        disabled={(!sessionReady && !activeToken) || submitting}
                         className="pr-10"
                         autoComplete="new-password"
                         required
@@ -418,7 +500,7 @@ export default function SetPassword() {
                         placeholder="Re-enter your password"
                         value={confirm}
                         onChange={(e) => setConfirm(e.target.value)}
-                        disabled={(!sessionReady && !inviteToken) || submitting}
+                        disabled={(!sessionReady && !activeToken) || submitting}
                         className="pr-10"
                         autoComplete="new-password"
                         required
