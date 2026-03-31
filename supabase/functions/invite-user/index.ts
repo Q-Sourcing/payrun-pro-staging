@@ -94,15 +94,16 @@ serve(async (req) => {
       if (acceptError) return json({ success: false, message: acceptError.message }, 500)
 
       // Path B: password provided but no Supabase session / user_id.
-      // Happens when a corporate email scanner consumed the single-use magic link
-      // before the real user clicked it. We look up the auth user by email and
-      // set their password server-side so the custom-token flow still works.
+      // New invite flow: auth user is created HERE (at acceptance time), not at invite time.
+      // This prevents corporate email scanners from pre-consuming a Supabase OTP and
+      // registering the user in Supabase before they set a password.
       if (!effectiveUserId && bodyPassword && inv.email) {
         const { data: { users: userList } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
         const matchedUser = (userList ?? []).find(
           (u: { email: string }) => u.email?.toLowerCase() === inv.email.toLowerCase()
         )
         if (matchedUser) {
+          // Auth user exists from a previous invite attempt — just set their password
           effectiveUserId = matchedUser.id
           const { error: pwErr } = await supabaseAdmin.auth.admin.updateUserById(matchedUser.id, {
             password: bodyPassword,
@@ -110,7 +111,24 @@ serve(async (req) => {
           })
           if (pwErr) return json({ success: false, message: 'Failed to set password: ' + pwErr.message }, 500)
         } else {
-          return json({ success: false, message: 'Could not find account for this email address. Please contact your administrator.' }, 404)
+          // No auth user yet — create one now (this is the normal path for the new invite flow)
+          const nameParts = (inv.full_name || '').trim().split(/\s+/)
+          const { data: { user: newUser }, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+            email: inv.email,
+            password: bodyPassword,
+            email_confirm: true,
+            user_metadata: {
+              full_name: inv.full_name,
+              first_name: nameParts[0] || '',
+              last_name: nameParts.slice(1).join(' ') || '',
+              role: inv.role,
+              invitation_token: inv.token,
+            },
+          })
+          if (createErr || !newUser) {
+            return json({ success: false, message: 'Failed to create account: ' + (createErr?.message ?? 'Unknown error') }, 500)
+          }
+          effectiveUserId = newUser.id
         }
       }
 
@@ -280,7 +298,7 @@ serve(async (req) => {
       if (!email || !full_name) return json({ success: false, message: 'Email and full name are required' }, 400)
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ success: false, message: 'Invalid email address' }, 400)
 
-      // Cancel any existing pending invitation for this email before creating a new one
+      // Cancel any existing pending invitation for this email
       const { data: existing } = await supabaseAdmin
         .from('user_management_invitations')
         .select('id, status')
@@ -297,12 +315,22 @@ serve(async (req) => {
           .eq('id', existing.id)
       }
 
+      // Clean up any ghost auth user (unactivated, never signed in) so the accept
+      // flow can create a fresh account at acceptance time.
+      const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
+      const ghostUser = (listData?.users ?? []).find(
+        (u: { email?: string; last_sign_in_at?: string }) =>
+          u.email?.toLowerCase() === email.toLowerCase() && !u.last_sign_in_at
+      )
+      if (ghostUser) {
+        await supabaseAdmin.auth.admin.deleteUser(ghostUser.id).catch(console.error)
+      }
+
       const inviteToken = crypto.randomUUID() + '-' + crypto.randomUUID()
       const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
 
-      // Redirect target: /set-password — dynamically determined from request origin
       const origin = req.headers.get('origin') || req.headers.get('referer')
-      let APP_URL = 'https://payroll.flipafrica.app' // production fallback
+      let APP_URL = 'https://payroll.flipafrica.app'
       if (origin) {
         try {
           const originUrl = new URL(origin)
@@ -314,56 +342,18 @@ serve(async (req) => {
           ) {
             APP_URL = `${originUrl.protocol}//${originUrl.host}`
           }
-        } catch { /* ignore malformed origin */ }
+        } catch { /* ignore */ }
       }
-      const redirectTo = `${APP_URL}/set-password?token=${inviteToken}`
-      console.log('[invite-user] redirectTo:', redirectTo)
-
+      // Direct link — no Supabase OTP. Email scanners can safely fetch this URL
+      // without consuming any single-use token, so the user always gets a valid link.
+      const inviteLink = `${APP_URL}/set-password?token=${inviteToken}`
+      console.log('[invite-user] inviteLink:', inviteLink)
 
       const nameParts = (full_name || '').trim().split(/\s+/)
       const firstName = nameParts[0] || ''
       const lastName = nameParts.slice(1).join(' ') || ''
 
-      let { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        redirectTo,
-        data: {
-          full_name,
-          first_name: firstName,
-          last_name: lastName,
-          role: role || 'user',
-          invitation_token: inviteToken,
-        }
-      })
-
-      if (inviteError) {
-        console.error('Invite error:', inviteError)
-        const alreadyExists = inviteError.message?.includes('already been registered') ||
-          inviteError.message?.includes('already exists') ||
-          inviteError.message?.includes('email_exists')
-
-        if (alreadyExists) {
-          // Ghost auth user exists (never onboarded) — delete it and retry the invite once
-          const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
-          const ghostUser = listData?.users?.find((u: { email: string }) => u.email?.toLowerCase() === email.toLowerCase())
-          if (ghostUser) {
-            await supabaseAdmin.auth.admin.deleteUser(ghostUser.id)
-            // Retry invite after deleting ghost account
-            const { data: retryData, error: retryError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-              redirectTo,
-              data: { full_name, first_name: firstName, last_name: lastName, role: role || 'user', invitation_token: inviteToken }
-            })
-            if (retryError) {
-              return json({ success: false, message: `Failed to send invitation after cleanup: ${retryError.message}` }, 400)
-            }
-            inviteData = retryData
-          } else {
-            return json({ success: false, message: `An account already exists for ${email} and could not be cleaned up automatically. Please contact support.`, code: 'email_exists' }, 409)
-          }
-        } else {
-          return json({ success: false, message: inviteError.message }, 400)
-        }
-      }
-
+      // Store invitation record first
       const { data: invitation, error: insertError } = await supabaseAdmin
         .from('user_management_invitations')
         .insert({
@@ -386,19 +376,64 @@ serve(async (req) => {
         return json({ success: false, message: 'Failed to store invitation: ' + insertError.message }, 500)
       }
 
-      const authUserId = inviteData?.user?.id
-      if (authUserId) {
-        await supabaseAdmin.from('user_profiles').upsert({
-          id: authUserId,
-          email: email.toLowerCase(),
-          first_name: firstName,
-          last_name: lastName,
-          role: role || 'user',
-          phone: phone || null,
-          department: department || null,
-          status: 'pending',
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'id' })
+      // Send invitation email via Resend (plain custom link — no Supabase magic link).
+      const resendApiKey = Deno.env.get('RESEND_API_KEY')
+      if (!resendApiKey) {
+        console.error('RESEND_API_KEY not configured')
+        return json({ success: false, message: 'Email service not configured. Please contact your administrator.' }, 500)
+      }
+
+      const emailHtml = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1);">
+        <tr><td style="background:#0f766e;padding:32px 40px;">
+          <p style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">FLIP Africa Payroll</p>
+        </td></tr>
+        <tr><td style="padding:40px;">
+          <p style="margin:0 0 8px;font-size:16px;color:#111827;">Hi ${firstName || full_name},</p>
+          <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.6;">
+            You have been invited to join <strong>FLIP Africa Payroll</strong>. Click the button below to create your password and activate your account.
+          </p>
+          <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+            <tr><td style="background:#0f766e;border-radius:6px;padding:12px 28px;">
+              <a href="${inviteLink}" style="color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;">Create Your Password</a>
+            </td></tr>
+          </table>
+          <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">Or copy and paste this link into your browser:</p>
+          <p style="margin:0 0 24px;font-size:12px;color:#6b7280;word-break:break-all;">${inviteLink}</p>
+          <p style="margin:0;font-size:13px;color:#9ca3af;">This invitation expires in 48 hours. If you were not expecting this email, you can safely ignore it.</p>
+        </td></tr>
+        <tr><td style="padding:20px 40px;border-top:1px solid #e5e7eb;">
+          <p style="margin:0;font-size:12px;color:#9ca3af;">Sent by FLIP Africa Payroll &middot; team@payroll.flipafrica.app</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+
+      const emailRes = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'FLIP Africa Payroll <team@payroll.flipafrica.app>',
+          to: [email],
+          subject: `You've been invited to FLIP Africa Payroll`,
+          html: emailHtml,
+        }),
+      })
+
+      if (!emailRes.ok) {
+        const emailErr = await emailRes.text()
+        console.error('Resend error:', emailErr)
+        return json({ success: false, message: 'Invitation saved but email failed to send. Use "Copy Invite Link" to share it manually.' }, 500)
       }
 
       await supabaseAdmin.from('audit_logs').insert({
@@ -448,79 +483,23 @@ serve(async (req) => {
           }
         } catch { /* ignore */ }
       }
-      const redirectTo = `${APP_URL}/set-password?token=${newToken}`
+      const newInviteLink = `${APP_URL}/set-password?token=${newToken}`
 
       const nameParts = (inv.full_name || '').trim().split(/\s+/)
       const firstName = nameParts[0] || ''
-      const lastName = nameParts.slice(1).join(' ') || ''
 
-      // For resend: always delete the existing auth user first, then re-invite.
-      // This handles both ghost accounts (never onboarded) and confirmed accounts where
-      // the admin explicitly wants to resend (e.g. user lost the link).
-      const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
-      const existingAuthUser = listData?.users?.find(
-        (u: { email: string }) => u.email?.toLowerCase() === inv.email.toLowerCase()
+      // Delete any ghost auth user (unactivated) so a fresh account can be
+      // created at acceptance time via the new lazy-creation flow.
+      const { data: listDataResend } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
+      const existingAuthUser = (listDataResend?.users ?? []).find(
+        (u: { email?: string; last_sign_in_at?: string }) =>
+          u.email?.toLowerCase() === inv.email.toLowerCase() && !u.last_sign_in_at
       )
-
       if (existingAuthUser) {
-        // Only delete if the user has NOT fully onboarded (no password set / never signed in)
-        const hasPassword = !!(existingAuthUser as any).encrypted_password &&
-          (existingAuthUser as any).encrypted_password !== ''
-        const hasSignedIn = !!(existingAuthUser as any).last_sign_in_at
-
-        if (hasPassword && hasSignedIn) {
-          // Fully active user — use generateLink instead to avoid deleting real account
-          const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-            type: 'recovery',
-            email: inv.email,
-            options: {
-              redirectTo,
-              data: {
-                full_name: inv.full_name,
-                first_name: firstName,
-                last_name: lastName,
-                role: inv.role,
-                invitation_token: newToken,
-              }
-            }
-          })
-          if (linkError) return json({ success: false, message: linkError.message }, 400)
-          // Link generated — proceed to update the invitation record below
-        } else {
-          // Ghost / unactivated account — safe to delete and re-invite
-          const { error: delError } = await supabaseAdmin.auth.admin.deleteUser(existingAuthUser.id)
-          if (delError) {
-            console.error('Failed to delete ghost auth user on resend:', delError)
-            return json({ success: false, message: `Could not clean up existing account: ${delError.message}` }, 500)
-          }
-
-          const { error: resendError } = await supabaseAdmin.auth.admin.inviteUserByEmail(inv.email, {
-            redirectTo,
-            data: {
-              full_name: inv.full_name,
-              first_name: firstName,
-              last_name: lastName,
-              role: inv.role,
-              invitation_token: newToken,
-            }
-          })
-          if (resendError) return json({ success: false, message: resendError.message }, 400)
-        }
-      } else {
-        // No existing auth user — send a fresh invite
-        const { error: resendError } = await supabaseAdmin.auth.admin.inviteUserByEmail(inv.email, {
-          redirectTo,
-          data: {
-            full_name: inv.full_name,
-            first_name: firstName,
-            last_name: lastName,
-            role: inv.role,
-            invitation_token: newToken,
-          }
-        })
-        if (resendError) return json({ success: false, message: resendError.message }, 400)
+        await supabaseAdmin.auth.admin.deleteUser(existingAuthUser.id).catch(console.error)
       }
 
+      // Update invite record with new token
       const { data: updated, error: updateError } = await supabaseAdmin
         .from('user_management_invitations')
         .update({ token: newToken, expires_at: newExpiry, status: 'pending' })
@@ -529,6 +508,53 @@ serve(async (req) => {
         .single()
 
       if (updateError) return json({ success: false, message: updateError.message }, 500)
+
+      // Send via Resend
+      const resendApiKey = Deno.env.get('RESEND_API_KEY')
+      if (resendApiKey) {
+        const emailHtml = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1);">
+        <tr><td style="background:#0f766e;padding:32px 40px;">
+          <p style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">FLIP Africa Payroll</p>
+        </td></tr>
+        <tr><td style="padding:40px;">
+          <p style="margin:0 0 8px;font-size:16px;color:#111827;">Hi ${firstName || inv.full_name},</p>
+          <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.6;">
+            Your invitation to <strong>FLIP Africa Payroll</strong> has been resent. Click the button below to create your password and activate your account.
+          </p>
+          <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+            <tr><td style="background:#0f766e;border-radius:6px;padding:12px 28px;">
+              <a href="${newInviteLink}" style="color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;">Create Your Password</a>
+            </td></tr>
+          </table>
+          <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">Or copy and paste this link into your browser:</p>
+          <p style="margin:0 0 24px;font-size:12px;color:#6b7280;word-break:break-all;">${newInviteLink}</p>
+          <p style="margin:0;font-size:13px;color:#9ca3af;">This invitation expires in 48 hours.</p>
+        </td></tr>
+        <tr><td style="padding:20px 40px;border-top:1px solid #e5e7eb;">
+          <p style="margin:0;font-size:12px;color:#9ca3af;">Sent by FLIP Africa Payroll &middot; team@payroll.flipafrica.app</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: 'FLIP Africa Payroll <team@payroll.flipafrica.app>',
+            to: [inv.email],
+            subject: `Your FLIP Africa Payroll invitation (resent)`,
+            html: emailHtml,
+          }),
+        }).catch(console.error)
+      }
 
       await supabaseAdmin.from('audit_logs').insert({
         integration_name: 'user_management',
