@@ -334,11 +334,11 @@ serve(async (req) => {
       if (origin) {
         try {
           const originUrl = new URL(origin)
+          // Only allow localhost overrides for local dev. Never use Lovable preview
+          // URLs (.lovable.app) — those are dev-only and must not appear in real emails.
           if (
             originUrl.hostname === 'localhost' ||
-            originUrl.hostname === '127.0.0.1' ||
-            originUrl.hostname.endsWith('.flipafrica.app') ||
-            originUrl.hostname.endsWith('.lovable.app')
+            originUrl.hostname === '127.0.0.1'
           ) {
             APP_URL = `${originUrl.protocol}//${originUrl.host}`
           }
@@ -473,11 +473,11 @@ serve(async (req) => {
       if (resendOrigin) {
         try {
           const originUrl = new URL(resendOrigin)
+          // Only allow localhost overrides for local dev. Never use Lovable preview
+          // URLs (.lovable.app) — those are dev-only and must not appear in real emails.
           if (
             originUrl.hostname === 'localhost' ||
-            originUrl.hostname === '127.0.0.1' ||
-            originUrl.hostname.endsWith('.flipafrica.app') ||
-            originUrl.hostname.endsWith('.lovable.app')
+            originUrl.hostname === '127.0.0.1'
           ) {
             APP_URL = `${originUrl.protocol}//${originUrl.host}`
           }
