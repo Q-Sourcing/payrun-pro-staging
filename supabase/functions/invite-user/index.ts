@@ -315,17 +315,6 @@ serve(async (req) => {
           .eq('id', existing.id)
       }
 
-      // Clean up any ghost auth user (unactivated, never signed in) so the accept
-      // flow can create a fresh account at acceptance time.
-      const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
-      const ghostUser = (listData?.users ?? []).find(
-        (u: { email?: string; last_sign_in_at?: string }) =>
-          u.email?.toLowerCase() === email.toLowerCase() && !u.last_sign_in_at
-      )
-      if (ghostUser) {
-        await supabaseAdmin.auth.admin.deleteUser(ghostUser.id).catch(console.error)
-      }
-
       const inviteToken = crypto.randomUUID() + '-' + crypto.randomUUID()
       const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString()
 
