@@ -265,6 +265,7 @@ const App = () => {
                   <Route path="payruns/projects/expatriate" element={<ProjectsExpatriatePayRunsPage />} />
 
                   <Route path="reports" element={<ReportsTab />} />
+                  <Route path="settings" element={<Settings />} />
                   <Route path="settings/security" element={<SecuritySettingsPage />} />
                   <Route path="admin/super-admin" element={<SuperAdmin />} />
                   <Route path="platform-admin" element={<PlatformAdminDashboard />} />

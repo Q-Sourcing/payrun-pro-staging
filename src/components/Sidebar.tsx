@@ -552,14 +552,14 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({
             {sectionOpen.settings !== false && (
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
                 <motion.div whileHover={{ x: collapsed ? 0 : 4 }}>
-                  <button
-                    onClick={onSettingsClick}
+                  <Link
+                    to="/settings"
                     className={`flex items-center gap-2 px-3.5 py-2.5 rounded-md w-full text-slate-700 hover:bg-slate-50 hover:text-blue-700 ${collapsed ? 'justify-center' : ''}`}
                     title={collapsed ? "Settings" : undefined}
                   >
                     <Settings size={16} />
                     {!collapsed && <span>Settings</span>}
-                  </button>
+                  </Link>
                 </motion.div>
               </motion.div>
             )}

@@ -520,6 +520,9 @@ function InvitationsTable({ roles }: { roles: OrgRole[] }) {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [deleteInviteTarget, setDeleteInviteTarget] = useState<Invitation | null>(null);
   const [editInviteTarget, setEditInviteTarget] = useState<Invitation | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [roleFilter, setRoleFilter] = useState("all");
 
   const fetchInvitations = useCallback(async () => {
     setLoading(true);
@@ -600,6 +603,17 @@ function InvitationsTable({ roles }: { roles: OrgRole[] }) {
   const pendingCount = invitations.filter(i => i.status === "pending").length;
   const expiredCount = invitations.filter(i => i.status === "expired").length;
 
+  const filteredInvitations = invitations.filter((inv) => {
+    const q = search.toLowerCase();
+    const matchSearch = !q ||
+      inv.full_name.toLowerCase().includes(q) ||
+      inv.email.toLowerCase().includes(q) ||
+      (inv.department ?? "").toLowerCase().includes(q);
+    const matchStatus = statusFilter === "all" || inv.status === statusFilter;
+    const matchRole = roleFilter === "all" || inv.role === roleFilter;
+    return matchSearch && matchStatus && matchRole;
+  });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -611,6 +625,7 @@ function InvitationsTable({ roles }: { roles: OrgRole[] }) {
 
   return (
     <div className="space-y-4">
+      {/* Summary chips + refresh */}
       <div className="flex flex-wrap gap-2 text-sm">
         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted text-muted-foreground">
           <Clock className="h-3.5 w-3.5" /> {pendingCount} Pending
@@ -625,11 +640,53 @@ function InvitationsTable({ roles }: { roles: OrgRole[] }) {
         </Button>
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 items-center">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name, email or department…"
+            className="pl-9"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="All statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="accepted">Accepted</SelectItem>
+            <SelectItem value="expired">Expired</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="All roles" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Roles</SelectItem>
+            {roles.map((r) => (
+              <SelectItem key={r.code} value={r.code}>{r.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       {invitations.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground border rounded-lg">
           <Mail className="h-10 w-10 mx-auto mb-3 opacity-30" />
           <p className="font-medium">No invitations yet</p>
           <p className="text-sm mt-1">Use "Invite User" to send your first invitation.</p>
+        </div>
+      ) : filteredInvitations.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground border rounded-lg">
+          <Search className="h-10 w-10 mx-auto mb-3 opacity-30" />
+          <p className="font-medium">No invitations match your filters</p>
+          <p className="text-sm mt-1">Try adjusting your search or filter criteria.</p>
         </div>
       ) : (
         <Card>
@@ -648,7 +705,7 @@ function InvitationsTable({ roles }: { roles: OrgRole[] }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {invitations.map((inv) => {
+                {filteredInvitations.map((inv) => {
                   const isExpired = inv.status === "expired" || (inv.status === "pending" && new Date(inv.expires_at) < new Date());
                   const statusKey = isExpired ? "expired" : inv.status;
                   const cfg = STATUS_CONFIG[statusKey] ?? STATUS_CONFIG.pending;
@@ -812,8 +869,15 @@ export function UserManagementTab() {
       }));
 
       // Add accepted invites whose accounts aren't yet in the manage-users list
+      // Deduplicate by email so the same address never produces two rows
+      const seenInviteEmails = new Set<string>();
       const extraFromInvites: ManagedUser[] = (acceptedInvites ?? [])
-        .filter((inv) => !apiEmails.has(inv.email.toLowerCase()))
+        .filter((inv) => {
+          const key = inv.email.toLowerCase();
+          if (apiEmails.has(key) || seenInviteEmails.has(key)) return false;
+          seenInviteEmails.add(key);
+          return true;
+        })
         .map((inv) => ({
           id: `invite-${inv.email}`,
           username: null,

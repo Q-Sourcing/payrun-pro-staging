@@ -218,7 +218,21 @@ export interface ApprovalGroupMember {
 
 // --- Phase 4: Criteria ---
 
-export type CriteriaField = 'amount' | 'pay_group' | 'employee_category' | 'department' | 'designation' | 'payrun_type';
+export type CriteriaField =
+    | 'amount'
+    | 'pay_group'
+    | 'employee_category'
+    | 'department'
+    | 'designation'
+    | 'payrun_type'
+    | 'creator_user'
+    | 'creator_designation'
+    | 'creator_department'
+    | 'creator_role'
+    | 'submitter_user'
+    | 'submitter_designation'
+    | 'submitter_department'
+    | 'submitter_role';
 export type CriteriaOperator = 'equals' | 'not_equals' | 'greater_than' | 'less_than' | 'in' | 'contains';
 
 export interface ApprovalWorkflowCriteria {
@@ -238,6 +252,14 @@ export const CRITERIA_FIELD_LABELS: Record<CriteriaField, string> = {
     department: 'Department',
     designation: 'Designation',
     payrun_type: 'Pay Run Type',
+    creator_user: 'Creator (User)',
+    creator_designation: 'Creator Designation',
+    creator_department: 'Creator Department',
+    creator_role: 'Creator Role',
+    submitter_user: 'Submitter (User)',
+    submitter_designation: 'Submitter Designation',
+    submitter_department: 'Submitter Department',
+    submitter_role: 'Submitter Role',
 };
 
 export const CRITERIA_OPERATORS: Record<CriteriaField, { value: CriteriaOperator; label: string }[]> = {
@@ -251,6 +273,14 @@ export const CRITERIA_OPERATORS: Record<CriteriaField, { value: CriteriaOperator
     department: [{ value: 'in', label: 'Is one of' }],
     designation: [{ value: 'in', label: 'Is one of' }],
     payrun_type: [{ value: 'in', label: 'Is one of' }],
+    creator_user: [{ value: 'in', label: 'Is' }],
+    creator_designation: [{ value: 'in', label: 'Is one of' }],
+    creator_department: [{ value: 'in', label: 'Is one of' }],
+    creator_role: [{ value: 'in', label: 'Is one of' }],
+    submitter_user: [{ value: 'in', label: 'Is' }],
+    submitter_designation: [{ value: 'in', label: 'Is one of' }],
+    submitter_department: [{ value: 'in', label: 'Is one of' }],
+    submitter_role: [{ value: 'in', label: 'Is one of' }],
 };
 
 // --- Phase 5: Follow-ups ---

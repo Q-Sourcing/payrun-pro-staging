@@ -103,8 +103,7 @@ serve(async (req) => {
             last_name,
             email: authUser.email || '',
             role: rbacRole || authUser.user_metadata?.role || 'STAFF',
-            phone: authUser.user_metadata?.phone || null,
-            department: authUser.user_metadata?.department || null,
+            organization_id: orgId,
             status,
           })
         }

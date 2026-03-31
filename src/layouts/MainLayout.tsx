@@ -16,7 +16,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { usePermission } from "@/lib/auth/usePermission";
-import { SettingsModal } from "@/components/settings/SettingsModal";
 import { useTheme } from "@/components/ui/theme-provider";
 import { CreateCompanyDialog } from "@/components/admin/CreateCompanyDialog";
 
@@ -58,7 +57,6 @@ export default function MainLayout() {
   });
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(!isPinned);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAdvancedSettingsOpen, setIsAdvancedSettingsOpen] = useState(false);
   const [showCreateCompany, setShowCreateCompany] = useState(false);
 
@@ -129,7 +127,7 @@ export default function MainLayout() {
       {/* Sidebar - Fully unmounted when advanced settings are open */}
       {!isAdvancedSettingsOpen && (
         <motion.aside
-          className={`fixed left-0 top-0 h-screen bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 z-30 flex flex-col overflow-hidden ${isSettingsOpen ? 'pointer-events-none opacity-50 transition-opacity' : ''}`}
+          className={`fixed left-0 top-0 h-screen bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 z-30 flex flex-col overflow-hidden`}
           initial={false}
           animate={{ width: sidebarWidth }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
@@ -165,7 +163,6 @@ export default function MainLayout() {
               activeTab="employees"
               onNavigate={() => { }}
               collapsed={sidebarCollapsed}
-              onSettingsClick={() => setIsSettingsOpen(true)}
               pendingPayRuns={2}
               pendingApprovals={1}
               anomaliesCount={anomalyCounts?.total ?? 0}
@@ -229,7 +226,7 @@ export default function MainLayout() {
       >
         {/* Header - Fully unmounted when advanced settings are open */}
         {!isAdvancedSettingsOpen && (
-          <header className={`sticky top-0 z-20 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 lg:px-8 py-4 overflow-x-hidden ${isSettingsOpen ? 'pointer-events-none opacity-50 transition-opacity' : ''}`}>
+          <header className={`sticky top-0 z-20 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 lg:px-8 py-4 overflow-x-hidden`}>
             <div className="flex items-center justify-between min-w-0">
               <div />
               <div className="flex items-center justify-end gap-3 flex-wrap min-w-0">
@@ -339,11 +336,6 @@ export default function MainLayout() {
         </div>
       </main>
 
-      <SettingsModal
-        open={isSettingsOpen}
-        onOpenChange={setIsSettingsOpen}
-        onAdvancedModeChange={(isAdvanced) => setIsAdvancedSettingsOpen(isAdvanced)}
-      />
 
       <CreateCompanyDialog
         open={showCreateCompany}

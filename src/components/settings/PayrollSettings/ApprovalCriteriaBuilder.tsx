@@ -33,6 +33,8 @@ export const ApprovalCriteriaBuilder = ({ workflowId, organizationId }: Approval
   const [categories, setCategories] = useState<{ id: string; label: string }[]>([]);
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const [designations, setDesignations] = useState<{ id: string; name: string }[]>([]);
+  const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
+  const [roles, setRoles] = useState<{ code: string; name: string }[]>([]);
 
   useEffect(() => {
     loadData();
@@ -41,18 +43,22 @@ export const ApprovalCriteriaBuilder = ({ workflowId, organizationId }: Approval
   const loadData = async () => {
     setLoading(true);
     try {
-      const [existingCriteria, pgRes, catRes, deptRes, desRes] = await Promise.all([
+      const [existingCriteria, pgRes, catRes, deptRes, desRes, usersRes, rolesRes] = await Promise.all([
         workflowService.getCriteria(workflowId),
         (supabase as any).from("pay_group_master").select("id, name").eq("is_active", true),
         (supabase as any).from("employee_categories").select("id, label").eq("organization_id", organizationId).eq("active", true),
         (supabase as any).from("company_units").select("id, name").eq("active", true),
         (supabase as any).from("designations").select("id, name").eq("organization_id", organizationId).eq("is_active", true),
+        (supabase as any).from("user_profiles").select("id, first_name, last_name"),
+        (supabase as any).from("rbac_roles").select("code, name").not("tier", "eq", "PLATFORM"),
       ]);
       setCriteria(existingCriteria.length > 0 ? existingCriteria : []);
       setPayGroups(pgRes.data || []);
       setCategories(catRes.data || []);
       setDepartments(deptRes.data || []);
       setDesignations(desRes.data || []);
+      setUsers((usersRes.data || []).map((u: any) => ({ id: u.id, name: `${u.first_name} ${u.last_name}`.trim() })));
+      setRoles(rolesRes.data || []);
     } catch (e) {
       console.error(e);
     }
@@ -108,6 +114,14 @@ export const ApprovalCriteriaBuilder = ({ workflowId, organizationId }: Approval
         { value: 'Adjustment', label: 'Adjustment' },
         { value: 'Rerun', label: 'Rerun' },
       ];
+      case 'creator_user':
+      case 'submitter_user': return users.map(u => ({ value: u.id, label: u.name }));
+      case 'creator_designation':
+      case 'submitter_designation': return designations.map(d => ({ value: d.id, label: d.name }));
+      case 'creator_department':
+      case 'submitter_department': return departments.map(d => ({ value: d.id, label: d.name }));
+      case 'creator_role':
+      case 'submitter_role': return roles.map(r => ({ value: r.code, label: r.name }));
       default: return [];
     }
   };
