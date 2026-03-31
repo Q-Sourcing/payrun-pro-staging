@@ -11,13 +11,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Scale } from 'lucide-react';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { getComplianceRequirements, createComplianceRequirement, updateComplianceRequirement } from '@/lib/services/ehs-phase2.service';
 import { COMPLIANCE_STATUS_COLORS } from '@/lib/types/ehs-phase2';
 import { format } from 'date-fns';
 
 export default function EhsCompliance() {
-  const { userContext } = useSupabaseAuth();
+  const { userContext } = useAuth();
   const orgId = userContext?.organizationId;
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);

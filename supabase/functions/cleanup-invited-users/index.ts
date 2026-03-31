@@ -138,7 +138,7 @@ serve(async (req) => {
             ineligible: ineligible.length,
           },
           results: rows.map((r) => ({
-            source: r.source ?? 'user_invites',
+            source: r.source ?? 'user_management_invitations',
             inviteId: r.invite_id,
             email: r.email,
             authUserId: r.auth_user_id,
@@ -192,8 +192,8 @@ serve(async (req) => {
       // Best-effort snapshot for reversibility/audit (pre-delete)
       if (r.eligible) {
         if (r.invite_id) {
-          snapshot.user_invites = await safeSelect(() =>
-            supabaseAdmin.from('user_invites').select('*').eq('id', r.invite_id).maybeSingle()
+          snapshot.invitation = await safeSelect(() =>
+            supabaseAdmin.from('user_management_invitations').select('*').eq('id', r.invite_id).maybeSingle()
           )
         }
         if (r.auth_user_id) {
@@ -231,7 +231,7 @@ serve(async (req) => {
 
       const plannedDetails = {
         candidate: {
-          source: r.source ?? 'user_invites',
+          source: r.source ?? 'user_management_invitations',
           invite_id: r.invite_id,
           email: r.email,
           invite_status: r.invite_status,
@@ -286,9 +286,6 @@ serve(async (req) => {
           deletions.push(supabaseAdmin.from('access_grants').delete().eq('user_id', userId))
           deletions.push(supabaseAdmin.from('notifications').delete().eq('user_id', userId))
 
-          // Optional legacy table
-          deletions.push(supabaseAdmin.from('profiles').delete().eq('id', userId))
-
           const results = await Promise.allSettled(deletions)
           for (const res of results) {
             if (res.status === 'fulfilled') {
@@ -301,10 +298,10 @@ serve(async (req) => {
           }
         }
 
-        // 2) user_invites row (pending only, if present)
+        // 2) invitation row (pending only, if present)
         if (r.invite_id) {
           const { error: inviteDelErr } = await supabaseAdmin
-            .from('user_invites')
+            .from('user_management_invitations')
             .delete()
             .eq('id', r.invite_id)
             .eq('status', 'pending')

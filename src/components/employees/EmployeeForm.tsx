@@ -22,10 +22,9 @@ import { EmployeeCategoriesService, EmployeeCategory } from '@/lib/services/empl
 import { SubDepartmentsService, SubDepartment } from '@/lib/services/sub-departments.service';
 import { BanksService, Bank } from "@/lib/services/banks.service";
 import { HrCatalogsService, type EngagementTypeOption, type NationalityOption } from "@/lib/services/hr-catalogs.service";
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { supabase } from "@/integrations/supabase/client";
-import { RBACService } from "@/lib/services/auth/rbac";
-import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { useAuth } from "@/lib/auth/AuthProvider";
 
 const FALLBACK_CATEGORIES = [
   { id: "fallback-head-office", key: "head_office", label: "Head Office" },
@@ -181,7 +180,7 @@ type PayGroupOption = { id: string; name: string };
 export const EmployeeForm = ({ mode, defaultValues, onSubmit, maximized }: EmployeeFormProps) => {
   const { toast } = useToast();
   const { organizationId, companyId } = useOrg();
-  const { userContext, profile } = useSupabaseAuth(); // Use auth context for roles
+  const { userContext, profile } = useAuth(); // Use auth context for roles
 
   // Get user role from JWT claims or fall back to profile.role from database
   const userRole = (userContext?.roles && userContext.roles.length > 0 ? userContext.roles[0] : null) || profile?.role;

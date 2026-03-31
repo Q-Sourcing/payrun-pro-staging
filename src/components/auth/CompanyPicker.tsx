@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { useOrg } from '@/lib/tenant/OrgContext';
+import { useOrg } from '@/lib/auth/OrgProvider';
 
 type Company = { id: string; name: string };
 
 export default function CompanyPicker() {
-  const { user } = useSupabaseAuth();
+  const { user } = useAuth();
   const { setCompanyId } = useOrg();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);

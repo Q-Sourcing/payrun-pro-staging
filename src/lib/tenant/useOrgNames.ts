@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useOrg } from './OrgContext';
+import { useOrg } from '@/lib/auth/OrgProvider';
 
 interface OrgNamesResult {
   organizationName: string | null;

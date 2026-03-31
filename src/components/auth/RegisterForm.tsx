@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { cn } from '@/lib/utils';
 
 interface RegisterFormProps {

@@ -15,7 +15,15 @@ export type UserRole =
   | 'PROJECT_PAYROLL_OFFICER'
   | 'PROJECT_VIEWER'
   | 'SELF_USER'
-  | 'SELF_CONTRACTOR';
+  | 'SELF_CONTRACTOR'
+  // Active role codes used in rbac_roles table
+  | 'ADMIN'
+  | 'HR'
+  | 'GM'
+  | 'FINANCE'
+  | 'STAFF'
+  | 'CRM'
+  | 'KAE';
 
 export interface PermissionCheck {
   hasPermission: boolean;
@@ -199,5 +207,61 @@ export const ROLE_DEFINITIONS: Record<UserRole, RoleDefinition> = {
     level: 1,
     permissions: ['people.view_self', 'payroll.view_self_invoice'],
     restrictions: ['Own data only']
-  }
+  },
+  ADMIN: {
+    id: 'ADMIN',
+    name: 'Admin',
+    description: 'Full organization admin access',
+    level: 80,
+    permissions: ['*'],
+    restrictions: []
+  },
+  HR: {
+    id: 'HR',
+    name: 'HR',
+    description: 'Human Resources access',
+    level: 70,
+    permissions: ['people.view', 'people.create', 'people.edit', 'attendance.manage'],
+    restrictions: []
+  },
+  GM: {
+    id: 'GM',
+    name: 'General Manager',
+    description: 'General Manager access',
+    level: 75,
+    permissions: ['people.view', 'projects.view', 'reports.view'],
+    restrictions: []
+  },
+  FINANCE: {
+    id: 'FINANCE',
+    name: 'Finance',
+    description: 'Finance access',
+    level: 65,
+    permissions: ['payroll.view', 'payroll.approve', 'reports.view'],
+    restrictions: []
+  },
+  STAFF: {
+    id: 'STAFF',
+    name: 'Staff',
+    description: 'General staff access',
+    level: 5,
+    permissions: ['people.view_self', 'payroll.view_self'],
+    restrictions: ['Limited access']
+  },
+  CRM: {
+    id: 'CRM',
+    name: 'CRM',
+    description: 'CRM access',
+    level: 20,
+    permissions: ['people.view'],
+    restrictions: []
+  },
+  KAE: {
+    id: 'KAE',
+    name: 'KAE',
+    description: 'Key Account Executive access',
+    level: 20,
+    permissions: ['people.view', 'projects.view'],
+    restrictions: []
+  },
 };

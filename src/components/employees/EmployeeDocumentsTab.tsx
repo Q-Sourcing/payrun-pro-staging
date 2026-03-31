@@ -10,7 +10,7 @@ import { Plus, Trash2, Download, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { EmployeeHrRecordsService, type EmployeeDocumentRecord } from "@/lib/services/employee-hr-records.service";
 import { supabase } from "@/integrations/supabase/client";
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrg } from '@/lib/auth/OrgProvider';
 
 interface EmployeeDocumentsTabProps {
   employeeId: string;

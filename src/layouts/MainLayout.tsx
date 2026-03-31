@@ -4,18 +4,18 @@ import { useAnomalyCounts } from "@/hooks/use-anomaly-counts";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { LogOut, ChevronLeft, ChevronRight, Pin, PinOff, Sun, Moon, Plus } from "lucide-react";
-import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { useUserRole } from "@/hooks/use-user-role";
+import { useAuth } from '@/lib/auth/AuthProvider';
+import { useUserRole } from '@/lib/auth/useUserRole';
 import { RoleBadge, RoleBadgeSmall } from "@/components/admin/RoleBadge";
 import { SuperAdminBadge } from "@/components/admin/SuperAdminBadge";
 import { Link } from "react-router-dom";
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { useOrgNames } from "@/lib/tenant/useOrgNames";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { JWTClaimsService } from "@/lib/services/auth/jwt-claims";
+import { usePermission } from "@/lib/auth/usePermission";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { useTheme } from "@/components/ui/theme-provider";
 import { CreateCompanyDialog } from "@/components/admin/CreateCompanyDialog";
@@ -44,7 +44,7 @@ function ThemeToggleButton() {
 
 
 export default function MainLayout() {
-  const { user, profile, logout } = useSupabaseAuth();
+  const { user, profile, logout } = useAuth();
   const { role, isSuperAdmin } = useUserRole();
   const { counts: anomalyCounts } = useAnomalyCounts();
   const navigate = useNavigate();
@@ -75,9 +75,11 @@ export default function MainLayout() {
     }
   }, [needsCompanySelection, navigate]);
 
+  const perm = usePermission();
+
   // Self-service portal guard: SELF_USER can only access /my/* and /dashboard/*
   useEffect(() => {
-    const isSelfUser = JWTClaimsService.hasRole('SELF_USER') || JWTClaimsService.hasRole('SELF_CONTRACTOR');
+    const isSelfUser = perm.hasRole('SELF_USER') || perm.hasRole('SELF_CONTRACTOR');
     if (!isSelfUser) return;
 
     const allowed = ["/my/", "/dashboard", "/anomalies", "/timesheets", "/login"];

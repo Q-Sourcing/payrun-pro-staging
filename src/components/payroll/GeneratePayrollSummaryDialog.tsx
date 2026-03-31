@@ -15,8 +15,7 @@ import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { CompanySettingsDialog } from "./CompanySettingsDialog";
 import { useOrgNames } from "@/lib/tenant/useOrgNames";
-import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { RBACService } from "@/lib/services/auth/rbac";
+import { usePermission } from "@/lib/auth/usePermission";
 import { PayGroupCategory } from "@/lib/types/paygroups";
 
 type PayRunContext = {
@@ -61,15 +60,14 @@ export const GeneratePayrollSummaryDialog = ({ open, onOpenChange, payRunId }: G
   const { organizationName, companyName } = useOrgNames();
   const displayCompanyName = organizationName || companyName || companySettings?.company_name || "Q-Payroll Solutions";
 
-  const { userContext } = useSupabaseAuth();
+  const perm = usePermission();
 
   const canExport = useMemo(() => {
     if (!payRunContext?.payRun) return false;
     const category = payRunContext.payRun.pay_group_master?.category;
-    const scope = category === 'projects' ? 'project' : 'head_office';
-    // Use hasScopedPermission instead of roleHasScopedPermission
-    return RBACService.hasScopedPermission('payroll.export', scope as any);
-  }, [userContext, payRunContext]);
+    const scope = category === 'projects' ? 'PROJECT' : 'ORGANIZATION';
+    return perm.hasScopedPermission('payroll.export', scope);
+  }, [perm, payRunContext]);
 
   useEffect(() => {
     if (open) {

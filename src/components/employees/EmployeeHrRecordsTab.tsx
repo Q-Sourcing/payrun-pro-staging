@@ -15,7 +15,7 @@ import {
   type EmployeeEducationRecord,
   type EmployeeWorkExperienceRecord,
 } from "@/lib/services/employee-hr-records.service";
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrg } from '@/lib/auth/OrgProvider';
 
 interface EmployeeHrRecordsTabProps {
   employeeId: string;

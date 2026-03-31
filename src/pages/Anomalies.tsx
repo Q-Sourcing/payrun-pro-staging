@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnomalyService, type AnomalyLog } from '@/lib/services/anomaly.service';
-import { useOrg } from '@/lib/tenant/OrgContext';
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { useAnomalyCounts } from '@/hooks/use-anomaly-counts';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';

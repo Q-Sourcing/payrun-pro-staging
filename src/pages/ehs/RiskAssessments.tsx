@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, FileSearch } from 'lucide-react';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { getRiskAssessments, createRiskAssessment } from '@/lib/services/ehs-phase2.service';
 import { format } from 'date-fns';
 
@@ -20,7 +20,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function EhsRiskAssessments() {
-  const { userContext } = useSupabaseAuth();
+  const { userContext } = useAuth();
   const orgId = userContext?.organizationId;
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);

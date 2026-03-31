@@ -5,8 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { useOrg } from '@/lib/tenant/OrgContext';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useOrg } from '@/lib/auth/OrgProvider';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { toast } from 'sonner';
 
 interface CreateCompanyDialogProps {
@@ -17,7 +17,7 @@ interface CreateCompanyDialogProps {
 
 export function CreateCompanyDialog({ open, onOpenChange, onCreated }: CreateCompanyDialogProps) {
   const { organizationId, setCompanyId } = useOrg();
-  const { user } = useSupabaseAuth();
+  const { user } = useAuth();
   const [name, setName] = useState('');
   const [countryId, setCountryId] = useState('');
   const [currency, setCurrency] = useState('');

@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Shield, AlertTriangle, ArrowLeft } from 'lucide-react';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { User, UserRole, Permission } from '@/lib/types/roles';
 import { ROLE_DEFINITIONS } from '@/lib/types/roles';
 
@@ -68,7 +68,7 @@ export function UserManagementGuard({
   fallbackComponent,
   onUnauthorized
 }: UserManagementGuardProps) {
-  const { user, profile } = useSupabaseAuth();
+  const { user, profile } = useAuth();
 
   // Convert Supabase profile to our User type
   const convertedUser = convertProfileToUser(profile, user);

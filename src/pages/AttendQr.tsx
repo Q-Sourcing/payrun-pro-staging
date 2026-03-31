@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LogIn, LogOut, MapPin, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 import { AttendanceService } from "@/lib/services/attendance.service";
-import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -15,7 +15,7 @@ type State = "loading" | "invalid" | "ready" | "clocked_in" | "done" | "error";
 
 export default function AttendQr() {
   const [searchParams] = useSearchParams();
-  const { session } = useSupabaseAuth();
+  const { session } = useAuth();
   const token = searchParams.get("token");
 
   const [state, setState] = useState<State>("loading");

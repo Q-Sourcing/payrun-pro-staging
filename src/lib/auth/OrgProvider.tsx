@@ -1,12 +1,18 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+/**
+ * OrgProvider.tsx — Simplified org/company context
+ *
+ * Replaces the old OrgContext.tsx. Derives the current org from the
+ * user's profile and company memberships. No hardcoded admin emails.
+ * isPlatformAdmin comes from the JWT claims.
+ */
+
+import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
-import { UserRole } from '@/lib/types/roles';
+import { useAuth } from './AuthProvider';
 import { queryClient } from '@/lib/data/query-client';
 
 interface OrgContextValue {
   organizationId: string | null;
-  role: UserRole | null;
   companyId: string | null;
   companyUnitId: string | null;
   isPlatformAdmin: boolean;
@@ -19,28 +25,23 @@ interface OrgContextValue {
 
 const OrgContext = createContext<OrgContextValue | undefined>(undefined);
 
-const PLATFORM_ADMIN_EMAIL = 'nalungukevin@gmail.com';
-
-export const OrgProvider = ({ children }: { children: ReactNode }) => {
-  const { user, session, profile, isLoading } = useSupabaseAuth();
+export function OrgProvider({ children }: { children: ReactNode }) {
+  const { user, session, profile, isLoading, userContext } = useAuth();
   const [organizationId, setOrganizationId] = useState<string | null>(null);
-  const [role, setRole] = useState<UserRole | null>(null);
   const [companyId, setCompanyIdState] = useState<string | null>(null);
   const [companyUnitId, setCompanyUnitId] = useState<string | null>(null);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
   const [needsCompanySelection, setNeedsCompanySelection] = useState(false);
 
-  const isPlatformAdmin = user?.email?.toLowerCase() === PLATFORM_ADMIN_EMAIL.toLowerCase() ||
-    localStorage.getItem('login_mode') === 'platform_admin';
+  // Derive platform admin from JWT claims — no hardcoded email
+  const isPlatformAdmin = !!userContext?.isPlatformAdmin;
 
-  // When companyId changes, re-derive organizationId from the company + invalidate all caches
+  // When companyId changes, resolve org and clear query caches
   const setCompanyId = useCallback(async (newCompanyId: string | null) => {
     setCompanyIdState(newCompanyId);
     setNeedsCompanySelection(false);
-    
-    // Invalidate ALL query caches so every page refetches with new company scope
     queryClient.clear();
-    
+
     if (newCompanyId) {
       if (typeof window !== 'undefined') localStorage.setItem('active_company_id', newCompanyId);
       try {
@@ -53,11 +54,14 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
           setOrganizationId(comp.organization_id);
           if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', comp.organization_id);
         }
-      } catch { }
+      } catch { /* non-blocking */ }
     }
   }, []);
 
+  // Resolve org/company on auth change
   useEffect(() => {
+    if (isLoading) return;
+
     async function resolveOrg() {
       // Restore company from localStorage
       const storedCompany = typeof window !== 'undefined' ? localStorage.getItem('active_company_id') : null;
@@ -65,7 +69,7 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
         setCompanyIdState(storedCompany);
       }
 
-      // If no company stored, check memberships
+      // If no stored company, check memberships
       if (!storedCompany && user?.id) {
         try {
           const { data, error } = await supabase
@@ -93,12 +97,13 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
               return;
             }
           }
-        } catch { }
+        } catch { /* non-blocking */ }
       }
 
       // Platform admin mode
       if (isPlatformAdmin) {
-        const selectedOrg = selectedOrganizationId ||
+        const selectedOrg =
+          selectedOrganizationId ||
           (typeof window !== 'undefined' ? localStorage.getItem('active_organization_id') : null);
         if (selectedOrg) {
           setOrganizationId(selectedOrg);
@@ -112,7 +117,7 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
             setSelectedOrganizationId(orgs.data[0].id);
             if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', orgs.data[0].id);
           }
-        } catch { }
+        } catch { /* non-blocking */ }
         return;
       }
 
@@ -130,7 +135,7 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
             if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', comp.organization_id);
             return;
           }
-        } catch { }
+        } catch { /* non-blocking */ }
       }
 
       // Stored org
@@ -144,56 +149,43 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
       if (profile?.organization_id) {
         setOrganizationId(profile.organization_id);
         if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', profile.organization_id);
-        setRole((profile.role || 'SELF_USER') as any);
         return;
       }
 
-      // JWT claims
-      try {
-        const jwt = session?.access_token;
-        if (jwt) {
-          const claims = JSON.parse(atob(jwt.split('.')[1]));
-          if (claims.organization_id) {
-            setOrganizationId(claims.organization_id);
-            if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', claims.organization_id);
-            setRole(claims.role as any);
-            return;
-          }
-        }
-      } catch { }
+      // JWT claims fallback
+      if (userContext?.organizationId) {
+        setOrganizationId(userContext.organizationId);
+        if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', userContext.organizationId);
+        return;
+      }
 
-      // Query user_profiles
-      try {
-        if (user?.id) {
+      // Query user_profiles fallback
+      if (user?.id) {
+        try {
           const up = await supabase.from('user_profiles').select('organization_id, role').eq('id', user.id).single();
           if (!up.error && up.data?.organization_id) {
             setOrganizationId(up.data.organization_id);
             if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', up.data.organization_id);
-            setRole((up.data.role || 'SELF_USER') as any);
             return;
           }
-        }
-      } catch { }
+        } catch { /* non-blocking */ }
+      }
 
-      // Heuristic fallbacks
+      // Last resort: first org in table
       try {
         const orgs = await supabase.from('organizations').select('id').limit(1);
         if (!orgs.error && orgs.data && orgs.data.length > 0) {
           setOrganizationId(orgs.data[0].id);
           if (typeof window !== 'undefined') localStorage.setItem('active_organization_id', orgs.data[0].id);
-          return;
         }
-      } catch { }
+      } catch { /* non-blocking */ }
     }
 
-    if (!isLoading) {
-      resolveOrg();
-    }
+    resolveOrg();
   }, [profile, session, user, isLoading, isPlatformAdmin, selectedOrganizationId]);
 
   const value: OrgContextValue = {
     organizationId: isPlatformAdmin && selectedOrganizationId ? selectedOrganizationId : organizationId,
-    role,
     companyId,
     companyUnitId,
     isPlatformAdmin,
@@ -209,12 +201,8 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
     },
   };
 
-  return (
-    <OrgContext.Provider value={value}>
-      {children}
-    </OrgContext.Provider>
-  );
-};
+  return <OrgContext.Provider value={value}>{children}</OrgContext.Provider>;
+}
 
 export function useOrg() {
   const ctx = useContext(OrgContext);

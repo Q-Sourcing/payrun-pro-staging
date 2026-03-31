@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMyTimesheets } from "@/components/timesheets/useTimesheets";
 import { CreateTimesheetDialog } from "@/components/timesheets/CreateTimesheetDialog";
 import { TimesheetReviewPanel } from "@/components/timesheets/TimesheetReviewPanel";
-import { RBACService } from "@/lib/services/auth/rbac";
+import { usePermission } from "@/lib/auth/usePermission";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -97,10 +97,11 @@ function normalizeTimesheetStatus(rawStatus: unknown): "draft" | "submitted" | "
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 export default function Timesheets() {
+  const perm = usePermission();
   const canReviewTeam =
-    RBACService.isOrgAdmin() ||
-    RBACService.isPlatformAdmin() ||
-    RBACService.hasPermission("payroll.approve");
+    perm.isOrgAdmin ||
+    perm.isPlatformAdmin ||
+    perm.hasPermission("payroll.approve");
   const { data: timesheets = [], isLoading } = useMyTimesheets();
 
   const [createOpen, setCreateOpen] = useState(false);

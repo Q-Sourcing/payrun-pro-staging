@@ -12,8 +12,8 @@ import { queryKeys } from '@/lib/data/query-client';
 import type { WorkAsset } from '@/lib/types/assets';
 import { getAssetLogs } from '@/lib/services/assets.service';
 import { AssetsExporter } from '@/lib/services/assets-exporter';
-import { RBACService } from '@/lib/services/auth/rbac';
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { usePermission } from '@/lib/auth/usePermission';
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { Download } from 'lucide-react';
 
 interface AssetExportDialogProps {
@@ -25,7 +25,8 @@ interface AssetExportDialogProps {
 export function AssetExportDialog({ open, onOpenChange, assets }: AssetExportDialogProps) {
   const { toast } = useToast();
   const { organizationId: orgId } = useOrg();
-  const canViewFinancials = RBACService.hasPermission('assets.view_financials');
+  const perm = usePermission();
+  const canViewFinancials = perm.hasPermission('assets.view_financials');
 
   const [includeFinancials, setIncludeFinancials] = useState(false);
   const [includeLogs, setIncludeLogs] = useState(true);

@@ -144,7 +144,7 @@ export default function Diagnostics() {
             <CardHeader className="pb-2">
               <div className="flex justify-between items-center">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4" /> Invitation (public.user_invites)
+                  <CheckCircle className="h-4 w-4" /> Invitation (public.user_management_invitations)
                 </CardTitle>
                 <Badge variant="outline">{data.invitation?.status || 'No Invite Found'}</Badge>
               </div>

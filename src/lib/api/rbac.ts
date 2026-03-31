@@ -273,7 +273,7 @@ export async function setUserModuleGrants(
     if (rows.length > 0) {
         const { error: insErr } = await supabase
             .from("rbac_grants")
-            .upsert(rows as any[], { onConflict: 'user_id,permission_key,scope_type,scope_id' });
+            .insert(rows as any[]);
         if (insErr) throw insErr;
     }
 }

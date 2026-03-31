@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { useOrg } from '@/lib/tenant/OrgContext'
+import { useOrg } from '@/lib/auth/OrgProvider'
 import { getOrgPayRuns } from '@/lib/services/OrgDataService'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'

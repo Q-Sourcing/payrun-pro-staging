@@ -1,5 +1,5 @@
 import { NotificationBell } from '@/components/notifications/NotificationBell';
-import { useUniversalAccess } from '@/hooks/use-universal-access';
+import { useAuth } from '@/lib/auth/AuthProvider';
 
 /**
  * Universal Features Component
@@ -31,7 +31,7 @@ import { useUniversalAccess } from '@/hooks/use-universal-access';
  * @returns {JSX.Element | null} Universal features or null if not authenticated
  */
 export function UniversalFeatures() {
-    const { isAuthenticated } = useUniversalAccess();
+    const { isAuthenticated } = useAuth();
 
     // Don't render anything if user is not authenticated
     if (!isAuthenticated) {

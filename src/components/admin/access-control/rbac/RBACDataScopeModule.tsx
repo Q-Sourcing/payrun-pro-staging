@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { listOrgUsers } from "@/lib/api/adminAccess";
 import { listGrants, listPermissions } from "@/lib/api/rbac";
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { Eye, User, ShieldCheck, ShieldAlert, CircleCheck, CircleX } from "lucide-react";
 
 export function RBACDataScopeModule() {

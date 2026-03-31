@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
 import { SocialLoginButtons } from './SocialLoginButtons';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { cn } from '@/lib/utils';
 import { getEnvironmentLabel, getEnvironmentColor, getEnvironmentIcon } from '@/lib/getEnvironmentLabel';
 import { testEnvironmentDetection } from '@/utils/testEnvironment';

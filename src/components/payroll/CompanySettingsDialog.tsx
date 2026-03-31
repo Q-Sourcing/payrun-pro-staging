@@ -8,9 +8,9 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Building2, Upload, X } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { useOrgNames } from "@/lib/tenant/useOrgNames";
-import { useUserRole } from "@/hooks/use-user-role";
+import { useUserRole } from '@/lib/auth/useUserRole';
 import { Pencil } from "lucide-react";
 
 interface CompanySettingsDialogProps {

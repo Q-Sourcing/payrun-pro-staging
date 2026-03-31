@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { supabase } from '@/integrations/supabase/client';
-import { JWTClaimsService } from './auth/jwt-claims';
+import { getUserContext } from '@/lib/auth/claims';
 
 export class AuditLogger {
     /**
@@ -19,7 +19,8 @@ export class AuditLogger {
         }
 
         try {
-            const userContext = JWTClaimsService.getCurrentUserContext();
+            const { data: { session } } = await supabase.auth.getSession();
+            const userContext = getUserContext(session);
             if (!userContext) {
                 console.warn('AuditLogger: No user context found, skipping log.');
                 return;

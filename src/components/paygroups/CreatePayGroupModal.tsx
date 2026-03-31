@@ -50,7 +50,7 @@ import { PIECE_RATE_TYPES } from '@/lib/constants/countries';
 import { PayGroupsService } from '@/lib/services/paygroups.service';
 import { ProjectsService } from '@/lib/services/projects.service';
 import { supabase } from '@/integrations/supabase/client';
-import { useOrg } from '@/lib/tenant/OrgContext';
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { EmployeesService } from '@/lib/data/employees.service';
 import { EmployeePayGroupsService } from '@/lib/services/employee-paygroups.service';

@@ -37,8 +37,8 @@ import { ExpatriatePayrollService } from '@/lib/services/expatriate-payroll';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApprovalTimeline } from "./ApprovalTimeline";
 import { PayrunsService } from "@/lib/services/payruns.service";
-import { useUserRole } from "@/hooks/use-user-role";
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useUserRole } from '@/lib/auth/useUserRole';
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { Textarea } from "@/components/ui/textarea";
 
 interface CustomDeduction {

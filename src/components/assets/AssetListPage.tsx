@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/data/query-client';
 import { getAssets } from '@/lib/services/assets.service';
-import { useOrg } from '@/lib/tenant/OrgContext';
-import { RBACService } from '@/lib/services/auth/rbac';
+import { useOrg } from '@/lib/auth/OrgProvider';
+import { usePermission } from '@/lib/auth/usePermission';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -27,8 +27,9 @@ import { AssetsExporter } from '@/lib/services/assets-exporter';
 export function AssetListPage() {
   const navigate = useNavigate();
   const { organizationId: orgId } = useOrg();
-  const canCreate = RBACService.hasPermission('assets.create');
-  const canViewFinancials = RBACService.hasPermission('assets.view_financials');
+  const perm = usePermission();
+  const canCreate = perm.hasPermission('assets.create');
+  const canViewFinancials = perm.hasPermission('assets.view_financials');
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');

@@ -37,7 +37,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useOrg } from '@/lib/tenant/OrgContext';
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { HeadOfficePayGroupsService } from '@/lib/services/headOfficePayGroups.service';
 import type { HeadOfficePayGroupRefType } from '@/lib/types/paygroups';
 

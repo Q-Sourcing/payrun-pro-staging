@@ -11,7 +11,7 @@ import { Package, ClipboardList, TrendingUp, BookOpen } from "lucide-react";
 import { ItemsCatalogManager } from "./ItemsCatalogManager";
 import { VariablePayrollWorkboard } from "./VariablePayrollWorkboard";
 import { PayrollSummaryView } from "./PayrollSummaryView";
-import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { useAuth } from '@/lib/auth/AuthProvider';
 
 interface VariablePayrollPageProps {
   projectId?: string;
@@ -19,7 +19,7 @@ interface VariablePayrollPageProps {
 }
 
 export function VariablePayrollPage({ projectId, projectName }: VariablePayrollPageProps) {
-  const { userContext } = useSupabaseAuth();
+  const { userContext } = useAuth();
   const organizationId = userContext?.organizationId || "";
 
   if (!organizationId) {

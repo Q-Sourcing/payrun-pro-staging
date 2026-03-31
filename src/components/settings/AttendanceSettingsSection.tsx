@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { AttendanceService } from "@/lib/services/attendance.service";
 import { supabase } from "@/integrations/supabase/client";
-import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { Settings, MapPin, Clock, Shield, Plus, Trash2, Save, Loader2 } from "lucide-react";
 import TableWrapper from "@/components/TableWrapper";
 
@@ -22,7 +22,7 @@ const TIMEZONES = [
 ];
 
 export function AttendanceSettingsSection() {
-  const { session } = useSupabaseAuth();
+  const { session } = useAuth();
   const [orgId, setOrgId] = useState<string | null>(null);
   const [policy, setPolicy] = useState<any>(null);
   const [geofences, setGeofences] = useState<any[]>([]);

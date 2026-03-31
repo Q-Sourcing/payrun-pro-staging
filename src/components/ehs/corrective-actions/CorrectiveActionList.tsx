@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, ListChecks } from 'lucide-react';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { getCorrectiveActions, updateCorrectiveAction } from '@/lib/services/ehs.service';
 import { CorrectiveActionFormDialog } from './CorrectiveActionFormDialog';
 import { PRIORITY_COLORS } from '@/lib/types/ehs';
@@ -20,7 +20,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function CorrectiveActionList() {
-  const { userContext } = useSupabaseAuth();
+  const { userContext } = useAuth();
   const orgId = userContext?.organizationId;
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);

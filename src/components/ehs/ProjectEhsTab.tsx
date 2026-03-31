@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, ShieldAlert, ClipboardCheck, Shield, Plus } from 'lucide-react';
 import { getIncidents, getHazards, getInspections, getCorrectiveActions } from '@/lib/services/ehs.service';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { SEVERITY_COLORS, SEVERITY_LABELS, RISK_LEVEL_COLORS } from '@/lib/types/ehs';
 import { format } from 'date-fns';
 import { IncidentFormDialog } from './incidents/IncidentFormDialog';
@@ -18,7 +18,7 @@ interface Props {
 }
 
 export function ProjectEhsTab({ projectId }: Props) {
-  const { userContext } = useSupabaseAuth();
+  const { userContext } = useAuth();
   const orgId = userContext?.organizationId;
 
   const [showIncidentForm, setShowIncidentForm] = useState(false);

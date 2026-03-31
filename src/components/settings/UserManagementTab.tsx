@@ -35,7 +35,7 @@ import {
   getUserModuleGrants, setUserModuleGrants, grantsToModuleAccess,
 } from "@/lib/api/rbac";
 import { useOrgDepartments } from "@/hooks/use-org-departments";
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";

@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Plus, Edit2, Shield, Search, MoreVertical, Trash2 } from "lucide-react";
 import { EmployeeCategoriesService, EmployeeCategory } from '@/lib/services/employee-categories.service';
-import { useOrg } from '@/lib/tenant/OrgContext';
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { useToast } from '@/hooks/use-toast';
 
 export const EmployeeCategoriesTab = () => {

@@ -4,6 +4,12 @@ import { corsHeaders } from '../_shared/cors.ts'
 
 const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000001'
 
+/** Split a full name into first/last parts */
+function splitName(fullName: string): { first_name: string; last_name: string } {
+  const parts = (fullName || '').trim().split(/\s+/)
+  return { first_name: parts[0] || '', last_name: parts.slice(1).join(' ') || '' }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -59,25 +65,18 @@ serve(async (req) => {
 
     // ── GET: list all users ────────────────────────────────────────────────────
     if (req.method === 'GET') {
-      // Sync: pull all auth users and merge into user_management_profiles
+      // Sync: pull all auth users and merge into user_profiles
       // so that existing users always appear in the list
       try {
         const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
         const authUsers = listData?.users ?? []
 
-        // Get existing user_profiles for role/org data
+        // Get existing user_profiles
         const { data: existingProfiles } = await supabaseAdmin
           .from('user_profiles')
-          .select('id, email, first_name, last_name, role, organization_id')
-
-        const profileMap = new Map((existingProfiles ?? []).map(p => [p.id, p]))
-
-        // Get existing management profiles to avoid overwriting admin-edited data
-        const { data: existingMgmt } = await supabaseAdmin
-          .from('user_management_profiles')
           .select('id')
 
-        const existingMgmtIds = new Set((existingMgmt ?? []).map(p => p.id))
+        const existingIds = new Set((existingProfiles ?? []).map(p => p.id))
 
         // Get rbac assignments for role codes
         const { data: rbacAssignments } = await supabaseAdmin
@@ -86,37 +85,33 @@ serve(async (req) => {
 
         const rbacMap = new Map((rbacAssignments ?? []).map(a => [a.user_id, a.role_code]))
 
-        // Upsert any auth users missing from user_management_profiles
+        // Upsert any auth users missing from user_profiles
         const toUpsert = []
         for (const authUser of authUsers) {
-          if (existingMgmtIds.has(authUser.id)) continue // already managed
-          const up = profileMap.get(authUser.id)
+          if (existingIds.has(authUser.id)) continue // already has profile
           const rbacRole = rbacMap.get(authUser.id)
-          const fullName = authUser.user_metadata?.full_name ||
-            (up ? `${up.first_name || ''} ${up.last_name || ''}`.trim() : '') ||
-            authUser.email?.split('@')[0] || 'User'
+          const fullName = authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User'
+          const { first_name, last_name } = splitName(fullName)
 
-          // Determine status: if user has confirmed email and signed in, they're active
+          // Determine status: if user has signed in, they're active
           const hasSignedIn = !!(authUser as any).last_sign_in_at
           const status = hasSignedIn ? 'active' : 'pending'
 
           toUpsert.push({
             id: authUser.id,
-            username: authUser.user_metadata?.username || null,
-            full_name: fullName,
+            first_name,
+            last_name,
             email: authUser.email || '',
-            role: rbacRole || up?.role || authUser.user_metadata?.role || 'STAFF',
+            role: rbacRole || authUser.user_metadata?.role || 'STAFF',
             phone: authUser.user_metadata?.phone || null,
             department: authUser.user_metadata?.department || null,
             status,
-            created_at: authUser.created_at,
-            updated_at: new Date().toISOString(),
           })
         }
 
         if (toUpsert.length > 0) {
           const { error: syncErr } = await supabaseAdmin
-            .from('user_management_profiles')
+            .from('user_profiles')
             .upsert(toUpsert, { onConflict: 'id', ignoreDuplicates: true })
           if (syncErr) console.error('Sync upsert error:', syncErr)
         }
@@ -125,7 +120,7 @@ serve(async (req) => {
       }
 
       const { data: profiles, error } = await supabaseAdmin
-        .from('user_management_profiles')
+        .from('user_profiles')
         .select('*')
         .order('created_at', { ascending: false })
 
@@ -134,7 +129,14 @@ serve(async (req) => {
         return json({ success: false, message: error.message }, 500)
       }
 
-      return json({ success: true, users: profiles ?? [] })
+      // Map to the shape the frontend expects (full_name field)
+      const mapped = (profiles ?? []).map((p: any) => ({
+        ...p,
+        full_name: [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email,
+        username: null,
+      }))
+
+      return json({ success: true, users: mapped })
     }
 
     // ── POST: create user ──────────────────────────────────────────────────────
@@ -171,21 +173,20 @@ serve(async (req) => {
       }
 
       const userId = newAuthUser.user.id
+      const { first_name, last_name } = splitName(full_name || username || '')
 
-      // Upsert into user_management_profiles
+      // Upsert into user_profiles (canonical profile table)
       const { data: profile, error: profileError } = await supabaseAdmin
-        .from('user_management_profiles')
+        .from('user_profiles')
         .upsert({
           id: userId,
-          username: username || null,
-          full_name: full_name || username || '',
+          first_name,
+          last_name,
           email,
           role: resolvedRole || 'employee',
           phone: phone || null,
           department: department || null,
           status: status || 'active',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
         }, { onConflict: 'id' })
         .select()
         .single()
@@ -196,31 +197,24 @@ serve(async (req) => {
         return json({ success: false, message: 'Failed to save user profile: ' + profileError.message }, 500)
       }
 
-      // Also ensure user_profiles row exists for RBAC
-      await supabaseAdmin.from('user_profiles').upsert({
-        id: userId,
-        email,
-        full_name: full_name || username || '',
-        role: resolvedRole || 'employee',
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'id' })
-
       // ── Assign role in rbac_assignments (maps to permissions) ──────────────
       if (resolvedRole) {
-        await supabaseAdmin.from('rbac_assignments').upsert({
+        await supabaseAdmin.from('rbac_assignments').insert({
           user_id: userId,
           role_code: resolvedRole,
           scope_type: 'GLOBAL',
           scope_id: null,
           org_id: orgId,
           assigned_by: currentUser.id,
-        }, { onConflict: 'user_id,role_code,scope_type' }).then(({ error: e }) => {
-          if (e) console.error('rbac_assignments upsert error (create):', e)
+        }).then(({ error: e }) => {
+          if (e) console.error('rbac_assignments insert error (create):', e)
         })
       }
 
+      // Return with full_name field for frontend compat
+      const mapped = { ...profile, full_name: [first_name, last_name].filter(Boolean).join(' '), username: null }
       console.log(`User created: ${email} by ${currentUser.email}`)
-      return json({ success: true, message: 'User created successfully', user: profile })
+      return json({ success: true, message: 'User created successfully', user: mapped })
     }
 
     // ── PATCH: update user ─────────────────────────────────────────────────────
@@ -232,15 +226,18 @@ serve(async (req) => {
       if (!id) return json({ success: false, message: 'User ID is required' }, 400)
 
       const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
-      if (username !== undefined) updates.username = username
-      if (full_name !== undefined) updates.full_name = full_name
+      if (full_name !== undefined) {
+        const { first_name, last_name } = splitName(full_name)
+        updates.first_name = first_name
+        updates.last_name = last_name
+      }
       if (resolvedRole !== undefined) updates.role = resolvedRole
       if (phone !== undefined) updates.phone = phone || null
       if (department !== undefined) updates.department = department || null
       if (status !== undefined) updates.status = status
 
       const { data: updated, error: updateError } = await supabaseAdmin
-        .from('user_management_profiles')
+        .from('user_profiles')
         .update(updates)
         .eq('id', id)
         .select()
@@ -249,15 +246,6 @@ serve(async (req) => {
       if (updateError) {
         console.error('Error updating user:', updateError)
         return json({ success: false, message: updateError.message }, 400)
-      }
-
-      // Sync to user_profiles
-      if (full_name !== undefined || resolvedRole !== undefined) {
-        await supabaseAdmin.from('user_profiles').update({
-          ...(full_name !== undefined ? { full_name } : {}),
-          ...(resolvedRole !== undefined ? { role: resolvedRole } : {}),
-          updated_at: new Date().toISOString(),
-        }).eq('id', id)
       }
 
       // ── Re-sync rbac_assignments when role changes ────────────────────────
@@ -271,20 +259,21 @@ serve(async (req) => {
           .neq('role_code', 'PLATFORM_SUPER_ADMIN')
 
         // Insert the new assignment
-        await supabaseAdmin.from('rbac_assignments').upsert({
+        await supabaseAdmin.from('rbac_assignments').insert({
           user_id: id,
           role_code: resolvedRole,
           scope_type: 'GLOBAL',
           scope_id: null,
           org_id: orgId,
           assigned_by: currentUser.id,
-        }, { onConflict: 'user_id,role_code,scope_type' }).then(({ error: e }) => {
-          if (e) console.error('rbac_assignments upsert error (update):', e)
+        }).then(({ error: e }) => {
+          if (e) console.error('rbac_assignments insert error (update):', e)
         })
       }
 
+      const mapped = { ...updated, full_name: [updated.first_name, updated.last_name].filter(Boolean).join(' '), username: null }
       console.log(`User updated: ${id} by ${currentUser.email}`)
-      return json({ success: true, message: 'User updated successfully', user: updated })
+      return json({ success: true, message: 'User updated successfully', user: mapped })
     }
 
     // ── DELETE: remove user ────────────────────────────────────────────────────
@@ -313,7 +302,7 @@ serve(async (req) => {
         return json({ success: false, message: deleteError.message }, 400)
       }
 
-      await supabaseAdmin.from('user_management_profiles').delete().eq('id', userId)
+      await supabaseAdmin.from('user_profiles').delete().eq('id', userId)
 
       console.log(`User deleted: ${userId} by ${currentUser.email}`)
       return json({ success: true, message: 'User deleted successfully' })

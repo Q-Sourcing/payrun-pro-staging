@@ -346,24 +346,6 @@ export class UsersService {
     }
   }
 
-  /**
-   * Generate a temporary password
-   */
-  /**
-   * Revoke an invitation
-   */
-  static async revokeInvite(inviteId: string): Promise<void> {
-    const { error } = await supabase
-      .from('user_invites')
-      .update({ status: 'revoked' })
-      .eq('id', inviteId);
-
-    if (error) {
-      console.error('Error revoking invite:', error);
-      throw new Error(`Failed to revoke invite: ${error.message}`);
-    }
-  }
-
   private static generateTemporaryPassword(): string {
     const length = 12;
     const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';

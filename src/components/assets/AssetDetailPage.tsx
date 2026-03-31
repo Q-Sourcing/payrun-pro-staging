@@ -6,8 +6,8 @@ import { queryKeys } from '@/lib/data/query-client';
 import {
   getAsset, getAssetAssignmentHistory, getAssetLogs, deleteAsset,
 } from '@/lib/services/assets.service';
-import { useOrg } from '@/lib/tenant/OrgContext';
-import { RBACService } from '@/lib/services/auth/rbac';
+import { useOrg } from '@/lib/auth/OrgProvider';
+import { usePermission } from '@/lib/auth/usePermission';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -36,9 +36,10 @@ export function AssetDetailPage() {
   const queryClient = useQueryClient();
   const { organizationId: orgId } = useOrg();
 
-  const canEdit = RBACService.hasPermission('assets.edit');
-  const canDelete = RBACService.hasPermission('assets.delete');
-  const canViewFinancials = RBACService.hasPermission('assets.view_financials');
+  const perm = usePermission();
+  const canEdit = perm.hasPermission('assets.edit');
+  const canDelete = perm.hasPermission('assets.delete');
+  const canViewFinancials = perm.hasPermission('assets.view_financials');
 
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showReassignDialog, setShowReassignDialog] = useState(false);

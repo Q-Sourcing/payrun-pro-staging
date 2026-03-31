@@ -9,8 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Users, Calendar, Pencil, UserPlus, DollarSign } from "lucide-react";
 import { getCurrencyByCode, formatCurrency as formatCurrencyUtil } from "@/lib/constants/countries";
 import { format } from "date-fns";
-import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { RBACService, Scope } from "@/lib/services/auth/rbac";
+import { usePermission } from "@/lib/auth/usePermission";
 import { PayGroupCategory } from "@/lib/types/paygroups";
 
 interface Employee {
@@ -55,19 +54,19 @@ const PayGroupDetailsDialog = ({
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { userContext } = useSupabaseAuth();
+  const perm = usePermission();
 
   const canRunPayroll = useMemo(() => {
     if (!payGroup) return false;
-    const scope: Scope = payGroup.category === 'projects' ? 'PROJECT' : 'ORGANIZATION';
-    return RBACService.hasScopedPermission('payroll.run', scope);
-  }, [userContext, payGroup]);
+    const scope = payGroup.category === 'projects' ? 'PROJECT' : 'ORGANIZATION';
+    return perm.hasScopedPermission('payroll.run', scope);
+  }, [perm, payGroup]);
 
   const canEditPayGroup = useMemo(() => {
-    if (!userContext || !payGroup) return false;
-    const scope: Scope = payGroup.category === 'projects' ? 'PROJECT' : 'ORGANIZATION';
-    return RBACService.hasScopedPermission('paygroups.edit', scope);
-  }, [userContext, payGroup]);
+    if (!payGroup) return false;
+    const scope = payGroup.category === 'projects' ? 'PROJECT' : 'ORGANIZATION';
+    return perm.hasScopedPermission('paygroups.edit', scope);
+  }, [perm, payGroup]);
 
   useEffect(() => {
     if (open && payGroupId) {

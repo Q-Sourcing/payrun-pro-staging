@@ -138,6 +138,9 @@ serve(async (req) => {
 
         const orgName = org?.name || 'the organization'
 
+        // Generate invite token first (used in redirect URL and DB record)
+        const inviteToken = crypto.randomUUID() + '-' + crypto.randomUUID()
+
         // Dynamic Base URL detection
         const origin = req.headers.get('origin') || req.headers.get('referer');
         console.log('[invite-org-user] Header-based origin detection:', origin);
@@ -159,7 +162,7 @@ serve(async (req) => {
             }
         }
 
-        const redirectUrl = `${baseUrl}/accept-invite`;
+        const redirectUrl = `${baseUrl}/set-password?token=${inviteToken}`;
         console.log('[invite-org-user] Using redirect URL:', redirectUrl);
         const userMetadata = {
             first_name: input.firstName,
@@ -182,13 +185,14 @@ serve(async (req) => {
                 companyIds: input.companyIds
             }]
         }
-
         const { data: inviteRecord, error: inviteError } = await supabaseAdmin
-            .from('user_invites')
+            .from('user_management_invitations')
             .insert({
                 email: input.email,
-                inviter_id: caller.id,
-                tenant_id: input.orgId,
+                full_name: `${input.firstName} ${input.lastName}`,
+                role: input.roles[0] || 'employee',
+                invited_by: caller.id,
+                token: inviteToken,
                 role_data: roleData,
                 status: 'pending',
                 expires_at: expiresAt.toISOString()

@@ -19,9 +19,9 @@ import { createAssetSchema, updateAssetSchema } from '@/lib/validations/assets.s
 import type { CreateAssetInput } from '@/lib/validations/assets.schema';
 import type { WorkAsset, AssetType } from '@/lib/types/assets';
 import { createAsset, updateAsset, getAssetTypes } from '@/lib/services/assets.service';
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { supabase } from '@/integrations/supabase/client';
-import { RBACService } from '@/lib/services/auth/rbac';
+import { usePermission } from '@/lib/auth/usePermission';
 
 interface AssetFormDialogProps {
   open: boolean;
@@ -36,7 +36,8 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: AssetFor
   const queryClient = useQueryClient();
   const { organizationId: orgId } = useOrg();
 
-  const canViewFinancials = RBACService.hasPermission('assets.view_financials');
+  const perm = usePermission();
+  const canViewFinancials = perm.hasPermission('assets.view_financials');
 
   const { data: assetTypes = [] } = useQuery({
     queryKey: queryKeys.workAssets.types(),

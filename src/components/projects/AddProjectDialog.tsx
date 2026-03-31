@@ -10,7 +10,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { PROJECT_TYPE_PAY_TYPES, formatPayType } from "@/lib/types/projects";
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { ALL_COUNTRIES, CURRENCIES } from "@/lib/constants/countries";
  
 

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { BarChart3, Download, FileText } from 'lucide-react';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { getIncidents } from '@/lib/services/ehs.service';
 import { SEVERITY_LABELS, INCIDENT_TYPE_LABELS } from '@/lib/types/ehs';
 import jsPDF from 'jspdf';
@@ -13,7 +13,7 @@ import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 
 export default function EhsReports() {
-  const { userContext } = useSupabaseAuth();
+  const { userContext } = useAuth();
   const orgId = userContext?.organizationId;
 
   const { data: incidents = [] } = useQuery({

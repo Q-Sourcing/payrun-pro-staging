@@ -13,7 +13,7 @@ import {
     MapPin, Building2, LayoutGrid, List, Users, DollarSign, Search, X as XIcon
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrg } from '@/lib/auth/OrgProvider';
 
 interface ProjectWithCount {
     id: string;

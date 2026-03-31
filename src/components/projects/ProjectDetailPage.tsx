@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { ProjectsService } from "@/lib/services/projects.service";
 import { EmployeesService } from "@/lib/data/employees.service";
 import { PayGroupsService } from "@/lib/services/paygroups.service";
@@ -18,7 +18,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import AddProjectEmployeesDialog from "./AddProjectEmployeesDialog";
 import { ProjectEhsTab } from "../ehs/ProjectEhsTab";
 import { ProjectAttendanceTab } from "./ProjectAttendanceTab";
-import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { IppmsWorkTab } from "../ippms/IppmsWorkTab";
 import { IppmsWorkboardEnhanced } from "../ippms/IppmsWorkboardEnhanced";
 import ProjectOnboardingChecklist from "./ProjectOnboardingChecklist";
@@ -40,7 +40,7 @@ export default function ProjectDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { organizationId } = useOrg();
-  const { session } = useSupabaseAuth();
+  const { session } = useAuth();
   const qc = useQueryClient();
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");

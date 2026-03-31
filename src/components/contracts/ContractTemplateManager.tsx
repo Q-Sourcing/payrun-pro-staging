@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, ScrollText, Eye } from "lucide-react";
 import { ContractsService, ContractTemplate } from "@/lib/data/contracts.service";
 import { ContractTemplateForm } from "./ContractTemplateForm";
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {

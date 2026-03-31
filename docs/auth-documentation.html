@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: Calibri, sans-serif; font-size: 11pt; line-height: 1.5; margin: 72pt; color: #1a1a1a; }
+  h1 { font-size: 22pt; font-weight: bold; color: #1F3864; border-bottom: 2px solid #1F3864; padding-bottom: 6pt; margin-top: 24pt; }
+  h2 { font-size: 16pt; font-weight: bold; color: #2E5090; margin-top: 20pt; margin-bottom: 6pt; }
+  h3 { font-size: 13pt; font-weight: bold; color: #2E74B5; margin-top: 14pt; margin-bottom: 4pt; }
+  h4 { font-size: 11pt; font-weight: bold; color: #333; margin-top: 10pt; margin-bottom: 2pt; }
+  p { margin: 6pt 0; }
+  pre { background: #F2F2F2; border: 1px solid #CCCCCC; padding: 8pt 12pt; font-family: Courier New, monospace; font-size: 9pt; white-space: pre-wrap; margin: 8pt 0; }
+  code { font-family: Courier New, monospace; font-size: 9.5pt; background: #F2F2F2; padding: 1pt 3pt; }
+  table { border-collapse: collapse; width: 100%; margin: 10pt 0; font-size: 10pt; }
+  th { background-color: #2E5090; color: white; font-weight: bold; padding: 6pt 8pt; text-align: left; border: 1px solid #2E5090; }
+  td { padding: 5pt 8pt; border: 1px solid #CCCCCC; vertical-align: top; }
+  tr:nth-child(even) td { background-color: #EEF3FB; }
+  ul, ol { margin: 6pt 0 6pt 18pt; }
+  li { margin: 3pt 0; }
+  .subtitle { font-size: 14pt; color: #555; margin-top: 4pt; margin-bottom: 24pt; }
+  .note { background: #FFF8E1; border-left: 4px solid #FFC107; padding: 8pt 12pt; margin: 10pt 0; font-size: 10pt; }
+  .critical { background: #FFEBEE; border-left: 4px solid #E53935; padding: 8pt 12pt; margin: 10pt 0; font-size: 10pt; }
+  .toc-entry { margin: 3pt 0; }
+  .toc-entry a { color: #2E5090; text-decoration: none; }
+  .section-num { color: #2E5090; }
+</style>
+</head>
+<body>
+
+<h1>Authentication &amp; Authorization Documentation</h1>
+<p class="subtitle">Q-Payroll — Multi-Tenant Payroll SaaS<br>
+Version 1.0 &nbsp;|&nbsp; March 2026</p>
+
+<h2>Table of Contents</h2>
+<div>
+  <p class="toc-entry">1. System Overview</p>
+  <p class="toc-entry">2. Authentication Flow</p>
+  <p class="toc-entry">&nbsp;&nbsp;&nbsp;&nbsp;2.1 Invitation Flow (New User)</p>
+  <p class="toc-entry">&nbsp;&nbsp;&nbsp;&nbsp;2.2 Password Creation Flow (/set-password)</p>
+  <p class="toc-entry">&nbsp;&nbsp;&nbsp;&nbsp;2.3 Invitation Accept Action (Edge Function)</p>
+  <p class="toc-entry">&nbsp;&nbsp;&nbsp;&nbsp;2.4 Login Flow</p>
+  <p class="toc-entry">&nbsp;&nbsp;&nbsp;&nbsp;2.5 Post-Login Session Handling</p>
+  <p class="toc-entry">3. JWT Structure</p>
+  <p class="toc-entry">4. RBAC Database Schema</p>
+  <p class="toc-entry">&nbsp;&nbsp;&nbsp;&nbsp;4.1 Tables</p>
+  <p class="toc-entry">&nbsp;&nbsp;&nbsp;&nbsp;4.2 Sentinel Organizations</p>
+  <p class="toc-entry">&nbsp;&nbsp;&nbsp;&nbsp;4.3 Role Hierarchy</p>
+  <p class="toc-entry">5. Permission Sync System (Triggers)</p>
+  <p class="toc-entry">6. Default Role Permission Sets</p>
+  <p class="toc-entry">7. RLS Policies</p>
+  <p class="toc-entry">8. Frontend Permission Model</p>
+  <p class="toc-entry">9. Permissions Registry</p>
+  <p class="toc-entry">10. Edge Functions</p>
+  <p class="toc-entry">11. Known Issues, Root Causes, and Fixes Applied</p>
+  <p class="toc-entry">12. Pending Work (Not Yet Implemented)</p>
+</div>
+
+<hr>
+
+<h2>1. System Overview</h2>
+
+<p>Q-Payroll uses <strong>Supabase Auth</strong> as its identity provider combined with a custom <strong>Role-Based Access Control (RBAC)</strong> system built on PostgreSQL. Authentication is stateless JWT-based; authorization is enforced at three layers:</p>
+<ul>
+  <li>PostgreSQL Row-Level Security (RLS)</li>
+  <li>React frontend permission gates</li>
+  <li>Supabase Edge Function guards</li>
+</ul>
+
+<p>The system supports multiple tenants (organizations), each with isolated roles and permissions. A single Supabase project serves all tenants; tenant isolation is enforced via <code>org_id</code> columns on RBAC tables and RLS policies.</p>
+
+<hr>
+
+<h2>2. Authentication Flow</h2>
+
+<h3>2.1 Invitation Flow (New User)</h3>
+<ol>
+  <li><strong>Admin sends invite</strong> — Admin calls the <code>invite-user</code> Edge Function (<code>POST /functions/v1/invite-user?action=invite</code>) with <code>{ email, full_name, role, role_data: { module_access } }</code>.</li>
+  <li><strong>Supabase creates auth user</strong> — <code>supabase.auth.admin.inviteUserByEmail()</code> creates an unconfirmed auth user and sends a magic-link email.</li>
+  <li><strong>Invitation record created</strong> — A row is inserted into <code>user_management_invitations</code> with: <code>email</code>, <code>role</code>, <code>role_data</code>, <code>token</code> (UUID), <code>status: 'pending'</code>, <code>expires_at</code> (48 hours).</li>
+  <li><strong>User profile pre-created</strong> — A row is upserted into <code>user_profiles</code> with <code>status: 'pending'</code>.</li>
+  <li><strong>Email delivered</strong> — The email link redirects to <code>/set-password?token=&lt;custom-token&gt;</code>. The Supabase magic link appends <code>#access_token=...&amp;refresh_token=...&amp;type=invite</code> as a URL hash.</li>
+</ol>
+
+<h3>2.2 Password Creation Flow (/set-password)</h3>
+<p>The <code>SetPassword.tsx</code> page handles three URL patterns:</p>
+<ul>
+  <li><strong>Path A — Supabase hash tokens:</strong> URL contains <code>#access_token=...&amp;type=invite</code>. Page calls <code>supabase.auth.setSession()</code> to establish a session, then <code>supabase.auth.updateUser({ password })</code> to set the password. After success, calls the <code>accept</code> action on <code>invite-user</code> with <code>{ token, user_id }</code>, then <code>supabase.auth.signOut()</code> and redirects to <code>/login</code>.</li>
+  <li><strong>Path B — PKCE code:</strong> URL contains <code>?code=...</code>. Page calls <code>supabase.auth.exchangeCodeForSession(code)</code>.</li>
+  <li><strong>Path C — Custom token only:</strong> URL contains <code>?token=...</code> but no hash. Page calls <code>invite-user?action=accept</code> with <code>{ token, password }</code> (server-side password set).</li>
+</ul>
+
+<h3>2.3 Invitation Accept Action (Edge Function)</h3>
+<p>When <code>invite-user?action=accept</code> is called with <code>{ token, user_id }</code>:</p>
+<ol>
+  <li>Fetches invitation record, validates token and expiry.</li>
+  <li>Marks invitation <code>status: 'accepted'</code>, <code>accepted_at: now()</code>.</li>
+  <li><strong>Determines <code>org_id</code>:</strong> Looks up <code>user_profiles.organization_id</code>; defaults to <code>'00000000-0000-0000-0000-000000000001'</code> (the primary org).</li>
+  <li><strong>Upserts <code>user_profiles</code></strong> with <code>{ status: 'active', organization_id: orgId, ... }</code>.</li>
+  <li><strong>Deletes existing org-level assignments</strong> (except PLATFORM_SUPER_ADMIN).</li>
+  <li><strong>Inserts <code>rbac_assignment</code></strong> with <code>{ user_id, role_code: inv.role, scope_type: 'GLOBAL', org_id }</code>. This fires the <code>sync_rbac_to_jwt</code> trigger.</li>
+  <li><strong>Inserts <code>rbac_grants</code></strong> for each module in <code>role_data.module_access</code>.</li>
+</ol>
+<div class="critical">
+  <strong>Critical:</strong> <code>organization_id</code> must be set in <code>user_profiles</code> <em>before</em> the <code>rbac_assignment</code> INSERT. The <code>validate_rbac_assignment</code> trigger checks <code>user_profiles.organization_id = assignment.org_id</code> and will silently block the insert if this condition is not met.
+</div>
+
+<h3>2.4 Login Flow</h3>
+<ol>
+  <li>User submits email/password to <code>ModernLoginForm.tsx</code> → <code>supabase.auth.signInWithPassword()</code>.</li>
+  <li>Supabase returns a signed JWT containing <code>app_metadata</code> with RBAC claims.</li>
+  <li><code>AuthProvider.tsx</code> hydrates session: calls <code>hydrateFromSession(s)</code> first (synchronous, reads JWT), sets <code>isLoading: false</code>, then runs <code>checkAccountActive(s)</code> as a non-blocking background check.</li>
+  <li><code>UserContext</code> is populated from JWT claims. No additional DB queries needed for permission checks at render time.</li>
+</ol>
+<div class="note">
+  <strong>Note on hydration order:</strong> <code>hydrateFromSession</code> and <code>setIsLoading(false)</code> must run before <code>checkAccountActive</code>. The active-check is a slow RLS query that used to block hydration and cause 10-second timeouts redirecting users back to login.
+</div>
+
+<h3>2.5 Post-Login Session Handling</h3>
+<ul>
+  <li>JWT is stored in <code>localStorage</code> as <code>sb-&lt;project_ref&gt;-auth-token</code>.</li>
+  <li><code>onAuthStateChange</code> listener in <code>AuthProvider</code> re-hydrates session on token refresh.</li>
+  <li>Token auto-refresh is handled by the Supabase client.</li>
+  <li>Permission changes take effect immediately for new logins (via JWT sync triggers). Existing sessions see updates on next token refresh or re-login.</li>
+</ul>
+
+<hr>
+
+<h2>3. JWT Structure</h2>
+
+<p>The JWT <code>app_metadata</code> object contains:</p>
+
+<pre>{
+  "provider": "email",
+  "providers": ["email"],
+  "rbac_roles": [
+    {
+      "role": "ADMIN",
+      "scope_type": "GLOBAL",
+      "scope_id": null,
+      "org_id": "00000000-0000-0000-0000-000000000001"
+    }
+  ],
+  "rbac_permissions": [
+    "people.view",
+    "people.create",
+    "payroll.view",
+    "..."
+  ],
+  "is_platform_admin": false,
+  "organization_id": "00000000-0000-0000-0000-000000000001"
+}</pre>
+
+<p><strong>Platform super admin JWT</strong> (different structure):</p>
+<pre>{
+  "rbac_roles": [
+    { "role": "PLATFORM_SUPER_ADMIN", "scope_type": "GLOBAL", "org_id": "00000000-0000-0000-0000-000000000000" }
+  ],
+  "rbac_permissions": [],
+  "is_platform_admin": true,
+  "organization_id": "00000000-0000-0000-0000-000000000000"
+}</pre>
+<p>Note: PLATFORM_SUPER_ADMIN has no entries in <code>rbac_role_permissions</code> — it relies solely on <code>is_platform_admin: true</code>. All permission checks in the frontend short-circuit when this flag is true.</p>
+
+<hr>
+
+<h2>4. RBAC Database Schema</h2>
+
+<h3>4.1 Tables</h3>
+
+<h4>rbac_roles — Tenant-scoped role definitions</h4>
+<pre>code        TEXT  -- Part of composite PK
+name        TEXT NOT NULL
+description TEXT
+tier        TEXT  -- 'PLATFORM' | 'ORGANIZATION' | 'COMPANY' | 'PROJECT' | 'SELF'
+org_id      UUID NOT NULL FK→organizations(id) ON DELETE CASCADE
+PRIMARY KEY (code, org_id)
+-- NOTE: global UNIQUE(code) constraint was DROPPED; PK enforces per-tenant uniqueness
+CHECK: PLATFORM roles must have org_id = '00000000-0000-0000-0000-000000000000'
+CHECK: non-PLATFORM roles must have a real org_id</pre>
+
+<h4>rbac_permissions — Global permissions registry (not tenant-scoped)</h4>
+<pre>key         TEXT PRIMARY KEY  -- e.g. 'people.view', 'payroll.approve'
+category    TEXT NOT NULL     -- e.g. 'Employees', 'Payroll Processing'
+description TEXT</pre>
+
+<h4>rbac_role_permissions — Maps roles to permissions, tenant-scoped</h4>
+<pre>role_code      TEXT NOT NULL
+permission_key TEXT NOT NULL FK→rbac_permissions(key)
+org_id         UUID NOT NULL FK→organizations(id)
+PRIMARY KEY (role_code, permission_key, org_id)
+FK: (role_code, org_id) → rbac_roles(code, org_id)</pre>
+
+<h4>rbac_assignments — Maps users to roles</h4>
+<pre>id          UUID PRIMARY KEY
+user_id     UUID NOT NULL FK→auth.users(id) ON DELETE CASCADE
+role_code   TEXT NOT NULL
+scope_type  TEXT  -- 'GLOBAL' | 'ORGANIZATION' | 'COMPANY' | 'PROJECT' | 'SELF'
+scope_id    UUID NULLABLE
+org_id      UUID NULLABLE FK→organizations(id)
+assigned_by UUID FK→auth.users(id)
+UNIQUE INDEX: (user_id, role_code, scope_type, COALESCE(scope_id, '00000000-0000-0000-0000-000000000000'))
+FK: (role_code, org_id) → rbac_roles(code, org_id)</pre>
+
+<h4>rbac_grants — User-level permission overrides</h4>
+<pre>id             UUID PRIMARY KEY
+user_id        UUID NULLABLE FK→auth.users(id)
+role_code      TEXT NULLABLE FK→rbac_roles(code)
+permission_key TEXT NOT NULL FK→rbac_permissions(key)
+scope_type     TEXT  -- 'ORGANIZATION' | 'COMPANY' | 'PROJECT'
+scope_id       UUID NOT NULL
+effect         TEXT  -- 'ALLOW' | 'DENY'
+reason         TEXT
+granted_by     TEXT
+valid_until    TIMESTAMPTZ NULLABLE
+CONSTRAINT: either user_id OR role_code must be set (not both null)
+UNIQUE INDEX (user_id, permission_key, scope_type, scope_id) WHERE user_id IS NOT NULL
+UNIQUE INDEX (role_code, permission_key, scope_type, scope_id) WHERE role_code IS NOT NULL</pre>
+
+<h3>4.2 Sentinel Organizations</h3>
+<table>
+  <tr><th>UUID</th><th>Purpose</th></tr>
+  <tr><td><code>00000000-0000-0000-0000-000000000000</code></td><td>Platform sentinel — used by PLATFORM-tier roles; skipped in auto-provision triggers</td></tr>
+  <tr><td><code>00000000-0000-0000-0000-000000000001</code></td><td>Primary tenant (Q-Sourcing Servtec Group); the default org_id for user onboarding</td></tr>
+</table>
+
+<h3>4.3 Role Hierarchy</h3>
+<table>
+  <tr><th>Role Code</th><th>Tier</th><th>isOrgAdmin</th><th>Description</th></tr>
+  <tr><td><code>PLATFORM_SUPER_ADMIN</code></td><td>PLATFORM</td><td>yes (via isPlatformAdmin)</td><td>Full system-wide access; is_platform_admin: true in JWT</td></tr>
+  <tr><td><code>PLATFORM_AUDITOR</code></td><td>PLATFORM</td><td>no</td><td>Read-only access to all system logs and data</td></tr>
+  <tr><td><code>ADMIN</code></td><td>ORGANIZATION</td><td>yes</td><td>Full organization admin access</td></tr>
+  <tr><td><code>GM</code></td><td>ORGANIZATION</td><td>yes</td><td>General Manager — overview and approval access</td></tr>
+  <tr><td><code>HR</code></td><td>ORGANIZATION</td><td>no</td><td>Human Resources management</td></tr>
+  <tr><td><code>FINANCE</code></td><td>ORGANIZATION</td><td>no</td><td>Finance and payroll processing</td></tr>
+  <tr><td><code>KAE</code></td><td>ORGANIZATION</td><td>no</td><td>Key Account Executive access</td></tr>
+  <tr><td><code>CRM</code></td><td>ORGANIZATION</td><td>no</td><td>CRM access</td></tr>
+  <tr><td><code>STAFF</code></td><td>ORGANIZATION</td><td>no</td><td>General staff — read-only on basic modules</td></tr>
+  <tr><td><code>SELF_USER</code></td><td>ORGANIZATION</td><td>no</td><td>Employee self-service (own data only)</td></tr>
+  <tr><td><code>SELF_CONTRACTOR</code></td><td>ORGANIZATION</td><td>no</td><td>Contractor self-service (own data only)</td></tr>
+</table>
+<p><strong>Protected roles</strong> (cannot be deleted through the UI): <code>PLATFORM_SUPER_ADMIN</code>, <code>PLATFORM_AUDITOR</code>, <code>ADMIN</code></p>
+
+<hr>
+
+<h2>5. Permission Sync System (Triggers)</h2>
+
+<p>PostgreSQL triggers keep JWT claims in sync with DB state so permission changes take effect without requiring re-login.</p>
+
+<h3>5.1 sync_rbac_to_jwt (on rbac_assignments)</h3>
+<p>Fires AFTER INSERT/UPDATE/DELETE. For the affected <code>user_id</code>:</p>
+<ul>
+  <li>Sets <code>raw_app_meta_data.rbac_roles</code> — array of all current assignments</li>
+  <li>Sets <code>raw_app_meta_data.rbac_permissions</code> — UNION of (all role-level permissions) + (user-level ALLOW grants)</li>
+  <li>Sets <code>raw_app_meta_data.is_platform_admin</code> — true if any assignment is PLATFORM tier + GLOBAL scope</li>
+  <li>Sets <code>raw_app_meta_data.organization_id</code> — from the user's first non-PLATFORM assignment</li>
+</ul>
+
+<h3>5.2 sync_grants_to_jwt (on rbac_grants)</h3>
+<p>Fires AFTER INSERT/UPDATE/DELETE. For the affected <code>user_id</code>:</p>
+<ul>
+  <li>Re-syncs <code>raw_app_meta_data.rbac_permissions</code> (role permissions UNION user grants)</li>
+</ul>
+
+<h3>5.3 trg_sync_role_perms_to_jwt (on rbac_role_permissions)</h3>
+<p>Fires AFTER INSERT/UPDATE/DELETE. For every user currently assigned to the affected role:</p>
+<ul>
+  <li>Re-syncs <code>raw_app_meta_data.rbac_permissions</code> for each affected user</li>
+</ul>
+<div class="note">
+  <strong>Why this matters:</strong> Without this trigger, changes made in the Roles &amp; Permissions UI (toggling permissions on/off) only took effect when affected users logged out and back in. This trigger was the missing piece that enables real-time permission propagation.
+</div>
+
+<h3>5.4 validate_rbac_assignment (on rbac_assignments, BEFORE INSERT/UPDATE)</h3>
+<p>Guards against invalid scoping. Validates:</p>
+<ul>
+  <li>User's <code>user_profiles.organization_id</code> matches <code>NEW.org_id</code></li>
+  <li>COMPANY scope: <code>scope_id</code> must belong to the org</li>
+  <li>PROJECT scope: <code>scope_id</code> must belong to the org</li>
+  <li>ORGANIZATION scope: <code>scope_id</code> must equal <code>org_id</code></li>
+</ul>
+
+<h3>5.5 trg_provision_default_roles (on organizations)</h3>
+<p>Fires AFTER INSERT on <code>organizations</code>. Calls <code>provision_default_roles(NEW.id)</code>. Skips the sentinel org (<code>00000000-...0000</code>). Provisions all 7 default roles (ADMIN, HR, GM, FINANCE, STAFF, SELF_USER, SELF_CONTRACTOR) with sensible default permission sets for any newly created tenant.</p>
+
+<hr>
+
+<h2>6. Default Role Permission Sets</h2>
+
+<p>When a new org is created (or via backfill), <code>provision_default_roles()</code> assigns these defaults:</p>
+
+<table>
+  <tr><th>Role</th><th>Default Permissions</th></tr>
+  <tr><td><strong>ADMIN</strong></td><td>All permissions except <code>people.view_self</code>, <code>payroll.view_self</code></td></tr>
+  <tr><td><strong>HR</strong></td><td>people.*, attendance.*, contracts.*, reports.view, users.view / invite / edit</td></tr>
+  <tr><td><strong>FINANCE</strong></td><td>people.view, payroll.*, paygroups.view, earnings.*, reports.*</td></tr>
+  <tr><td><strong>GM</strong></td><td>people.view, projects.*, payroll.view/approve, paygroups.view, reports.*, ehs.view_dashboard, assets.view</td></tr>
+  <tr><td><strong>STAFF</strong></td><td>people.view, projects.view, attendance.view</td></tr>
+  <tr><td><strong>SELF_USER</strong></td><td>people.view_self, payroll.view_self</td></tr>
+  <tr><td><strong>SELF_CONTRACTOR</strong></td><td>people.view_self, payroll.view_self</td></tr>
+</table>
+
+<hr>
+
+<h2>7. RLS Policies</h2>
+
+<h3>7.1 check_is_org_super_admin(user_id uuid)</h3>
+<p>The core authorization function used as USING/WITH CHECK expression for all write operations on RBAC tables:</p>
+
+<pre>CREATE OR REPLACE FUNCTION public.check_is_org_super_admin(user_id uuid)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM public.rbac_assignments
+    WHERE rbac_assignments.user_id = user_id
+      AND role_code IN ('PLATFORM_SUPER_ADMIN', 'ORG_ADMIN', 'ADMIN', 'GM')
+  ) THEN RETURN TRUE; END IF;
+  RETURN FALSE;
+END; $$;</pre>
+
+<div class="critical">
+  <strong>Important:</strong> This function previously referenced <code>public.users</code> (a dropped table), which caused PostgREST to return HTTP 404 (not 403) for all write operations — a misleading error. If this function ever throws a SQL exception, PostgREST will return 404 for the entire request, not just a permission error.
+</div>
+
+<h3>7.2 RBAC Table Policy Pattern</h3>
+<table>
+  <tr><th>Table</th><th>Operation</th><th>Policy</th></tr>
+  <tr><td>rbac_role_permissions</td><td>SELECT</td><td>true (any authenticated user)</td></tr>
+  <tr><td>rbac_role_permissions</td><td>INSERT</td><td>WITH CHECK (check_is_org_super_admin(auth.uid()))</td></tr>
+  <tr><td>rbac_role_permissions</td><td>UPDATE</td><td>USING (check_is_org_super_admin(auth.uid()))</td></tr>
+  <tr><td>rbac_role_permissions</td><td>DELETE</td><td>USING (check_is_org_super_admin(auth.uid()))</td></tr>
+  <tr><td>rbac_roles</td><td>SELECT</td><td>true (any authenticated user)</td></tr>
+  <tr><td>rbac_roles</td><td>INSERT/UPDATE/DELETE</td><td>check_is_org_super_admin(auth.uid())</td></tr>
+  <tr><td>rbac_permissions</td><td>SELECT</td><td>true (any authenticated user)</td></tr>
+</table>
+
+<hr>
+
+<h2>8. Frontend Permission Model</h2>
+
+<h3>8.1 AuthProvider Hydration Order</h3>
+<pre>// CORRECT order (prevents 10-second timeout):
+hydrateFromSession(session)  // synchronous, reads JWT claims immediately
+setIsLoading(false)           // unblocks UI immediately — does NOT wait for DB
+checkAccountActive(session)  // async RLS query, runs in background</pre>
+
+<h3>8.2 UserContext Structure</h3>
+<pre>interface UserContext {
+  id: string;
+  email: string;
+  roles: Array&lt;{
+    role: string;
+    scope_type: 'GLOBAL' | 'ORGANIZATION' | 'COMPANY' | 'PROJECT' | 'SELF';
+    scope_id: string | null;
+    org_id: string;
+  }&gt;;
+  permissions: string[];         // from app_metadata.rbac_permissions
+  isPlatformAdmin: boolean;      // from app_metadata.is_platform_admin
+  organizationId: string | null; // from app_metadata.organization_id
+  isImpersonated: boolean;
+}</pre>
+
+<h3>8.3 isOrgAdmin Function</h3>
+<p>Used by the Sidebar and page guards to determine whether to show admin-only sections (Settings, EHS, Assets):</p>
+<pre>export function isOrgAdmin(ctx: UserContext | null): boolean {
+  if (!ctx) return false;
+  return ctx.isPlatformAdmin || ctx.roles.some((r) =&gt;
+    r.role === 'ORG_ADMIN' || r.role === 'ADMIN' || r.role === 'GM'
+  );
+}</pre>
+<div class="note">Must include both the legacy code <code>ORG_ADMIN</code> and actual DB codes <code>ADMIN</code> and <code>GM</code>. Missing either causes Settings/EHS/Assets to be invisible for those users.</div>
+
+<h3>8.4 Sidebar Visibility Gates</h3>
+<table>
+  <tr><th>Sidebar Item</th><th>Condition</th></tr>
+  <tr><td>Employees</td><td>!isSelfUser &amp;&amp; hasPermission('people.view')</td></tr>
+  <tr><td>Projects</td><td>!isSelfUser &amp;&amp; hasPermission('projects.view')</td></tr>
+  <tr><td>Pay Groups</td><td>!isSelfUser &amp;&amp; hasPermission('paygroups.view')</td></tr>
+  <tr><td>Pay Runs</td><td>!isSelfUser &amp;&amp; hasPermission('payroll.view')</td></tr>
+  <tr><td>Reports</td><td>!isSelfUser &amp;&amp; hasPermission('reports.view')</td></tr>
+  <tr><td>Settings</td><td>!isSelfUser &amp;&amp; (isPlatformAdmin || isOrgAdmin)</td></tr>
+  <tr><td>EHS</td><td>!isSelfUser &amp;&amp; (hasPermission('ehs.view_dashboard') || isOrgAdmin)</td></tr>
+  <tr><td>Work Assets</td><td>!isSelfUser &amp;&amp; (hasPermission('assets.view') || isOrgAdmin)</td></tr>
+</table>
+<p><code>isSelfUser</code> is true when the user's only roles are <code>SELF_USER</code> or <code>SELF_CONTRACTOR</code>. These users are routed to <code>/my-dashboard</code> and can only see their own profile and payslips.</p>
+
+<hr>
+
+<h2>9. Permissions Registry</h2>
+
+<h3>9.1 Single Source of Truth</h3>
+<p><code>src/lib/constants/permissions-registry.ts</code> defines all modules and their permission keys. The Roles &amp; Permissions UI auto-discovers modules from this registry — no UI changes are needed when adding new modules.</p>
+
+<h3>9.2 Adding a New Module — Complete Procedure</h3>
+<ol>
+  <li>Add module definition to <code>SYSTEM_MODULES_REGISTRY</code> in <code>permissions-registry.ts</code> (UI auto-discovers it)</li>
+  <li>Write a migration to register the keys in the DB:
+    <pre>INSERT INTO public.rbac_permissions (key, category, description)
+VALUES ('mymodule.view', 'My Module', 'View my module'), ...
+ON CONFLICT (key) DO NOTHING;</pre>
+  </li>
+  <li>Add the module's keys to <code>MODULE_PERMISSION_MAP</code> in <code>supabase/functions/invite-user/index.ts</code></li>
+  <li>Optionally add keys to <code>provision_default_roles()</code> for auto-assignment to new tenants</li>
+  <li>Add a sidebar visibility check in <code>MainLayout.tsx</code></li>
+</ol>
+
+<h3>9.3 Current Permission Keys by Module</h3>
+<table>
+  <tr><th>Module</th><th>Permission Keys</th></tr>
+  <tr><td>Employees</td><td>people.view, people.create, people.edit, people.delete, people.view_sensitive, people.assign_project, people.view_self</td></tr>
+  <tr><td>Pay Runs</td><td>payroll.view, payroll.prepare, payroll.submit, payroll.approve, payroll.rollback, payroll.export_bank, payroll.view_self</td></tr>
+  <tr><td>Pay Groups</td><td>paygroups.view, paygroups.manage</td></tr>
+  <tr><td>Projects</td><td>projects.view, projects.manage</td></tr>
+  <tr><td>Earnings &amp; Deductions</td><td>earnings.view, earnings.manage</td></tr>
+  <tr><td>Contracts</td><td>contracts.view, contracts.manage</td></tr>
+  <tr><td>Reports</td><td>reports.view, finance.view_reports, reports.export</td></tr>
+  <tr><td>EHS</td><td>ehs.view_dashboard, ehs.manage_incidents, ehs.manage_hazards, ehs.manage_training, ehs.manage_compliance</td></tr>
+  <tr><td>Work Assets</td><td>assets.view, assets.create, assets.edit, assets.delete, assets.view_financials</td></tr>
+  <tr><td>Attendance</td><td>attendance.view, attendance.manage, attendance.approve</td></tr>
+  <tr><td>User Management</td><td>users.view, users.invite, users.edit, users.deactivate</td></tr>
+  <tr><td>System Settings</td><td>admin.manage_users, admin.assign_roles, admin.activity_logs.view, admin.manage_settings</td></tr>
+</table>
+
+<hr>
+
+<h2>10. Edge Functions</h2>
+
+<h3>10.1 invite-user</h3>
+<p>The primary user lifecycle function. Auth check: caller must have <code>ADMIN</code>, <code>HR</code>, or <code>PLATFORM_SUPER_ADMIN</code> role.</p>
+<table>
+  <tr><th>Action</th><th>Description</th></tr>
+  <tr><td>invite</td><td>Creates auth user, invitation record, pre-creates profile</td></tr>
+  <tr><td>accept</td><td>Activates user: sets profile org_id, assigns RBAC role, writes grants</td></tr>
+  <tr><td>verify-token</td><td>Validates a token without consuming it</td></tr>
+  <tr><td>list</td><td>Returns pending/accepted invitations for the org</td></tr>
+  <tr><td>resend</td><td>Refreshes token and resends invite email</td></tr>
+  <tr><td>cancel</td><td>Marks invitation cancelled</td></tr>
+  <tr><td>delete</td><td>Removes invitation record</td></tr>
+</table>
+<p><strong>Origin detection:</strong> Reads the <code>origin</code> header to build redirect URLs, supporting localhost development, <code>*.flipafrica.app</code>, and <code>*.lovable.app</code> without hardcoded URLs.</p>
+
+<h3>10.2 manage-users</h3>
+<p>Administrative user management (CRUD on assignments). Auth check: same as invite-user.</p>
+<ul>
+  <li><code>GET</code> — lists users with their current role assignments</li>
+  <li><code>POST</code> — creates a new rbac_assignment (role change)</li>
+  <li><code>PATCH</code> — updates role and/or module grants for a user</li>
+  <li><code>DELETE</code> — removes user from the system</li>
+</ul>
+
+<h3>10.3 invite-org-user</h3>
+<p>Organization-scoped variant of user invitation for project/department-level onboarding. Fixed a temporal dead zone bug where <code>inviteToken</code> was used before declaration.</p>
+
+<h3>10.4 admin-cleanup-invite / cleanup-invited-users</h3>
+<p>Administrative cleanup functions for stale invitations. Migrated off the legacy <code>user_management_profiles</code> and <code>user_invites</code> tables.</p>
+
+<hr>
+
+<h2>11. Known Issues, Root Causes, and Fixes Applied</h2>
+
+<h3>Issue 1 — check_is_org_super_admin referenced dropped table</h3>
+<p><strong>Root cause:</strong> The function body contained <code>SELECT 1 FROM public.users</code> after the <code>public.users</code> table was dropped.</p>
+<p><strong>Symptom:</strong> PostgREST returned HTTP 404 (not 403) for ALL write operations on RBAC tables. This is the behavior PostgREST exhibits when an RLS function raises a SQL exception — misleading because it looks like a "not found" rather than a permissions error.</p>
+<p><strong>Fix:</strong> Removed the legacy <code>users</code> table reference; function now only queries <code>rbac_assignments</code>.</p>
+
+<h3>Issue 2 — Invited ADMIN users saw only "My Dashboard"</h3>
+<p><strong>Root cause:</strong> Two-part failure: (a) The <code>invite-user</code> accept action upserted <code>user_profiles</code> without <code>organization_id</code>. (b) The <code>validate_rbac_assignment</code> BEFORE INSERT trigger checked <code>user_profiles.organization_id = assignment.org_id</code> — since <code>organization_id</code> was NULL, the check failed and the rbac_assignment INSERT was silently blocked. (c) The edge function only <code>console.error</code>'d the error without throwing, so the frontend received HTTP 200 even though no RBAC assignment was created.</p>
+<p><strong>Fix:</strong> Restructured accept action to (1) determine <code>org_id</code> first, (2) set it in the <code>user_profiles</code> upsert, then (3) insert the rbac_assignment.</p>
+
+<h3>Issue 3 — Permission toggles returned 404</h3>
+<p><strong>Root cause:</strong> Same as Issue 1. <code>check_is_org_super_admin</code> was throwing on the missing <code>public.users</code> table reference, causing PostgREST to return 404 for DELETE on <code>rbac_role_permissions</code>.</p>
+<p><strong>Fix:</strong> Resolved by the same <code>check_is_org_super_admin</code> fix above.</p>
+
+<h3>Issue 4 — Permission changes required re-login</h3>
+<p><strong>Root cause:</strong> The <code>sync_rbac_to_jwt</code> trigger only fired on <code>rbac_assignments</code> changes. Changes to <code>rbac_role_permissions</code> (i.e., the permission toggles in the Roles UI) never triggered a JWT update for affected users.</p>
+<p><strong>Fix:</strong> Added <code>trg_sync_role_perms_to_jwt</code> trigger on <code>rbac_role_permissions</code> that re-syncs the JWT for every user holding the affected role.</p>
+
+<h3>Issue 5 — RoleBadge.tsx crashed on new role codes</h3>
+<p><strong>Root cause:</strong> <code>roleConfig</code> Record only contained the original legacy role codes. When a component received a new code like <code>ADMIN</code> or <code>GM</code>, <code>roleConfig[role]</code> returned <code>undefined</code>, and accessing <code>.bgColor</code> threw a TypeError.</p>
+<p><strong>Fix:</strong> Added all new role codes to <code>roleConfig</code>, <code>ROLE_DEFINITIONS</code>, and the <code>UserRole</code> type. Added <code>fallbackConfig</code> and <code>makeFallbackDef</code> helpers for future forward-compatibility.</p>
+
+<h3>Issue 6 — Settings/EHS/Assets invisible for ADMIN users</h3>
+<p><strong>Root cause:</strong> <code>isOrgAdmin()</code> in <code>permissions.ts</code> only checked for <code>ORG_ADMIN</code> (legacy frontend code), missing the actual DB role codes <code>ADMIN</code> and <code>GM</code>.</p>
+<p><strong>Fix:</strong> Updated <code>isOrgAdmin</code> to check <code>r.role === 'ADMIN' || r.role === 'GM'</code> in addition to <code>r.role === 'ORG_ADMIN'</code>.</p>
+
+<h3>Issue 7 — Auth hydration race condition / 10-second login timeout</h3>
+<p><strong>Root cause:</strong> <code>AuthProvider</code> ran <code>checkAccountActive</code> (a slow database RLS query) before calling <code>hydrateFromSession</code>, blocking <code>setIsLoading(false)</code> and causing the app to redirect to login on timeout.</p>
+<p><strong>Fix:</strong> Reversed the order — <code>hydrateFromSession</code> and <code>setIsLoading(false)</code> run first (synchronous, from JWT), then <code>checkAccountActive</code> runs as a non-blocking background check.</p>
+
+<h3>Issue 8 — Multi-tenant role code uniqueness blocked</h3>
+<p><strong>Root cause:</strong> <code>rbac_roles</code> had a global <code>UNIQUE(code)</code> constraint that prevented a second organization from having a role named <code>ADMIN</code>.</p>
+<p><strong>Fix:</strong> Dropped <code>rbac_roles_code_unique</code>; the composite PRIMARY KEY <code>(code, org_id)</code> already enforces per-tenant uniqueness.</p>
+
+<hr>
+
+<h2>12. Pending Work (Not Yet Implemented)</h2>
+
+<h3>Company Association for Invited Users</h3>
+<p>The company picker shows blank for invited users. Required changes:</p>
+<ul>
+  <li>Add a company dropdown to <code>InviteUserDialog</code></li>
+  <li>Pass the selected company in the invite payload</li>
+  <li>In the accept action of <code>invite-user</code>, create a <code>user_company_memberships</code> record when a company is selected</li>
+</ul>
+
+<h3>Super Admin Password Reset</h3>
+<p>No admin-initiated password reset exists. Required changes:</p>
+<ul>
+  <li>Add a <code>reset-password</code> action to <code>manage-users</code> edge function that calls <code>supabase.auth.admin.generateLink({ type: 'recovery', email })</code></li>
+  <li>Add a "Reset Password" button in <code>UserManagementTab</code> that calls the action</li>
+</ul>
+
+<h3>Redirect URL Registration</h3>
+<p>The following URLs must be added to the Supabase Dashboard under <strong>Authentication → URL Configuration → Redirect URLs</strong>:</p>
+<ul>
+  <li><code>http://localhost:8080/**</code> (local development)</li>
+  <li>Any staging or production domains used by the app</li>
+</ul>
+<p>This is a manual step in the Supabase Dashboard and cannot be done via migrations.</p>
+
+<hr>
+<p style="color:#888; font-size:9pt; margin-top:24pt;">Generated March 2026 &nbsp;|&nbsp; Q-Payroll Authentication Documentation v1.0</p>
+
+</body>
+</html>

@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Building2, Users, Settings, Shield, ArrowRight, LogOut } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import {
   Table,
   TableBody,
@@ -33,7 +33,7 @@ interface Organization {
 
 export default function PlatformAdminDashboard() {
   const navigate = useNavigate();
-  const { user, logout } = useSupabaseAuth();
+  const { user, logout } = useAuth();
   const { toast } = useToast();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);

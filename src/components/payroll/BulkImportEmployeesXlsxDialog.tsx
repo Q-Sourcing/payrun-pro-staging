@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Download, FileUp, Loader2, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { getCurrencyCodeFromCountryCode } from "@/lib/constants/countries";
 import { ContractsService, type ContractTemplate } from "@/lib/data/contracts.service";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";

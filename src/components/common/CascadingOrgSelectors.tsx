@@ -11,7 +11,7 @@ import { CompanyUnitsService } from '@/lib/services/company-units.service';
 import { EmployeeCategoriesService } from '@/lib/services/employee-categories.service';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { ALL_COUNTRIES } from '@/lib/constants/countries';
-import { useOrg } from '@/lib/tenant/OrgContext';
+import { useOrg } from '@/lib/auth/OrgProvider';
 
 export interface CascadingSelectorValue {
   countryId?: string;

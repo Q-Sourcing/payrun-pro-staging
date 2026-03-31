@@ -34,7 +34,7 @@ import { format } from "date-fns";
 import { CalendarIcon, Plus, Search, Trash2, Clock, AlertTriangle } from "lucide-react";
 import { listGrants, createGrant, deleteGrant, listPermissions, listRoles } from "@/lib/api/rbac";
 import { listOrgUsers, listCompanies } from "@/lib/api/adminAccess";
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { toast } from "sonner";
 
 export function RBACGrantsModule() {

@@ -10,9 +10,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ALL_COUNTRIES } from "@/lib/constants/countries";
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { useOrgNames } from "@/lib/tenant/useOrgNames";
-import { useUserRole } from "@/hooks/use-user-role";
+import { useUserRole } from '@/lib/auth/useUserRole';
 import { Pencil, Settings as GearIcon, Building2, MapPin, Globe2, Phone, Mail, CalendarDays, Hash } from "lucide-react";
 import { OrganizationSetupModal } from "../organization-setup/OrganizationSetupModal";
 

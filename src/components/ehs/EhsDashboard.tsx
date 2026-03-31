@@ -3,13 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, ShieldAlert, ClipboardCheck, GraduationCap, Shield, Calendar } from 'lucide-react';
 import { getDashboardKpis } from '@/lib/services/ehs.service';
 import type { EhsDashboardKpis } from '@/lib/types/ehs';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--destructive))', 'hsl(var(--accent))', '#f59e0b', '#10b981', '#6366f1'];
 
 export function EhsDashboard() {
-  const { userContext } = useSupabaseAuth();
+  const { userContext } = useAuth();
   const orgId = userContext?.organizationId;
   const [kpis, setKpis] = useState<EhsDashboardKpis | null>(null);
   const [loading, setLoading] = useState(true);

@@ -169,6 +169,24 @@ export const SYSTEM_MODULES_REGISTRY: ModuleDef[] = [
     viewPermissions: ["attendance.view"],
     fullPermissions: ["attendance.view", "attendance.manage", "attendance.approve"],
   },
+  // ── To add a new module: copy this block, set a new id/label/category,
+  //    define its permission keys, and run a migration to INSERT those keys
+  //    into public.rbac_permissions. The UI will auto-discover them here. ──
+  {
+    id: "assets",
+    label: "Work Assets",
+    icon: "Package",
+    category: "Assets",
+    permissions: [
+      { key: "assets.view",            description: "View work assets" },
+      { key: "assets.create",          description: "Add new assets" },
+      { key: "assets.edit",            description: "Edit asset records" },
+      { key: "assets.delete",          description: "Delete asset records" },
+      { key: "assets.view_financials", description: "View asset financial values" },
+    ],
+    viewPermissions: ["assets.view"],
+    fullPermissions: ["assets.view", "assets.create", "assets.edit", "assets.view_financials"],
+  },
 ];
 
 /** Derive category list from registry — use instead of the old static array */

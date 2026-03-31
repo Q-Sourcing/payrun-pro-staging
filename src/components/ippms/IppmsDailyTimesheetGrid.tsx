@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { IppmsTimesheetService, type IppmsDailyTimesheetEntry, type IppmsProjectTask } from '@/lib/services/ippms/ippms.timesheet.service';
 import { EmployeesService } from '@/lib/data/employees.service';
 import { useToast } from '@/hooks/use-toast';
-import { useOrg } from '@/lib/tenant/OrgContext';
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { Plus, RefreshCw, Loader2, Save, Send, Trash2, CheckCircle, XCircle, ClipboardList, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '@/lib/constants/countries';
 import { supabase } from '@/integrations/supabase/client';

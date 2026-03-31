@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ShieldAlert, Plus, Search } from 'lucide-react';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { getHazards } from '@/lib/services/ehs.service';
 import { HazardFormDialog } from './HazardFormDialog';
 import { format } from 'date-fns';
@@ -24,7 +24,7 @@ const STATUS_COLORS: Record<EhsHazardStatus, string> = {
 };
 
 export function HazardList() {
-  const { userContext } = useSupabaseAuth();
+  const { userContext } = useAuth();
   const orgId = userContext?.organizationId;
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');

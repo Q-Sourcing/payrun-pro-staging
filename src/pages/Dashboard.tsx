@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useOrg } from '@/lib/tenant/OrgContext';
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { getDashboardStats, getRecentPayRuns, getCompaniesSummary } from '@/lib/services/DashboardService';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 

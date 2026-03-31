@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { useUserRole } from '@/hooks/use-user-role';
+import { useUserRole } from '@/lib/auth/useUserRole';
 import { ROLE_DEFINITIONS, type UserRole } from '@/lib/types/roles';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Lock } from 'lucide-react';

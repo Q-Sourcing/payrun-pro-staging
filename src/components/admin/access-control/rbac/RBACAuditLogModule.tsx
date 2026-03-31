@@ -10,7 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { listAuditLogs } from "@/lib/api/rbac";
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { History, User, Activity } from "lucide-react";
 
 export function RBACAuditLogModule() {

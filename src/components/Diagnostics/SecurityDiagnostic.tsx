@@ -4,8 +4,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { ShieldCheck, ShieldAlert, Fingerprint, Lock, Unlock, Database, RefreshCw, CheckCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
-import { JWTClaimsService } from '@/lib/services/auth/jwt-claims';
+import { useAuth } from '@/lib/auth/AuthProvider';
 
 interface SecurityCheckResult {
     id: string;
@@ -16,7 +15,7 @@ interface SecurityCheckResult {
 }
 
 export function SecurityDiagnostic() {
-    const { user, profile, userContext, claims } = useSupabaseAuth();
+    const { user, profile, userContext, claims } = useAuth();
     const [checks, setChecks] = useState<SecurityCheckResult[]>([]);
     const [isRunning, setIsRunning] = useState(false);
 
@@ -25,7 +24,7 @@ export function SecurityDiagnostic() {
         const newChecks: SecurityCheckResult[] = [];
 
         // 1. JWT Claims Check
-        const jwtClaims = JWTClaimsService.getCurrentClaims();
+        const jwtClaims = claims;
         newChecks.push({
             id: 'jwt-claims',
             name: 'JWT Claims Integrity',

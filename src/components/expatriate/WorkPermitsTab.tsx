@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2, AlertTriangle, CheckCircle, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrg } from '@/lib/auth/OrgProvider';
 import type { WorkPermit, WorkPermitFormData, WorkPermitClass, WorkPermitStatus } from "@/lib/types/expatriate-payroll";
 import { WORK_PERMIT_CLASSES } from "@/lib/types/expatriate-payroll";
 

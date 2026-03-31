@@ -1,22 +1,14 @@
-import { UserRole } from '@/lib/types/roles';
-import { RBACService } from '@/lib/services/auth/rbac';
+import { usePermission } from '@/lib/auth/usePermission';
 
 /**
  * Custom hook to check if the current user has permission to export bank schedules
  */
 export const useBankSchedulePermissions = () => {
-  const canExportBankSchedule = () => {
-    return RBACService.hasPermission('payroll.export_bank');
-  };
-
-  const isAuthorizedRole = () => {
-    // In the new OBAC model, we check for permissions, but we can also check for generic admin roles
-    return RBACService.isOrgAdmin() || RBACService.hasPermission('payroll.export_bank');
-  };
+  const perm = usePermission();
 
   return {
-    canExportBankSchedule: canExportBankSchedule(),
-    isAuthorizedRole: isAuthorizedRole(),
+    canExportBankSchedule: perm.hasPermission('payroll.export_bank'),
+    isAuthorizedRole: perm.isOrgAdmin || perm.hasPermission('payroll.export_bank'),
     isLoading: false,
   };
 };

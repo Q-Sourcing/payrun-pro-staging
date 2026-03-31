@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { GraduationCap, Plus, Search } from 'lucide-react';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { getTrainingRecords } from '@/lib/services/ehs.service';
 import { TrainingFormDialog } from './TrainingFormDialog';
 import { format } from 'date-fns';
@@ -20,7 +20,7 @@ const STATUS_COLORS: Record<EhsTrainingStatus, string> = {
 };
 
 export function TrainingList() {
-  const { userContext } = useSupabaseAuth();
+  const { userContext } = useAuth();
   const orgId = userContext?.organizationId;
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);

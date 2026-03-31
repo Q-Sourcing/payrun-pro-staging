@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Leaf } from 'lucide-react';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { getEnvironmentalIncidents, createEnvironmentalIncident } from '@/lib/services/ehs-phase2.service';
 import { ENV_SEVERITY_COLORS } from '@/lib/types/ehs-phase2';
 import { format } from 'date-fns';
@@ -22,7 +22,7 @@ const ENV_TYPE_LABELS: Record<string, string> = {
 };
 
 export default function EhsEnvironmental() {
-  const { userContext } = useSupabaseAuth();
+  const { userContext } = useAuth();
   const orgId = userContext?.organizationId;
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/data/query-client';
 import { getAssetsForEmployee } from '@/lib/services/assets.service';
-import { RBACService } from '@/lib/services/auth/rbac';
+import { usePermission } from '@/lib/auth/usePermission';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,7 +21,8 @@ interface EmployeeWorkAssetsTabProps {
 
 export function EmployeeWorkAssetsTab({ employeeId, orgId }: EmployeeWorkAssetsTabProps) {
   const navigate = useNavigate();
-  const canViewFinancials = RBACService.hasPermission('assets.view_financials');
+  const perm = usePermission();
+  const canViewFinancials = perm.hasPermission('assets.view_financials');
 
   const { data: assets = [], isLoading } = useQuery({
     queryKey: queryKeys.workAssets.forEmployee(employeeId),

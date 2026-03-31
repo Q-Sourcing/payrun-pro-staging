@@ -20,7 +20,7 @@ import { UserForm } from './UserForm';
 import { PermissionManager } from './PermissionManager';
 import { ActivityLog } from './ActivityLog';
 import { UserManagementGuard } from './UserManagementGuard';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { User, UserRole } from '@/lib/types/roles';
 import { ROLE_DEFINITIONS } from '@/lib/types/roles';
 
@@ -95,7 +95,7 @@ const convertProfileToUser = (profile: SupabaseProfileLike | null, supabaseUser:
 };
 
 export function UserManagement({ currentUser }: UserManagementProps) {
-  const { user, profile } = useSupabaseAuth();
+  const { user, profile } = useAuth();
 
   // Convert Supabase profile to our User type
   // Use user even if profile is null (fallback logic inside convertProfileToUser)

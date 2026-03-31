@@ -12,12 +12,9 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import SignUp from "./pages/SignUp";
-import AcceptInvite from "./pages/AcceptInvite";
-import AcceptInviteUser from "./pages/AcceptInviteUser";
 import SetPassword from "./pages/SetPassword";
 import { ThemeProvider } from "@/components/ui/theme-provider";
-import { SupabaseAuthProvider, useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { AuthProvider as LegacyAuthProvider } from "@/hooks/use-auth-context";
+import { AuthProvider } from "@/lib/auth/AuthProvider";
 import Settings from "./pages/Settings";
 import EnvBanner from "@/components/EnvBanner";
 
@@ -76,7 +73,7 @@ import ProbationDashboard from "./pages/ProbationDashboard";
 
 // Import MainLayout component
 import MainLayout from "./layouts/MainLayout";
-import { OrgProvider } from '@/lib/tenant/OrgContext';
+import { OrgProvider } from '@/lib/auth/OrgProvider';
 import Dashboard from "./pages/Dashboard";
 import EmployeeProfile from "./pages/EmployeeProfile";
 import Projects from "./pages/Projects";
@@ -178,8 +175,7 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <SupabaseAuthProvider>
-          <LegacyAuthProvider>
+        <AuthProvider>
             <TooltipProvider>
               <EnvBanner />
               <Toaster />
@@ -189,8 +185,6 @@ const App = () => {
                 <Route path="/login" element={<Login />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/signup" element={<SignUp />} />
-                <Route path="/accept-invite" element={<AcceptInvite />} />
-                <Route path="/accept-invite-user" element={<AcceptInviteUser />} />
                 <Route path="/set-password" element={<SetPassword />} />
                 <Route path="/choose-company" element={
                   <ProtectedRoute>
@@ -318,8 +312,7 @@ const App = () => {
                 </Routes>
               </BrowserRouter>
             </TooltipProvider>
-          </LegacyAuthProvider>
-        </SupabaseAuthProvider>
+        </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

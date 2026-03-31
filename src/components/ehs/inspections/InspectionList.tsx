@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ClipboardCheck, Plus, Search } from 'lucide-react';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { getInspections } from '@/lib/services/ehs.service';
 import { InspectionFormDialog } from './InspectionFormDialog';
 import { format } from 'date-fns';
@@ -22,7 +22,7 @@ const STATUS_COLORS: Record<EhsInspectionStatus, string> = {
 };
 
 export function InspectionList() {
-  const { userContext } = useSupabaseAuth();
+  const { userContext } = useAuth();
   const orgId = userContext?.organizationId;
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');

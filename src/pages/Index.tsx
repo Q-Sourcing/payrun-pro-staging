@@ -3,7 +3,7 @@ import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, S
 import { Button } from "@/components/ui/button";
 import { Users, DollarSign, Calendar, FileText, Settings, Moon, Sun, Palette, Search, Bell, LogOut } from "lucide-react";
 import { useTheme } from "@/components/ui/theme-provider";
-import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { useAnomalyCounts } from "@/hooks/use-anomaly-counts";
 import EmployeesTab from "@/components/payroll/EmployeesTab";
 import PayGroupsTab from "@/components/payroll/PayGroupsTab";
@@ -17,7 +17,7 @@ import { NavigationSidebar } from "@/components/Sidebar";
 const Index = () => {
   const [activeTab, setActiveTab] = useState("employees");
   const { theme, setTheme } = useTheme();
-  const { logout, profile } = useSupabaseAuth();
+  const { logout, profile } = useAuth();
   const { counts: anomalyCounts } = useAnomalyCounts();
 
   const menuItems = [

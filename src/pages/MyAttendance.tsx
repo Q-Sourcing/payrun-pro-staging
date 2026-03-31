@@ -6,7 +6,7 @@ import { AttendanceCalendar } from "@/components/attendance/AttendanceCalendar";
 import { RegularizationPanel } from "@/components/attendance/RegularizationPanel";
 import { AttendanceService } from "@/lib/services/attendance.service";
 import { supabase } from "@/integrations/supabase/client";
-import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns
 import { Link } from "react-router-dom";
 
 export default function MyAttendance() {
-  const { session } = useSupabaseAuth();
+  const { session } = useAuth();
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [records, setRecords] = useState<any[]>([]);

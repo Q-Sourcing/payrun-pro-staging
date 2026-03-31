@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, Download, FileText } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrg } from '@/lib/auth/OrgProvider';
 
 interface BulkUploadEmployeesDialogProps {
   open: boolean;

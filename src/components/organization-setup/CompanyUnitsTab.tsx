@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CompanyUnitsService, CompanyUnit } from '@/lib/services/company-units.service';
 import { EmployeeCategoriesService, EmployeeCategory } from '@/lib/services/employee-categories.service';
 import { CompaniesService, Company } from '@/lib/services/companies.service';
-import { useOrg } from '@/lib/tenant/OrgContext';
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Building, Trash2, Edit2, AlertCircle, X, Search, MoreVertical } from 'lucide-react';
 

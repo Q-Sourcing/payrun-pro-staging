@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { Mail, Lock, Eye, EyeClosed, ArrowRight } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useAuth } from '@/lib/auth/AuthProvider';
 
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
     return (
@@ -23,7 +23,7 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
 
 export function SignInCard() {
     const navigate = useNavigate();
-    const { login, isLoading: authLoading, isAuthenticated } = useSupabaseAuth();
+    const { login, isLoading: authLoading, isAuthenticated } = useAuth();
 
     const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState("");

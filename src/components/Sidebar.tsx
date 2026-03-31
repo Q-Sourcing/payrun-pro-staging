@@ -5,12 +5,11 @@ import {
   ShieldAlert, AlertTriangle, ClipboardCheck, Shield, ListChecks, FileSearch,
   HardHat, KeyRound, Leaf, Siren, Scale, Receipt, Monitor,
 } from "lucide-react";
-import { JWTClaimsService } from "@/lib/services/auth/jwt-claims";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useMemo } from "react";
-import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { RBACService } from "@/lib/services/auth/rbac";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { usePermission } from "@/lib/auth/usePermission";
 
 interface SidebarPayGroupType {
   id: string;
@@ -65,7 +64,8 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({
   };
   const location = useLocation();
 
-  const { userContext } = useSupabaseAuth();
+  const { userContext } = useAuth();
+  const perm = usePermission();
 
   const permissions = useMemo(() => {
     if (!userContext) return {
@@ -83,24 +83,24 @@ export const NavigationSidebar: React.FC<SidebarProps> = ({
       canViewAssets: false,
     };
 
-    const isSelfUser = JWTClaimsService.hasRole('SELF_USER') || JWTClaimsService.hasRole('SELF_CONTRACTOR');
+    const isSelfUser = perm.hasRole('SELF_USER') || perm.hasRole('SELF_CONTRACTOR');
 
     return {
       isSelfUser,
-      canViewEmployees: !isSelfUser && RBACService.hasPermission('people.view'),
-      canViewProjects: !isSelfUser && RBACService.hasPermission('projects.view'),
-      canViewPayGroups: !isSelfUser && RBACService.hasPermission('paygroups.view'),
-      canViewPayGroupsHeadOffice: !isSelfUser && RBACService.hasScopedPermission('people.view', 'ORGANIZATION'),
-      canViewPayGroupsProjects: !isSelfUser && RBACService.hasScopedPermission('people.view', 'PROJECT'),
-      canViewPayRuns: !isSelfUser && RBACService.hasPermission('payroll.view'),
-      canViewPayRunsHeadOffice: !isSelfUser && RBACService.hasScopedPermission('payroll.view', 'ORGANIZATION'),
-      canViewPayRunsProjects: !isSelfUser && RBACService.hasScopedPermission('payroll.view', 'PROJECT'),
-      canViewReports: !isSelfUser && RBACService.hasPermission('reports.view'),
-      canViewSettings: !isSelfUser && (RBACService.isPlatformAdmin() || RBACService.isOrgAdmin()),
-      canViewEhs: !isSelfUser && (RBACService.hasPermission('ehs.view_dashboard') || RBACService.isPlatformAdmin() || RBACService.isOrgAdmin()),
-      canViewAssets: !isSelfUser && (RBACService.hasPermission('assets.view') || RBACService.isPlatformAdmin() || RBACService.isOrgAdmin()),
+      canViewEmployees: !isSelfUser && perm.hasPermission('people.view'),
+      canViewProjects: !isSelfUser && perm.hasPermission('projects.view'),
+      canViewPayGroups: !isSelfUser && perm.hasPermission('paygroups.view'),
+      canViewPayGroupsHeadOffice: !isSelfUser && perm.hasScopedPermission('people.view', 'ORGANIZATION'),
+      canViewPayGroupsProjects: !isSelfUser && perm.hasScopedPermission('people.view', 'PROJECT'),
+      canViewPayRuns: !isSelfUser && perm.hasPermission('payroll.view'),
+      canViewPayRunsHeadOffice: !isSelfUser && perm.hasScopedPermission('payroll.view', 'ORGANIZATION'),
+      canViewPayRunsProjects: !isSelfUser && perm.hasScopedPermission('payroll.view', 'PROJECT'),
+      canViewReports: !isSelfUser && perm.hasPermission('reports.view'),
+      canViewSettings: !isSelfUser && (perm.isPlatformAdmin || perm.isOrgAdmin),
+      canViewEhs: !isSelfUser && (perm.hasPermission('ehs.view_dashboard') || perm.isPlatformAdmin || perm.isOrgAdmin),
+      canViewAssets: !isSelfUser && (perm.hasPermission('assets.view') || perm.isPlatformAdmin || perm.isOrgAdmin),
     };
-  }, [userContext]);
+  }, [userContext, perm]);
 
   const isActive = (path: string) =>
     location.pathname === path

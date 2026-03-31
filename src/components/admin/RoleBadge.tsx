@@ -86,11 +86,49 @@ const roleConfig: Record<UserRole, { color: string; icon: string; bgColor: strin
     bgColor: 'bg-gray-100 dark:bg-gray-900/30',
     icon: '👤',
   },
+  ADMIN: {
+    color: 'text-blue-700 dark:text-blue-300',
+    bgColor: 'bg-blue-100 dark:bg-blue-900/30',
+    icon: '🏢',
+  },
+  HR: {
+    color: 'text-pink-700 dark:text-pink-300',
+    bgColor: 'bg-pink-100 dark:bg-pink-900/30',
+    icon: '🤝',
+  },
+  GM: {
+    color: 'text-purple-700 dark:text-purple-300',
+    bgColor: 'bg-purple-100 dark:bg-purple-900/30',
+    icon: '💼',
+  },
+  FINANCE: {
+    color: 'text-indigo-700 dark:text-indigo-300',
+    bgColor: 'bg-indigo-100 dark:bg-indigo-900/30',
+    icon: '📊',
+  },
+  STAFF: {
+    color: 'text-gray-700 dark:text-gray-300',
+    bgColor: 'bg-gray-100 dark:bg-gray-900/30',
+    icon: '👤',
+  },
+  CRM: {
+    color: 'text-orange-700 dark:text-orange-300',
+    bgColor: 'bg-orange-100 dark:bg-orange-900/30',
+    icon: '📋',
+  },
+  KAE: {
+    color: 'text-teal-700 dark:text-teal-300',
+    bgColor: 'bg-teal-100 dark:bg-teal-900/30',
+    icon: '🔑',
+  },
 };
 
+const fallbackConfig = { color: 'text-gray-700 dark:text-gray-300', bgColor: 'bg-gray-100 dark:bg-gray-900/30', icon: '👤' };
+const makeFallbackDef = (r: string) => ({ id: r as UserRole, name: r, description: '', level: 0, permissions: [], restrictions: [] });
+
 export function RoleBadge({ role, variant = 'default', className, showIcon = true }: RoleBadgeProps) {
-  const config = roleConfig[role];
-  const roleDefinition = ROLE_DEFINITIONS[role];
+  const config = roleConfig[role] ?? fallbackConfig;
+  const roleDefinition = ROLE_DEFINITIONS[role] ?? makeFallbackDef(role);
 
   if (variant === 'outline') {
     return (
@@ -125,7 +163,7 @@ interface RoleBadgeSmallProps {
 }
 
 export function RoleBadgeSmall({ role, className }: RoleBadgeSmallProps) {
-  const config = roleConfig[role];
+  const config = roleConfig[role] ?? fallbackConfig;
 
   return (
     <span
@@ -135,10 +173,10 @@ export function RoleBadgeSmall({ role, className }: RoleBadgeSmallProps) {
         config.color,
         className
       )}
-      title={ROLE_DEFINITIONS[role].name}
+      title={(ROLE_DEFINITIONS[role] ?? makeFallbackDef(role)).name}
     >
       <span>{config.icon}</span>
-      <span className="hidden sm:inline">{ROLE_DEFINITIONS[role].name}</span>
+      <span className="hidden sm:inline">{(ROLE_DEFINITIONS[role] ?? makeFallbackDef(role)).name}</span>
     </span>
   );
 }

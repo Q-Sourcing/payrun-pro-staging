@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,7 +15,7 @@ const PLATFORM_ADMIN_EMAIL = 'nalungukevin@gmail.com';
 
 export function ModernLoginForm() {
   const navigate = useNavigate();
-  const { login, isLoading, isAuthenticated } = useSupabaseAuth();
+  const { login, isLoading, isAuthenticated } = useAuth();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

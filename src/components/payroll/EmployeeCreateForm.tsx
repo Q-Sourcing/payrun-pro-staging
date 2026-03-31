@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { EmployeeForm, type EmployeeFormValues } from "@/components/employees/EmployeeForm";
 
 interface EmployeeCreateFormProps {

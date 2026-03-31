@@ -7,13 +7,13 @@ import { Switch } from '@/components/ui/switch';
 import { LockedUsersList } from '@/components/security/LockedUsersList';
 import { AuthEventsTable } from '@/components/security/AuthEventsTable';
 import { SecurityService, type SecuritySettings } from '@/lib/services/security/security-service';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { toast } from '@/hooks/use-toast';
 import { Loader2, Save } from 'lucide-react';
-import { useUserRole } from '@/hooks/use-user-role';
+import { useUserRole } from '@/lib/auth/useUserRole';
 
 export function SecuritySettingsPage() {
-  const { profile } = useSupabaseAuth();
+  const { profile } = useAuth();
   const { hasRole } = useUserRole();
   const [settings, setSettings] = useState<SecuritySettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);

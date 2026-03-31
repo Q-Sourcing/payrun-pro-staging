@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useOrg } from '@/lib/tenant/OrgContext';
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { ProjectsService } from '@/lib/services/projects.service';
 import { PayGroupsService } from '@/lib/services/paygroups.service';
 import { useQuery } from '@tanstack/react-query';

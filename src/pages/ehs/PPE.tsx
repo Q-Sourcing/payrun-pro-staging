@@ -10,13 +10,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, HardHat } from 'lucide-react';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { getPpeRecords, createPpeRecord, getPpeTypes, createPpeType } from '@/lib/services/ehs-phase2.service';
 import { PPE_CONDITION_COLORS } from '@/lib/types/ehs-phase2';
 import { format } from 'date-fns';
 
 export default function EhsPPE() {
-  const { userContext } = useSupabaseAuth();
+  const { userContext } = useAuth();
   const orgId = userContext?.organizationId;
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);

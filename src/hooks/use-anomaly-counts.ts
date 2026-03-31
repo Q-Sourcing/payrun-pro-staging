@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { AnomalyService } from '@/lib/services/anomaly.service';
-import { useOrg } from '@/lib/tenant/OrgContext';
+import { useOrg } from '@/lib/auth/OrgProvider';
 
 export function useAnomalyCounts() {
   const { organizationId } = useOrg();

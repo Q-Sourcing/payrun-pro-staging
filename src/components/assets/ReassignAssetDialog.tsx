@@ -16,7 +16,7 @@ import { queryKeys } from '@/lib/data/query-client';
 import { reassignAssetSchema } from '@/lib/validations/assets.schema';
 import type { WorkAsset } from '@/lib/types/assets';
 import { reassignAsset } from '@/lib/services/assets.service';
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ReassignAssetDialogProps {

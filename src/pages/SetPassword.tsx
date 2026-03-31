@@ -135,8 +135,11 @@ export default function SetPassword() {
           window.history.replaceState(null, '', clean.toString());
         }
       }
-      // ── C. Existing session (page refresh) ───────────────────────────────
+      // ── C. Existing session (Supabase may have auto-consumed hash, or page refresh)
       else {
+        // Supabase auto-detects hash tokens via detectSessionInUrl (default: true).
+        // By the time this effect runs, onAuthStateChange may have already
+        // processed the tokens. Check for an existing session.
         const { data: { session: existing } } = await supabase.auth.getSession();
         if (existing) session = existing as typeof session;
       }
@@ -388,7 +391,7 @@ export default function SetPassword() {
                         placeholder="Minimum 8 characters"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        disabled={!sessionReady || submitting}
+                        disabled={(!sessionReady && !inviteToken) || submitting}
                         className="pr-10"
                         autoComplete="new-password"
                         required
@@ -415,7 +418,7 @@ export default function SetPassword() {
                         placeholder="Re-enter your password"
                         value={confirm}
                         onChange={(e) => setConfirm(e.target.value)}
-                        disabled={!sessionReady || submitting}
+                        disabled={(!sessionReady && !inviteToken) || submitting}
                         className="pr-10"
                         autoComplete="new-password"
                         required

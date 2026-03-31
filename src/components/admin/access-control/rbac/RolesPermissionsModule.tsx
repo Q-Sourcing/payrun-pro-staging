@@ -35,7 +35,7 @@ import {
   getUserModuleGrants, setUserModuleGrants, grantsToModuleAccess,
   type Role, type Permission, type Grant,
 } from "@/lib/api/rbac";
-import { useOrg } from "@/lib/tenant/OrgContext";
+import { useOrg } from '@/lib/auth/OrgProvider';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { SYSTEM_MODULES_REGISTRY, PERMISSION_CATEGORIES, type ModuleDef } from "@/lib/constants/permissions-registry";
@@ -538,10 +538,14 @@ function UserOverridesPanel({ role, orgId }: { role: Role; orgId: string }) {
     queryFn: async () => {
       if (!userIds.length) return [];
       const { data } = await supabase
-        .from("user_management_profiles" as any)
-        .select("id, full_name, email")
+        .from("user_profiles")
+        .select("id, first_name, last_name, email")
         .in("id", userIds);
-      return (data ?? []) as { id: string; full_name: string; email: string }[];
+      return (data ?? []).map((p: any) => ({
+        id: p.id,
+        full_name: [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email,
+        email: p.email,
+      })) as { id: string; full_name: string; email: string }[];
     },
     enabled: userIds.length > 0,
   });

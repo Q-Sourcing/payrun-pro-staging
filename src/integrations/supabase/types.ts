@@ -624,6 +624,209 @@ export type Database = {
         }
         Relationships: []
       }
+      asset_assignments: {
+        Row: {
+          asset_id: string
+          assigned_at: string
+          assigned_by: string | null
+          created_at: string
+          employee_id: string
+          id: string
+          notes: string | null
+          org_id: string
+          return_condition: string | null
+          returned_at: string | null
+        }
+        Insert: {
+          asset_id: string
+          assigned_at?: string
+          assigned_by?: string | null
+          created_at?: string
+          employee_id: string
+          id?: string
+          notes?: string | null
+          org_id: string
+          return_condition?: string | null
+          returned_at?: string | null
+        }
+        Update: {
+          asset_id?: string
+          assigned_at?: string
+          assigned_by?: string | null
+          created_at?: string
+          employee_id?: string
+          id?: string
+          notes?: string | null
+          org_id?: string
+          return_condition?: string | null
+          returned_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_assignments_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "work_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "asset_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_assignments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_assignments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "asset_assignments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_assignments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asset_logs: {
+        Row: {
+          asset_id: string
+          created_at: string
+          description: string
+          event_type: string
+          id: string
+          logged_by: string | null
+          metadata: Json | null
+          org_id: string
+        }
+        Insert: {
+          asset_id: string
+          created_at?: string
+          description: string
+          event_type: string
+          id?: string
+          logged_by?: string | null
+          metadata?: Json | null
+          org_id: string
+        }
+        Update: {
+          asset_id?: string
+          created_at?: string
+          description?: string
+          event_type?: string
+          id?: string
+          logged_by?: string | null
+          metadata?: Json | null
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_logs_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "work_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_logs_logged_by_fkey"
+            columns: ["logged_by"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_logs_logged_by_fkey"
+            columns: ["logged_by"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "asset_logs_logged_by_fkey"
+            columns: ["logged_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_logs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asset_types: {
+        Row: {
+          created_at: string
+          icon_key: string | null
+          id: string
+          is_active: boolean
+          name: string
+          org_id: string | null
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          icon_key?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          org_id?: string | null
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          icon_key?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          org_id?: string | null
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_types_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendance_daily_summary: {
         Row: {
           attendance_date: string
@@ -853,6 +1056,67 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_qr_codes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          geofence_id: string | null
+          id: string
+          is_active: boolean
+          label: string | null
+          organization_id: string
+          project_id: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          geofence_id?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          organization_id: string
+          project_id: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          geofence_id?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          organization_id?: string
+          project_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_qr_codes_geofence_id_fkey"
+            columns: ["geofence_id"]
+            isOneToOne: false
+            referencedRelation: "geofences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_qr_codes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_qr_codes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -4374,10 +4638,12 @@ export type Database = {
           company_unit_id: string | null
           contract_type: string | null
           country: string
+          country_of_tax_residence: string | null
           created_at: string
           currency: string | null
           date_joined: string | null
           date_of_birth: string | null
+          days_in_country_current_year: number | null
           designation: string | null
           designation_id: string | null
           email: string
@@ -4391,6 +4657,7 @@ export type Database = {
           gender: string | null
           id: string
           last_name: string | null
+          lst_exempt: boolean
           max_units_per_day: number | null
           middle_name: string | null
           national_id: string | null
@@ -4417,8 +4684,10 @@ export type Database = {
           sub_department: string | null
           sub_department_id: string | null
           sub_type: string | null
+          tax_residency_status: string | null
           timesheet_approval_required: boolean | null
           tin: string | null
+          uganda_entry_date: string | null
           updated_at: string
           user_id: string | null
           work_location: string | null
@@ -4436,10 +4705,12 @@ export type Database = {
           company_unit_id?: string | null
           contract_type?: string | null
           country: string
+          country_of_tax_residence?: string | null
           created_at?: string
           currency?: string | null
           date_joined?: string | null
           date_of_birth?: string | null
+          days_in_country_current_year?: number | null
           designation?: string | null
           designation_id?: string | null
           email: string
@@ -4453,6 +4724,7 @@ export type Database = {
           gender?: string | null
           id?: string
           last_name?: string | null
+          lst_exempt?: boolean
           max_units_per_day?: number | null
           middle_name?: string | null
           national_id?: string | null
@@ -4479,8 +4751,10 @@ export type Database = {
           sub_department?: string | null
           sub_department_id?: string | null
           sub_type?: string | null
+          tax_residency_status?: string | null
           timesheet_approval_required?: boolean | null
           tin?: string | null
+          uganda_entry_date?: string | null
           updated_at?: string
           user_id?: string | null
           work_location?: string | null
@@ -4498,10 +4772,12 @@ export type Database = {
           company_unit_id?: string | null
           contract_type?: string | null
           country?: string
+          country_of_tax_residence?: string | null
           created_at?: string
           currency?: string | null
           date_joined?: string | null
           date_of_birth?: string | null
+          days_in_country_current_year?: number | null
           designation?: string | null
           designation_id?: string | null
           email?: string
@@ -4515,6 +4791,7 @@ export type Database = {
           gender?: string | null
           id?: string
           last_name?: string | null
+          lst_exempt?: boolean
           max_units_per_day?: number | null
           middle_name?: string | null
           national_id?: string | null
@@ -4541,8 +4818,10 @@ export type Database = {
           sub_department?: string | null
           sub_department_id?: string | null
           sub_type?: string | null
+          tax_residency_status?: string | null
           timesheet_approval_required?: boolean | null
           tin?: string | null
+          uganda_entry_date?: string | null
           updated_at?: string
           user_id?: string | null
           work_location?: string | null
@@ -4724,6 +5003,7 @@ export type Database = {
       }
       expatriate_pay_run_item_allowances: {
         Row: {
+          allowance_type: string
           amount: number
           created_at: string
           expatriate_pay_run_item_id: string
@@ -4732,6 +5012,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          allowance_type?: string
           amount?: number
           created_at?: string
           expatriate_pay_run_item_id: string
@@ -4740,6 +5021,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          allowance_type?: string
           amount?: number
           created_at?: string
           expatriate_pay_run_item_id?: string
@@ -4925,6 +5207,8 @@ export type Database = {
           flat_tax_rate: number | null
           housing_allowance_percent: number | null
           id: string
+          nssf_non_resident_employer_rate: number
+          nssf_residency_threshold_years: number
           social_security_reduced_rate: number | null
           social_security_treatment: string
           travel_allowance_percent: number | null
@@ -4941,6 +5225,8 @@ export type Database = {
           flat_tax_rate?: number | null
           housing_allowance_percent?: number | null
           id?: string
+          nssf_non_resident_employer_rate?: number
+          nssf_residency_threshold_years?: number
           social_security_reduced_rate?: number | null
           social_security_treatment?: string
           travel_allowance_percent?: number | null
@@ -4957,6 +5243,8 @@ export type Database = {
           flat_tax_rate?: number | null
           housing_allowance_percent?: number | null
           id?: string
+          nssf_non_resident_employer_rate?: number
+          nssf_residency_threshold_years?: number
           social_security_reduced_rate?: number | null
           social_security_treatment?: string
           travel_allowance_percent?: number | null
@@ -5594,6 +5882,7 @@ export type Database = {
         Row: {
           access_token: string
           api_domain: string | null
+          company_id: string | null
           connected_by: string | null
           created_at: string | null
           expires_at: string
@@ -5609,6 +5898,7 @@ export type Database = {
         Insert: {
           access_token: string
           api_domain?: string | null
+          company_id?: string | null
           connected_by?: string | null
           created_at?: string | null
           expires_at: string
@@ -5624,6 +5914,7 @@ export type Database = {
         Update: {
           access_token?: string
           api_domain?: string | null
+          company_id?: string | null
           connected_by?: string | null
           created_at?: string | null
           expires_at?: string
@@ -5637,6 +5928,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "integration_tokens_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "integration_tokens_organization_id_fkey"
             columns: ["organization_id"]
@@ -7665,20 +7963,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "payrun_workflow_approvers_approver_id_fkey"
-            columns: ["approver_id"]
-            isOneToOne: false
-            referencedRelation: "super_admin_dashboard"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payrun_workflow_approvers_approver_id_fkey"
-            columns: ["approver_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "payrun_workflow_approvers_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -7827,22 +8111,7 @@ export type Database = {
           resource?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "permission_cache_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "super_admin_dashboard"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "permission_cache_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       platform_admin_devices: {
         Row: {
@@ -8013,41 +8282,112 @@ export type Database = {
           },
         ]
       }
-      profiles: {
+      project_attendance_policy: {
         Row: {
-          created_at: string | null
-          email: string
-          failed_login_attempts: number
-          first_name: string | null
+          allow_self_checkin: boolean
+          attendance_required: boolean
+          created_at: string
           id: string
-          last_name: string | null
-          locked_at: string | null
-          organization_id: string | null
-          updated_at: string | null
+          organization_id: string
+          primary_geofence_id: string | null
+          project_id: string
+          require_geolocation: boolean
+          require_manager_checkin: boolean
+          updated_at: string
         }
         Insert: {
-          created_at?: string | null
-          email: string
-          failed_login_attempts?: number
-          first_name?: string | null
-          id: string
-          last_name?: string | null
-          locked_at?: string | null
-          organization_id?: string | null
-          updated_at?: string | null
+          allow_self_checkin?: boolean
+          attendance_required?: boolean
+          created_at?: string
+          id?: string
+          organization_id: string
+          primary_geofence_id?: string | null
+          project_id: string
+          require_geolocation?: boolean
+          require_manager_checkin?: boolean
+          updated_at?: string
         }
         Update: {
-          created_at?: string | null
-          email?: string
-          failed_login_attempts?: number
-          first_name?: string | null
+          allow_self_checkin?: boolean
+          attendance_required?: boolean
+          created_at?: string
           id?: string
-          last_name?: string | null
-          locked_at?: string | null
-          organization_id?: string | null
-          updated_at?: string | null
+          organization_id?: string
+          primary_geofence_id?: string | null
+          project_id?: string
+          require_geolocation?: boolean
+          require_manager_checkin?: boolean
+          updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "project_attendance_policy_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_attendance_policy_primary_geofence_id_fkey"
+            columns: ["primary_geofence_id"]
+            isOneToOne: false
+            referencedRelation: "geofences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_attendance_policy_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_geofences: {
+        Row: {
+          created_at: string
+          geofence_id: string
+          id: string
+          organization_id: string
+          project_id: string
+        }
+        Insert: {
+          created_at?: string
+          geofence_id: string
+          id?: string
+          organization_id: string
+          project_id: string
+        }
+        Update: {
+          created_at?: string
+          geofence_id?: string
+          id?: string
+          organization_id?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_geofences_geofence_id_fkey"
+            columns: ["geofence_id"]
+            isOneToOne: false
+            referencedRelation: "geofences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_geofences_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_geofences_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       project_onboarding_steps: {
         Row: {
@@ -8092,8 +8432,11 @@ export type Database = {
           allowed_pay_types: string[] | null
           client_name: string | null
           code: string
+          contract_period_months: number | null
           contract_value: number | null
           created_at: string | null
+          default_exchange_rate: number | null
+          default_permit_class: string | null
           description: string | null
           end_date: string | null
           id: string
@@ -8112,8 +8455,11 @@ export type Database = {
           allowed_pay_types?: string[] | null
           client_name?: string | null
           code: string
+          contract_period_months?: number | null
           contract_value?: number | null
           created_at?: string | null
+          default_exchange_rate?: number | null
+          default_permit_class?: string | null
           description?: string | null
           end_date?: string | null
           id?: string
@@ -8132,8 +8478,11 @@ export type Database = {
           allowed_pay_types?: string[] | null
           client_name?: string | null
           code?: string
+          contract_period_months?: number | null
           contract_value?: number | null
           created_at?: string | null
+          default_exchange_rate?: number | null
+          default_permit_class?: string | null
           description?: string | null
           end_date?: string | null
           id?: string
@@ -8387,71 +8736,6 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
-      }
-      role_assignments: {
-        Row: {
-          assigned_at: string
-          assigned_by: string
-          created_at: string | null
-          expires_at: string | null
-          id: string
-          is_active: boolean | null
-          reason: string
-          role: string
-          user_id: string
-        }
-        Insert: {
-          assigned_at: string
-          assigned_by: string
-          created_at?: string | null
-          expires_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          reason: string
-          role: string
-          user_id: string
-        }
-        Update: {
-          assigned_at?: string
-          assigned_by?: string
-          created_at?: string | null
-          expires_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          reason?: string
-          role?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "role_assignments_assigned_by_fkey"
-            columns: ["assigned_by"]
-            isOneToOne: false
-            referencedRelation: "super_admin_dashboard"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "role_assignments_assigned_by_fkey"
-            columns: ["assigned_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "role_assignments_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "super_admin_dashboard"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "role_assignments_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       security_audit_logs: {
         Row: {
@@ -8713,6 +8997,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tax_treaties: {
+        Row: {
+          country_a: string
+          country_b: string
+          id: string
+          in_force_since: string | null
+          notes: string | null
+        }
+        Insert: {
+          country_a: string
+          country_b: string
+          id?: string
+          in_force_since?: string | null
+          notes?: string | null
+        }
+        Update: {
+          country_a?: string
+          country_b?: string
+          id?: string
+          in_force_since?: string | null
+          notes?: string | null
+        }
+        Relationships: []
       }
       tenant_email_settings: {
         Row: {
@@ -9101,50 +9409,6 @@ export type Database = {
           },
         ]
       }
-      user_invites: {
-        Row: {
-          created_at: string | null
-          email: string
-          expires_at: string | null
-          id: string
-          inviter_id: string | null
-          role_data: Json | null
-          status: string | null
-          tenant_id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          email: string
-          expires_at?: string | null
-          id?: string
-          inviter_id?: string | null
-          role_data?: Json | null
-          status?: string | null
-          tenant_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          email?: string
-          expires_at?: string | null
-          id?: string
-          inviter_id?: string | null
-          role_data?: Json | null
-          status?: string | null
-          tenant_id?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_invites_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_management_invitations: {
         Row: {
           accepted_at: string | null
@@ -9157,6 +9421,7 @@ export type Database = {
           invited_by: string | null
           phone: string | null
           role: string
+          role_data: Json | null
           status: string
           token: string
         }
@@ -9171,6 +9436,7 @@ export type Database = {
           invited_by?: string | null
           phone?: string | null
           role?: string
+          role_data?: Json | null
           status?: string
           token: string
         }
@@ -9185,50 +9451,9 @@ export type Database = {
           invited_by?: string | null
           phone?: string | null
           role?: string
+          role_data?: Json | null
           status?: string
           token?: string
-        }
-        Relationships: []
-      }
-      user_management_profiles: {
-        Row: {
-          created_at: string
-          department: string | null
-          email: string | null
-          full_name: string | null
-          id: string
-          phone: string | null
-          role: string | null
-          status: string
-          updated_at: string
-          user_id: string
-          username: string | null
-        }
-        Insert: {
-          created_at?: string
-          department?: string | null
-          email?: string | null
-          full_name?: string | null
-          id?: string
-          phone?: string | null
-          role?: string | null
-          status?: string
-          updated_at?: string
-          user_id: string
-          username?: string | null
-        }
-        Update: {
-          created_at?: string
-          department?: string | null
-          email?: string | null
-          full_name?: string | null
-          id?: string
-          phone?: string | null
-          role?: string | null
-          status?: string
-          updated_at?: string
-          user_id?: string
-          username?: string | null
         }
         Relationships: []
       }
@@ -9260,55 +9485,49 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "user_preferences_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "super_admin_dashboard"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_preferences_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       user_profiles: {
         Row: {
           activated_at: string | null
           created_at: string | null
+          department: string | null
           email: string | null
           first_name: string | null
           id: string
           last_name: string | null
           organization_id: string | null
+          phone: string | null
           role: string
+          status: string
           updated_at: string | null
         }
         Insert: {
           activated_at?: string | null
           created_at?: string | null
+          department?: string | null
           email?: string | null
           first_name?: string | null
           id: string
           last_name?: string | null
           organization_id?: string | null
+          phone?: string | null
           role?: string
+          status?: string
           updated_at?: string | null
         }
         Update: {
           activated_at?: string | null
           created_at?: string | null
+          department?: string | null
           email?: string | null
           first_name?: string | null
           id?: string
           last_name?: string | null
           organization_id?: string | null
+          phone?: string | null
           role?: string
+          status?: string
           updated_at?: string | null
         }
         Relationships: [
@@ -9341,150 +9560,6 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
-      }
-      user_sessions: {
-        Row: {
-          created_at: string | null
-          expires_at: string
-          id: string
-          ip_address: unknown
-          is_active: boolean | null
-          session_token: string
-          user_agent: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          expires_at: string
-          id?: string
-          ip_address?: unknown
-          is_active?: boolean | null
-          session_token: string
-          user_agent?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          expires_at?: string
-          id?: string
-          ip_address?: unknown
-          is_active?: boolean | null
-          session_token?: string
-          user_agent?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_sessions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "super_admin_dashboard"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_sessions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      users: {
-        Row: {
-          created_at: string | null
-          created_by: string | null
-          email: string
-          first_name: string
-          id: string
-          is_active: boolean | null
-          last_login: string | null
-          last_name: string
-          manager_id: string | null
-          organization_id: string | null
-          permissions: string[] | null
-          restrictions: string[] | null
-          role: string
-          session_timeout: number | null
-          sub_department_id: string | null
-          two_factor_enabled: boolean | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          email: string
-          first_name: string
-          id?: string
-          is_active?: boolean | null
-          last_login?: string | null
-          last_name: string
-          manager_id?: string | null
-          organization_id?: string | null
-          permissions?: string[] | null
-          restrictions?: string[] | null
-          role: string
-          session_timeout?: number | null
-          sub_department_id?: string | null
-          two_factor_enabled?: boolean | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          email?: string
-          first_name?: string
-          id?: string
-          is_active?: boolean | null
-          last_login?: string | null
-          last_name?: string
-          manager_id?: string | null
-          organization_id?: string | null
-          permissions?: string[] | null
-          restrictions?: string[] | null
-          role?: string
-          session_timeout?: number | null
-          sub_department_id?: string | null
-          two_factor_enabled?: boolean | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "users_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "super_admin_dashboard"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "users_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "users_manager_id_fkey"
-            columns: ["manager_id"]
-            isOneToOne: false
-            referencedRelation: "super_admin_dashboard"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "users_manager_id_fkey"
-            columns: ["manager_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "users_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "pay_groups"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       variable_item_logs: {
         Row: {
@@ -9830,6 +9905,275 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_assets: {
+        Row: {
+          asset_number: string
+          asset_type_id: string | null
+          assigned_at: string | null
+          assigned_to: string | null
+          created_at: string
+          id: string
+          is_deleted: boolean
+          name: string
+          notes: string | null
+          org_id: string
+          purchase_date: string | null
+          purchase_price: number | null
+          serial_number: string | null
+          status: string
+          updated_at: string
+          useful_life_years: number | null
+        }
+        Insert: {
+          asset_number: string
+          asset_type_id?: string | null
+          assigned_at?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          id?: string
+          is_deleted?: boolean
+          name: string
+          notes?: string | null
+          org_id: string
+          purchase_date?: string | null
+          purchase_price?: number | null
+          serial_number?: string | null
+          status?: string
+          updated_at?: string
+          useful_life_years?: number | null
+        }
+        Update: {
+          asset_number?: string
+          asset_type_id?: string | null
+          assigned_at?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          id?: string
+          is_deleted?: boolean
+          name?: string
+          notes?: string | null
+          org_id?: string
+          purchase_date?: string | null
+          purchase_price?: number | null
+          serial_number?: string | null
+          status?: string
+          updated_at?: string
+          useful_life_years?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_assets_asset_type_id_fkey"
+            columns: ["asset_type_id"]
+            isOneToOne: false
+            referencedRelation: "asset_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_assets_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_assets_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "work_assets_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_assets_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_permits: {
+        Row: {
+          created_at: string
+          employee_id: string
+          expiry_date: string
+          fee_paid_usd: number | null
+          id: string
+          issue_date: string | null
+          notes: string | null
+          org_id: string
+          permit_class: string
+          permit_number: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          employee_id: string
+          expiry_date: string
+          fee_paid_usd?: number | null
+          id?: string
+          issue_date?: string | null
+          notes?: string | null
+          org_id: string
+          permit_class?: string
+          permit_number?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string
+          expiry_date?: string
+          fee_paid_usd?: number | null
+          id?: string
+          issue_date?: string | null
+          notes?: string | null
+          org_id?: string
+          permit_class?: string
+          permit_number?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_permits_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_permits_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_pay_groups"
+            referencedColumns: ["emp_id"]
+          },
+          {
+            foreignKeyName: "work_permits_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_permits_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      zoho_books_gl_mappings: {
+        Row: {
+          bank_name: string | null
+          company_id: string
+          created_at: string | null
+          id: string
+          mapping_key: string
+          updated_at: string | null
+          zoho_account_id: string
+          zoho_account_name: string
+        }
+        Insert: {
+          bank_name?: string | null
+          company_id: string
+          created_at?: string | null
+          id?: string
+          mapping_key: string
+          updated_at?: string | null
+          zoho_account_id: string
+          zoho_account_name: string
+        }
+        Update: {
+          bank_name?: string | null
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          mapping_key?: string
+          updated_at?: string | null
+          zoho_account_id?: string
+          zoho_account_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zoho_books_gl_mappings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      zoho_books_journal_refs: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          error_message: string | null
+          id: string
+          pay_run_id: string
+          pushed_at: string | null
+          pushed_by: string | null
+          status: string
+          updated_at: string | null
+          zoho_journal_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          pay_run_id: string
+          pushed_at?: string | null
+          pushed_by?: string | null
+          status?: string
+          updated_at?: string | null
+          zoho_journal_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          pay_run_id?: string
+          pushed_at?: string | null
+          pushed_by?: string | null
+          status?: string
+          updated_at?: string | null
+          zoho_journal_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zoho_books_journal_refs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zoho_books_journal_refs_pay_run_id_fkey"
+            columns: ["pay_run_id"]
+            isOneToOne: false
+            referencedRelation: "master_payrolls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zoho_books_journal_refs_pay_run_id_fkey"
+            columns: ["pay_run_id"]
+            isOneToOne: false
+            referencedRelation: "pay_runs"
             referencedColumns: ["id"]
           },
         ]
@@ -10192,22 +10536,6 @@ export type Database = {
         }
         Relationships: []
       }
-      super_admin_dashboard: {
-        Row: {
-          active_sessions: number | null
-          created_at: string | null
-          email: string | null
-          first_name: string | null
-          id: string | null
-          is_active: boolean | null
-          last_login: string | null
-          last_name: string | null
-          recent_activity_count: number | null
-          role: string | null
-          two_factor_enabled: boolean | null
-        }
-        Relationships: []
-      }
     }
     Functions: {
       approve_payrun_step: {
@@ -10249,6 +10577,7 @@ export type Database = {
         Args: { new_approver_id: string; payrun_id_input: string }
         Returns: Json
       }
+      generate_asset_number: { Args: { p_org_id: string }; Returns: string }
       generate_employee_number:
         | {
             Args: {
@@ -10577,6 +10906,16 @@ export type Database = {
       }
       mark_notification_read: {
         Args: { _notification_id: string; _user_id: string }
+        Returns: undefined
+      }
+      reassign_asset: {
+        Args: {
+          p_asset_id: string
+          p_new_employee_id: string
+          p_notes?: string
+          p_org_id: string
+          p_return_condition?: string
+        }
         Returns: undefined
       }
       reject_payrun_step: {

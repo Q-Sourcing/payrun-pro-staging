@@ -10,9 +10,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useToast } from '@/hooks/use-toast'
 import { UserProfileService, UserProfile } from '@/lib/services/auth/user-profiles'
-import { RBACService, Role } from '@/lib/services/auth/rbac'
+import type { Role } from '@/lib/services/auth/rbac'
+import { usePermission } from '@/lib/auth/usePermission'
 import { Plus, Search, Edit, Trash2, User, Mail, Building, Shield, AlertTriangle } from 'lucide-react'
-import { PermissionGuard } from '@/components/auth/PermissionGuard'
+import { PermissionGate as PermissionGuard } from '@/lib/auth/PermissionGate'
 
 export function UserManagement() {
   const [users, setUsers] = useState<UserProfile[]>([])
@@ -31,6 +32,7 @@ export function UserManagement() {
     organization_id: ''
   })
   const { toast } = useToast()
+  const perm = usePermission()
 
   // Load users
   const loadUsers = async () => {
@@ -351,7 +353,7 @@ export function UserManagement() {
                   </TableCell>
                   <TableCell>
                     <Badge variant={getRoleBadgeVariant(user.role as Role)}>
-                      {RBACService.getRoleDisplayName(user.role)}
+                      {perm.getRoleDisplayName(user.role)}
                     </Badge>
                   </TableCell>
                   <TableCell>

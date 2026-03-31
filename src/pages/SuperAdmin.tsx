@@ -21,7 +21,7 @@ import {
   FileText,
   RefreshCw
 } from 'lucide-react';
-import { useUserRole } from '@/hooks/use-user-role';
+import { useUserRole } from '@/lib/auth/useUserRole';
 import { useUsers } from '@/hooks/use-users';
 import { useEmployees } from '@/hooks/use-employees';
 import { usePayGroups } from '@/hooks/use-paygroups';

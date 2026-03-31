@@ -80,77 +80,72 @@ serve(async (req) => {
         const firstName = nameParts[0] || ''
         const lastName = nameParts.slice(1).join(' ') || ''
 
-        const { error: profileErr } = await supabaseAdmin.from('user_management_profiles').upsert({
-          id: user_id,
-          username: null,
-          full_name: inv.full_name,
-          email: inv.email,
-          role: inv.role,
-          phone: inv.phone || null,
-          department: inv.department || null,
-          status: 'active',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'id' })
-        if (profileErr) console.error('Profile upsert error on accept:', profileErr)
-
-        const { error: upErr } = await supabaseAdmin.from('user_profiles').upsert({
-          id: user_id,
-          email: inv.email,
-          first_name: firstName,
-          last_name: lastName,
-          role: inv.role || 'user',
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'id' })
-        if (upErr) console.error('user_profiles upsert error on accept:', upErr)
-
         // ── Wire up RBAC: assign the invited role so permissions take effect ──
         if (inv.role) {
-          // Determine org_id from any existing profile
-          let orgId = '00000000-0000-0000-0000-000000000001'
+          // Determine org_id — default to the single org in the system
+          const ORG_ID = '00000000-0000-0000-0000-000000000001'
+          let orgId = ORG_ID
           const { data: existingProfile } = await supabaseAdmin
             .from('user_profiles').select('organization_id').eq('id', user_id).maybeSingle()
           if (existingProfile?.organization_id) orgId = existingProfile.organization_id
+
+          // Ensure user_profiles has the correct org_id set BEFORE rbac_assignment
+          // (validate_rbac_assignment trigger requires user.organization_id = assignment.org_id)
+          const { error: upErr } = await supabaseAdmin.from('user_profiles').upsert({
+            id: user_id,
+            email: inv.email,
+            first_name: firstName,
+            last_name: lastName,
+            role: inv.role || 'user',
+            phone: inv.phone || null,
+            department: inv.department || null,
+            status: 'active',
+            organization_id: orgId,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'id' })
+          if (upErr) console.error('user_profiles upsert error on accept:', upErr)
 
           // Remove old org-level assignments, then insert fresh one
           await supabaseAdmin.from('rbac_assignments').delete()
             .eq('user_id', user_id).eq('org_id', orgId).neq('role_code', 'PLATFORM_SUPER_ADMIN')
 
-          const { error: rbacErr } = await supabaseAdmin.from('rbac_assignments').upsert({
+          const { error: rbacErr } = await supabaseAdmin.from('rbac_assignments').insert({
             user_id,
             role_code: inv.role,
             scope_type: 'GLOBAL',
             scope_id: null,
             org_id: orgId,
-          }, { onConflict: 'user_id,role_code,scope_type' })
-          if (rbacErr) console.error('rbac_assignments upsert error on accept:', rbacErr)
+          })
+          if (rbacErr) console.error('rbac_assignments insert error on accept:', rbacErr)
 
           // Apply additive module-access grants from role_data
           const moduleAccess: Record<string, string> = inv.role_data?.module_access ?? {}
+          // Canonical module→permission mapping (keep in sync with src/lib/constants/permissions-registry.ts)
           const MODULE_PERMISSION_MAP: Record<string, { view: string[]; full: string[] }> = {
-            employees:         { view: ['people.view'], full: ['people.view', 'people.create', 'people.edit', 'people.assign_project'] },
-            payroll:           { view: ['payroll.view'], full: ['payroll.view', 'payroll.prepare', 'payroll.submit', 'payroll.approve'] },
-            pay_groups:        { view: ['paygroups.view'], full: ['paygroups.view', 'paygroups.manage'] },
-            projects:          { view: ['projects.view'], full: ['projects.view', 'projects.manage'] },
+            employees:          { view: ['people.view'], full: ['people.view', 'people.create', 'people.edit', 'people.assign_project'] },
+            payroll:            { view: ['payroll.view'], full: ['payroll.view', 'payroll.prepare', 'payroll.submit', 'payroll.approve'] },
+            pay_groups:         { view: ['paygroups.view'], full: ['paygroups.view', 'paygroups.manage'] },
+            projects:           { view: ['projects.view'], full: ['projects.view', 'projects.manage'] },
             earnings_deductions:{ view: ['earnings.view'], full: ['earnings.view', 'earnings.manage'] },
-            contracts:         { view: ['contracts.view'], full: ['contracts.view', 'contracts.manage'] },
-            reports:           { view: ['reports.view'], full: ['reports.view', 'finance.view_reports', 'reports.export'] },
-            ehs:               { view: ['ehs.view_dashboard'], full: ['ehs.view_dashboard', 'ehs.manage_incidents', 'ehs.manage_hazards'] },
-            settings:          { view: [], full: ['admin.manage_users', 'admin.assign_roles', 'admin.activity_logs.view'] },
-            user_management:   { view: ['users.view'], full: ['users.view', 'users.invite', 'users.edit'] },
-            attendance:        { view: ['attendance.view'], full: ['attendance.view', 'attendance.manage', 'attendance.approve'] },
+            contracts:          { view: ['contracts.view'], full: ['contracts.view', 'contracts.manage'] },
+            reports:            { view: ['reports.view'], full: ['reports.view', 'finance.view_reports', 'reports.export'] },
+            ehs:                { view: ['ehs.view_dashboard'], full: ['ehs.view_dashboard', 'ehs.manage_incidents', 'ehs.manage_hazards'] },
+            settings:           { view: [], full: ['admin.manage_users', 'admin.assign_roles', 'admin.activity_logs.view'] },
+            user_management:    { view: ['users.view'], full: ['users.view', 'users.invite', 'users.edit'] },
+            attendance:         { view: ['attendance.view'], full: ['attendance.view', 'attendance.manage', 'attendance.approve'] },
+            assets:             { view: ['assets.view'], full: ['assets.view', 'assets.create', 'assets.edit', 'assets.view_financials'] },
           }
           for (const [moduleId, level] of Object.entries(moduleAccess)) {
             if (level === 'none') continue
             const perms = MODULE_PERMISSION_MAP[moduleId]?.[level as 'view' | 'full'] ?? []
             for (const permKey of perms) {
-              await supabaseAdmin.from('rbac_grants').upsert({
+              await supabaseAdmin.from('rbac_grants').insert({
                 user_id,
                 permission_key: permKey,
                 scope_type: 'ORGANIZATION',
                 scope_id: orgId,
                 effect: 'ALLOW',
-              }, { onConflict: 'user_id,permission_key,scope_type,scope_id' }).then(() => {}).catch(console.error)
+              }).then(() => {}).catch(console.error)
             }
           }
 
@@ -343,25 +338,15 @@ serve(async (req) => {
 
       const authUserId = inviteData?.user?.id
       if (authUserId) {
-        await supabaseAdmin.from('user_management_profiles').upsert({
-          id: authUserId,
-          username: null,
-          full_name,
-          email: email.toLowerCase(),
-          role: role || 'employee',
-          phone: phone || null,
-          department: department || null,
-          status: 'pending',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'id' })
-
         await supabaseAdmin.from('user_profiles').upsert({
           id: authUserId,
           email: email.toLowerCase(),
           first_name: firstName,
           last_name: lastName,
           role: role || 'user',
+          phone: phone || null,
+          department: department || null,
+          status: 'pending',
           updated_at: new Date().toISOString(),
         }, { onConflict: 'id' })
       }

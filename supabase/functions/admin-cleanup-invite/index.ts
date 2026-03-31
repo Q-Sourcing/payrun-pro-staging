@@ -59,16 +59,15 @@ serve(async (req) => {
     .eq('email', normalizedEmail)
   results.invitations = invErr ? `Error: ${invErr.message}` : 'All invitation records deleted'
 
-  // 3. Clean up profiles by email
-  const { error: umpErr } = await supabaseAdmin
-    .from('user_management_profiles')
+  // 3. Clean up user_profiles by email
+  const { error: upErr } = await supabaseAdmin
+    .from('user_profiles')
     .delete()
     .eq('email', normalizedEmail)
-  results.user_management_profiles = umpErr ? `Error: ${umpErr.message}` : 'Cleaned'
+  results.user_profiles = upErr ? `Error: ${upErr.message}` : 'Cleaned'
 
   // 4. If auth user existed, also clean by ID
   if (authUser) {
-    await supabaseAdmin.from('user_management_profiles').delete().eq('id', authUser.id)
     await supabaseAdmin.from('user_profiles').delete().eq('id', authUser.id)
     results.profiles_by_id = 'Cleaned by ID'
   }

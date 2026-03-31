@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { AttendanceService } from "@/lib/services/attendance.service";
-import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { Check, X, Clock, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import TableWrapper from "@/components/TableWrapper";
@@ -28,7 +28,7 @@ export function RegularizationPanel({ organizationId, mode, employeeId }: Regula
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionNotes, setActionNotes] = useState<Record<string, string>>({});
-  const { session } = useSupabaseAuth();
+  const { session } = useAuth();
 
   useEffect(() => {
     loadRequests();

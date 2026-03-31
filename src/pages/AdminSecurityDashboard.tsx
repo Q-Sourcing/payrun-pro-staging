@@ -1,7 +1,7 @@
 import { LockedUsersList } from '@/components/security/LockedUsersList';
 import { AuthEventsTable } from '@/components/security/AuthEventsTable';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useUserRole } from '@/hooks/use-user-role';
+import { useUserRole } from '@/lib/auth/useUserRole';
 import { Shield } from 'lucide-react';
 
 export function AdminSecurityDashboard() {
