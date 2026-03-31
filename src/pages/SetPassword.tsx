@@ -143,11 +143,21 @@ export default function SetPassword() {
       }
       // ── C. Existing session (Supabase may have auto-consumed hash, or page refresh)
       else {
-        // Supabase auto-detects hash tokens via detectSessionInUrl (default: true).
-        // By the time this effect runs, onAuthStateChange may have already
-        // processed the tokens. Check for an existing session.
-        const { data: { session: existing } } = await supabase.auth.getSession();
-        if (existing) session = existing as typeof session;
+        // If this page was opened with a custom invite token (?token=...), any
+        // existing session belongs to a DIFFERENT logged-in user (e.g. the admin
+        // who sent the invite and opened the link in the same browser).
+        // We must sign them out so that Path B (server-side creation) runs for
+        // the invited person — otherwise Path A would update the admin's password.
+        if (inviteToken) {
+          await supabase.auth.signOut();
+          // Leave session = null so Path B handles account creation
+        } else {
+          // Supabase auto-detects hash tokens via detectSessionInUrl (default: true).
+          // By the time this effect runs, onAuthStateChange may have already
+          // processed the tokens. Check for an existing session.
+          const { data: { session: existing } } = await supabase.auth.getSession();
+          if (existing) session = existing as typeof session;
+        }
       }
 
       if (session) {
@@ -257,24 +267,12 @@ export default function SetPassword() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
 
-      if (session) {
-        // ── Path A: Supabase session available → update password directly ──
+      // When an invite token is present, always use the server-side Path B so
+      // the invited person's account is created (not the admin's password updated).
+      if (session && !activeToken) {
+        // ── Path A: Supabase session + no custom token (e.g. recovery/magic link)
         const { error: pwErr } = await supabase.auth.updateUser({ password });
         if (pwErr) throw pwErr;
-
-        // Mark invite accepted (best-effort)
-        if (activeToken) {
-          try {
-            await fetch(`${INVITE_FN_URL}?action=accept`, {
-              method : 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}`, apikey: ANON_KEY },
-              body   : JSON.stringify({ token: activeToken, user_id: session.user.id }),
-            });
-          } catch (e) {
-            console.warn('[SetPassword] accept call failed (non-fatal):', e);
-          }
-        }
-
         await supabase.auth.signOut();
       } else if (activeToken) {
         // ── Path B: Token-only flow (no Supabase session) ─────────────────
