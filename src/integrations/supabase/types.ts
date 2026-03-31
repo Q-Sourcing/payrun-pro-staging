@@ -10908,6 +10908,10 @@ export type Database = {
         Args: { _notification_id: string; _user_id: string }
         Returns: undefined
       }
+      provision_default_roles: {
+        Args: { p_org_id: string }
+        Returns: undefined
+      }
       reassign_asset: {
         Args: {
           p_asset_id: string
