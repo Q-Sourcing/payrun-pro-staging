@@ -39,6 +39,20 @@ export function ModernLoginForm() {
     }
   }, [isAuthenticated, navigate]);
 
+  // When Supabase redirects here after a consumed/expired invite magic link
+  // (corporate email scanners pre-fetch single-use OTPs), auto-redirect to
+  // /set-password so the email-lookup fallback is shown automatically.
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (
+      hash.includes('error=access_denied') &&
+      (hash.includes('otp_expired') || hash.includes('invite'))
+    ) {
+      window.history.replaceState(null, '', window.location.pathname);
+      navigate('/set-password');
+    }
+  }, [navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');

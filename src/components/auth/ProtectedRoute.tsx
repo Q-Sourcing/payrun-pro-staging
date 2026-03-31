@@ -23,6 +23,13 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   if (!isAuthenticated) {
+    // If the URL hash contains a Supabase OTP-expired error (corporate email
+    // scanner consumed the invite magic link), send the user directly to
+    // /set-password so the email-lookup fallback is presented automatically.
+    const hash = window.location.hash;
+    if (hash.includes('error=access_denied') && (hash.includes('otp_expired') || hash.includes('invite'))) {
+      return <Navigate to="/set-password" replace />;
+    }
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

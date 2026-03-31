@@ -49,7 +49,9 @@ import {
   Loader2,
   RefreshCw,
   ShieldCheck,
+  Mail,
 } from "lucide-react";
+import { UserManagementTab } from "@/components/settings/UserManagementTab";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -88,7 +90,6 @@ interface RoleWithPermissions extends OrgRole {
 const userSchema = z.object({
   full_name: z.string().min(2, "Full name must be at least 2 characters").max(200).trim(),
   email: z.string().email("Invalid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters").optional().or(z.literal("")),
   phone: z.string().max(30).optional().or(z.literal("")),
   role_code: z.string().min(1, "Role is required"),
   department: z.string().max(100).optional().or(z.literal("")),
@@ -97,6 +98,28 @@ const userSchema = z.object({
 type UserFormValues = z.infer<typeof userSchema>;
 
 const EDGE_FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`;
+const INVITE_FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/invite-user`;
+
+async function callInviteUser(action: string, body: unknown) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const url = new URL(INVITE_FN_URL);
+  url.searchParams.set("action", action);
+
+  const res = await fetch(url.toString(), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${session?.access_token}`,
+      "Content-Type": "application/json",
+      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+    },
+    body: JSON.stringify(body),
+  });
+
+  return res.json();
+}
 
 async function callManageUsers(method: string, body?: unknown, params?: Record<string, string>) {
   const {
@@ -134,14 +157,21 @@ function UserFormDialog({
 }) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const isEdit = !!user;
+
+  useEffect(() => {
+    if (!open) return;
+    (supabase as any).from("company_units").select("id, name").eq("active", true).then(({ data }: any) => {
+      setDepartments(data || []);
+    });
+  }, [open]);
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
     defaultValues: {
       full_name: user?.full_name ?? "",
       email: user?.email ?? "",
-      password: "",
       phone: user?.phone ?? "",
       role_code: user?.role ?? "",
       department: user?.department ?? "",
@@ -154,7 +184,6 @@ function UserFormDialog({
     form.reset({
       full_name: user?.full_name ?? "",
       email: user?.email ?? "",
-      password: "",
       phone: user?.phone ?? "",
       role_code: user?.role ?? roles[0]?.code ?? "",
       department: user?.department ?? "",
@@ -163,31 +192,37 @@ function UserFormDialog({
   }, [open, user, roles, form]);
 
   async function onSubmit(values: UserFormValues) {
-    if (!isEdit && !values.password) {
-      form.setError("password", { message: "Password is required for new users." });
-      return;
-    }
-
     setLoading(true);
     try {
-      const payload = {
-        ...(isEdit ? { id: user!.id } : {}),
-        full_name: values.full_name,
-        email: values.email,
-        password: isEdit ? undefined : values.password,
-        phone: values.phone || null,
-        department: values.department || null,
-        role_code: values.role_code,
-        status: values.status,
-      };
-
-      const result = await callManageUsers(isEdit ? "PATCH" : "POST", payload);
-      if (!result.success) throw new Error(result.message || "Failed to save user.");
-
-      toast({
-        title: isEdit ? "User updated" : "User created",
-        description: result.message || (isEdit ? "Changes saved." : "Account created."),
-      });
+      if (isEdit) {
+        // Edit: use manage-users PATCH
+        const payload = {
+          id: user!.id,
+          full_name: values.full_name,
+          phone: values.phone || null,
+          department: values.department || null,
+          role_code: values.role_code,
+          status: values.status,
+        };
+        const result = await callManageUsers("PATCH", payload);
+        if (!result.success) throw new Error(result.message || "Failed to update user.");
+        toast({ title: "User updated", description: result.message || "Changes saved." });
+      } else {
+        // New user: send invite email — no password needed
+        const payload = {
+          email: values.email,
+          full_name: values.full_name,
+          role: values.role_code,
+          department: values.department || null,
+          phone: values.phone || null,
+        };
+        const result = await callInviteUser("invite", payload);
+        if (!result.success) throw new Error(result.message || "Failed to send invitation.");
+        toast({
+          title: "Invitation sent",
+          description: `An invitation email has been sent to ${values.email}. They'll set their own password when they accept.`,
+        });
+      }
       onSaved();
       onClose();
     } catch (err: unknown) {
@@ -205,11 +240,11 @@ function UserFormDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit User" : "Create New User"}</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit User" : "Invite User"}</DialogTitle>
           <DialogDescription>
             {isEdit
               ? "Update the user's details, role, and status."
-              : "Create a user account directly. They can log in immediately with the email and password set here."}
+              : "Send an invitation email. The user will receive a link to create their own password and activate their account."}
           </DialogDescription>
         </DialogHeader>
 
@@ -243,21 +278,6 @@ function UserFormDialog({
               )}
             />
 
-            {!isEdit && (
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="Minimum 8 characters" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
@@ -279,9 +299,18 @@ function UserFormDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Department</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. Payroll" {...field} />
-                    </FormControl>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select department" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {departments.map((d) => (
+                          <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -313,27 +342,29 @@ function UserFormDialog({
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {isEdit && (
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="inactive">Inactive</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
 
             <DialogFooter className="pt-2">
@@ -342,7 +373,7 @@ function UserFormDialog({
               </Button>
               <Button type="submit" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isEdit ? "Save Changes" : "Create User"}
+                {isEdit ? "Save Changes" : "Send Invite"}
               </Button>
             </DialogFooter>
           </form>
@@ -372,7 +403,7 @@ function DeleteConfirmDialog({
     try {
       const result = await callManageUsers("DELETE", { id: user.id });
       if (!result.success) throw new Error(result.message || "Failed to delete user.");
-      toast({ title: "User deactivated", description: `${user.full_name} has been deactivated.` });
+      toast({ title: "User deleted", description: `${user.full_name} has been deleted.` });
       onDeleted();
       onClose();
     } catch (err: unknown) {
@@ -390,9 +421,9 @@ function DeleteConfirmDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Deactivate User</DialogTitle>
+          <DialogTitle>Delete User</DialogTitle>
           <DialogDescription>
-            Are you sure you want to deactivate <strong>{user?.full_name}</strong>?
+            Are you sure you want to permanently delete <strong>{user?.full_name}</strong>? This cannot be undone.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -401,7 +432,7 @@ function DeleteConfirmDialog({
           </Button>
           <Button variant="destructive" onClick={handleDelete} disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Deactivate
+            Delete
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -578,7 +609,7 @@ export default function UsersManagement() {
         </div>
         <Button onClick={() => setCreateOpen(true)} className="gap-2" disabled={roleOptions.length === 0}>
           <UserPlus className="h-4 w-4" />
-          Create User
+          Invite User
         </Button>
       </div>
 
@@ -605,8 +636,19 @@ export default function UsersManagement() {
 
       <Tabs defaultValue="users" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="users">
+            <Users className="h-4 w-4 mr-2" />
+            Users
+          </TabsTrigger>
+          <TabsTrigger value="invitations">
+            <Mail className="h-4 w-4 mr-2" />
+            Invitations
+          </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="invitations">
+          <UserManagementTab />
+        </TabsContent>
 
         <TabsContent value="users" className="space-y-4">
           <Card>
@@ -733,7 +775,7 @@ export default function UsersManagement() {
                                   className="text-destructive focus:text-destructive"
                                   onClick={() => setDeleteUser(user)}
                                 >
-                                  <Trash2 className="mr-2 h-4 w-4" /> Deactivate
+                                  <Trash2 className="mr-2 h-4 w-4" /> Delete
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
