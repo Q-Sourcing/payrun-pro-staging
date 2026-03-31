@@ -1,5 +1,7 @@
 // @ts-nocheck
 import { useState, useEffect } from "react";
+
+const MANAGE_USERS_FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`;
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -43,13 +45,20 @@ export const ApprovalCriteriaBuilder = ({ workflowId, organizationId }: Approval
   const loadData = async () => {
     setLoading(true);
     try {
-      const [existingCriteria, pgRes, catRes, deptRes, desRes, usersRes, rolesRes] = await Promise.all([
+      const { data: { session } } = await supabase.auth.getSession();
+      const [existingCriteria, pgRes, catRes, deptRes, desRes, usersResponse, rolesRes] = await Promise.all([
         workflowService.getCriteria(workflowId),
         (supabase as any).from("pay_group_master").select("id, name").eq("is_active", true),
         (supabase as any).from("employee_categories").select("id, label").eq("organization_id", organizationId).eq("active", true),
         (supabase as any).from("company_units").select("id, name").eq("active", true),
         (supabase as any).from("designations").select("id, name").eq("organization_id", organizationId).eq("is_active", true),
-        (supabase as any).from("user_profiles").select("id, first_name, last_name"),
+        fetch(MANAGE_USERS_FN_URL, {
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+        }).then(r => r.json()),
         (supabase as any).from("rbac_roles").select("code, name").not("tier", "eq", "PLATFORM"),
       ]);
       setCriteria(existingCriteria.length > 0 ? existingCriteria : []);
@@ -57,7 +66,10 @@ export const ApprovalCriteriaBuilder = ({ workflowId, organizationId }: Approval
       setCategories(catRes.data || []);
       setDepartments(deptRes.data || []);
       setDesignations(desRes.data || []);
-      setUsers((usersRes.data || []).map((u: any) => ({ id: u.id, name: `${u.first_name} ${u.last_name}`.trim() })));
+      setUsers((usersResponse.users || []).map((u: any) => ({
+        id: u.id,
+        name: u.full_name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email || '',
+      })));
       setRoles(rolesRes.data || []);
     } catch (e) {
       console.error(e);

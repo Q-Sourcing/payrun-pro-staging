@@ -1,6 +1,21 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrg } from '@/lib/auth/OrgProvider';
+
+const MANAGE_USERS_FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`;
+
+async function fetchAllUsers() {
+  const { data: { session } } = await supabase.auth.getSession();
+  const res = await fetch(MANAGE_USERS_FN_URL, {
+    headers: {
+      Authorization: `Bearer ${session?.access_token}`,
+      "Content-Type": "application/json",
+      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+    },
+  });
+  const json = await res.json();
+  return (json.users ?? []) as { id: string; full_name?: string; first_name?: string; last_name?: string; email?: string }[];
+}
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -326,26 +341,37 @@ export const ApproversSection = () => {
     setActionLoading(null);
   };
 
-  // ─── Search users ─────────────────────────────────────────────────────────
+  // ─── Load all users when individual mode is opened ───────────────────────
+
+  const [allUsers, setAllUsers] = useState<UserOption[]>([]);
 
   useEffect(() => {
-    if (!userSearch.trim() || !organizationId || approverMode !== "individual") {
-      setUserOptions([]);
-      return;
-    }
-    const timeout = setTimeout(async () => {
-      setSearchLoading(true);
-      const { data } = await (supabase as any)
-        .from("user_profiles")
-        .select("id, first_name, last_name, email")
-        .eq("organization_id", organizationId)
-        .or(`first_name.ilike.%${userSearch}%,last_name.ilike.%${userSearch}%,email.ilike.%${userSearch}%`)
-        .limit(10);
-      setUserOptions((data ?? []) as UserOption[]);
+    if (approverMode !== "individual") return;
+    if (allUsers.length > 0) return; // already loaded
+    setSearchLoading(true);
+    fetchAllUsers().then((users) => {
+      setAllUsers(users.map(u => ({
+        id: u.id,
+        first_name: u.first_name ?? null,
+        last_name: u.last_name ?? null,
+        email: u.email ?? null,
+      })));
       setSearchLoading(false);
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [userSearch, organizationId, approverMode]);
+    }).catch(() => setSearchLoading(false));
+  }, [approverMode]);
+
+  // Filter loaded users by search term (client-side)
+  const filteredUserOptions = useMemo(() => {
+    if (!selectedUser) {
+      const term = userSearch.trim().toLowerCase();
+      if (!term) return allUsers;
+      return allUsers.filter(u => {
+        const name = `${u.first_name ?? ''} ${u.last_name ?? ''}`.toLowerCase();
+        return name.includes(term) || (u.email ?? '').toLowerCase().includes(term);
+      });
+    }
+    return [];
+  }, [allUsers, userSearch, selectedUser]);
 
   // ─── Add approver ─────────────────────────────────────────────────────────
 
@@ -354,6 +380,7 @@ export const ApproversSection = () => {
     setSelectedRole(null);
     setUserSearch("");
     setUserOptions([]);
+    setAllUsers([]);
     setApproverMode("role");
     setModalOpen(true);
   };
@@ -648,6 +675,7 @@ export const ApproversSection = () => {
                 setSelectedUser(null);
                 setUserSearch("");
                 setUserOptions([]);
+                setAllUsers([]);
               }}
               className="flex gap-4"
             >
@@ -731,13 +759,17 @@ export const ApproversSection = () => {
 
                 {searchLoading && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Searching…
+                    <Loader2 className="h-4 w-4 animate-spin" /> Loading users…
                   </div>
                 )}
 
-                {userOptions.length > 0 && !selectedUser && (
+                {!searchLoading && allUsers.length === 0 && approverMode === "individual" && !selectedUser && (
+                  <p className="text-xs text-muted-foreground py-2">No users found.</p>
+                )}
+
+                {filteredUserOptions.length > 0 && !selectedUser && (
                   <div className="border rounded-md divide-y max-h-48 overflow-y-auto">
-                    {userOptions.map((u) => {
+                    {filteredUserOptions.map((u) => {
                       const label = [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email;
                       return (
                         <button
