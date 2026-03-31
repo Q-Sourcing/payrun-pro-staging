@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,54 +40,194 @@ type TemplateProject = {
 type ParsedImportRow = {
   rowNumber: number;
   data: {
+    // Core
     employee_number: string;
     first_name: string;
+    middle_name: string;
     last_name: string;
     email: string;
+    personal_email: string;
     phone: string;
+    work_phone: string;
+    // Personal
     gender: string;
+    date_of_birth: string;
+    nationality: string;
+    citizenship: string;
+    // Identity docs
     national_id: string;
+    passport_number: string;
+    tin: string;
+    nssf_number: string;
+    social_security_number: string;
+    // Job / org
+    designation: string;
+    sub_department: string;
+    work_location: string;
+    employee_type: string;
+    employee_category: string;
+    engagement_type: string;
+    date_joined: string;
+    // Pay
     pay_type: string;
     pay_rate: string;
-    project_code: string;
-    employee_type: string;
-    date_joined: string;
+    pay_frequency: string;
+    pay_group_name: string;
     country: string;
     currency: string;
     status: string;
+    // Project linkage
+    project_code: string;
+    // Bank
+    bank_name: string;
+    bank_branch: string;
+    account_number: string;
+    account_type: string;
   };
   errors: string[];
 };
 
 type ImportStage = "idle" | "validating" | "importing" | "done";
 
-const REQUIRED_HEADERS = ["first_name", "email", "pay_type", "pay_rate"] as const;
+const REQUIRED_HEADERS = ["first_name", "email", "pay_type", "pay_rate", "country", "employee_type"] as const;
 const TEMPLATE_HEADERS = [
-  "employee_number",
-  "first_name",
-  "last_name",
-  "email",
-  "phone",
-  "gender",
-  "national_id",
-  "pay_type",
-  "pay_rate",
-  "project_code",
-  "employee_type",
-  "date_joined",
-  "country",
-  "currency",
-  "status",
+  // Core identity
+  "Employee Number",
+  "First Name",
+  "Middle Name",
+  "Last Name",
+  "Email",
+  "Personal Email",
+  "Phone",
+  "Work Phone",
+  // Personal
+  "Gender",
+  "Date of Birth",
+  "Nationality",
+  "Citizenship",
+  // Identity docs
+  "National ID",
+  "Passport Number",
+  "TIN",
+  "NSSF Number",
+  "Social Security Number",
+  // Job / org
+  "Designation",
+  "Sub Department",
+  "Work Location",
+  "Employee Type",
+  "Employee Category",
+  "Engagement Type",
+  "Date Joined",
+  // Pay
+  "Pay Type",
+  "Pay Rate",
+  "Pay Frequency",
+  "Pay Group Name",
+  "Country",
+  "Currency",
+  "Status",
+  // Project
+  "Project Code",
+  // Bank
+  "Bank Name",
+  "Bank Branch",
+  "Account Number",
+  "Account Type",
 ];
 const VALID_PAY_TYPES: EmployeePayType[] = ["hourly", "salary", "piece_rate", "daily_rate"];
 const VALID_EMPLOYEE_TYPES = ["regular", "manpower", "ippms", "expatriate", "interns", "contractor"];
+const VALID_EMPLOYEE_CATEGORIES = ["Intern", "Trainee", "Temporary", "Permanent", "On Contract", "Casual"];
+const VALID_ENGAGEMENT_TYPES = ["Permanent", "Contract", "Temporary", "Casual", "Trainee", "Intern"];
+const VALID_PAY_FREQUENCIES = ["daily", "bi_weekly", "monthly"];
+const VALID_GENDERS = ["Male", "Female", "Other"];
+const VALID_ACCOUNT_TYPES = ["savings", "current", "mobile_money"];
 const VALID_STATUS = ["active", "inactive"];
+
+const FIELD_LABELS: Record<string, string> = {
+  employee_number:        "Employee Number",
+  first_name:             "First Name",
+  middle_name:            "Middle Name",
+  last_name:              "Last Name",
+  email:                  "Email",
+  personal_email:         "Personal Email",
+  phone:                  "Phone",
+  work_phone:             "Work Phone",
+  gender:                 "Gender",
+  date_of_birth:          "Date of Birth",
+  nationality:            "Nationality",
+  citizenship:            "Citizenship",
+  national_id:            "National ID",
+  passport_number:        "Passport Number",
+  tin:                    "TIN",
+  nssf_number:            "NSSF Number",
+  social_security_number: "Social Security Number",
+  designation:            "Designation",
+  sub_department:         "Sub Department",
+  work_location:          "Work Location",
+  employee_type:          "Employee Type",
+  employee_category:      "Employee Category",
+  engagement_type:        "Engagement Type",
+  date_joined:            "Date Joined",
+  pay_type:               "Pay Type",
+  pay_rate:               "Pay Rate",
+  pay_frequency:          "Pay Frequency",
+  pay_group_name:         "Pay Group Name",
+  country:                "Country",
+  currency:               "Currency",
+  status:                 "Status",
+  project_code:           "Project Code",
+  bank_name:              "Bank Name",
+  bank_branch:            "Bank Branch",
+  account_number:         "Account Number",
+  account_type:           "Account Type",
+};
 
 const normalizeHeader = (header: string) =>
   String(header || "")
     .trim()
     .toLowerCase()
     .replace(/[ -]+/g, "_");
+
+/** Convert 0-based column index to Excel letter (A, B, … Z, AA, AB …) */
+const colLetter = (idx: number): string => {
+  let s = "";
+  let n = idx + 1;
+  while (n > 0) {
+    const r = (n - 1) % 26;
+    s = String.fromCharCode(65 + r) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+};
+
+/**
+ * Try to match `value` to one of `validValues` with fuzzy tolerance:
+ * 1. Exact match  2. Case-insensitive  3. Separator-normalised (spaces/dashes → underscores)
+ * Returns the canonical valid value on match, null otherwise.
+ */
+const normalizeEnum = (value: string, validValues: string[]): string | null => {
+  if (!value) return null;
+  if (validValues.includes(value)) return value;
+  const lower = value.toLowerCase();
+  const exact = validValues.find(v => v.toLowerCase() === lower);
+  if (exact) return exact;
+  const norm = lower.replace(/[\s-]+/g, "_");
+  return validValues.find(v => v.toLowerCase().replace(/[\s-]+/g, "_") === norm) ?? null;
+};
+
+/** Build an enum validation error with a "did you mean?" hint when possible. */
+const enumError = (field: string, raw: string, validValues: string[]): string => {
+  const norm = raw.toLowerCase().replace(/[\s_-]+/g, "");
+  const suggestion = validValues.find(v => {
+    const vn = v.toLowerCase().replace(/[\s_-]+/g, "");
+    return vn.startsWith(norm.slice(0, 4)) || norm.startsWith(vn.slice(0, 4));
+  });
+  const base = `${field} "${raw}" is not valid`;
+  return suggestion
+    ? `${base} — did you mean "${suggestion}"? Valid: ${validValues.join(", ")}`
+    : `${base} — valid values: ${validValues.join(", ")}`;
+};
 
 const parseExcelDate = (value: unknown): string => {
   if (!value) return "";
@@ -142,6 +283,9 @@ const BulkImportEmployeesXlsxDialog = ({ open, onOpenChange, onEmployeesAdded }:
   const [file, setFile] = useState<File | null>(null);
   const [projects, setProjects] = useState<TemplateProject[]>([]);
   const [templates, setTemplates] = useState<ContractTemplate[]>([]);
+  const [payGroups, setPayGroups] = useState<{ id: string; name: string }[]>([]);
+  const [orgDepts, setOrgDepts] = useState<string[]>([]);
+  const [orgDesignations, setOrgDesignations] = useState<string[]>([]);
   const [rows, setRows] = useState<ParsedImportRow[]>([]);
   const [stage, setStage] = useState<ImportStage>("idle");
   const [progress, setProgress] = useState(0);
@@ -172,6 +316,32 @@ const BulkImportEmployeesXlsxDialog = ({ open, onOpenChange, onEmployeesAdded }:
       } catch {
         setTemplates([]);
       }
+
+      // Pay groups (org-scoped — name shown in template, UUID resolved on import)
+      const { data: pgData } = await supabase
+        .from("pay_groups")
+        .select("id, name")
+        .eq("organization_id", orgId)
+        .order("name");
+      setPayGroups((pgData || []) as { id: string; name: string }[]);
+
+      // Org departments (for sub_department dropdown)
+      const { data: deptData } = await supabase
+        .from("org_departments")
+        .select("name")
+        .eq("organization_id", orgId)
+        .eq("is_active", true)
+        .order("name");
+      setOrgDepts((deptData || []).map(d => d.name));
+
+      // Designations
+      const { data: desigData } = await supabase
+        .from("designations")
+        .select("name")
+        .eq("organization_id", orgId)
+        .eq("is_active", true)
+        .order("name");
+      setOrgDesignations((desigData || []).map(d => d.name));
     };
 
     void loadReferences();
@@ -192,55 +362,210 @@ const BulkImportEmployeesXlsxDialog = ({ open, onOpenChange, onEmployeesAdded }:
     setSummary({ createdEmployees: 0, createdContracts: 0, errors: 0 });
   };
 
-  const downloadTemplate = () => {
-    const workbook = XLSX.utils.book_new();
-    const sampleRows = [
-      {
-        employee_number: "EMP-1001",
-        first_name: "John",
-        last_name: "Doe",
-        email: "john.doe@example.com",
-        phone: "+256700000000",
-        gender: "male",
-        national_id: "CM1234567890",
-        pay_type: "salary",
-        pay_rate: 3500000,
-        project_code: projects[0]?.code || "",
-        employee_type: "regular",
-        date_joined: "2026-02-01",
-        country: "UG",
-        currency: "UGX",
-        status: "active",
-      },
-    ];
-    const templateSheet = XLSX.utils.json_to_sheet(sampleRows, { header: TEMPLATE_HEADERS });
-    XLSX.utils.book_append_sheet(workbook, templateSheet, "EmployeesTemplate");
+  const downloadTemplate = async () => {
+    const wb = new ExcelJS.Workbook();
+    const payGroupNames = payGroups.map(pg => pg.name);
+    const activeProjects = projects.filter(p => p.status === "active");
 
-    const referenceRows: Array<Record<string, string>> = [
-      { group: "pay_type", value: "hourly", notes: "Allowed value" },
-      { group: "pay_type", value: "salary", notes: "Allowed value" },
-      { group: "pay_type", value: "piece_rate", notes: "Allowed value" },
-      { group: "pay_type", value: "daily_rate", notes: "Allowed value" },
-      { group: "employee_type", value: "regular", notes: "Default if blank" },
-      { group: "employee_type", value: "manpower", notes: "Project-linked employees" },
-      { group: "employee_type", value: "ippms", notes: "Project-linked employees" },
-      { group: "employee_type", value: "expatriate", notes: "Project-linked employees" },
-      { group: "status", value: "active", notes: "Default if blank" },
-      { group: "status", value: "inactive", notes: "Allowed value" },
-      { group: "country", value: "Use ISO code e.g. UG", notes: "Country code" },
+    // ── Hidden _Lists sheet for org-specific dropdown data ──────────────────
+    const listsSheet = wb.addWorksheet("_Lists", { state: "hidden" });
+    payGroupNames.forEach((n, i) => { listsSheet.getCell(i + 1, 1).value = n; });
+    orgDepts.forEach((n, i)        => { listsSheet.getCell(i + 1, 2).value = n; });
+    orgDesignations.forEach((n, i) => { listsSheet.getCell(i + 1, 3).value = n; });
+    activeProjects.forEach((p, i)  => { listsSheet.getCell(i + 1, 4).value = p.code; });
+
+    // ── Sheet 1: Field Guide ─────────────────────────────────────────────────
+    const guideSheet = wb.addWorksheet("Field Guide");
+    guideSheet.columns = [
+      { header: "Column Name",  key: "field",        width: 24 },
+      { header: "Required",     key: "required",     width: 14 },
+      { header: "Description",  key: "description",  width: 52 },
+      { header: "Valid Values", key: "valid_values", width: 58 },
     ];
-    projects.forEach((project) => {
-      referenceRows.push({
-        group: "project_code",
-        value: project.code,
-        notes: `${project.name}${project.status === "active" ? "" : " (inactive)"}`,
-      });
+    guideSheet.getRow(1).font = { bold: true };
+    guideSheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
+
+    const requiredGuideRows = [
+      { field: "First Name",    required: "★ REQUIRED", description: "Employee first name",                         valid_values: "" },
+      { field: "Email",         required: "★ REQUIRED", description: "Work email — must be unique within this org", valid_values: "" },
+      { field: "Employee Type", required: "★ REQUIRED", description: "Employment classification",                   valid_values: VALID_EMPLOYEE_TYPES.join(", ") },
+      { field: "Pay Type",      required: "★ REQUIRED", description: "Payment method",                              valid_values: VALID_PAY_TYPES.join(", ") },
+      { field: "Pay Rate",      required: "★ REQUIRED", description: "Pay amount — positive number",                valid_values: "" },
+      { field: "Country",       required: "★ REQUIRED", description: "Country ISO code",                            valid_values: "UG, KE, TZ, SS, RW" },
+    ];
+    const optionalGuideRows = [
+      { field: "Employee Number",        required: "optional", description: "Leave blank to auto-generate",                         valid_values: "" },
+      { field: "Middle Name",            required: "optional", description: "Middle name",                                          valid_values: "" },
+      { field: "Last Name",              required: "optional", description: "Last name",                                            valid_values: "" },
+      { field: "Personal Email",         required: "optional", description: "Personal email address",                               valid_values: "" },
+      { field: "Phone",                  required: "optional", description: "Phone with country code",                              valid_values: "" },
+      { field: "Work Phone",             required: "optional", description: "Work phone number",                                    valid_values: "" },
+      { field: "Gender",                 required: "optional", description: "Employee gender",                                      valid_values: VALID_GENDERS.join(", ") },
+      { field: "Date of Birth",          required: "optional", description: "Date of birth — YYYY-MM-DD",                          valid_values: "" },
+      { field: "Nationality",            required: "optional", description: "Nationality (e.g. Ugandan)",                          valid_values: "" },
+      { field: "Citizenship",            required: "optional", description: "Citizenship",                                         valid_values: "" },
+      { field: "National ID",            required: "optional", description: "National ID number",                                   valid_values: "" },
+      { field: "Passport Number",        required: "optional", description: "Passport number",                                      valid_values: "" },
+      { field: "TIN",                    required: "optional", description: "Tax Identification Number",                            valid_values: "" },
+      { field: "NSSF Number",            required: "optional", description: "NSSF / pension fund number",                           valid_values: "" },
+      { field: "Social Security Number", required: "optional", description: "Social security number",                               valid_values: "" },
+      { field: "Designation",            required: "optional", description: "Job title / role",                                     valid_values: orgDesignations.join(", ") || "e.g. Engineer, Accountant" },
+      { field: "Sub Department",         required: "optional", description: "Department / unit",                                    valid_values: orgDepts.join(", ") || "e.g. Finance, Operations" },
+      { field: "Work Location",          required: "optional", description: "Primary work location",                                valid_values: "" },
+      { field: "Employee Category",      required: "optional", description: "Employee category",                                    valid_values: VALID_EMPLOYEE_CATEGORIES.join(", ") },
+      { field: "Engagement Type",        required: "optional", description: "Engagement type",                                      valid_values: VALID_ENGAGEMENT_TYPES.join(", ") },
+      { field: "Date Joined",            required: "optional", description: "Date joined — YYYY-MM-DD",                             valid_values: "" },
+      { field: "Pay Frequency",          required: "optional", description: "How often the employee is paid",                       valid_values: VALID_PAY_FREQUENCIES.join(", ") },
+      { field: "Pay Group Name",         required: "optional", description: "Pay group — see Reference sheet",                      valid_values: payGroupNames.join(", ") || "Leave blank if not applicable" },
+      { field: "Currency",               required: "optional", description: "Currency code — auto-detected from country if blank",  valid_values: "UGX, KES, TZS, SSP, RWF" },
+      { field: "Status",                 required: "optional", description: "Employment status — defaults to active",               valid_values: VALID_STATUS.join(", ") },
+      { field: "Project Code",           required: "optional", description: "Project code — see Reference sheet",                   valid_values: activeProjects.map(p => p.code).join(", ") || "" },
+      { field: "Bank Name",              required: "optional", description: "Bank name",                                            valid_values: "" },
+      { field: "Bank Branch",            required: "optional", description: "Bank branch",                                          valid_values: "" },
+      { field: "Account Number",         required: "optional", description: "Bank account number",                                  valid_values: "" },
+      { field: "Account Type",           required: "optional", description: "Bank account type",                                    valid_values: VALID_ACCOUNT_TYPES.join(", ") },
+    ];
+
+    [...requiredGuideRows, ...optionalGuideRows].forEach(rowData => {
+      const row = guideSheet.addRow(rowData);
+      if (rowData.required === "★ REQUIRED") {
+        row.eachCell(cell => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF8E1" } };
+        });
+      }
     });
 
-    const referenceSheet = XLSX.utils.json_to_sheet(referenceRows, { header: ["group", "value", "notes"] });
-    XLSX.utils.book_append_sheet(workbook, referenceSheet, "Reference");
+    // ── Sheet 2: Import Data ─────────────────────────────────────────────────
+    const dataSheet = wb.addWorksheet("Import Data");
+    dataSheet.columns = TEMPLATE_HEADERS.map(h => ({ header: h, key: h, width: 22 }));
+    dataSheet.getRow(1).font = { bold: true };
+    dataSheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
 
-    XLSX.writeFile(workbook, "employee_bulk_onboarding_template.xlsx");
+    dataSheet.addRow({
+      "Employee Number":        "EMP-1001",
+      "First Name":             "John",
+      "Middle Name":            "",
+      "Last Name":              "Doe",
+      "Email":                  "john.doe@example.com",
+      "Personal Email":         "",
+      "Phone":                  "+256700000000",
+      "Work Phone":             "",
+      "Gender":                 "Male",
+      "Date of Birth":          "1990-05-15",
+      "Nationality":            "Ugandan",
+      "Citizenship":            "Ugandan",
+      "National ID":            "CM1234567890",
+      "Passport Number":        "",
+      "TIN":                    "",
+      "NSSF Number":            "",
+      "Social Security Number": "",
+      "Designation":            orgDesignations[0] || "Technician",
+      "Sub Department":         orgDepts[0] || "",
+      "Work Location":          "Kampala",
+      "Employee Type":          "regular",
+      "Employee Category":      "Permanent",
+      "Engagement Type":        "Permanent",
+      "Date Joined":            "2026-02-01",
+      "Pay Type":               "salary",
+      "Pay Rate":               3500000,
+      "Pay Frequency":          "monthly",
+      "Pay Group Name":         payGroupNames[0] || "",
+      "Country":                "UG",
+      "Currency":               "UGX",
+      "Status":                 "active",
+      "Project Code":           activeProjects[0]?.code || "",
+      "Bank Name":              "Stanbic Bank",
+      "Bank Branch":            "Kampala",
+      "Account Number":         "9030012345678",
+      "Account Type":           "savings",
+    });
+
+    // ── Dropdown validations ─────────────────────────────────────────────────
+    const addDropdown = (colHeader: string, formulae: string[], promptText: string) => {
+      const colIdx = TEMPLATE_HEADERS.indexOf(colHeader) + 1; // 1-based
+      if (colIdx < 1) return;
+      for (let r = 2; r <= 100; r++) {
+        dataSheet.getCell(r, colIdx).dataValidation = {
+          type: "list",
+          allowBlank: true,
+          formulae,
+          showErrorMessage: true,
+          errorStyle: "error",
+          errorTitle: "Invalid value",
+          error: `Please select from the list: ${promptText}`,
+          showInputMessage: true,
+          promptTitle: "Valid values",
+          prompt: promptText,
+        };
+      }
+    };
+
+    // Static enum dropdowns (inline formulae)
+    addDropdown("Employee Type",     [`"${VALID_EMPLOYEE_TYPES.join(",")}"`],     VALID_EMPLOYEE_TYPES.join(", "));
+    addDropdown("Pay Type",          [`"${VALID_PAY_TYPES.join(",")}"`],          VALID_PAY_TYPES.join(", "));
+    addDropdown("Gender",            [`"${VALID_GENDERS.join(",")}"`],            VALID_GENDERS.join(", "));
+    addDropdown("Employee Category", [`"${VALID_EMPLOYEE_CATEGORIES.join(",")}"`],VALID_EMPLOYEE_CATEGORIES.join(", "));
+    addDropdown("Engagement Type",   [`"${VALID_ENGAGEMENT_TYPES.join(",")}"`],   VALID_ENGAGEMENT_TYPES.join(", "));
+    addDropdown("Pay Frequency",     [`"${VALID_PAY_FREQUENCIES.join(",")}"`],    VALID_PAY_FREQUENCIES.join(", "));
+    addDropdown("Account Type",      [`"${VALID_ACCOUNT_TYPES.join(",")}"`],      VALID_ACCOUNT_TYPES.join(", "));
+    addDropdown("Status",            [`"${VALID_STATUS.join(",")}"`],             VALID_STATUS.join(", "));
+
+    // Org-specific dropdowns — reference hidden _Lists sheet
+    if (payGroupNames.length > 0)
+      addDropdown("Pay Group Name", [`'_Lists'!$A$1:$A$${payGroupNames.length}`], payGroupNames.join(", "));
+    if (orgDepts.length > 0)
+      addDropdown("Sub Department", [`'_Lists'!$B$1:$B$${orgDepts.length}`], orgDepts.join(", "));
+    if (orgDesignations.length > 0)
+      addDropdown("Designation",    [`'_Lists'!$C$1:$C$${orgDesignations.length}`], orgDesignations.join(", "));
+    if (activeProjects.length > 0)
+      addDropdown("Project Code",   [`'_Lists'!$D$1:$D$${activeProjects.length}`], activeProjects.map(p => p.code).join(", "));
+
+    // ── Sheet 3: Reference ───────────────────────────────────────────────────
+    const refSheet = wb.addWorksheet("Reference");
+    refSheet.columns = [
+      { header: "Group", key: "group", width: 22 },
+      { header: "Value", key: "value", width: 30 },
+      { header: "Notes", key: "notes", width: 30 },
+    ];
+    refSheet.getRow(1).font = { bold: true };
+    refSheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
+
+    const refRows = [
+      { group: "★ Required Fields", value: "First Name",    notes: "REQUIRED" },
+      { group: "★ Required Fields", value: "Email",         notes: "REQUIRED" },
+      { group: "★ Required Fields", value: "Pay Type",      notes: "REQUIRED" },
+      { group: "★ Required Fields", value: "Pay Rate",      notes: "REQUIRED" },
+      { group: "★ Required Fields", value: "Country",       notes: "REQUIRED" },
+      { group: "★ Required Fields", value: "Employee Type", notes: "REQUIRED" },
+      ...VALID_PAY_TYPES.map(v          => ({ group: "Pay Type",          value: v, notes: "Allowed" })),
+      ...VALID_EMPLOYEE_TYPES.map(v     => ({ group: "Employee Type",     value: v, notes: "Allowed" })),
+      ...VALID_EMPLOYEE_CATEGORIES.map(v=> ({ group: "Employee Category", value: v, notes: "Allowed" })),
+      ...VALID_ENGAGEMENT_TYPES.map(v   => ({ group: "Engagement Type",   value: v, notes: "Allowed" })),
+      ...VALID_PAY_FREQUENCIES.map(v    => ({ group: "Pay Frequency",     value: v, notes: "Allowed" })),
+      ...VALID_GENDERS.map(v            => ({ group: "Gender",            value: v, notes: "Allowed" })),
+      ...VALID_ACCOUNT_TYPES.map(v      => ({ group: "Account Type",      value: v, notes: "Allowed" })),
+      ...VALID_STATUS.map(v             => ({ group: "Status",            value: v, notes: "Allowed" })),
+      { group: "Country", value: "UG", notes: "Uganda" },
+      { group: "Country", value: "KE", notes: "Kenya" },
+      { group: "Country", value: "TZ", notes: "Tanzania" },
+      { group: "Country", value: "SS", notes: "South Sudan" },
+      { group: "Country", value: "RW", notes: "Rwanda" },
+      ...payGroups.map(pg      => ({ group: "Pay Group Name", value: pg.name, notes: "Your org's pay group" })),
+      ...orgDepts.map(d        => ({ group: "Sub Department", value: d,       notes: "Your org's department" })),
+      ...orgDesignations.map(d => ({ group: "Designation",   value: d,       notes: "Your org's designation" })),
+      ...activeProjects.map(p  => ({ group: "Project Code",  value: p.code,  notes: p.name })),
+    ];
+    refRows.forEach(r => refSheet.addRow(r));
+
+    // ── Download ─────────────────────────────────────────────────────────────
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "employee_bulk_import_template.xlsx";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const parseAndValidate = async () => {
@@ -259,11 +584,15 @@ const BulkImportEmployeesXlsxDialog = ({ open, onOpenChange, onEmployeesAdded }:
     setProgress(10);
     try {
       const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
-      const firstSheetName = workbook.SheetNames[0];
-      if (!firstSheetName) {
+      // Prefer the named data sheet; fall back to first sheet that isn't the guide or reference
+      const importSheetName =
+        workbook.SheetNames.find(n => n === "Import Data") ??
+        workbook.SheetNames.find(n => !["Field Guide", "Reference"].includes(n)) ??
+        workbook.SheetNames[0];
+      if (!importSheetName) {
         throw new Error("File does not contain any worksheet.");
       }
-      const sheet = workbook.Sheets[firstSheetName];
+      const sheet = workbook.Sheets[importSheetName];
       const jsonRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
 
       if (!jsonRows.length) {
@@ -317,35 +646,78 @@ const BulkImportEmployeesXlsxDialog = ({ open, onOpenChange, onEmployeesAdded }:
       const parsedRows: ParsedImportRow[] = normalizedRows.map(({ rowNumber, normalized }) => {
         const payRateString = String(normalized.pay_rate || "");
         const payRate = Number(payRateString);
-        const payType = String(normalized.pay_type || "").toLowerCase();
+        const rawPayType = String(normalized.pay_type || "").trim();
+        const payType = normalizeEnum(rawPayType, VALID_PAY_TYPES) ?? rawPayType.toLowerCase();
         const projectCode = String(normalized.project_code || "").trim();
         const project = projectCode ? projectsByCode.get(projectCode.toLowerCase()) : undefined;
-        const employeeType = String(normalized.employee_type || "").toLowerCase();
+        const rawEmployeeType = String(normalized.employee_type || "").trim();
+        const employeeType = normalizeEnum(rawEmployeeType, VALID_EMPLOYEE_TYPES) ?? rawEmployeeType.toLowerCase();
+        const rawGender = String(normalized.gender || "").trim();
+        const gender = normalizeEnum(rawGender, VALID_GENDERS) ?? rawGender;
+        const rawCategory = String(normalized.employee_category || "").trim();
+        const employeeCategory = normalizeEnum(rawCategory, VALID_EMPLOYEE_CATEGORIES) ?? rawCategory;
+        const rawEngagement = String(normalized.engagement_type || "").trim();
+        const engagementType = normalizeEnum(rawEngagement, VALID_ENGAGEMENT_TYPES) ?? rawEngagement;
+        const rawFrequency = String(normalized.pay_frequency || "").trim();
+        const payFrequency = normalizeEnum(rawFrequency, VALID_PAY_FREQUENCIES) ?? rawFrequency.toLowerCase();
+        const rawAccountType = String(normalized.account_type || "").trim();
+        const accountType = normalizeEnum(rawAccountType, VALID_ACCOUNT_TYPES) ?? rawAccountType.toLowerCase();
+        const rawStatus = String(normalized.status || "").trim();
+        const status = normalizeEnum(rawStatus, VALID_STATUS) ?? rawStatus.toLowerCase();
         const joined = parseExcelDate(normalized.date_joined);
+        const dob = parseExcelDate(normalized.date_of_birth);
 
         const data = {
+          // Core identity
           employee_number: String(normalized.employee_number || "").trim(),
           first_name: String(normalized.first_name || "").trim(),
+          middle_name: String(normalized.middle_name || "").trim(),
           last_name: String(normalized.last_name || "").trim(),
           email: String(normalized.email || "").trim(),
+          personal_email: String(normalized.personal_email || "").trim(),
           phone: String(normalized.phone || "").trim(),
-          gender: String(normalized.gender || "").trim(),
+          work_phone: String(normalized.work_phone || "").trim(),
+          // Personal
+          gender,
+          date_of_birth: dob,
+          nationality: String(normalized.nationality || "").trim(),
+          citizenship: String(normalized.citizenship || "").trim(),
+          // Identity docs
           national_id: String(normalized.national_id || "").trim(),
+          passport_number: String(normalized.passport_number || "").trim(),
+          tin: String(normalized.tin || "").trim(),
+          nssf_number: String(normalized.nssf_number || "").trim(),
+          social_security_number: String(normalized.social_security_number || "").trim(),
+          // Job / org
+          designation: String(normalized.designation || "").trim(),
+          sub_department: String(normalized.sub_department || "").trim(),
+          work_location: String(normalized.work_location || "").trim(),
+          employee_type: employeeType || "regular",
+          employee_category: employeeCategory,
+          engagement_type: engagementType,
+          date_joined: joined,
+          // Pay
           pay_type: payType,
           pay_rate: payRateString,
-          project_code: projectCode,
-          employee_type: employeeType || "regular",
-          date_joined: joined,
+          pay_frequency: payFrequency,
+          pay_group_name: String(normalized.pay_group_name || "").trim(),
           country: String(normalized.country || "").trim().toUpperCase(),
           currency: String(normalized.currency || "").trim().toUpperCase(),
-          status: String(normalized.status || "").trim().toLowerCase() || "active",
+          status: status || "active",
+          // Project
+          project_code: projectCode,
+          // Bank
+          bank_name: String(normalized.bank_name || "").trim(),
+          bank_branch: String(normalized.bank_branch || "").trim(),
+          account_number: String(normalized.account_number || "").trim(),
+          account_type: accountType,
         };
 
         const errors: string[] = [];
 
         REQUIRED_HEADERS.forEach((field) => {
           if (!String(data[field] || "").trim()) {
-            errors.push(`${field} is required`);
+            errors.push(`${FIELD_LABELS[field] || field} is required`);
           }
         });
 
@@ -356,13 +728,35 @@ const BulkImportEmployeesXlsxDialog = ({ open, onOpenChange, onEmployeesAdded }:
           errors.push("email is invalid");
         }
         if (data.pay_type && !VALID_PAY_TYPES.includes(data.pay_type as EmployeePayType)) {
-          errors.push(`pay_type must be one of: ${VALID_PAY_TYPES.join(", ")}`);
+          errors.push(enumError("Pay Type", rawPayType, VALID_PAY_TYPES));
         }
         if (data.employee_type && !VALID_EMPLOYEE_TYPES.includes(data.employee_type)) {
-          errors.push(`employee_type must be one of: ${VALID_EMPLOYEE_TYPES.join(", ")}`);
+          errors.push(enumError("Employee Type", rawEmployeeType, VALID_EMPLOYEE_TYPES));
         }
         if (data.status && !VALID_STATUS.includes(data.status)) {
-          errors.push("status must be active or inactive");
+          errors.push(enumError("Status", rawStatus, VALID_STATUS));
+        }
+        if (data.gender && !VALID_GENDERS.includes(data.gender)) {
+          errors.push(enumError("Gender", rawGender, VALID_GENDERS));
+        }
+        if (data.employee_category && !VALID_EMPLOYEE_CATEGORIES.includes(data.employee_category)) {
+          errors.push(enumError("Employee Category", rawCategory, VALID_EMPLOYEE_CATEGORIES));
+        }
+        if (data.engagement_type && !VALID_ENGAGEMENT_TYPES.includes(data.engagement_type)) {
+          errors.push(enumError("Engagement Type", rawEngagement, VALID_ENGAGEMENT_TYPES));
+        }
+        if (data.pay_frequency && !VALID_PAY_FREQUENCIES.includes(data.pay_frequency)) {
+          errors.push(enumError("Pay Frequency", rawFrequency, VALID_PAY_FREQUENCIES));
+        }
+        if (data.account_type && !VALID_ACCOUNT_TYPES.includes(data.account_type)) {
+          errors.push(enumError("Account Type", rawAccountType, VALID_ACCOUNT_TYPES));
+        }
+        // Date format validation — flag if a value was provided but couldn't be parsed
+        if (String(normalized.date_of_birth || "").trim() && !data.date_of_birth) {
+          errors.push("date_of_birth is invalid — use YYYY-MM-DD or a recognisable date format");
+        }
+        if (String(normalized.date_joined || "").trim() && !data.date_joined) {
+          errors.push("date_joined is invalid — use YYYY-MM-DD or a recognisable date format");
         }
 
         if (projectCode) {
@@ -443,22 +837,53 @@ const BulkImportEmployeesXlsxDialog = ({ open, onOpenChange, onEmployeesAdded }:
         const project = row.data.project_code ? projectsByCode.get(row.data.project_code.toLowerCase()) : undefined;
         const generatedNumber = `EMP-${Date.now()}-${index + 1}`;
         return {
+          // Core identity
           employee_number: row.data.employee_number || generatedNumber,
           first_name: row.data.first_name,
+          middle_name: row.data.middle_name || null,
           last_name: row.data.last_name || null,
           email: row.data.email,
+          personal_email: row.data.personal_email || null,
           phone: row.data.phone || null,
+          work_phone: row.data.work_phone || null,
+          // Personal
           gender: row.data.gender || null,
+          date_of_birth: row.data.date_of_birth || null,
+          nationality: row.data.nationality || null,
+          citizenship: row.data.citizenship || null,
+          // Identity docs
           national_id: row.data.national_id || null,
+          passport_number: row.data.passport_number || null,
+          tin: row.data.tin || null,
+          nssf_number: row.data.nssf_number || null,
+          social_security_number: row.data.social_security_number || null,
+          // Job / org
+          designation: row.data.designation || null,
+          sub_department: row.data.sub_department || null,
+          work_location: row.data.work_location || null,
+          employee_type: row.data.employee_type || "regular",
+          employee_category: row.data.employee_category || null,
+          engagement_type: row.data.engagement_type || null,
+          date_joined: row.data.date_joined || null,
+          // Pay
           pay_type: row.data.pay_type as EmployeePayType,
           pay_rate: Number(row.data.pay_rate),
-          project_id: project?.id || null,
-          category: project ? "projects" : "head_office",
-          employee_type: row.data.employee_type || "regular",
-          date_joined: row.data.date_joined || null,
+          pay_frequency: row.data.pay_frequency || null,
+          pay_group_id: payGroups.find(pg =>
+            pg.name.toLowerCase() === (row.data.pay_group_name || "").toLowerCase()
+          )?.id || null,
           country: row.data.country,
           currency: row.data.currency,
           status: row.data.status || "active",
+          // Project linkage
+          project_id: project?.id || null,
+          category: project ? "projects" : "head_office",
+          // Bank
+          bank_name: row.data.bank_name || null,
+          bank_branch: row.data.bank_branch || null,
+          account_number: row.data.account_number || null,
+          account_type: row.data.account_type || null,
+          // Multi-tenancy
           organization_id: orgId,
           company_id: companyId || null,
         };
@@ -556,7 +981,7 @@ const BulkImportEmployeesXlsxDialog = ({ open, onOpenChange, onEmployeesAdded }:
                 <div className="text-sm text-muted-foreground">
                   Template columns include first_name, last_name, email, pay_type, pay_rate, project_code, employee_type, date_joined and more.
                 </div>
-                <Button variant="outline" onClick={downloadTemplate}>
+                <Button variant="outline" onClick={() => downloadTemplate().catch(console.error)}>
                   <Download className="h-4 w-4 mr-2" />
                   Download XLSX Template
                 </Button>
