@@ -8,7 +8,7 @@ interface AssetTypeBadgeProps {
   className?: string;
 }
 
-const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+const ICON_MAP: Record<string, React.ComponentType<any>> = {
   laptop: Laptop,
   mail: Mail,
   'map-pin': MapPin,

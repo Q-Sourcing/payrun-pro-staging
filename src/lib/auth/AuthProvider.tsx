@@ -44,7 +44,8 @@ interface AuthContextType {
   session: Session | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
+  register?: (email: string, password: string, metadata?: Record<string, any>) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
   // OBAC integration
