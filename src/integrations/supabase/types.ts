@@ -7381,6 +7381,7 @@ export type Database = {
           employee_type: string | null
           exchange_rate: number | null
           id: string
+          name: string | null
           organization_id: string
           pay_frequency: string | null
           pay_group_id: string | null
@@ -7418,6 +7419,7 @@ export type Database = {
           employee_type?: string | null
           exchange_rate?: number | null
           id?: string
+          name?: string | null
           organization_id: string
           pay_frequency?: string | null
           pay_group_id?: string | null
@@ -7455,6 +7457,7 @@ export type Database = {
           employee_type?: string | null
           exchange_rate?: number | null
           id?: string
+          name?: string | null
           organization_id?: string
           pay_frequency?: string | null
           pay_group_id?: string | null
