@@ -123,16 +123,14 @@ const ApprovalActionDialog = ({ isOpen, onClose, onConfirm, title, description, 
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
-          {(requireComment || true) && (
-            <div className="space-y-2">
-              <Label>Comments {requireComment && "*"}</Label>
-              <Textarea
-                value={comment}
-                onChange={e => setComment(e.target.value)}
-                placeholder="Add a comment..."
-              />
-            </div>
-          )}
+          <div className="space-y-2">
+            <Label>Comments {requireComment && "*"}</Label>
+            <Textarea
+              value={comment}
+              onChange={e => setComment(e.target.value)}
+              placeholder="Add a comment..."
+            />
+          </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={onClose}>Cancel</Button>
             <Button
