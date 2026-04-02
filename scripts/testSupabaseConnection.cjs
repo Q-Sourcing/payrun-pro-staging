@@ -73,9 +73,7 @@ async function testSupabaseConnection() {
   
   const supabaseUrl = envVars.VITE_SUPABASE_URL;
   const anonKey = envVars.VITE_SUPABASE_ANON_KEY;
-  const serviceRoleKey = envVars.SUPABASE_SERVICE_ROLE_KEY;
-  const usingServiceRole = Boolean(serviceRoleKey);
-  const supabaseKey = usingServiceRole ? serviceRoleKey : anonKey;
+  const supabaseKey = anonKey;
   
   if (!supabaseUrl || !supabaseKey) {
     log('❌ Missing Supabase credentials', colors.red);
@@ -87,7 +85,7 @@ async function testSupabaseConnection() {
   log(`\n📋 Connection Details:`, colors.bold);
   log(`  • Environment: ${environment}`);
   log(`  • Supabase URL: ${supabaseUrl}`);
-  log(`  • Auth mode: ${usingServiceRole ? 'SERVICE_ROLE' : 'ANON'}`);
+  log(`  • Auth mode: ANON`);
   log(`  • API Key: ${supabaseKey.substring(0, 20)}...`);
   
   try {
@@ -116,7 +114,7 @@ async function testSupabaseConnection() {
         message.includes('not authorized') ||
         message.includes('unauthorized');
 
-      if (!usingServiceRole && looksLikeRls) {
+      if (looksLikeRls) {
         log(`⚠️ Connection reachable but query blocked by permissions (RLS). Continuing as SUCCESS.`, colors.yellow);
         const statusReport = {
           timestamp: new Date().toISOString(),

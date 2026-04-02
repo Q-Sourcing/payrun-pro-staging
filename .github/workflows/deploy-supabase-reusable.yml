@@ -23,10 +23,6 @@ on:
         description: Supabase access token for CLI authentication
         required: true
         type: string
-      supabase_service_role_key:
-        description: Optional Supabase service role key for connection test / diagnostics
-        required: false
-        type: string
 
 jobs:
   deploy:
@@ -39,7 +35,6 @@ jobs:
       cancel-in-progress: false
     env:
       SUPABASE_ACCESS_TOKEN: ${{ inputs.supabase_access_token }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ inputs.supabase_service_role_key }}
       TARGET_ENV: ${{ inputs.environment }}
       NODE_ENV: ${{ inputs.node_env }}
     steps:

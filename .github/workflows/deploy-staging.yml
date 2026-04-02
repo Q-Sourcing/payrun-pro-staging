@@ -1,8 +1,3 @@
-# ==========================================================
-# 🧩 Q-Payroll GitHub Actions Workflow for Staging
-# ==========================================================
-# Note: Lovable auto-deploys based on branch pushes
-
 name: Deploy Staging
 on:
   push:
@@ -10,7 +5,30 @@ on:
       - staging
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      NODE_ENV: development
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
   deploy:
+    needs: build
     uses: ./.github/workflows/deploy-supabase-reusable.yml
     with:
       environment: staging
@@ -18,4 +36,3 @@ jobs:
       npm_push_script: push:staging
       strict_validation: false
       supabase_access_token: ${{ secrets.SUPABASE_ACCESS_TOKEN_STAGING || secrets.SUPABASE_ACCESS_TOKEN }}
-      supabase_service_role_key: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY_STAGING || secrets.SUPABASE_SERVICE_ROLE_KEY || '' }}

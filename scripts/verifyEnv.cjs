@@ -98,11 +98,8 @@ function validateEnvironment() {
   // Load environment variables
   const envVars = loadEnvForTarget(targetEnv);
   
-  // Treat the service role key as optional:
-  // - Supabase CLI deploys only need SUPABASE_ACCESS_TOKEN (via env var)
-  // - service role validation is a best-effort diagnostic, not a hard gate
   const requiredVars = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'];
-  const optionalVars = ['SUPABASE_SERVICE_ROLE_KEY', 'NODE_ENV'];
+  const optionalVars = ['NODE_ENV'];
   
   const validationResults = {};
   
