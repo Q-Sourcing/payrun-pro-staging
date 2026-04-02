@@ -1,4 +1,4 @@
-name: Deploy Staging
+name: Build Staging
 on:
   push:
     branches:
@@ -7,32 +7,22 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    env:
-      NODE_ENV: development
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
-          node-version: "18"
-          cache: "npm"
+          node-version: '18'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build application
         run: npm run build
 
-  deploy:
-    needs: build
-    uses: ./.github/workflows/deploy-supabase-reusable.yml
-    with:
-      environment: staging
-      node_env: development
-      npm_push_script: push:staging
-      strict_validation: false
-      supabase_access_token: ${{ secrets.SUPABASE_ACCESS_TOKEN_STAGING || secrets.SUPABASE_ACCESS_TOKEN }}
+      - name: Success
+        run: |
+          echo "Build completed successfully for STAGING environment"
+          echo "Lovable will auto-deploy from staging branch"
