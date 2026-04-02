@@ -3,31 +3,19 @@
 # ==========================================================
 # Note: Lovable auto-deploys based on branch pushes
 
-name: Build Staging
+name: Deploy Staging
 on:
   push:
     branches:
       - staging
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build application
-        run: npm run build
-
-      - name: Success
-        run: |
-          echo "✅ Build completed successfully for STAGING environment"
-          echo "🚀 Lovable will auto-deploy from staging branch"
+  deploy:
+    uses: ./.github/workflows/deploy-supabase-reusable.yml
+    with:
+      environment: staging
+      node_env: development
+      npm_push_script: push:staging
+      strict_validation: false
+      supabase_access_token: ${{ secrets.SUPABASE_ACCESS_TOKEN_STAGING || secrets.SUPABASE_ACCESS_TOKEN }}
+      supabase_service_role_key: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY_STAGING || secrets.SUPABASE_SERVICE_ROLE_KEY || '' }}

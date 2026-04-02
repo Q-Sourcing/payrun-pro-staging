@@ -1,0 +1,75 @@
+name: Deploy Supabase (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: Supabase target environment name
+        required: true
+        type: string
+      node_env:
+        description: NODE_ENV value to select the correct .env.* via env-manager.js
+        required: true
+        type: string
+      npm_push_script:
+        description: npm script to run to push the correct Supabase schema
+        required: true
+        type: string
+      strict_validation:
+        description: Whether env validation should fail the deployment
+        required: true
+        type: boolean
+      supabase_access_token:
+        description: Supabase access token for CLI authentication
+        required: true
+        type: string
+      supabase_service_role_key:
+        description: Optional Supabase service role key for connection test / diagnostics
+        required: false
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    environment: ${{ inputs.environment }}
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ inputs.supabase_access_token }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ inputs.supabase_service_role_key }}
+      TARGET_ENV: ${{ inputs.environment }}
+      NODE_ENV: ${{ inputs.node_env }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate runtime .env.next
+        run: node env-manager.js
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+
+      - name: Validate environment (env-manager + Supabase connection)
+        continue-on-error: ${{ inputs.strict_validation == false }}
+        run: |
+          node scripts/verifyEnv.cjs
+          node scripts/testSupabaseConnection.cjs
+
+      - name: Push DB/schema
+        run: npm run ${{ inputs.npm_push_script }}
+
+      - name: Deploy edge functions
+        run: ./scripts/deploy-edge-functions.sh
+

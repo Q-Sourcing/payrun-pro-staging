@@ -68,12 +68,14 @@ jobs:
           fi
 
       - name: Commit health reports
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add env-health-reports/
-          git commit -m "chore: weekly environment health check [auto] - $(date +%Y%m%d)" || echo "No changes to commit"
-          git push || echo "Push failed - reports saved locally"
+        run: echo "Skipping branch commit; env health reports are uploaded as artifacts."
+
+      - name: Upload health reports artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: env-health-reports-${{ github.run_id }}
+          path: env-health-reports/
 
       - name: Summary
         run: |

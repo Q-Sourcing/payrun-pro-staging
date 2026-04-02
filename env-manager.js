@@ -5,6 +5,14 @@ import fs from 'fs';
  * Prefer environment-specific files in development; keep production on .env.production
  */
 
+function escapeEnvValue(value) {
+  // Keep .env syntax safe for quoted values.
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\r?\n/g, '\\n');
+}
+
 function copyEnvironmentFile(sourceFile, targetFile) {
   try {
     if (!fs.existsSync(sourceFile)) {
@@ -19,6 +27,17 @@ function copyEnvironmentFile(sourceFile, targetFile) {
     console.error(`❌ Failed to copy environment file: ${error.message}`);
     return false;
   }
+}
+
+function applyEnvOverrides(targetFile, overrides) {
+  const entries = Object.entries(overrides)
+    .filter(([, value]) => value !== undefined && value !== null && String(value).length > 0);
+
+  if (entries.length === 0) return;
+
+  // Appending overrides ensures they take precedence over earlier values.
+  const lines = entries.map(([key, value]) => `${key}="${escapeEnvValue(value)}"`).join('\n');
+  fs.appendFileSync(targetFile, `\n${lines}\n`);
 }
 
 function main() {
@@ -41,6 +60,25 @@ function main() {
   
   if (copyEnvironmentFile(sourceEnv, activeEnv)) {
     console.log(`✅ Environment set from ${sourceEnv}`);
+
+    // Allow CI/CD to inject sensitive values at runtime without committing them
+    // into `.env.staging` / `.env.production`.
+    applyEnvOverrides(activeEnv, {
+      // Vite / client-side env
+      VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL,
+      VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY,
+      VITE_SUPABASE_PROJECT_ID: process.env.VITE_SUPABASE_PROJECT_ID,
+      VITE_SUPABASE_PUBLISHABLE_KEY: process.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+
+      // Common app env keys
+      NEXT_PUBLIC_ENVIRONMENT: process.env.NEXT_PUBLIC_ENVIRONMENT,
+      VITE_ENVIRONMENT: process.env.VITE_ENVIRONMENT,
+      NODE_ENV: process.env.NODE_ENV,
+
+      // Non-Vite server-side validation keys (not exposed by Vite).
+      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    });
+
     // Display key env lines
     try {
       const envContent = fs.readFileSync(activeEnv, 'utf8');
