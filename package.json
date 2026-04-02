@@ -21,6 +21,7 @@
     "db:staging": "supabase link --project-ref sbphmrjoappwlervnbtm && supabase db push --linked",
     "deploy:staging": "git push origin staging",
     "deploy:prod": "git push origin main",
+    "branch:sync": "node scripts/branch-sync.cjs",
     "verify:env": "node scripts/verifyEnvironmentLinks.cjs",
     "env:production": "cp .env.production .env.next && echo '✅ Production environment configured'",
     "start:both": "./scripts/start-both-environments.sh",

@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { execSync } from 'child_process';
 
 /**
  * Environment Manager
@@ -42,11 +43,23 @@ function applyEnvOverrides(targetFile, overrides) {
 
 function main() {
   const isDev = process.env.NODE_ENV !== 'production';
+  let currentBranch = '';
 
-  // Resolve source env file: prefer staging in dev, then development, fallback to production
+  try {
+    currentBranch = execSync('git branch --show-current', { encoding: 'utf8' }).trim();
+  } catch {
+    // Keep fallback behavior when git context is unavailable.
+  }
+
+  // Resolve source env file:
+  // - production runtime => .env.production
+  // - develop branch in dev => .env.develop when present
+  // - fallback in dev => staging, then development
   let sourceEnv = '.env.production';
   if (isDev) {
-    if (fs.existsSync('.env.staging')) {
+    if ((currentBranch === 'develop' || currentBranch === 'development') && fs.existsSync('.env.develop')) {
+      sourceEnv = '.env.develop';
+    } else if (fs.existsSync('.env.staging')) {
       sourceEnv = '.env.staging';
     } else if (fs.existsSync('.env.development')) {
       sourceEnv = '.env.development';

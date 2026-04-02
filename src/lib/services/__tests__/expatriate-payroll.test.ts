@@ -109,7 +109,8 @@ describe('ExpatriatePayrollService', () => {
     });
 
     it('should handle calculation errors', async () => {
-      const mockInvoke = require('@/integrations/supabase/client').supabase.functions.invoke;
+      const { supabase } = await import('@/integrations/supabase/client');
+      const mockInvoke = supabase.functions.invoke;
       mockInvoke.mockRejectedValueOnce(new Error('Calculation failed'));
 
       const input: ExpatriateCalculationInput = {
